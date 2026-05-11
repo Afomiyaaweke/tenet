@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// USER & AUTHENTICATION
+// ==========================================
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         String    @default("contractor") // admin, contractor, tender_owner
+  status       String    @default("active") // active, suspended, banned
+  emailVerified Boolean  @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  profile     Profile?
+  documents   Document[]
+  bids        Bid[]
+  messages    Message[]
+  registrations Registration[]
+}
+
+// ==========================================
+// PROFILE (KYC Lite)
+// ==========================================
+
+model Profile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  type         String  @default("individual") // individual, company
+  fullName     String
+  companyName  String?
+  phone        String
+  location     String
+  address      String?
+  tinNumber    String?
+  licenseNumber String?
+  skillTags    String  @default("") // comma-separated
+  bio          String?
+  logoUrl      String?
+  profilePhoto String?
+  verified     Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// DOCUMENT VAULT
+// ==========================================
+
+model Document {
+  id          String   @id @default(cuid())
+  userId      String
+  docType     String   // business_license, tax_clearance, portfolio, certificate, other
+  fileUrl     String
+  fileName    String
+  status      String   @default("pending") // pending, approved, rejected
+  reviewNotes String?
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// TENDER
+// ==========================================
+
+model Tender {
+  id            String   @id @default(cuid())
+  title         String
+  scope         String   // rich text description
+  budgetMin     Float
+  budgetMax     Float
+  deadline      DateTime
+  location      String
+  categoryTags  String   // comma-separated: Construction, IT, Supply, Consulting, etc.
+  requiredDocs  String   @default("") // comma-separated doc types
+  status        String   @default("open") // draft, open, closed, awarded, cancelled
+  createdBy     String   // admin user id
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bids     Bid[]
+  project  Project?
+}
+
+// ==========================================
+// BID
+// ==========================================
+
+model Bid {
+  id                String   @id @default(cuid())
+  tenderId          String
+  userId            String
+  technicalProposal String   // rich text
+  financialProposal Float    // amount in ETB
+  timeline          String   // e.g. "30 days"
+  attachments       String   @default("") // JSON string of file URLs
+  status            String   @default("pending_review") // pending_review, shortlisted, awarded, rejected
+  rejectionNote     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tender  Tender  @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project?
+}
+
+// ==========================================
+// PROJECT WORKSPACE
+// ==========================================
+
+model Project {
+  id          String   @id @default(cuid())
+  tenderId    String   @unique
+  bidId       String   @unique
+  status      String   @default("active") // active, completed, on_hold, cancelled
+  contractValue Float  // from bid financial proposal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tender    Tender    @relation(fields: [tenderId], references: [id])
+  bid       Bid       @relation(fields: [bidId], references: [id])
+  tasks     Task[]
+  payments  Payment[]
+  chat      Chat?
+  milestones Milestone[]
+}
+
+// ==========================================
+// TASK (Kanban)
+// ==========================================
+
+model Task {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  status      String   @default("todo") // todo, in_progress, done
+  dueDate     DateTime?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// MILESTONE
+// ==========================================
+
+model Milestone {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  dueDate     DateTime
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// FINANCIAL TRACKING
+// ==========================================
+
+model Payment {
+  id              String   @id @default(cuid())
+  projectId       String
+  amount          Float
+  paymentMethod   String   // bank_transfer, cbe_birr, cash, check
+  referenceNumber String?
+  notes           String?
+  paymentDate     DateTime
+  createdAt       DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// COMMUNICATION HUB
+// ==========================================
+
+model Chat {
+  id          String   @id @default(cuid())
+  projectId   String?  @unique
+  tenderId    String?
+  contextType String   // tender, project
+  createdAt   DateTime @default(now())
+
+  messages Message[]
+  project  Project? @relation(fields: [projectId], references: [id])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  chatId    String
+  userId    String
+  content   String
+  flagged   Boolean  @default(false)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// CAPACITY BUILDING (Workshops)
+// ==========================================
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  eventDate   DateTime
+  location    String
+  capacity    Int
+  status      String   @default("upcoming") // upcoming, ongoing, completed, cancelled
+  category    String   @default("workshop") // workshop, training, seminar
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  registrations Registration[]
+}
+
+model Registration {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  attended  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+// ==========================================
+// NOTIFICATION
+// ==========================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info") // info, success, warning, alert
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,13 @@
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  output: "standalone",
+  /* config options here */
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  reactStrictMode: false,
+  allowedDevOrigins: ["preview-chat-a088b4be-1390-42d4-93af-93ceb3d81549.space-z.ai"],
+};
+
+export default nextConfig;
