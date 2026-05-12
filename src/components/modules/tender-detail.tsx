@@ -16,7 +16,7 @@ import {
   ArrowLeft, MapPin, Calendar, DollarSign, Tag, FileText, Gavel, Clock, Users,
   ChevronDown, ChevronUp, Award, AlertCircle, CheckCircle, X, ArrowRight,
   Briefcase, TrendingUp, Timer, CircleDot, Eye, Building2,
-  ListChecks, FileStack, CircleCheck, Target, Ban,
+  ListChecks, FileStack, CircleCheck, Target, Ban, GitCompareArrows,
 } from 'lucide-react';
 
 const containerVariants = {
@@ -518,15 +518,26 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
               <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg gradient-amber">
-                      <Gavel className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    Submitted Bids
-                    <Badge className="bg-amber-50 text-amber-700 border-0 rounded-lg text-[10px] hover:bg-amber-50">
-                      {bids.length}
-                    </Badge>
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg gradient-amber">
+                        <Gavel className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      Submitted Bids
+                      <Badge className="bg-amber-50 text-amber-700 border-0 rounded-lg text-[10px] hover:bg-amber-50">
+                        {bids.length}
+                      </Badge>
+                    </CardTitle>
+                    {bids.length >= 2 && (
+                      <Button
+                        size="sm"
+                        className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+                        onClick={() => setView('bid-compare', { tenderId: tender.id })}
+                      >
+                        <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" /> Compare Bids
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
