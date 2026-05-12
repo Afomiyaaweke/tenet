@@ -1,0 +1,85 @@
+# ──────────────────────────────────────────────────────────────
+# Afomiya Tender Ecosystem — Docker Compose
+# ──────────────────────────────────────────────────────────────
+# Usage:
+#   Development:   docker compose up --build
+#   Production:    docker compose -f docker-compose.yml up --build -d
+#   Seed DB:       docker compose exec app bun run db:seed
+#   View logs:     docker compose logs -f app
+#   Stop:          docker compose down
+# ──────────────────────────────────────────────────────────────
+
+services:
+  # ─── Next.js Application ───
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: afomiya-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:./db/custom.db
+      - JWT_SECRET=${JWT_SECRET:-afomiya-production-secret-change-me}
+      - NODE_ENV=production
+    volumes:
+      - afomiya-db:/app/db
+    depends_on:
+      chat-service:
+        condition: service_healthy
+    networks:
+      - afomiya-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ─── Chat WebSocket Service ───
+  chat-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.chat
+    container_name: afomiya-chat
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - afomiya-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ─── Caddy Reverse Proxy (Gateway) ───
+  caddy:
+    image: caddy:2-alpine
+    container_name: afomiya-gateway
+    restart: unless-stopped
+    ports:
+      - "81:81"
+    volumes:
+      - ./Caddyfile.docker:/etc/caddy/Caddyfile:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+    networks:
+      - afomiya-network
+
+# ─── Named Volumes ───
+volumes:
+  afomiya-db:
+    driver: local
+
+# ─── Network ───
+networks:
+  afomiya-network:
+    driver: bridge

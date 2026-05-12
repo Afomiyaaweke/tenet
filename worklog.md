@@ -24,3 +24,28 @@ Stage Summary:
 - Quick insights cards highlight best budget, most time, most bids, best match
 - Floating comparison bar in tenders list for easy selection
 - App compiles and runs successfully
+
+---
+Task ID: 2
+Agent: Main
+Task: Create Docker deployment configuration for Afomiya Tender Ecosystem
+
+Work Log:
+- Created Dockerfile with multi-stage build (deps → builder → runner) using oven/bun:1.2
+- Created Dockerfile.chat for the Socket.IO chat microservice
+- Created docker-compose.yml with 3 services: app, chat-service, caddy
+- Created .dockerignore to exclude unnecessary files from build context
+- Created .env.docker template with environment variable documentation
+- Created docker-entrypoint.sh for automatic DB initialization on first run
+- Created Caddyfile.docker for Docker network service name routing
+- Updated original Caddyfile to support env vars for flexibility
+- Added health checks to all containers
+- Added curl to both Docker images for health check support
+
+Stage Summary:
+- Full Docker deployment setup created with 3-container architecture
+- App container: Next.js standalone + Bun runtime on port 3000
+- Chat container: Socket.IO WebSocket service on port 3003
+- Caddy container: Reverse proxy on port 81 (routes WebSocket to chat-service)
+- Database auto-initialization via entrypoint script (prisma db push + seed)
+- All lint checks pass

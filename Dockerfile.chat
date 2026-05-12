@@ -1,0 +1,28 @@
+FROM oven/bun:1.2 AS runner
+
+WORKDIR /app
+
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Copy chat service files
+COPY mini-services/chat-service/package.json mini-services/chat-service/bun.lock ./
+RUN bun install --frozen-lockfile
+
+COPY mini-services/chat-service/ .
+
+# Don't run as root
+RUN addgroup --system --gid 1001 chat && \
+    adduser --system --uid 1001 chatuser
+
+USER chatuser
+
+# Expose WebSocket port
+EXPOSE 3003
+
+# Health check (Socket.IO server responds to HTTP GET at root)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3003 || exit 1
+
+# Start the chat service
+CMD ["bun", "index.ts"]

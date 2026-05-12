@@ -1,13 +1,8 @@
 :81 {
-        @transform_port_query {
-                query XTransformPort=*
-        }
-
-        handle @transform_port_query {
-                # In Docker, use service name; locally, use localhost
-                # Docker: app:3000, chat-service:3003
-                # Local: localhost:3000, localhost:3003
-                reverse_proxy {env.UPSTREAM_HOST:-localhost}:{query.XTransformPort} {
+        # Route WebSocket traffic (chat service on port 3003)
+        @ws_chat query XTransformPort=3003
+        handle @ws_chat {
+                reverse_proxy chat-service:3003 {
                         header_up Host {host}
                         header_up X-Forwarded-For {remote_host}
                         header_up X-Forwarded-Proto {scheme}
@@ -15,8 +10,9 @@
                 }
         }
 
+        # Default: route to Next.js app
         handle {
-                reverse_proxy {env.APP_HOST:-localhost}:3000 {
+                reverse_proxy app:3000 {
                         header_up Host {host}
                         header_up X-Forwarded-For {remote_host}
                         header_up X-Forwarded-Proto {scheme}
