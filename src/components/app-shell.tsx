@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuthStore, useNavStore, useDataStore } from '@/store';
 import { api } from '@/lib/api';
 import { DashboardView } from '@/components/modules/dashboard';
@@ -24,8 +24,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
   GraduationCap, User, FileText, Shield, Bot, Menu, LogOut, Bell,
-  ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check
+  ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
+  Search, Sparkles, Verified, Zap,
 } from 'lucide-react';
+
+/* ──────────────────────────── constants ──────────────────────────── */
 
 const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
   success: CheckCircle,
@@ -38,116 +41,285 @@ const NOTIFICATION_COLORS: Record<string, string> = {
   success: 'text-emerald-500',
   warning: 'text-amber-500',
   alert: 'text-red-500',
-  info: 'text-blue-500',
+  info: 'text-emerald-500',
 };
 
-const NAV_ITEMS = {
+const NOTIFICATION_BG: Record<string, string> = {
+  success: 'bg-emerald-50',
+  warning: 'bg-amber-50',
+  alert: 'bg-red-50',
+  info: 'bg-emerald-50',
+};
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+const NAV_ITEMS: Record<string, NavSection[]> = {
   contractor: [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tenders', label: 'Discover Tenders', icon: FileSearch },
-    { id: 'bids', label: 'My Bids', icon: Gavel },
-    { id: 'projects', label: 'Projects', icon: FolderKanban },
-    { id: 'chat', label: 'Messages', icon: MessageSquare },
-    { id: 'events', label: 'Workshops', icon: GraduationCap },
-    { id: 'profile', label: 'My Profile', icon: User },
-    { id: 'documents', label: 'Document Vault', icon: FileText },
-    { id: 'agent', label: 'AI Assistant', icon: Bot },
+    {
+      label: 'MAIN',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'tenders', label: 'Discover Tenders', icon: FileSearch },
+        { id: 'bids', label: 'My Bids', icon: Gavel },
+      ],
+    },
+    {
+      label: 'MANAGE',
+      items: [
+        { id: 'projects', label: 'Projects', icon: FolderKanban },
+        { id: 'chat', label: 'Messages', icon: MessageSquare },
+        { id: 'events', label: 'Workshops', icon: GraduationCap },
+      ],
+    },
+    {
+      label: 'TOOLS',
+      items: [
+        { id: 'profile', label: 'My Profile', icon: User },
+        { id: 'documents', label: 'Document Vault', icon: FileText },
+        { id: 'agent', label: 'AI Assistant', icon: Bot },
+      ],
+    },
   ],
   admin: [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tenders', label: 'Manage Tenders', icon: FileSearch },
-    { id: 'bids', label: 'Review Bids', icon: Gavel },
-    { id: 'projects', label: 'Projects', icon: FolderKanban },
-    { id: 'chat', label: 'Messages', icon: MessageSquare },
-    { id: 'events', label: 'Workshops', icon: GraduationCap },
-    { id: 'admin', label: 'Admin Panel', icon: Shield },
-    { id: 'agent', label: 'AI Assistant', icon: Bot },
+    {
+      label: 'MAIN',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'tenders', label: 'Manage Tenders', icon: FileSearch },
+        { id: 'bids', label: 'Review Bids', icon: Gavel },
+      ],
+    },
+    {
+      label: 'MANAGE',
+      items: [
+        { id: 'projects', label: 'Projects', icon: FolderKanban },
+        { id: 'chat', label: 'Messages', icon: MessageSquare },
+        { id: 'events', label: 'Workshops', icon: GraduationCap },
+        { id: 'admin', label: 'Admin Panel', icon: Shield },
+      ],
+    },
+    {
+      label: 'TOOLS',
+      items: [
+        { id: 'agent', label: 'AI Assistant', icon: Bot },
+      ],
+    },
   ],
   tender_owner: [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tenders', label: 'My Tenders', icon: FileSearch },
-    { id: 'bids', label: 'Review Bids', icon: Gavel },
-    { id: 'projects', label: 'Projects', icon: FolderKanban },
-    { id: 'chat', label: 'Messages', icon: MessageSquare },
-    { id: 'agent', label: 'AI Assistant', icon: Bot },
+    {
+      label: 'MAIN',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'tenders', label: 'My Tenders', icon: FileSearch },
+        { id: 'bids', label: 'Review Bids', icon: Gavel },
+      ],
+    },
+    {
+      label: 'MANAGE',
+      items: [
+        { id: 'projects', label: 'Projects', icon: FolderKanban },
+        { id: 'chat', label: 'Messages', icon: MessageSquare },
+      ],
+    },
+    {
+      label: 'TOOLS',
+      items: [
+        { id: 'agent', label: 'AI Assistant', icon: Bot },
+      ],
+    },
   ],
 };
 
 type View = 'dashboard' | 'tenders' | 'tender-detail' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
 
-function SidebarContent({ user, role, navItems, view, setView, unreadCount, logout }: {
-  user: { profile?: { fullName?: string; }; email?: string; } | null;
+/* ──────────────────────────── helpers ──────────────────────────── */
+
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = Math.max(0, now - then);
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function getUserInitial(user: { profile?: { fullName?: string }; email?: string } | null): string {
+  return (user?.profile?.fullName || user?.email || 'U')[0].toUpperCase();
+}
+
+/* ──────────────────────── SidebarContent ──────────────────────── */
+
+function SidebarContent({
+  user,
+  role,
+  navSections,
+  view,
+  setView,
+  unreadCount,
+  logout,
+}: {
+  user: { profile?: { fullName?: string; verified?: boolean }; email?: string; role?: string } | null;
   role: string;
-  navItems: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[];
+  navSections: NavSection[];
   view: string;
   setView: (view: View, params?: Record<string, string>) => void;
   unreadCount: number;
   logout: () => void;
 }) {
+  const displayName = user?.profile?.fullName || user?.email || 'User';
+  const isVerified = (user?.profile as { verified?: boolean })?.verified ?? false;
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="p-4 border-b">
+    <div className="flex flex-col h-full bg-white">
+      {/* ── Logo ── */}
+      <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold">A</span>
+          <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-200">
+            <span className="text-white font-extrabold text-lg tracking-tight">A</span>
           </div>
           <div className="min-w-0">
-            <h2 className="font-bold text-sm truncate">Afomiya</h2>
-            <p className="text-[10px] text-muted-foreground truncate">Tender Ecosystem</p>
+            <h2 className="font-bold text-base tracking-tight text-foreground">Afomiya</h2>
+            <p className="text-[11px] text-muted-foreground font-medium">Tender Ecosystem</p>
           </div>
         </div>
       </div>
 
-      {/* User Info */}
-      <div className="p-3 border-b">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-emerald-700 font-semibold text-xs">
-              {(user?.profile?.fullName || user?.email || 'U')[0].toUpperCase()}
-            </span>
+      <Separator className="opacity-60" />
+
+      {/* ── User Profile Card ── */}
+      <div className="px-4 py-4">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors">
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-full gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200">
+              <span className="text-white font-bold text-sm">{getUserInitial(user)}</span>
+            </div>
+            {isVerified && (
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+                <Check className="w-2 h-2 text-white" strokeWidth={3} />
+              </span>
+            )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate">{user?.profile?.fullName || user?.email}</p>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 mt-0.5 capitalize">
-              {role.replace('_', ' ')}
-            </Badge>
+            <p className="text-sm font-semibold truncate text-foreground">{displayName}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Badge
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 capitalize font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+              >
+                {role.replace('_', ' ')}
+              </Badge>
+              {isVerified && (
+                <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium">
+                  <Verified className="w-3 h-3" /> Verified
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Nav Items */}
-      <ScrollArea className="flex-1 py-2">
-        <nav className="space-y-1 px-2">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = view === item.id || (item.id === 'tenders' && view === 'tender-detail') || (item.id === 'projects' && view === 'project-detail');
-            return (
-              <button
-                key={item.id}
-                onClick={() => setView(item.id as View)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
-                  isActive
-                    ? 'bg-emerald-50 text-emerald-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-              >
-                <Icon className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate">{item.label}</span>
-                {item.id === 'chat' && unreadCount > 0 && (
-                  <Badge className="ml-auto text-[10px] px-1.5 py-0 bg-red-500 text-white">{unreadCount}</Badge>
-                )}
-                <ChevronRight className={`h-3 w-3 ml-auto opacity-0 transition-opacity ${isActive ? 'opacity-100' : ''}`} />
-              </button>
-            );
-          })}
+      <Separator className="opacity-40" />
+
+      {/* ── Navigation ── */}
+      <ScrollArea className="flex-1 px-3 py-2">
+        <nav className="space-y-5">
+          {navSections.map((section) => (
+            <div key={section.label}>
+              <p className="px-3 mb-1.5 text-[10px] font-bold tracking-[0.12em] text-muted-foreground/70 uppercase select-none">
+                {section.label}
+              </p>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive =
+                    view === item.id ||
+                    (item.id === 'tenders' && view === 'tender-detail') ||
+                    (item.id === 'projects' && view === 'project-detail');
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setView(item.id as View)}
+                      className={`
+                        group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
+                        transition-all duration-150 relative
+                        ${
+                          isActive
+                            ? 'bg-emerald-50 text-emerald-700 border-l-[3px] border-emerald-500 pl-[9px] font-semibold'
+                            : 'text-muted-foreground hover:bg-emerald-50/40 hover:text-foreground border-l-[3px] border-transparent pl-[9px]'
+                        }
+                      `}
+                    >
+                      <Icon
+                        className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
+                          isActive ? 'text-emerald-600' : 'text-muted-foreground/60 group-hover:text-emerald-500'
+                        }`}
+                      />
+                      <span className="truncate flex-1 text-left">{item.label}</span>
+                      {item.id === 'chat' && unreadCount > 0 && (
+                        <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-red-200">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                      {isActive && (
+                        <ChevronRight className="h-3.5 w-3.5 ml-auto flex-shrink-0 text-emerald-500" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </ScrollArea>
 
-      {/* Footer */}
-      <div className="border-t p-3">
-        <Button variant="ghost" size="sm" className="w-full justify-start text-gray-500 hover:text-red-600"
-          onClick={logout}>
+      {/* ── Bottom Section ── */}
+      <div className="px-4 pb-4 pt-2 space-y-3">
+        {/* Upgrade Card */}
+        <div className="relative rounded-xl overflow-hidden p-[1px]">
+          {/* Gradient border */}
+          <div className="absolute inset-0 gradient-emerald opacity-40 rounded-xl" />
+          <div className="relative bg-white rounded-xl p-3.5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-7 h-7 rounded-lg gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200">
+                <Zap className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground">Upgrade to Pro</p>
+                <p className="text-[10px] text-muted-foreground">Unlock premium features</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="w-full h-7 text-[11px] font-semibold gradient-emerald text-white border-0 shadow-sm shadow-emerald-200 hover:opacity-90"
+            >
+              <Sparkles className="w-3 h-3 mr-1" /> Get Pro
+            </Button>
+          </div>
+        </div>
+
+        {/* Sign Out */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+          onClick={logout}
+        >
           <LogOut className="h-4 w-4 mr-2" />
           Sign Out
         </Button>
@@ -156,76 +328,113 @@ function SidebarContent({ user, role, navItems, view, setView, unreadCount, logo
   );
 }
 
-function NotificationDropdown({ notifications, onMarkAsRead, onMarkAllRead }: {
+/* ──────────────────── NotificationDropdown ──────────────────── */
+
+function NotificationDropdown({
+  notifications,
+  onMarkAsRead,
+  onMarkAllRead,
+}: {
   notifications: { id: string; title: string; message: string; type: string; read: boolean; createdAt: string }[];
   onMarkAsRead: (id: string) => void;
   onMarkAllRead: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const unread = notifications.filter(n => !n.read);
-  const latestUnread = unread.slice(0, 5);
+  const unread = useMemo(() => notifications.filter((n) => !n.read), [notifications]);
+  const displayItems = useMemo(() => unread.slice(0, 6), [unread]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="relative h-9 w-9 hover:bg-muted/80 transition-colors">
+          <Bell className="h-[18px] w-[18px] text-muted-foreground" />
           {unread.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
-              {unread.length > 9 ? '9+' : unread.length}
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm shadow-red-200 animate-in zoom-in-50 duration-200">
+              {unread.length > 99 ? '99+' : unread.length}
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="flex items-center justify-between p-3 border-b">
+      <PopoverContent
+        className="w-80 p-0 glass-card rounded-xl overflow-hidden animate-in slide-in-from-top-2 fade-in-0 duration-200"
+        align="end"
+        sideOffset={8}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-semibold">Notifications</h4>
+            <h4 className="text-sm font-bold text-foreground">Notifications</h4>
             {unread.length > 0 && (
-              <Badge className="text-[10px] px-1.5 py-0 bg-red-500 text-white">{unread.length}</Badge>
+              <Badge className="text-[10px] px-1.5 py-0 bg-red-500 text-white font-bold border-0">
+                {unread.length}
+              </Badge>
             )}
           </div>
           {unread.length > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs h-7 text-emerald-600 hover:text-emerald-700"
-              onClick={onMarkAllRead}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-[11px] h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-semibold"
+              onClick={onMarkAllRead}
+            >
               <Check className="h-3 w-3 mr-1" /> Mark all read
             </Button>
           )}
         </div>
-        <ScrollArea className="max-h-80">
-          {latestUnread.length === 0 ? (
-            <div className="p-6 text-center">
-              <CheckCircle className="h-8 w-8 mx-auto mb-2 text-emerald-300" />
-              <p className="text-sm text-muted-foreground">All caught up!</p>
+
+        {/* Items */}
+        <ScrollArea className="max-h-[340px]">
+          {displayItems.length === 0 ? (
+            <div className="py-8 text-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-50 flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-emerald-400" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">All caught up!</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">No new notifications</p>
             </div>
           ) : (
-            <div className="divide-y">
-              {latestUnread.map(n => {
+            <div className="divide-y divide-border/40">
+              {displayItems.map((n, i) => {
                 const Icon = NOTIFICATION_ICONS[n.type] || Info;
                 const colorClass = NOTIFICATION_COLORS[n.type] || 'text-gray-500';
+                const bgClass = NOTIFICATION_BG[n.type] || 'bg-gray-50';
                 return (
-                  <button key={n.id}
-                    onClick={() => { onMarkAsRead(n.id); setOpen(false); }}
-                    className="w-full flex items-start gap-3 p-3 hover:bg-gray-50 transition-colors text-left">
-                    <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{n.title}</p>
-                      <p className="text-xs text-muted-foreground truncate">{n.message}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {new Date(n.createdAt).toLocaleString()}
-                      </p>
+                  <button
+                    key={n.id}
+                    onClick={() => {
+                      onMarkAsRead(n.id);
+                      setOpen(false);
+                    }}
+                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left group"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-lg ${bgClass} flex items-center justify-center flex-shrink-0 mt-0.5 transition-transform group-hover:scale-110`}
+                    >
+                      <Icon className={`h-4 w-4 ${colorClass}`} />
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 mt-1.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold truncate text-foreground">{n.title}</p>
+                      <p className="text-[11px] text-muted-foreground truncate mt-0.5 leading-relaxed">{n.message}</p>
+                      <p className="text-[10px] text-muted-foreground/50 mt-1 font-medium">{relativeTime(n.createdAt)}</p>
+                    </div>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 mt-2 ring-2 ring-emerald-100" />
                   </button>
                 );
               })}
             </div>
           )}
         </ScrollArea>
-        {notifications.length > 5 && (
-          <div className="p-2 border-t">
-            <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground"
-              onClick={() => setOpen(false)}>
+
+        {/* Footer */}
+        {notifications.length > 6 && (
+          <div className="px-3 py-2 border-t border-border/40">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-[11px] text-muted-foreground hover:text-foreground font-medium"
+              onClick={() => setOpen(false)}
+            >
               View all notifications
             </Button>
           </div>
@@ -235,13 +444,21 @@ function NotificationDropdown({ notifications, onMarkAsRead, onMarkAllRead }: {
   );
 }
 
+/* ──────────────────────────── AppShell ──────────────────────────── */
+
 export function AppShell() {
   const { user, logout } = useAuthStore();
   const { view, viewParams, setView } = useNavStore();
   const { fetchNotifications, notifications } = useDataStore();
   const role = user?.role || 'contractor';
-  const navItems = NAV_ITEMS[role] || NAV_ITEMS.contractor;
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const navSections = NAV_ITEMS[role] || NAV_ITEMS.contractor;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Flat list for title lookup
+  const allNavItems = useMemo(
+    () => navSections.flatMap((s) => s.items),
+    [navSections]
+  );
 
   useEffect(() => {
     fetchNotifications();
@@ -253,71 +470,113 @@ export function AppShell() {
   };
 
   const handleMarkAllRead = async () => {
-    const unread = notifications.filter(n => !n.read);
-    await Promise.all(unread.map(n => api.patch(`/notifications/${n.id}`, { read: true })));
+    const unread = notifications.filter((n) => !n.read);
+    await Promise.all(unread.map((n) => api.patch(`/notifications/${n.id}`, { read: true })));
     fetchNotifications();
   };
 
   const renderView = () => {
     switch (view) {
-      case 'dashboard': return <DashboardView />;
-      case 'tenders': return <TendersView />;
-      case 'tender-detail': return <TenderDetailView tenderId={viewParams.id} />;
-      case 'bids': return <BidsView />;
-      case 'projects': return <ProjectsView />;
-      case 'project-detail': return <ProjectDetailView projectId={viewParams.id} />;
-      case 'chat': return <ChatView chatId={viewParams.id} />;
-      case 'finance': return <ProjectDetailView projectId={viewParams.id} />;
-      case 'events': return <EventsView />;
-      case 'profile': return <ProfileView />;
-      case 'documents': return <DocumentsView />;
-      case 'admin': return <AdminView />;
-      case 'agent': return <AgentView />;
-      default: return <DashboardView />;
+      case 'dashboard':
+        return <DashboardView />;
+      case 'tenders':
+        return <TendersView />;
+      case 'tender-detail':
+        return <TenderDetailView tenderId={viewParams.id} />;
+      case 'bids':
+        return <BidsView />;
+      case 'projects':
+        return <ProjectsView />;
+      case 'project-detail':
+        return <ProjectDetailView projectId={viewParams.id} />;
+      case 'chat':
+        return <ChatView chatId={viewParams.id} />;
+      case 'finance':
+        return <ProjectDetailView projectId={viewParams.id} />;
+      case 'events':
+        return <EventsView />;
+      case 'profile':
+        return <ProfileView />;
+      case 'documents':
+        return <DocumentsView />;
+      case 'admin':
+        return <AdminView />;
+      case 'agent':
+        return <AgentView />;
+      default:
+        return <DashboardView />;
     }
   };
 
-  const sidebarProps = { user, role, navItems, view, setView, unreadCount, logout };
+  const pageTitle = allNavItems.find((i) => i.id === view)?.label || 'Dashboard';
+  const breadcrumb = view === 'tender-detail' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
+
+  const sidebarProps = { user, role, navSections, view, setView, unreadCount, logout };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-60 bg-white border-r flex-col flex-shrink-0">
+    <div className="min-h-screen flex bg-background">
+      {/* ── Desktop Sidebar ── */}
+      <aside className="hidden md:flex w-[260px] bg-white border-r border-border/50 flex-col flex-shrink-0 sidebar-shadow">
         <SidebarContent {...sidebarProps} />
       </aside>
 
-      {/* Main Content */}
+      {/* ── Main Area ── */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Bar */}
-        <header className="h-14 border-b bg-white flex items-center px-4 gap-3 flex-shrink-0">
-          {/* Mobile menu */}
+        {/* ── Top Bar ── */}
+        <header className="h-14 bg-white/80 backdrop-blur-md border-b border-border/50 flex items-center px-4 gap-3 flex-shrink-0 sticky top-0 z-30">
+          {/* Mobile hamburger */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 hover:bg-muted/80">
+                <Menu className="h-5 w-5 text-muted-foreground" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-60">
+            <SheetContent side="left" className="p-0 w-[260px]">
               <SidebarContent {...sidebarProps} />
             </SheetContent>
           </Sheet>
 
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold truncate">
-              {navItems.find(i => i.id === view)?.label || 'Dashboard'}
-            </h1>
+          {/* Page Title & Breadcrumb */}
+          <div className="flex-1 min-w-0 flex items-center gap-1.5">
+            {breadcrumb && (
+              <>
+                <span className="text-sm text-muted-foreground/60 font-medium hidden sm:inline">
+                  {breadcrumb}
+                </span>
+                <ChevronRight className="h-3 w-3 text-muted-foreground/40 hidden sm:inline" />
+              </>
+            )}
+            <h1 className="text-base font-bold truncate text-foreground">{pageTitle}</h1>
           </div>
 
-          <NotificationDropdown
-            notifications={notifications}
-            onMarkAsRead={handleMarkAsRead}
-            onMarkAllRead={handleMarkAllRead}
-          />
+          {/* Right Actions */}
+          <div className="flex items-center gap-1">
+            {/* Search */}
+            <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted/80 transition-colors">
+              <Search className="h-[18px] w-[18px] text-muted-foreground" />
+            </Button>
+
+            {/* Notifications */}
+            <NotificationDropdown
+              notifications={notifications}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAllRead={handleMarkAllRead}
+            />
+
+            {/* User Avatar Mini */}
+            <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted/80 transition-colors ml-0.5">
+              <div className="w-7 h-7 rounded-full gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200">
+                <span className="text-white font-bold text-[11px]">{getUserInitial(user)}</span>
+              </div>
+            </Button>
+          </div>
         </header>
 
-        {/* Content Area */}
+        {/* ── Content Area ── */}
         <main className="flex-1 overflow-auto">
-          {renderView()}
+          <div key={view} className="view-enter">
+            {renderView()}
+          </div>
         </main>
       </div>
     </div>
