@@ -12,7 +12,8 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   Bot, Send, User, Sparkles, Trash2, Lightbulb, Zap,
-  FileSearch, Gavel, Shield, FolderKanban, TrendingUp
+  FileSearch, Gavel, Shield, FolderKanban, TrendingUp,
+  MessageSquare, ArrowUp
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -76,7 +77,7 @@ function formatAIContent(content: string): React.ReactNode[] {
       const numberedContent = numberedMatch[2];
       result.push(
         <div key={key} className="flex items-start gap-2 ml-2">
-          <span className="text-emerald-600 font-medium flex-shrink-0">{num}.</span>
+          <span className="text-emerald-600 font-semibold flex-shrink-0">{num}.</span>
           <span>{formatInline(numberedContent)}</span>
         </div>
       );
@@ -127,9 +128,9 @@ function formatInline(text: string): React.ReactNode {
       }
       // The formatted content
       if (firstMatch.type === 'bold') {
-        parts.push(<strong key={`b-${partKey++}`} className="font-semibold">{firstMatch.content}</strong>);
+        parts.push(<strong key={`b-${partKey++}`} className="font-semibold text-foreground">{firstMatch.content}</strong>);
       } else {
-        parts.push(<em key={`i-${partKey++}`} className="italic">{firstMatch.content}</em>);
+        parts.push(<em key={`i-${partKey++}`} className="italic text-muted-foreground">{firstMatch.content}</em>);
       }
       remaining = remaining.slice(firstMatch.index + firstMatch.length);
     } else {
@@ -193,48 +194,62 @@ export function AgentView() {
   };
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="p-4 border-b bg-white flex items-center justify-between flex-shrink-0">
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col max-w-4xl mx-auto view-enter">
+      {/* ── Premium Header ── */}
+      <div className="px-5 py-3.5 border-b border-border/50 bg-white/80 backdrop-blur-md flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center premium-shadow">
             <Bot className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm">Afomiya AI Assistant</h3>
-            <p className="text-xs text-muted-foreground">Your procurement & platform guide</p>
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              AI Assistant
+              <Badge className="text-[9px] px-1.5 py-0 gradient-emerald text-white border-0 font-medium">AI Powered</Badge>
+            </h3>
+            <p className="text-[11px] text-muted-foreground">Your procurement & platform guide</p>
           </div>
-          <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700">AI Powered</Badge>
         </div>
-        <Button variant="ghost" size="sm" onClick={clearChat} className="text-muted-foreground">
+        <Button variant="ghost" size="icon" onClick={clearChat}
+          className="h-8 w-8 text-muted-foreground hover:text-rose-500 hover:bg-rose-50 transition-colors rounded-lg">
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      {/* ── Messages Area ── */}
+      <ScrollArea className="flex-1 p-4 md:p-6">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center">
-              <Sparkles className="h-10 w-10 text-emerald-600" />
+          /* ── Premium Empty State ── */
+          <div className="flex flex-col items-center justify-center min-h-[50vh] gap-8">
+            <div className="relative">
+              <div className="w-24 h-24 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow-lg">
+                <Sparkles className="h-12 w-12 text-white" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-lg gradient-amber flex items-center justify-center premium-shadow">
+                <Zap className="h-4 w-4 text-white" />
+              </div>
             </div>
             <div className="text-center">
-              <h3 className="text-xl font-bold mb-2">Welcome to Afomiya AI</h3>
-              <p className="text-muted-foreground text-sm max-w-md">
+              <h3 className="text-2xl font-bold tracking-tight mb-2">
+                Welcome to <span className="text-gradient-emerald">Afomiya AI</span>
+              </h3>
+              <p className="text-muted-foreground text-sm max-w-md leading-relaxed">
                 I&apos;m your AI assistant for the tender ecosystem. Ask me about tenders, bidding strategies, platform features, or procurement best practices.
               </p>
             </div>
 
+            {/* Suggestion Pills */}
             <div className="w-full max-w-lg">
               <div className="flex items-center gap-2 mb-3">
-                <Lightbulb className="h-4 w-4 text-amber-500" />
-                <p className="text-sm font-medium text-muted-foreground">Try asking...</p>
+                <div className="p-1 rounded-md bg-amber-50">
+                  <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Try asking</p>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-wrap gap-2">
                 {SUGGESTIONS.map((suggestion, i) => (
                   <button key={i}
                     onClick={() => handleSend(suggestion)}
-                    className="text-left p-3 rounded-lg border hover:bg-emerald-50 hover:border-emerald-200 transition-colors text-sm text-muted-foreground hover:text-emerald-700">
+                    className="text-left px-3.5 py-2 rounded-full border border-emerald-200/80 bg-white hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-200 text-xs text-muted-foreground hover:text-emerald-700 premium-shadow hover:-translate-y-0.5">
                     {suggestion}
                   </button>
                 ))}
@@ -244,70 +259,80 @@ export function AgentView() {
             {/* Role-specific Quick Actions */}
             <div className="w-full max-w-lg">
               <div className="flex items-center gap-2 mb-3">
-                <Zap className="h-4 w-4 text-emerald-500" />
-                <p className="text-sm font-medium text-muted-foreground">Quick actions for {role.replace('_', ' ')}s</p>
+                <div className="p-1 rounded-md gradient-emerald">
+                  <Zap className="h-3.5 w-3.5 text-white" />
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Quick actions for {role.replace('_', ' ')}s
+                </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {quickActions.map((action, i) => {
                   const Icon = action.icon;
                   return (
-                    <Button key={i} variant="outline" size="sm"
-                      className="gap-2 text-xs hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700"
+                    <button key={i}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/60 bg-white hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all duration-200 text-xs font-medium premium-shadow hover:-translate-y-0.5"
                       onClick={() => handleSend(action.prompt)}>
-                      <Icon className="h-3.5 w-3.5" />
+                      <Icon className="h-3.5 w-3.5 text-emerald-500" />
                       {action.label}
-                    </Button>
+                    </button>
                   );
                 })}
               </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-4 pb-4">
+          /* ── Conversation Messages ── */
+          <div className="space-y-5 pb-4">
             {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} view-enter`}>
                 <div className={`flex gap-3 max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
                     msg.role === 'user'
-                      ? 'bg-gray-200 text-gray-600'
-                      : 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white'
+                      ? 'gradient-emerald text-white premium-shadow'
+                      : 'bg-emerald-100 text-emerald-600'
                   }`}>
                     {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </div>
+                  {/* Bubble */}
                   <div className={`rounded-2xl p-4 ${
                     msg.role === 'user'
-                      ? 'bg-emerald-600 text-white rounded-tr-sm'
-                      : 'bg-gray-100 text-gray-900 rounded-tl-sm'
+                      ? 'gradient-emerald text-white rounded-tr-sm premium-shadow'
+                      : 'bg-emerald-50/80 text-foreground rounded-tl-sm border border-emerald-100/60'
                   }`}>
                     {msg.role === 'assistant' ? (
-                      <div className="text-sm leading-relaxed space-y-1">
+                      <div className="text-sm leading-relaxed space-y-1 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:text-muted-foreground">
                         {formatAIContent(msg.content)}
                       </div>
                     ) : (
                       <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
                     )}
-                    <p className={`text-[10px] mt-2 ${msg.role === 'user' ? 'text-emerald-200' : 'text-muted-foreground'}`}>
-                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    <p className={`text-[10px] mt-2.5 ${
+                      msg.role === 'user' ? 'text-white/60' : 'text-muted-foreground/60'
+                    }`}>
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
               </div>
             ))}
 
+            {/* Loading Animation */}
             {loading && (
-              <div className="flex justify-start">
+              <div className="flex justify-start view-enter">
                 <div className="flex gap-3 max-w-[80%]">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
                     <Bot className="h-4 w-4" />
                   </div>
-                  <div className="bg-gray-100 rounded-2xl rounded-tl-sm p-4">
-                    <div className="flex items-center gap-2">
+                  <div className="bg-emerald-50/80 rounded-2xl rounded-tl-sm p-4 border border-emerald-100/60">
+                    <div className="flex items-center gap-2.5">
                       <div className="flex gap-1">
                         <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
-                      <span className="text-xs text-muted-foreground">Thinking...</span>
+                      <span className="text-xs text-emerald-600 font-medium">Thinking...</span>
                     </div>
                   </div>
                 </div>
@@ -319,45 +344,47 @@ export function AgentView() {
         )}
       </ScrollArea>
 
-      {/* Quick Actions (shown when conversation is active) */}
+      {/* ── Quick Actions Strip (shown when conversation is active) ── */}
       {messages.length > 0 && !loading && (
-        <div className="px-4 py-2 border-t bg-gray-50">
-          <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="px-5 py-2.5 border-t border-border/40 bg-emerald-50/30">
+          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
             {quickActions.map((action, i) => {
               const Icon = action.icon;
               return (
-                <Button key={i} variant="outline" size="sm"
-                  className="gap-1.5 text-xs whitespace-nowrap flex-shrink-0 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700"
+                <button key={i}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-200/60 bg-white text-xs font-medium whitespace-nowrap flex-shrink-0 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all duration-200 hover:-translate-y-0.5"
                   onClick={() => handleSend(action.prompt)}>
-                  <Icon className="h-3 w-3" />
+                  <Icon className="h-3 w-3 text-emerald-500" />
                   {action.label}
-                </Button>
+                </button>
               );
             })}
           </div>
         </div>
       )}
 
-      {/* Input */}
-      <div className="p-4 border-t bg-white flex-shrink-0">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Ask me anything about the tender ecosystem..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            disabled={loading}
-            className="flex-1"
-          />
+      {/* ── Premium Input Area ── */}
+      <div className="p-4 md:px-6 md:py-4 border-t border-border/40 bg-white flex-shrink-0">
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 relative">
+            <Input
+              placeholder="Ask me anything about the tender ecosystem..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              disabled={loading}
+              className="flex-1 pr-10 bg-gray-50/80 border-border/50 focus:border-emerald-300 focus:ring-emerald-200/40 rounded-xl h-11"
+            />
+          </div>
           <Button
-            className="bg-emerald-600 hover:bg-emerald-700 px-4"
+            className="gradient-emerald hover:opacity-90 w-11 h-11 rounded-xl premium-shadow transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
             onClick={() => handleSend()}
             disabled={loading || !input.trim()}
           >
-            <Send className="h-4 w-4" />
+            <ArrowUp className="h-4 w-4" />
           </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-2 text-center">
+        <p className="text-[10px] text-muted-foreground/60 mt-2 text-center">
           AI Assistant powered by Afomiya &middot; Responses are generated and may not always be accurate
         </p>
       </div>
