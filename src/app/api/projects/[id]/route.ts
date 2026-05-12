@@ -18,7 +18,7 @@ export async function GET(
     const project = await db.project.findUnique({
       where: { id },
       include: {
-        tender: { select: { id: true, title: true, scope: true, categoryTags: true, deadline: true, location: true } },
+        tender: { select: { id: true, title: true, scope: true, categoryTags: true, deadline: true, location: true, createdBy: true } },
         bid: {
           select: {
             id: true,
@@ -48,6 +48,14 @@ export async function GET(
     if (user!.role === 'contractor' && project.bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view your own projects' },
+        { status: 403 }
+      );
+    }
+
+    // Tender owner can only see projects for tenders they created
+    if (user!.role === 'tender_owner' && project.tender.createdBy !== user!.id) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only view projects for tenders you created' },
         { status: 403 }
       );
     }

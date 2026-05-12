@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useAuthStore, useNavStore } from '@/store';
-import { api, Tender, Bid, Project } from '@/lib/api';
+import { useAuthStore, useNavStore, useDataStore } from '@/store';
+import { api, Tender, Bid, Project, Notification } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import {
   FileSearch, Gavel, FolderKanban, TrendingUp, Users, FileCheck,
-  DollarSign, Shield, GraduationCap
+  DollarSign, Shield, GraduationCap, Bell, CheckCircle, AlertCircle,
+  Info, AlertTriangle, Lightbulb
 } from 'lucide-react';
 
 function StatCard({ icon: Icon, label, value, color, onClick }: {
@@ -31,9 +34,45 @@ function StatCard({ icon: Icon, label, value, color, onClick }: {
   );
 }
 
+const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
+  success: CheckCircle,
+  warning: AlertTriangle,
+  alert: AlertCircle,
+  info: Info,
+};
+
+const NOTIFICATION_COLORS: Record<string, string> = {
+  success: 'text-emerald-500',
+  warning: 'text-amber-500',
+  alert: 'text-red-500',
+  info: 'text-blue-500',
+};
+
+const ROLE_TIPS: Record<string, string[]> = {
+  contractor: [
+    'Keep your profile and documents verified to unlock bidding on all tenders',
+    'Set your skill tags to get better tender match scores',
+    'Check the AI Assistant for help writing compelling bid proposals',
+    'Attend workshops to improve your procurement skills',
+  ],
+  admin: [
+    'Review pending verifications to keep the platform trustworthy',
+    'Monitor flagged messages for platform safety',
+    'Use the AI Assistant to quickly summarize bid comparisons',
+    'Create workshops and events to engage the community',
+  ],
+  tender_owner: [
+    'Write clear tender scopes to attract quality bids',
+    'Use the AI Assistant to help draft tender specifications',
+    'Review bids promptly to keep contractors engaged',
+    'Track project milestones to ensure timely delivery',
+  ],
+};
+
 export function DashboardView() {
   const { user } = useAuthStore();
   const { setView } = useNavStore();
+  const { notifications, fetchNotifications } = useDataStore();
   const [stats, setStats] = useState({
     totalTenders: 0, openTenders: 0, totalBids: 0, activeBids: 0,
     activeProjects: 0, totalPayments: 0,
@@ -75,10 +114,18 @@ export function DashboardView() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     loadDashboard();
-  }, [loadDashboard]);
+    fetchNotifications();
+  }, [loadDashboard, fetchNotifications]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  const handleMarkAsRead = async (id: string) => {
+    await api.patch(`/notifications/${id}`, { read: true });
+    fetchNotifications();
+  };
+
   const role = user?.role || 'contractor';
+  const unreadNotifications = notifications.filter(n => !n.read).slice(0, 5);
+  const tips = ROLE_TIPS[role] || ROLE_TIPS.contractor;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
@@ -95,6 +142,24 @@ export function DashboardView() {
         )}
       </div>
 
+      {/* Role-specific Tips */}
+      <Card className="border-amber-200 bg-amber-50/50">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Lightbulb className="h-4 w-4 text-amber-600" />
+            <span className="text-sm font-semibold text-amber-800">Tips for {role.replace('_', ' ')}s</span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {tips.map((tip, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm text-amber-900/80">
+                <span className="text-amber-500 mt-0.5 flex-shrink-0">&#8226;</span>
+                <span>{tip}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={FileSearch} label="Open Tenders" value={stats.openTenders} color="bg-emerald-500"
@@ -107,8 +172,62 @@ export function DashboardView() {
           onClick={() => setView('projects')} />
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Activity + Notifications */}
       <div className="grid md:grid-cols-2 gap-6">
+        {/* Notifications Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                Notifications
+                {unreadNotifications.length > 0 && (
+                  <Badge className="text-[10px] px-1.5 py-0 bg-red-500 text-white">
+                    {notifications.filter(n => !n.read).length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setView('dashboard')}>
+                View all
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {unreadNotifications.length === 0 ? (
+              <div className="text-center py-6">
+                <CheckCircle className="h-8 w-8 mx-auto mb-2 text-emerald-300" />
+                <p className="text-sm text-muted-foreground">All caught up! No unread notifications.</p>
+              </div>
+            ) : (
+              <ScrollArea className="max-h-72">
+                <div className="space-y-1">
+                  {unreadNotifications.map(n => {
+                    const Icon = NOTIFICATION_ICONS[n.type] || Info;
+                    const colorClass = NOTIFICATION_COLORS[n.type] || 'text-gray-500';
+                    return (
+                      <button key={n.id}
+                        onClick={() => handleMarkAsRead(n.id)}
+                        className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left group">
+                        <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{n.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{n.message}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {new Date(n.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-emerald-600 flex-shrink-0 mt-1">
+                          Mark read
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -140,35 +259,36 @@ export function DashboardView() {
             ))}
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Recent Bids</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setView('bids')}>View all</Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentBids.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No bids yet</p>
-            ) : recentBids.map(b => (
-              <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{b.tender?.title || 'Tender'}</p>
-                  <p className="text-xs text-muted-foreground">ETB {b.financialProposal.toLocaleString()} &middot; {b.timeline}</p>
-                </div>
-                <Badge className="text-xs ml-2" variant={
-                  b.status === 'awarded' ? 'default' :
-                  b.status === 'rejected' ? 'destructive' :
-                  b.status === 'shortlisted' ? 'secondary' : 'outline'
-                }>
-                  {b.status.replace('_', ' ')}
-                </Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Recent Bids */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Recent Bids</CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => setView('bids')}>View all</Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {recentBids.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No bids yet</p>
+          ) : recentBids.map(b => (
+            <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{b.tender?.title || 'Tender'}</p>
+                <p className="text-xs text-muted-foreground">ETB {b.financialProposal.toLocaleString()} &middot; {b.timeline}</p>
+              </div>
+              <Badge className="text-xs ml-2" variant={
+                b.status === 'awarded' ? 'default' :
+                b.status === 'rejected' ? 'destructive' :
+                b.status === 'shortlisted' ? 'secondary' : 'outline'
+              }>
+                {b.status.replace('_', ' ')}
+              </Badge>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <Card>

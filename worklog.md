@@ -1,133 +1,89 @@
-# Afomiya Tender Ecosystem - Work Log
-
-## Project Overview
-Building a full-stack Tender Ecosystem platform based on the Afomiya specification document.
-7 modules, 3 user roles, AI agent integration, WebSocket chat.
-
 ---
-Task ID: 0
-Agent: Main Orchestrator
-Task: Project initialization and planning
+Task ID: 1
+Agent: Main Agent
+Task: Push Prisma schema and seed database with demo data
 
 Work Log:
-- Read and analyzed the Tender_Ecosystem_Deep_Documentation.docx
-- Identified 7 core modules, 3 user roles, comprehensive data model
-- Planned implementation strategy with subagent delegation
+- Pushed Prisma schema to SQLite database (db:push)
+- Created comprehensive seed script at prisma/seed.ts with 5 users, 6 tenders, 9 bids, 1 project, 6 tasks, 4 milestones, 3 payments, 1 chat with 6 messages, 3 events with registrations, and 16 notifications
+- Added "db:seed" script to package.json
+- Ran seed script successfully
 
 Stage Summary:
-- Document fully analyzed, architecture planned
-- Database schema design ready
-- Implementation strategy: Schema → Core Shell → Modules (parallel) → AI Agent → Integration
+- Database fully seeded with realistic Ethiopian procurement data
+- All entities have proper foreign key relationships
+- Demo accounts: admin@afomiya.com/Admin@123, abel@contractor.com/Pass@123, selam@contractor.com/Pass@123, dawit@contractor.com/Pass@123, mengistu@company.com/Pass@123
 
 ---
-Task ID: 2-b
-Agent: API Backend Agent
-Task: Create authentication and user management API routes
+Task ID: 2
+Agent: Subagent (full-stack-developer)
+Task: Fix critical API bugs
 
 Work Log:
-- Created `/src/lib/auth.ts` - reusable JWT auth helper with:
-  - `generateToken()` - creates 7-day JWT tokens
-  - `verifyToken()` - verifies and decodes JWT
-  - `extractBearerToken()` - extracts Bearer token from Authorization header
-  - `getAuthUser()` - gets authenticated user with profile from request
-  - `requireAuth()` - requires authentication, returns user or 401 error response
-  - `requireAdmin()` - requires admin role, returns user or 403 error response
-
-- Created Auth Routes:
-  - `POST /api/auth/register` - registers new user with bcryptjs (cost 12) password hashing, creates User + Profile in transaction, returns user + JWT
-  - `POST /api/auth/login` - verifies credentials, checks user status (suspended/banned blocked), returns user + JWT
-  - `GET /api/auth/me` - returns current user with profile using Bearer token auth
-
-- Created Profile Routes:
-  - `GET /api/profiles` - admin sees all profiles, contractor/tender_owner sees own only
-  - `PUT /api/profiles/[id]` - updates profile (owner or admin only), partial update supported
-  - `PATCH /api/profiles/[id]/verify` - admin only, sets profile.verified, creates notification for user
-
-- Created Document Routes:
-  - `POST /api/documents` - file upload via form data, saves to `/uploads/`, creates Document record
-  - `GET /api/documents` - admin sees all, user sees own only
-  - `PATCH /api/documents/[id]` - admin only, approve/reject document, creates notification for user
-
-- Created Notification Routes:
-  - `GET /api/notifications` - lists notifications for current authenticated user
-  - `PATCH /api/notifications/[id]` - marks notification as read (owner only)
-
-- Created `/home/z/my-project/uploads/` directory for file storage
-
-- All endpoints tested and verified working:
-  - Registration with full profile creation ✓
-  - Login with credential verification ✓
-  - Token-based auth with /me endpoint ✓
-  - Profile listing (role-based access) ✓
-  - Profile update (ownership check) ✓
-  - Profile verification (admin-only, creates notification) ✓
-  - Notification listing and mark-as-read ✓
-  - Document listing (role-based) ✓
-
-- Lint passes with no errors
-- Database is in sync with schema
+- Fixed requireAdmin import in tenders/[id]/route.ts
+- Fixed double bid update on rejection in bids/[id]/status/route.ts
+- Fixed tender_owner bid visibility (now sees bids on their tenders)
+- Added file type validation, size limit (10MB), path traversal prevention in documents upload
+- Restricted admin role registration (silently downgrades to contractor)
+- Added tender_owner scoping for projects, chats, and project details
+- Fixed AI agent system prompt role (assistant -> system)
 
 Stage Summary:
-- 10 API route files created across 4 route groups
-- 1 auth helper library created for reuse across routes
-- Consistent JSON response format: { success: true/false, data?, error? }
-- Proper error handling with try/catch on all routes
-- Role-based access control enforced (admin, owner checks)
-- Automatic notifications created for verification and document review events
+- All 7 critical bugs fixed
+- API authorization now properly scopes data per role
+- Document uploads are secure
 
 ---
-Task ID: 2-a
-Agent: Chat Service Agent
-Task: Create WebSocket chat mini-service for the Communication Hub
+Task ID: 3
+Agent: Main Agent
+Task: Enhance AI agent with proper LLM integration
 
 Work Log:
-- Created mini-service at `/home/z/my-project/mini-services/chat-service/`
-- Created `package.json` with socket.io dependency and `bun --hot index.ts` dev command
-- Created `index.ts` with full Socket.io server implementation on port 3003
-
-Implemented Socket.io events:
-- `join-chat` — Join a specific chat room by chatId, receives chat history
-- `send-message` — Send a message to a chat room (data: { chatId, userId, content })
-- `message-received` — Broadcast to all in the room when a message is sent (includes flagged status)
-- `typing` — User is typing indicator (data: { chatId, userId })
-- `stop-typing` — User stopped typing (data: { chatId, userId })
-- `flag-message` — Flag a message for admin review (data: { chatId, messageId })
-- `join-admin` — Join the admin monitoring room to receive flagged message alerts
-- `get-chat-history` — Request chat history for a specific chat
-- `chat-history` — Response event with stored messages for a chat
-
-Safety monitoring (keyword detection):
-- Checks messages for 9 suspicious phrases: "outside platform", "direct payment", "cash only", "no receipt", "off platform", "bypass", "under the table", "personal transfer", "private deal"
-- When detected, emits `message-flagged` event to admin room with reason
-
-In-memory stores:
-- `messageStore` — Messages keyed by chatId for quick history retrieval
-- `typingUsers` — Tracks currently-typing users
-- `socketRooms` — Tracks room membership for cleanup on disconnect
-
-Additional features:
-- CORS allows all origins for development
-- Path set to `/` for Caddy gateway compatibility
-- Graceful shutdown on SIGTERM/SIGINT
-- Auto-clear typing status when user sends a message
-- Full cleanup on socket disconnect (typing indicators, room tracking)
-
-All events verified with functional testing:
-- ✓ join-chat + chat-history response
-- ✓ send-message (normal) — received by all room members, not flagged
-- ✓ send-message (suspicious "direct payment") — flagged, admin room notified
-- ✓ send-message (suspicious "cash only") — flagged, admin room notified
-- ✓ typing / stop-typing — broadcast to other room members
-- ✓ flag-message — admin room receives message-flagged event
-- ✓ join-admin — admin receives flagged messages
-- ✓ get-chat-history — returns stored messages
-- ✓ disconnect — typing indicators cleaned up
-
-Service is running on port 3003 (PID confirmed active).
+- Rewrote agent/route.ts with comprehensive system prompt covering all 7 platform modules
+- Added rich real-time platform data context (tender counts, bid stats, matching tenders)
+- Added skill-based tender recommendations for contractors
+- Added platform stats for admins
+- Added tender owner data context
+- Implemented retry logic with ZAI instance reset
+- Added message length validation (2000 char limit)
 
 Stage Summary:
-- 1 mini-service created: chat-service (Socket.io on port 3003)
-- 8+ Socket.io events implemented for real-time chat
-- Keyword-based safety monitoring with 9 suspicious phrases
-- In-memory message store for chat history
-- All events tested and verified working
+- AI agent now provides contextually relevant responses based on user role and live data
+- Contractors see matching tender recommendations
+- Admins see platform stats
+- System prompt is comprehensive and covers all platform features
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Set up chat mini-service
+
+Work Log:
+- Verified chat service at mini-services/chat-service/index.ts is well-built
+- Service runs on port 3003 with Socket.io
+- Supports join-chat, send-message, typing, stop-typing, flag-message, join-admin, get-chat-history
+- Suspicious content detection with 9 phrases
+- Started service successfully
+
+Stage Summary:
+- Chat WebSocket service is fully functional on port 3003
+- Safety monitoring active with keyword detection
+- Graceful shutdown handling implemented
+
+---
+Task ID: 5
+Agent: Subagent (full-stack-developer)
+Task: Polish UI and enhance modules
+
+Work Log:
+- Enhanced Chat module: Shows actual tender/project names, mobile responsive with sidebar hide/show
+- Enhanced Dashboard: Added notifications card, role-specific tips card
+- Improved App Shell: Added notification popover dropdown with mark-all-as-read
+- Enhanced Agent View: Added role-specific quick actions, markdown-like formatting
+- Fixed responsive: Chat mobile view, tender detail grid stacking
+
+Stage Summary:
+- All 7 modules have polished, responsive UI
+- Notifications accessible from top bar
+- Chat shows real context names
+- AI assistant has role-specific suggestions

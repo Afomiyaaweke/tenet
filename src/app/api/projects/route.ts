@@ -28,6 +28,9 @@ export async function GET(request: NextRequest) {
     // Contractors only see projects where their bid was awarded
     if (user!.role === 'contractor') {
       where.bid = { userId: user!.id };
+    } else if (user!.role === 'tender_owner') {
+      // Tender owners see projects for tenders they created
+      where.tender = { createdBy: user!.id };
     }
 
     const [projects, total] = await Promise.all([

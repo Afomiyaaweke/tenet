@@ -31,7 +31,7 @@ export function AdminView() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleVerifyProfile = async (profileId: string) => {
-    const res = await api.patch(`/profiles/${profileId}/verify`);
+    const res = await api.patch(`/profiles/${profileId}/verify`, {});
     if (res.success) {
       toast.success('Profile verified');
       loadData();

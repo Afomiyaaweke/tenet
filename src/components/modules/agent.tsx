@@ -8,8 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Bot, Send, User, Sparkles, Trash2, Lightbulb } from 'lucide-react';
+import {
+  Bot, Send, User, Sparkles, Trash2, Lightbulb, Zap,
+  FileSearch, Gavel, Shield, FolderKanban, TrendingUp
+} from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -26,12 +30,125 @@ const SUGGESTIONS = [
   'Help me understand the payment tracking system',
 ];
 
+const ROLE_QUICK_ACTIONS: Record<string, { label: string; prompt: string; icon: React.ElementType }[]> = {
+  contractor: [
+    { label: 'Show my matching tenders', prompt: 'Show me tenders that match my skills and profile', icon: FileSearch },
+    { label: 'Check my bid status', prompt: 'What is the current status of my bids?', icon: Gavel },
+    { label: 'Help me write a bid proposal', prompt: 'Help me write a compelling bid proposal for a construction tender', icon: TrendingUp },
+  ],
+  admin: [
+    { label: 'Show pending reviews', prompt: 'Show me all pending reviews that need my attention', icon: Shield },
+    { label: 'Platform health check', prompt: 'Give me a platform health check summary', icon: TrendingUp },
+    { label: 'Help me verify a user', prompt: 'What should I check when verifying a user on the platform?', icon: FileSearch },
+  ],
+  tender_owner: [
+    { label: 'Help me write a tender', prompt: 'Help me write a clear and effective tender specification', icon: FileSearch },
+    { label: 'Show bids on my tenders', prompt: 'Show me the bids submitted on my tenders', icon: Gavel },
+    { label: 'Project status overview', prompt: 'Give me an overview of my project statuses', icon: FolderKanban },
+  ],
+};
+
+function formatAIContent(content: string): React.ReactNode[] {
+  const lines = content.split('\n');
+  const result: React.ReactNode[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const key = `line-${i}`;
+
+    // Bullet point lines
+    const bulletMatch = line.match(/^[\s]*[-*•]\s+(.*)/);
+    if (bulletMatch) {
+      const bulletContent = bulletMatch[1];
+      result.push(
+        <div key={key} className="flex items-start gap-2 ml-2">
+          <span className="text-emerald-500 mt-0.5 flex-shrink-0">•</span>
+          <span>{formatInline(bulletContent)}</span>
+        </div>
+      );
+      continue;
+    }
+
+    // Numbered list lines
+    const numberedMatch = line.match(/^[\s]*(\d+)[.)]\s+(.*)/);
+    if (numberedMatch) {
+      const num = numberedMatch[1];
+      const numberedContent = numberedMatch[2];
+      result.push(
+        <div key={key} className="flex items-start gap-2 ml-2">
+          <span className="text-emerald-600 font-medium flex-shrink-0">{num}.</span>
+          <span>{formatInline(numberedContent)}</span>
+        </div>
+      );
+      continue;
+    }
+
+    // Empty lines
+    if (line.trim() === '') {
+      result.push(<div key={key} className="h-2" />);
+      continue;
+    }
+
+    // Regular line
+    result.push(<div key={key}>{formatInline(line)}</div>);
+  }
+
+  return result;
+}
+
+function formatInline(text: string): React.ReactNode {
+  // Process **bold** and *italic* inline formatting
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let partKey = 0;
+
+  while (remaining.length > 0) {
+    // Match **bold**
+    const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+    // Match *italic*
+    const italicMatch = remaining.match(/\*(.+?)\*/);
+
+    let firstMatch: { index: number; length: number; content: string; type: 'bold' | 'italic' } | null = null;
+
+    if (boldMatch && boldMatch.index !== undefined) {
+      firstMatch = { index: boldMatch.index, length: boldMatch[0].length, content: boldMatch[1], type: 'bold' };
+    }
+
+    if (italicMatch && italicMatch.index !== undefined) {
+      if (!firstMatch || italicMatch.index < firstMatch.index) {
+        firstMatch = { index: italicMatch.index, length: italicMatch[0].length, content: italicMatch[1], type: 'italic' };
+      }
+    }
+
+    if (firstMatch) {
+      // Text before the match
+      if (firstMatch.index > 0) {
+        parts.push(<span key={`t-${partKey++}`}>{remaining.slice(0, firstMatch.index)}</span>);
+      }
+      // The formatted content
+      if (firstMatch.type === 'bold') {
+        parts.push(<strong key={`b-${partKey++}`} className="font-semibold">{firstMatch.content}</strong>);
+      } else {
+        parts.push(<em key={`i-${partKey++}`} className="italic">{firstMatch.content}</em>);
+      }
+      remaining = remaining.slice(firstMatch.index + firstMatch.length);
+    } else {
+      parts.push(<span key={`t-${partKey++}`}>{remaining}</span>);
+      break;
+    }
+  }
+
+  return <>{parts}</>;
+}
+
 export function AgentView() {
   const { user } = useAuthStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const role = user?.role || 'contractor';
+  const quickActions = ROLE_QUICK_ACTIONS[role] || ROLE_QUICK_ACTIONS.contractor;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -123,6 +240,27 @@ export function AgentView() {
                 ))}
               </div>
             </div>
+
+            {/* Role-specific Quick Actions */}
+            <div className="w-full max-w-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="h-4 w-4 text-emerald-500" />
+                <p className="text-sm font-medium text-muted-foreground">Quick actions for {role.replace('_', ' ')}s</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {quickActions.map((action, i) => {
+                  const Icon = action.icon;
+                  return (
+                    <Button key={i} variant="outline" size="sm"
+                      className="gap-2 text-xs hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700"
+                      onClick={() => handleSend(action.prompt)}>
+                      <Icon className="h-3.5 w-3.5" />
+                      {action.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-4 pb-4">
@@ -141,7 +279,13 @@ export function AgentView() {
                       ? 'bg-emerald-600 text-white rounded-tr-sm'
                       : 'bg-gray-100 text-gray-900 rounded-tl-sm'
                   }`}>
-                    <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                    {msg.role === 'assistant' ? (
+                      <div className="text-sm leading-relaxed space-y-1">
+                        {formatAIContent(msg.content)}
+                      </div>
+                    ) : (
+                      <div className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                    )}
                     <p className={`text-[10px] mt-2 ${msg.role === 'user' ? 'text-emerald-200' : 'text-muted-foreground'}`}>
                       {new Date(msg.timestamp).toLocaleTimeString()}
                     </p>
@@ -174,6 +318,25 @@ export function AgentView() {
           </div>
         )}
       </ScrollArea>
+
+      {/* Quick Actions (shown when conversation is active) */}
+      {messages.length > 0 && !loading && (
+        <div className="px-4 py-2 border-t bg-gray-50">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {quickActions.map((action, i) => {
+              const Icon = action.icon;
+              return (
+                <Button key={i} variant="outline" size="sm"
+                  className="gap-1.5 text-xs whitespace-nowrap flex-shrink-0 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700"
+                  onClick={() => handleSend(action.prompt)}>
+                  <Icon className="h-3 w-3" />
+                  {action.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Input */}
       <div className="p-4 border-t bg-white flex-shrink-0">

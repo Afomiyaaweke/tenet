@@ -363,7 +363,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
             <Card><CardContent className="p-8 text-center text-muted-foreground">No payments logged yet</CardContent></Card>
           ) : (
             <div className="space-y-3">
-              {project.payments.map(payment => (
+              {(project.payments ?? []).map(payment => (
                 <Card key={payment.id}>
                   <CardContent className="p-4 flex items-center justify-between">
                     <div>

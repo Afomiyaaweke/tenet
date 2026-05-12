@@ -18,8 +18,11 @@ export async function GET(request: NextRequest) {
     if (user!.role === 'contractor') {
       // Contractors see chats for projects where their bid was awarded
       where.project = { bid: { userId: user!.id } };
+    } else if (user!.role === 'tender_owner') {
+      // Tender owners see chats for tenders they created
+      where.tender = { createdBy: user!.id };
     }
-    // Admin and tender_owner see all chats (no filter)
+    // Admin sees all chats (no filter)
 
     const chats = await db.chat.findMany({
       where,
