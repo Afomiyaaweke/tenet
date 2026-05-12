@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { DashboardView } from '@/components/modules/dashboard';
 import { TendersView } from '@/components/modules/tenders';
 import { TenderDetailView } from '@/components/modules/tender-detail';
+import { TenderCompareView, BidCompareView } from '@/components/modules/tender-compare';
 import { BidsView } from '@/components/modules/bids';
 import { ProjectsView } from '@/components/modules/projects';
 import { ProjectDetailView } from '@/components/modules/project-detail';
@@ -139,7 +140,7 @@ const NAV_ITEMS: Record<string, NavSection[]> = {
   ],
 };
 
-type View = 'dashboard' | 'tenders' | 'tender-detail' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
+type View = 'dashboard' | 'tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -248,7 +249,7 @@ function SidebarContent({
                   const Icon = item.icon;
                   const isActive =
                     view === item.id ||
-                    (item.id === 'tenders' && view === 'tender-detail') ||
+                    (item.id === 'tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare')) ||
                     (item.id === 'projects' && view === 'project-detail');
 
                   return (
@@ -483,6 +484,10 @@ export function AppShell() {
         return <TendersView />;
       case 'tender-detail':
         return <TenderDetailView tenderId={viewParams.id} />;
+      case 'tender-compare':
+        return <TenderCompareView tenderIds={viewParams.ids} />;
+      case 'bid-compare':
+        return <BidCompareView tenderId={viewParams.tenderId} />;
       case 'bids':
         return <BidsView />;
       case 'projects':
@@ -508,8 +513,9 @@ export function AppShell() {
     }
   };
 
-  const pageTitle = allNavItems.find((i) => i.id === view)?.label || 'Dashboard';
-  const breadcrumb = view === 'tender-detail' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
+  const pageTitle = allNavItems.find((i) => i.id === view)?.label
+    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : 'Dashboard');
+  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' ? 'Tenders' : view === 'tender-compare' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
 
   const sidebarProps = { user, role, navSections, view, setView, unreadCount, logout };
 

@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import {
   FileSearch, Plus, Search, MapPin, Calendar, DollarSign,
   Clock, ArrowRight, TrendingUp, ChevronRight, Zap, Timer,
-  Users, Building2, Target,
+  Users, Building2, Target, GitCompareArrows, CheckCircle, X as XIcon,
 } from 'lucide-react';
 
 const CATEGORIES = ['Construction', 'IT', 'Supply', 'Consulting', 'Engineering', 'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications'];
@@ -60,6 +60,7 @@ export function TendersView() {
     location: '', categoryTags: '', requiredDocs: '',
   });
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
 
   const loadTenders = useCallback(async () => {
     setLoading(true);
@@ -93,6 +94,19 @@ export function TendersView() {
 
   const toggleCategory = (cat: string) => {
     setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+  };
+
+  const toggleCompare = (tenderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCompareSelection(prev =>
+      prev.includes(tenderId) ? prev.filter(id => id !== tenderId) : [...prev, tenderId].slice(-4)
+    );
+  };
+
+  const goToCompare = () => {
+    if (compareSelection.length >= 2) {
+      setView('tender-compare', { ids: compareSelection.join(',') });
+    }
   };
 
   const stats = useMemo(() => ({
@@ -383,21 +397,38 @@ export function TendersView() {
                   transition={{ duration: 0.2 }}
                 >
                   <Card
-                    className="premium-shadow rounded-xl border-0 bg-white cursor-pointer group overflow-hidden"
+                    className={`premium-shadow rounded-xl border-0 bg-white cursor-pointer group overflow-hidden transition-all duration-200 ${
+                      compareSelection.includes(tender.id) ? 'ring-2 ring-emerald-400 ring-offset-2' : ''
+                    }`}
                     onClick={() => setView('tender-detail', { id: tender.id })}
                   >
                     {/* Gradient accent strip at top */}
                     <div className={`h-1.5 bg-gradient-to-r ${statusAccent(tender.status)}`} />
 
                     <CardContent className="p-5 space-y-3">
-                      {/* Header: Title + Status */}
+                      {/* Header: Title + Status + Compare checkbox */}
                       <div className="flex items-start justify-between gap-2">
                         <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
                           {tender.title}
                         </h3>
-                        <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
-                          {tender.status}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
+                            {tender.status}
+                          </Badge>
+                          <button
+                            onClick={(e) => toggleCompare(tender.id, e)}
+                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+                              compareSelection.includes(tender.id)
+                                ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-200'
+                                : 'border-muted-foreground/30 hover:border-emerald-400 hover:bg-emerald-50'
+                            }`}
+                            title="Select to compare"
+                          >
+                            {compareSelection.includes(tender.id) && (
+                              <CheckCircle className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                            )}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Scope */}
@@ -491,6 +522,55 @@ export function TendersView() {
           </AnimatePresence>
         </motion.div>
       )}
+
+      {/* Floating Compare Bar */}
+      <AnimatePresence>
+        {compareSelection.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50"
+          >
+            <div className="flex items-center gap-3 bg-white/95 backdrop-blur-md rounded-2xl px-5 py-3 premium-shadow-lg border border-emerald-200/60">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg gradient-emerald">
+                  <GitCompareArrows className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-foreground">
+                    {compareSelection.length} tender{compareSelection.length !== 1 ? 's' : ''} selected
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Select 2-4 to compare</p>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-border/60" />
+              <Button
+                size="sm"
+                className={`rounded-xl font-semibold transition-all hover:-translate-y-0.5 ${
+                  compareSelection.length >= 2
+                    ? 'gradient-emerald hover:opacity-90 text-white premium-shadow'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                }`}
+                disabled={compareSelection.length < 2}
+                onClick={goToCompare}
+              >
+                <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" />
+                Compare {compareSelection.length >= 2 ? `(${compareSelection.length})` : ''}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-xl text-muted-foreground hover:text-rose-600 hover:bg-rose-50"
+                onClick={() => setCompareSelection([])}
+              >
+                <XIcon className="h-3.5 w-3.5 mr-1" /> Clear
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
