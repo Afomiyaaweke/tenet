@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
  * GET /api/bids
  * Admin: all bids with filter by tenderId, status
  * Contractor: own bids only
+ * Tender Owner: all bids for tenders they created
  * Include tender title in response
  */
 export async function GET(request: NextRequest) {
@@ -109,24 +110,28 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const tenderId = searchParams.get('tenderId') || '';
-    const status = searchParams.get('status') || '';
+    const bidStatus = searchParams.get('status') || '';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
 
-    if (user!.role !== 'admin') {
-      // Contractors/tender_owners only see their own bids
+    if (user!.role === 'contractor') {
+      // Contractors only see their own bids
       where.userId = user!.id;
+    } else if (user!.role === 'tender_owner') {
+      // Tender owners see all bids for tenders they created
+      where.tender = { createdBy: user!.id };
     }
+    // Admin sees all bids (no filter)
 
     if (tenderId) {
       where.tenderId = tenderId;
     }
 
-    if (status) {
-      where.status = status;
+    if (bidStatus) {
+      where.status = bidStatus;
     }
 
     const [bids, total] = await Promise.all([

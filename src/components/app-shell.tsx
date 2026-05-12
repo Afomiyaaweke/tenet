@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore, useNavStore, useDataStore } from '@/store';
+import { api } from '@/lib/api';
 import { DashboardView } from '@/components/modules/dashboard';
 import { TendersView } from '@/components/modules/tenders';
 import { TenderDetailView } from '@/components/modules/tender-detail';
@@ -17,12 +18,28 @@ import { AgentView } from '@/components/modules/agent';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
   GraduationCap, User, FileText, Shield, Bot, Menu, LogOut, Bell,
-  ChevronRight
+  ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check
 } from 'lucide-react';
+
+const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
+  success: CheckCircle,
+  warning: AlertTriangle,
+  alert: AlertCircle,
+  info: Info,
+};
+
+const NOTIFICATION_COLORS: Record<string, string> = {
+  success: 'text-emerald-500',
+  warning: 'text-amber-500',
+  alert: 'text-red-500',
+  info: 'text-blue-500',
+};
 
 const NAV_ITEMS = {
   contractor: [
@@ -139,6 +156,85 @@ function SidebarContent({ user, role, navItems, view, setView, unreadCount, logo
   );
 }
 
+function NotificationDropdown({ notifications, onMarkAsRead, onMarkAllRead }: {
+  notifications: { id: string; title: string; message: string; type: string; read: boolean; createdAt: string }[];
+  onMarkAsRead: (id: string) => void;
+  onMarkAllRead: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const unread = notifications.filter(n => !n.read);
+  const latestUnread = unread.slice(0, 5);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-4 w-4" />
+          {unread.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
+              {unread.length > 9 ? '9+' : unread.length}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="end">
+        <div className="flex items-center justify-between p-3 border-b">
+          <div className="flex items-center gap-2">
+            <h4 className="text-sm font-semibold">Notifications</h4>
+            {unread.length > 0 && (
+              <Badge className="text-[10px] px-1.5 py-0 bg-red-500 text-white">{unread.length}</Badge>
+            )}
+          </div>
+          {unread.length > 0 && (
+            <Button variant="ghost" size="sm" className="text-xs h-7 text-emerald-600 hover:text-emerald-700"
+              onClick={onMarkAllRead}>
+              <Check className="h-3 w-3 mr-1" /> Mark all read
+            </Button>
+          )}
+        </div>
+        <ScrollArea className="max-h-80">
+          {latestUnread.length === 0 ? (
+            <div className="p-6 text-center">
+              <CheckCircle className="h-8 w-8 mx-auto mb-2 text-emerald-300" />
+              <p className="text-sm text-muted-foreground">All caught up!</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {latestUnread.map(n => {
+                const Icon = NOTIFICATION_ICONS[n.type] || Info;
+                const colorClass = NOTIFICATION_COLORS[n.type] || 'text-gray-500';
+                return (
+                  <button key={n.id}
+                    onClick={() => { onMarkAsRead(n.id); setOpen(false); }}
+                    className="w-full flex items-start gap-3 p-3 hover:bg-gray-50 transition-colors text-left">
+                    <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{n.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{n.message}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {new Date(n.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 mt-1.5" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+        {notifications.length > 5 && (
+          <div className="p-2 border-t">
+            <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground"
+              onClick={() => setOpen(false)}>
+              View all notifications
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function AppShell() {
   const { user, logout } = useAuthStore();
   const { view, viewParams, setView } = useNavStore();
@@ -150,6 +246,17 @@ export function AppShell() {
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
+
+  const handleMarkAsRead = async (id: string) => {
+    await api.patch(`/notifications/${id}`, { read: true });
+    fetchNotifications();
+  };
+
+  const handleMarkAllRead = async () => {
+    const unread = notifications.filter(n => !n.read);
+    await Promise.all(unread.map(n => api.patch(`/notifications/${n.id}`, { read: true })));
+    fetchNotifications();
+  };
 
   const renderView = () => {
     switch (view) {
@@ -201,14 +308,11 @@ export function AppShell() {
             </h1>
           </div>
 
-          <Button variant="ghost" size="icon" className="relative" onClick={() => setView('chat')}>
-            <Bell className="h-4 w-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
-                {unreadCount}
-              </span>
-            )}
-          </Button>
+          <NotificationDropdown
+            notifications={notifications}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllRead={handleMarkAllRead}
+          />
         </header>
 
         {/* Content Area */}

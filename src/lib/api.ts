@@ -200,6 +200,13 @@ export interface Chat {
   contextType: 'tender' | 'project';
   createdAt: string;
   messages?: Message[];
+  project?: {
+    id: string;
+    status: string;
+    tender?: { id: string; title: string };
+    bid?: { user?: { id: string; email: string; profile?: { fullName: string; companyName: string } } };
+  };
+  _count?: { messages: number };
 }
 
 export interface Message {

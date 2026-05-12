@@ -112,10 +112,9 @@ export async function PATCH(
     // For non-awarded status updates
     const updateData: Record<string, unknown> = { status };
     if (rejectionNote) updateData.rejectionNote = rejectionNote;
-
-    // If rejected, create notification
     if (status === 'rejected') {
-      await db.$transaction(async (tx) => {
+      // Use transaction for rejected bids to create notification atomically
+      const result = await db.$transaction(async (tx) => {
         const updatedBid = await tx.bid.update({
           where: { id },
           data: updateData,
@@ -133,8 +132,14 @@ export async function PATCH(
 
         return updatedBid;
       });
+
+      return NextResponse.json({
+        success: true,
+        data: result,
+      });
     }
 
+    // For other non-awarded status updates (e.g. shortlisted, completed)
     const updatedBid = await db.bid.update({
       where: { id },
       data: updateData,

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate role
+    // Validate role - prevent self-registration as admin
     const validRoles = ['admin', 'contractor', 'tender_owner'];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Silently downgrade admin role to contractor to prevent unauthorized admin creation
+    const assignedRole = role === 'admin' ? 'contractor' : role;
 
     // Validate type
     const profileType = type || 'individual';
@@ -67,7 +70,7 @@ export async function POST(request: NextRequest) {
         data: {
           email,
           passwordHash,
-          role,
+          role: assignedRole,
           status: 'active',
         },
       });

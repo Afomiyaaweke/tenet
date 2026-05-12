@@ -8,9 +8,30 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { MessageSquare, Send, AlertTriangle, ArrowLeft, Users } from 'lucide-react';
+import { MessageSquare, Send, AlertTriangle, ArrowLeft, Users, Hash } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
+
+function getChatTitle(chat: Chat): string {
+  if (chat.contextType === 'project' && chat.project?.tender?.title) {
+    return chat.project.tender.title;
+  }
+  if (chat.contextType === 'tender') {
+    return 'Tender Discussion';
+  }
+  return `${chat.contextType === 'project' ? 'Project' : 'Tender'} Chat`;
+}
+
+function getChatSubtitle(chat: Chat): string {
+  if (chat.project?.bid?.user?.profile?.fullName) {
+    return chat.project.bid.user.profile.fullName;
+  }
+  if (chat.project?.bid?.user?.profile?.companyName) {
+    return chat.project.bid.user.profile.companyName;
+  }
+  return `${chat._count?.messages || 0} messages`;
+}
 
 export function ChatView({ chatId }: { chatId?: string }) {
   const { user } = useAuthStore();
@@ -22,6 +43,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [flaggedMessages, setFlaggedMessages] = useState<Set<string>>(new Set());
+  const [showSidebar, setShowSidebar] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,6 +75,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
 
   const selectChat = useCallback(async (chat: Chat) => {
     setActiveChat(chat);
+    setShowSidebar(false);
     socket?.emit('join-chat', { chatId: chat.id });
     const res = await api.get(`/chats/${chat.id}/messages`);
     if (res.success) setMessages(res.data);
@@ -89,14 +112,20 @@ export function ChatView({ chatId }: { chatId?: string }) {
     }
   };
 
+  const handleBack = () => {
+    setActiveChat(null);
+    setShowSidebar(true);
+    setMessages([]);
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex max-w-5xl mx-auto">
-      {/* Chat List */}
-      <div className="w-72 border-r bg-white flex-shrink-0 flex flex-col">
+      {/* Chat List - hidden on mobile when chat is active */}
+      <div className={`${activeChat && !showSidebar ? 'hidden' : 'flex'} md:flex w-full md:w-72 border-r bg-white flex-shrink-0 flex-col`}>
         <div className="p-4 border-b">
           <h3 className="font-semibold text-sm">Conversations</h3>
         </div>
@@ -106,30 +135,62 @@ export function ChatView({ chatId }: { chatId?: string }) {
               <MessageSquare className="h-8 w-8 mx-auto mb-2 text-gray-300" />
               No conversations yet
             </div>
-          ) : chats.map(chat => (
-            <button key={chat.id}
-              onClick={() => selectChat(chat)}
-              className={`w-full p-3 text-left hover:bg-gray-50 transition-colors border-b ${
-                activeChat?.id === chat.id ? 'bg-emerald-50 border-l-2 border-l-emerald-500' : ''
-              }`}>
-              <p className="text-sm font-medium truncate">{chat.contextType === 'project' ? 'Project' : 'Tender'} Chat</p>
-              <p className="text-xs text-muted-foreground">{chat.contextType}</p>
-            </button>
-          ))}
+          ) : chats.map(chat => {
+            const title = getChatTitle(chat);
+            const subtitle = getChatSubtitle(chat);
+            const lastMsg = chat.messages?.[0];
+            return (
+              <button key={chat.id}
+                onClick={() => selectChat(chat)}
+                className={`w-full p-3 text-left hover:bg-gray-50 transition-colors border-b ${
+                  activeChat?.id === chat.id ? 'bg-emerald-50 border-l-2 border-l-emerald-500' : ''
+                }`}>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium truncate flex-1">{title}</p>
+                  <Badge variant="outline" className="text-[10px] ml-1 flex-shrink-0 capitalize">
+                    {chat.contextType}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">{subtitle}</p>
+                {lastMsg && (
+                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                    {lastMsg.content}
+                  </p>
+                )}
+              </button>
+            );
+          })}
         </ScrollArea>
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`${!activeChat && showSidebar ? 'hidden' : 'flex'} md:flex flex-1 flex-col min-w-0`}>
         {activeChat ? (
           <>
             {/* Chat Header */}
             <div className="p-4 border-b bg-white flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-sm">{activeChat.contextType === 'project' ? 'Project' : 'Tender'} Discussion</h3>
-                <p className="text-xs text-muted-foreground">Chat ID: {activeChat.id.slice(0, 8)}...</p>
+              <div className="flex items-center gap-3 min-w-0">
+                <Button variant="ghost" size="icon" className="md:hidden flex-shrink-0 h-8 w-8"
+                  onClick={handleBack}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm truncate">{getChatTitle(activeChat)}</h3>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {activeChat.contextType === 'project' ? 'Project Discussion' : 'Tender Discussion'}
+                    {activeChat.project?.bid?.user?.profile?.fullName && ` \u00B7 ${activeChat.project.bid.user.profile.fullName}`}
+                  </p>
+                </div>
               </div>
-              <Badge variant="outline" className="text-xs">{activeChat.contextType}</Badge>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Badge variant="outline" className="text-xs capitalize">{activeChat.contextType}</Badge>
+                {activeChat._count?.messages !== undefined && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    <Hash className="h-3 w-3 mr-0.5" />
+                    {activeChat._count.messages}
+                  </Badge>
+                )}
+              </div>
             </div>
 
             {/* Messages */}
@@ -183,7 +244,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
             <div className="text-center">
               <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p>Select a conversation to start chatting</p>

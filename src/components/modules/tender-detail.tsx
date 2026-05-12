@@ -165,7 +165,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
           </div>
 
           {/* Details Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-emerald-600" />
               <div>
