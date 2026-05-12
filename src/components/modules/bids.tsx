@@ -1,18 +1,30 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, useNavStore } from '@/store';
 import { api, Bid } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   Gavel, Clock, DollarSign, FileSearch, Award, AlertCircle,
   CheckCircle, ChevronDown, ChevronUp, ArrowRight, TrendingUp,
-  Briefcase, Shield, X,
+  Briefcase, X, Eye, RotateCcw, Filter, Target,
+  CircleDot,
 } from 'lucide-react';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.07 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+};
+
+type BidTab = 'all' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected';
 
 export function BidsView() {
   const { user } = useAuthStore();
@@ -21,6 +33,7 @@ export function BidsView() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<BidTab>('all');
 
   const loadBids = useCallback(async () => {
     setLoading(true);
@@ -44,6 +57,19 @@ export function BidsView() {
     }
   };
 
+  const stats = useMemo(() => ({
+    pending: bids.filter(b => b.status === 'pending_review').length,
+    shortlisted: bids.filter(b => b.status === 'shortlisted').length,
+    awarded: bids.filter(b => b.status === 'awarded').length,
+    rejected: bids.filter(b => b.status === 'rejected').length,
+    total: bids.length,
+  }), [bids]);
+
+  const filteredBids = useMemo(() => {
+    if (activeTab === 'all') return bids;
+    return bids.filter(b => b.status === activeTab);
+  }, [bids, activeTab]);
+
   const statusBadge = (status: string) => {
     switch (status) {
       case 'pending_review': return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
@@ -64,240 +90,367 @@ export function BidsView() {
     }
   };
 
-  const bidStats = () => {
-    const pending = bids.filter(b => b.status === 'pending_review').length;
-    const shortlisted = bids.filter(b => b.status === 'shortlisted').length;
-    const awarded = bids.filter(b => b.status === 'awarded').length;
-    const rejected = bids.filter(b => b.status === 'rejected').length;
-    return { pending, shortlisted, awarded, rejected };
-  };
+  const tabs: { key: BidTab; label: string; icon: typeof Clock; count: number; color: string }[] = [
+    { key: 'all', label: 'All', icon: Gavel, count: stats.total, color: 'emerald' },
+    { key: 'pending_review', label: 'Pending', icon: Clock, count: stats.pending, color: 'amber' },
+    { key: 'shortlisted', label: 'Shortlisted', icon: Award, count: stats.shortlisted, color: 'teal' },
+    { key: 'awarded', label: 'Awarded', icon: CheckCircle, count: stats.awarded, color: 'emerald' },
+    { key: 'rejected', label: 'Rejected', icon: AlertCircle, count: stats.rejected, color: 'rose' },
+  ];
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto view-enter">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+      >
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-2xl gradient-amber flex-shrink-0">
+          <div className="p-3 rounded-2xl gradient-amber shadow-md flex-shrink-0">
             <Gavel className="h-6 w-6 text-white" />
           </div>
           <div>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-              <span className="text-gradient-emerald">{user?.role === 'admin' ? 'Review' : 'My'}</span> Bids
+              <span className="text-gradient-emerald">{user?.role === 'admin' || user?.role === 'tender_owner' ? 'Review' : 'My'}</span> Bids
             </h2>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {user?.role === 'admin' ? 'Manage and evaluate submitted bids' : 'Track your bid submissions'}
+              {user?.role === 'admin' || user?.role === 'tender_owner' ? 'Manage and evaluate submitted bids' : 'Track your bid submissions'}
             </p>
           </div>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-44 rounded-xl bg-muted/50 border-border/60">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending_review">Pending Review</SelectItem>
-            <SelectItem value="shortlisted">Shortlisted</SelectItem>
-            <SelectItem value="awarded">Awarded</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      </motion.div>
 
       {/* Stats Summary */}
       {!loading && bids.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-50 flex-shrink-0">
-                <Clock className="h-4 w-4 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{bidStats().pending}</p>
-                <p className="text-xs text-muted-foreground">Pending</p>
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+        >
+          {[
+            { label: 'Pending', count: stats.pending, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+            { label: 'Shortlisted', count: stats.shortlisted, icon: Award, bg: 'bg-teal-50', color: 'text-teal-600' },
+            { label: 'Awarded', count: stats.awarded, icon: CheckCircle, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+            { label: 'Rejected', count: stats.rejected, icon: AlertCircle, bg: 'bg-rose-50', color: 'text-rose-600' },
+          ].map(stat => (
+            <motion.div key={stat.label} variants={itemVariants}>
+              <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
+                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{stat.count}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
+
+      {/* Tab Navigation */}
+      {!loading && bids.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.15 }}
+        >
+          <Card className="premium-shadow rounded-xl border-0 bg-white">
+            <CardContent className="p-1.5">
+              <div className="flex gap-1 overflow-x-auto">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                      activeTab === tab.key
+                        ? 'gradient-emerald text-white premium-shadow'
+                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                    }`}
+                  >
+                    <tab.icon className="h-3.5 w-3.5" />
+                    <span>{tab.label}</span>
+                    <span className={`text-[10px] px-1.5 py-0 rounded-full ${
+                      activeTab === tab.key
+                        ? 'bg-white/20 text-white'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
               </div>
             </CardContent>
           </Card>
-          <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-teal-50 flex-shrink-0">
-                <Award className="h-4 w-4 text-teal-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{bidStats().shortlisted}</p>
-                <p className="text-xs text-muted-foreground">Shortlisted</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-50 flex-shrink-0">
-                <CheckCircle className="h-4 w-4 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{bidStats().awarded}</p>
-                <p className="text-xs text-muted-foreground">Awarded</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-rose-50 flex-shrink-0">
-                <AlertCircle className="h-4 w-4 text-rose-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{bidStats().rejected}</p>
-                <p className="text-xs text-muted-foreground">Rejected</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        </motion.div>
       )}
 
       {/* Bids List */}
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
-            <Card key={i} className="premium-shadow rounded-xl border-0 bg-white animate-pulse">
+            <Card key={i} className="premium-shadow rounded-xl border-0 bg-white animate-pulse overflow-hidden">
+              <div className="h-1 bg-muted/30" />
               <CardContent className="p-5"><div className="h-20 bg-muted/50 rounded-xl" /></CardContent>
             </Card>
           ))}
         </div>
       ) : bids.length === 0 ? (
-        <Card className="premium-shadow rounded-xl border-0 bg-white">
-          <CardContent className="p-12 text-center">
-            <div className="p-3 rounded-2xl gradient-amber w-fit mx-auto mb-4">
-              <Gavel className="h-8 w-8 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold">No bids found</h3>
-            <p className="text-muted-foreground text-sm mt-1">No bids match your current filters</p>
-            {user?.role === 'contractor' && (
-              <Button
-                className="mt-4 gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
-                onClick={() => setView('tenders')}>
-                <FileSearch className="h-4 w-4 mr-2" /> Browse Tenders
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+          <Card className="premium-shadow rounded-xl border-0 bg-white">
+            <CardContent className="p-16 text-center">
+              <div className="relative w-20 h-20 mx-auto mb-6">
+                <div className="absolute inset-0 rounded-2xl gradient-amber opacity-20" />
+                <div className="absolute inset-2 rounded-xl gradient-amber flex items-center justify-center">
+                  <Gavel className="h-8 w-8 text-white" />
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold">No bids found</h3>
+              <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+                {user?.role === 'contractor'
+                  ? 'Start by browsing open tenders and submitting your proposals'
+                  : 'No bids match your current filters'}
+              </p>
+              {user?.role === 'contractor' && (
+                <Button
+                  className="mt-4 gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+                  onClick={() => setView('tenders')}>
+                  <FileSearch className="h-4 w-4 mr-2" /> Browse Tenders
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : filteredBids.length === 0 ? (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+          <Card className="premium-shadow rounded-xl border-0 bg-white">
+            <CardContent className="p-12 text-center">
+              <div className="p-3 rounded-2xl bg-muted/50 w-fit mx-auto mb-4">
+                <Filter className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold">No {activeTab === 'all' ? '' : activeTab.replace('_', ' ')} bids</h3>
+              <p className="text-muted-foreground text-sm mt-1">Try selecting a different tab</p>
+            </CardContent>
+          </Card>
+        </motion.div>
       ) : (
-        <div className="space-y-4">
-          {bids.map(bid => {
-            const sInfo = statusIcon(bid.status);
-            const SIcon = sInfo.icon;
-            const isExpanded = expandedId === bid.id;
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="space-y-4"
+        >
+          <AnimatePresence mode="popLayout">
+            {filteredBids.map(bid => {
+              const sInfo = statusIcon(bid.status);
+              const SIcon = sInfo.icon;
+              const isExpanded = expandedId === bid.id;
+              const isAdminOrOwner = user?.role === 'admin' || user?.role === 'tender_owner';
 
-            return (
-              <Card key={bid.id}
-                className="premium-shadow rounded-xl border-0 bg-white overflow-hidden hover:-translate-y-0.5 transition-all duration-200">
-                <CardContent className="p-0">
-                  {/* Bid Header Row */}
-                  <div className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
-                    onClick={() => setExpandedId(isExpanded ? null : bid.id)}>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* Status Icon */}
-                        <div className={`p-2.5 rounded-xl flex-shrink-0 ${sInfo.bg}`}>
-                          <SIcon className={`h-5 w-5 ${sInfo.color}`} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate group-hover:text-emerald-700 transition-colors">
-                            {bid.tender?.title || 'Tender'}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {bid.user?.profile?.fullName || 'Contractor'} &middot; {new Date(bid.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                          <DollarSign className="h-3 w-3 mr-1" /> ETB {bid.financialProposal.toLocaleString()}
-                        </Badge>
-                        <Badge className="text-xs border-0 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-50">
-                          <Clock className="h-3 w-3 mr-1" /> {bid.timeline}
-                        </Badge>
-                        <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${statusBadge(bid.status)}`}>
-                          {bid.status.replace('_', ' ')}
-                        </Badge>
-                        <div className="text-muted-foreground ml-1">
-                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+              return (
+                <motion.div
+                  key={bid.id}
+                  variants={itemVariants}
+                  layout
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  whileHover={{ y: -2 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+                    {/* Status accent strip */}
+                    <div className={`h-1 ${
+                      bid.status === 'pending_review' ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
+                      bid.status === 'shortlisted' ? 'bg-gradient-to-r from-teal-400 to-teal-600' :
+                      bid.status === 'awarded' ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
+                      bid.status === 'rejected' ? 'bg-gradient-to-r from-rose-400 to-rose-500' :
+                      'bg-gradient-to-r from-gray-300 to-gray-400'
+                    }`} />
 
-                  {/* Expanded Content */}
-                  {isExpanded && (
-                    <div className="px-5 pb-5 pt-3 border-t border-border/40 space-y-4">
-                      {/* Technical Proposal */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="p-1.5 rounded-lg bg-emerald-50">
-                            <Briefcase className="h-3.5 w-3.5 text-emerald-600" />
-                          </div>
-                          <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Technical Proposal</p>
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-xl p-4 leading-relaxed">{bid.technicalProposal}</p>
-                      </div>
-
-                      {/* Rejection Note */}
-                      {bid.rejectionNote && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-rose-50">
-                              <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+                    <CardContent className="p-0">
+                      {/* Bid Header Row */}
+                      <div className="p-4 cursor-pointer hover:bg-muted/20 transition-colors"
+                        onClick={() => setExpandedId(isExpanded ? null : bid.id)}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {/* Status Icon */}
+                            <div className={`p-2.5 rounded-xl flex-shrink-0 ${sInfo.bg}`}>
+                              <SIcon className={`h-5 w-5 ${sInfo.color}`} />
                             </div>
-                            <p className="text-xs font-semibold text-rose-700 uppercase tracking-wide">Rejection Note</p>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm truncate hover:text-emerald-700 transition-colors">
+                                {bid.tender?.title || 'Tender'}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {isAdminOrOwner
+                                  ? (bid.user?.profile?.fullName || bid.user?.email || 'Contractor')
+                                  : (bid.user?.profile?.fullName || 'Contractor')
+                                } &middot; {new Date(bid.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-sm text-rose-600 bg-rose-50 rounded-xl p-4">{bid.rejectionNote}</p>
+                          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                            {/* Financial badge */}
+                            <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+                              <DollarSign className="h-3 w-3 mr-1" /> ETB {bid.financialProposal.toLocaleString()}
+                            </Badge>
+                            {/* Timeline badge */}
+                            <Badge className="text-xs border-0 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-50">
+                              <Clock className="h-3 w-3 mr-1" /> {bid.timeline}
+                            </Badge>
+                            {/* Status badge */}
+                            <div className="flex items-center gap-1">
+                              <CircleDot className={`h-2 w-2 ${
+                                bid.status === 'awarded' ? 'text-emerald-500' :
+                                bid.status === 'rejected' ? 'text-rose-500' :
+                                bid.status === 'shortlisted' ? 'text-teal-500' :
+                                'text-amber-500'
+                              }`} />
+                              <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${statusBadge(bid.status)}`}>
+                                {bid.status.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                            <div className="text-muted-foreground ml-1">
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </div>
+                          </div>
                         </div>
-                      )}
+                      </div>
 
-                      {/* Admin Actions */}
-                      {user?.role === 'admin' && (
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          {bid.status === 'pending_review' && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="gradient-teal text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
-                                onClick={() => handleStatusUpdate(bid.id, 'shortlisted')}>
-                                <Award className="h-3.5 w-3.5 mr-1.5" /> Shortlist
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
-                                onClick={() => handleStatusUpdate(bid.id, 'rejected')}>
-                                <X className="h-3.5 w-3.5 mr-1.5" /> Reject
-                              </Button>
-                            </>
-                          )}
-                          {bid.status === 'shortlisted' && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
-                                onClick={() => handleStatusUpdate(bid.id, 'awarded')}>
-                                <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Award Bid
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
-                                onClick={() => handleStatusUpdate(bid.id, 'rejected')}>
-                                <X className="h-3.5 w-3.5 mr-1.5" /> Reject
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                      {/* Expanded Content */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-5 pb-5 pt-3 border-t border-border/40 space-y-4">
+                              {/* Technical Proposal */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="p-1.5 rounded-lg gradient-emerald">
+                                    <Briefcase className="h-3.5 w-3.5 text-white" />
+                                  </div>
+                                  <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Technical Proposal</p>
+                                </div>
+                                <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-xl p-4 leading-relaxed">{bid.technicalProposal}</p>
+                              </div>
+
+                              {/* Rejection Note */}
+                              {bid.rejectionNote && (
+                                <div>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="p-1.5 rounded-lg bg-rose-50">
+                                      <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+                                    </div>
+                                    <p className="text-xs font-semibold text-rose-700 uppercase tracking-wide">Rejection Note</p>
+                                  </div>
+                                  <p className="text-sm text-rose-600 bg-rose-50 rounded-xl p-4">{bid.rejectionNote}</p>
+                                </div>
+                              )}
+
+                              {/* Quick Actions */}
+                              <div className="flex flex-wrap gap-2 pt-2 border-t border-border/30">
+                                {/* Admin/Tender Owner actions */}
+                                {isAdminOrOwner && bid.status === 'pending_review' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      className="gradient-teal text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
+                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'shortlisted'); }}>
+                                      <Award className="h-3.5 w-3.5 mr-1.5" /> Shortlist
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
+                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'rejected'); }}>
+                                      <X className="h-3.5 w-3.5 mr-1.5" /> Reject
+                                    </Button>
+                                  </>
+                                )}
+                                {isAdminOrOwner && bid.status === 'shortlisted' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
+                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'awarded'); }}>
+                                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Award Bid
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
+                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'rejected'); }}>
+                                      <X className="h-3.5 w-3.5 mr-1.5" /> Reject
+                                    </Button>
+                                  </>
+                                )}
+
+                                {/* View Tender link */}
+                                {bid.tender && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="rounded-xl text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all"
+                                    onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: bid.tender!.id }); }}>
+                                    <Eye className="h-3.5 w-3.5 mr-1.5" /> View Tender
+                                  </Button>
+                                )}
+
+                                {/* Contractor: Withdraw action for pending bids */}
+                                {user?.role === 'contractor' && bid.status === 'pending_review' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-xl text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all"
+                                    onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'rejected'); }}>
+                                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Withdraw
+                                  </Button>
+                                )}
+
+                                {/* Status tracking for contractor */}
+                                {user?.role === 'contractor' && (
+                                  <div className="flex items-center gap-2 ml-auto">
+                                    <div className="flex items-center gap-1.5">
+                                      {['pending_review', 'shortlisted', 'awarded'].map((step, idx) => {
+                                        const stepOrder = ['pending_review', 'shortlisted', 'awarded'].indexOf(bid.status);
+                                        const isActive = stepOrder >= idx;
+                                        const isCurrent = bid.status === step;
+                                        return (
+                                          <div key={step} className="flex items-center gap-1.5">
+                                            <div className={`h-2 w-2 rounded-full transition-all ${
+                                              isActive ? (isCurrent ? 'bg-emerald-500 scale-125' : 'bg-emerald-300') : 'bg-muted'
+                                            }`} />
+                                            <span className={`text-[10px] ${isCurrent ? 'text-emerald-700 font-semibold' : 'text-muted-foreground'}`}>
+                                              {step === 'pending_review' ? 'Submitted' : step.charAt(0).toUpperCase() + step.slice(1)}
+                                            </span>
+                                            {idx < 2 && <ArrowRight className="h-2.5 w-2.5 text-muted-foreground/50" />}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </motion.div>
       )}
     </div>
   );
