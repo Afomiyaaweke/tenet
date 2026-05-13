@@ -168,13 +168,12 @@ export function TendersView() {
             <p className="text-muted-foreground text-sm mt-0.5">Find and explore tender opportunities</p>
           </div>
         </div>
-        {(user?.role === 'admin' || user?.role === 'tender_owner') && (
-          <Dialog open={showCreate} onOpenChange={setShowCreate}>
-            <DialogTrigger asChild>
-              <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
-                <Plus className="h-4 w-4 mr-2" /> Create Tender
-              </Button>
-            </DialogTrigger>
+        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+          <DialogTrigger asChild>
+            <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
+              <Plus className="h-4 w-4 mr-2" /> Create Tender
+            </Button>
+          </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold">
@@ -244,7 +243,6 @@ export function TendersView() {
               </div>
             </DialogContent>
           </Dialog>
-        )}
       </motion.div>
 
       {/* Search / Filter Bar */}

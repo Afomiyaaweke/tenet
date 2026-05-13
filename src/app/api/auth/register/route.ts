@@ -9,11 +9,9 @@ export async function POST(request: NextRequest) {
     const {
       email,
       password,
-      role,
       fullName,
       phone,
       location,
-      type,
       companyName,
       tinNumber,
       licenseNumber,
@@ -21,35 +19,18 @@ export async function POST(request: NextRequest) {
       bio,
     } = body;
 
-    // Validate required fields
-    if (!email || !password || !role || !fullName || !phone || !location) {
+    // Validate required fields (no role/type needed - defaults applied)
+    if (!email || !password || !fullName || !phone || !location) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: email, password, role, fullName, phone, location' },
+        { success: false, error: 'Missing required fields: email, password, fullName, phone, location' },
         { status: 400 }
       );
     }
 
-    // Validate role - prevent self-registration as admin
-    const validRoles = ['admin', 'contractor', 'tender_owner'];
-    if (!validRoles.includes(role)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid role. Must be admin, contractor, or tender_owner' },
-        { status: 400 }
-      );
-    }
-
-    // Silently downgrade admin role to contractor to prevent unauthorized admin creation
-    const assignedRole = role === 'admin' ? 'contractor' : role;
-
-    // Validate type
-    const profileType = type || 'individual';
-    const validTypes = ['individual', 'company'];
-    if (!validTypes.includes(profileType)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid type. Must be individual or company' },
-        { status: 400 }
-      );
-    }
+    // Default role to 'contractor' for all new users
+    const assignedRole = 'contractor';
+    // Default profile type to 'individual'
+    const profileType = 'individual';
 
     // Check if user already exists
     const existingUser = await db.user.findUnique({ where: { email } });

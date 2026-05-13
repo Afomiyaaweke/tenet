@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth, requireAdmin } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 
 /**
  * POST /api/tenders
- * Admin only: Create a tender
+ * Any authenticated user can create a tender
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user, error } = await requireAdmin(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
 
     const body = await request.json();

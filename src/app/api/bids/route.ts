@@ -4,28 +4,12 @@ import { requireAuth } from '@/lib/auth';
 
 /**
  * POST /api/bids
- * Contractor only (must be verified): Submit a bid
+ * Any authenticated user can submit a bid
  */
 export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
-
-    // Only contractors can submit bids
-    if (user!.role !== 'contractor') {
-      return NextResponse.json(
-        { success: false, error: 'Only contractors can submit bids' },
-        { status: 403 }
-      );
-    }
-
-    // Must be verified
-    if (!user!.profile?.verified) {
-      return NextResponse.json(
-        { success: false, error: 'Your profile must be verified to submit bids' },
-        { status: 403 }
-      );
-    }
 
     const body = await request.json();
     const { tenderId, technicalProposal, financialProposal, timeline, attachments } = body;
@@ -61,7 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check contractor hasn't already bid
+    // Check user hasn't already bid on this tender
     const existingBid = await db.bid.findFirst({
       where: { tenderId, userId: user!.id },
     });
@@ -98,9 +82,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/bids
- * Admin: all bids with filter by tenderId, status
- * Contractor: own bids only
- * Tender Owner: all bids for tenders they created
+ * Show user's own bids + bids on tenders they created
  * Include tender title in response
  */
 export async function GET(request: NextRequest) {
@@ -117,14 +99,11 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
-    if (user!.role === 'contractor') {
-      // Contractors only see their own bids
-      where.userId = user!.id;
-    } else if (user!.role === 'tender_owner') {
-      // Tender owners see all bids for tenders they created
-      where.tender = { createdBy: user!.id };
-    }
-    // Admin sees all bids (no filter)
+    // Show user's own bids OR bids on tenders they created
+    where.OR = [
+      { userId: user!.id },
+      { tender: { createdBy: user!.id } },
+    ];
 
     if (tenderId) {
       where.tenderId = tenderId;

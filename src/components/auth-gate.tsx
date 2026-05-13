@@ -5,7 +5,6 @@ import { useAuthStore } from '@/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import {
@@ -16,7 +15,6 @@ import {
   Loader2,
   Eye,
   EyeOff,
-  Building2,
   User,
   Briefcase,
   MapPin,
@@ -82,9 +80,8 @@ export function AuthGate() {
   const { login, register } = useAuthStore();
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [regData, setRegData] = useState({
-    email: '', password: '', role: 'contractor', fullName: '', phone: '',
-    location: '', type: 'individual', companyName: '', tinNumber: '',
-    licenseNumber: '', skillTags: '', bio: '',
+    email: '', password: '', fullName: '', phone: '',
+    location: '', skillTags: '', bio: '',
   });
   const [loading, setLoading] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -342,55 +339,11 @@ export function AuthGate() {
                   </div>
 
                   <form onSubmit={handleRegister} className="space-y-6">
-                    {/* ── Section 1: Account Type ── */}
+                    {/* ── Section 1: Personal Info ── */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
                           <span className="text-white text-[10px] font-bold">1</span>
-                        </div>
-                        <h3 className="text-sm font-semibold text-gray-800">Account Type</h3>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-gray-500">Role</Label>
-                          <Select value={regData.role} onValueChange={v => setRegData(d => ({ ...d, role: v }))}>
-                            <SelectTrigger className="h-10 bg-gray-50/80 border-gray-200 focus:ring-emerald-400/20 text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="contractor">
-                                <span className="flex items-center gap-2"><Briefcase className="w-3.5 h-3.5" /> Contractor</span>
-                              </SelectItem>
-                              <SelectItem value="tender_owner">
-                                <span className="flex items-center gap-2"><Building2 className="w-3.5 h-3.5" /> Tender Owner</span>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-gray-500">Profile</Label>
-                          <Select value={regData.type} onValueChange={v => setRegData(d => ({ ...d, type: v }))}>
-                            <SelectTrigger className="h-10 bg-gray-50/80 border-gray-200 focus:ring-emerald-400/20 text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="individual">
-                                <span className="flex items-center gap-2"><User className="w-3.5 h-3.5" /> Individual</span>
-                              </SelectItem>
-                              <SelectItem value="company">
-                                <span className="flex items-center gap-2"><Building2 className="w-3.5 h-3.5" /> Company</span>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ── Section 2: Personal Info ── */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
-                          <span className="text-white text-[10px] font-bold">2</span>
                         </div>
                         <h3 className="text-sm font-semibold text-gray-800">Personal Information</h3>
                       </div>
@@ -475,71 +428,44 @@ export function AuthGate() {
                       </div>
                     </div>
 
-                    {/* ── Section 3: Professional Details ── */}
+                    {/* ── Section 2: Professional Details (Optional) ── */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
-                          <span className="text-white text-[10px] font-bold">3</span>
+                          <span className="text-white text-[10px] font-bold">2</span>
                         </div>
-                        <h3 className="text-sm font-semibold text-gray-800">Professional Details</h3>
+                        <h3 className="text-sm font-semibold text-gray-800">Professional Details <span className="text-gray-400 font-normal">(optional)</span></h3>
                       </div>
                       <div className="space-y-3">
-                        {regData.type === 'company' && (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-                                <Building2 className="w-3 h-3" /> Company Name *
-                              </Label>
-                              <Input
-                                placeholder="Your company name"
-                                value={regData.companyName}
-                                onChange={e => setRegData(d => ({ ...d, companyName: e.target.value }))}
-                                className="h-10 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 text-sm"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-medium text-gray-500">TIN Number</Label>
-                              <Input
-                                placeholder="Tax ID"
-                                value={regData.tinNumber}
-                                onChange={e => setRegData(d => ({ ...d, tinNumber: e.target.value }))}
-                                className="h-10 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 text-sm"
-                              />
-                            </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                            <Briefcase className="w-3 h-3" /> Skill Tags
+                            {selectedSkills.length > 0 && (
+                              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                                {selectedSkills.length}
+                              </span>
+                            )}
+                          </Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {SKILL_OPTIONS.map(skill => {
+                              const isSelected = selectedSkills.includes(skill);
+                              return (
+                                <button
+                                  key={skill}
+                                  type="button"
+                                  onClick={() => toggleSkill(skill)}
+                                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
+                                    isSelected
+                                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-500/20 scale-105'
+                                      : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50/50'
+                                  }`}
+                                >
+                                  {skill}
+                                </button>
+                              );
+                            })}
                           </div>
-                        )}
-
-                        {regData.role === 'contractor' && (
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-                              <Briefcase className="w-3 h-3" /> Skill Tags
-                              {selectedSkills.length > 0 && (
-                                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
-                                  {selectedSkills.length}
-                                </span>
-                              )}
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5">
-                              {SKILL_OPTIONS.map(skill => {
-                                const isSelected = selectedSkills.includes(skill);
-                                return (
-                                  <button
-                                    key={skill}
-                                    type="button"
-                                    onClick={() => toggleSkill(skill)}
-                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
-                                      isSelected
-                                        ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-500/20 scale-105'
-                                        : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50/50'
-                                    }`}
-                                  >
-                                    {skill}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
+                        </div>
 
                         <div className="space-y-1.5">
                           <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">

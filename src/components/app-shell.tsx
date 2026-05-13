@@ -24,7 +24,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
-  GraduationCap, User, FileText, Shield, Bot, Menu, LogOut, Bell,
+  GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Sparkles, Verified, Zap,
 } from 'lucide-react';
@@ -63,82 +63,32 @@ interface NavSection {
   items: NavItem[];
 }
 
-const NAV_ITEMS: Record<string, NavSection[]> = {
-  contractor: [
-    {
-      label: 'MAIN',
-      items: [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'tenders', label: 'Discover Tenders', icon: FileSearch },
-        { id: 'bids', label: 'My Bids', icon: Gavel },
-      ],
-    },
-    {
-      label: 'MANAGE',
-      items: [
-        { id: 'projects', label: 'Projects', icon: FolderKanban },
-        { id: 'chat', label: 'Messages', icon: MessageSquare },
-        { id: 'events', label: 'Workshops', icon: GraduationCap },
-      ],
-    },
-    {
-      label: 'TOOLS',
-      items: [
-        { id: 'profile', label: 'My Profile', icon: User },
-        { id: 'documents', label: 'Document Vault', icon: FileText },
-        { id: 'agent', label: 'AI Assistant', icon: Bot },
-      ],
-    },
-  ],
-  admin: [
-    {
-      label: 'MAIN',
-      items: [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'tenders', label: 'Manage Tenders', icon: FileSearch },
-        { id: 'bids', label: 'Review Bids', icon: Gavel },
-      ],
-    },
-    {
-      label: 'MANAGE',
-      items: [
-        { id: 'projects', label: 'Projects', icon: FolderKanban },
-        { id: 'chat', label: 'Messages', icon: MessageSquare },
-        { id: 'events', label: 'Workshops', icon: GraduationCap },
-        { id: 'admin', label: 'Admin Panel', icon: Shield },
-      ],
-    },
-    {
-      label: 'TOOLS',
-      items: [
-        { id: 'agent', label: 'AI Assistant', icon: Bot },
-      ],
-    },
-  ],
-  tender_owner: [
-    {
-      label: 'MAIN',
-      items: [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'tenders', label: 'My Tenders', icon: FileSearch },
-        { id: 'bids', label: 'Review Bids', icon: Gavel },
-      ],
-    },
-    {
-      label: 'MANAGE',
-      items: [
-        { id: 'projects', label: 'Projects', icon: FolderKanban },
-        { id: 'chat', label: 'Messages', icon: MessageSquare },
-      ],
-    },
-    {
-      label: 'TOOLS',
-      items: [
-        { id: 'agent', label: 'AI Assistant', icon: Bot },
-      ],
-    },
-  ],
-};
+const NAV_ITEMS: NavSection[] = [
+  {
+    label: 'MAIN',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'tenders', label: 'Tenders', icon: FileSearch },
+      { id: 'bids', label: 'Bids', icon: Gavel },
+    ],
+  },
+  {
+    label: 'MANAGE',
+    items: [
+      { id: 'projects', label: 'Projects', icon: FolderKanban },
+      { id: 'chat', label: 'Messages', icon: MessageSquare },
+      { id: 'events', label: 'Workshops', icon: GraduationCap },
+    ],
+  },
+  {
+    label: 'TOOLS',
+    items: [
+      { id: 'profile', label: 'Profile', icon: User },
+      { id: 'documents', label: 'Documents', icon: FileText },
+      { id: 'agent', label: 'AI Doc Studio', icon: Bot },
+    ],
+  },
+];
 
 type View = 'dashboard' | 'tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
 
@@ -452,7 +402,7 @@ export function AppShell() {
   const { view, viewParams, setView } = useNavStore();
   const { fetchNotifications, notifications } = useDataStore();
   const role = user?.role || 'contractor';
-  const navSections = NAV_ITEMS[role] || NAV_ITEMS.contractor;
+  const navSections = NAV_ITEMS;
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Flat list for title lookup
