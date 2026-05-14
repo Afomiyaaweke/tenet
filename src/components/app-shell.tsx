@@ -140,7 +140,7 @@ function SidebarContent({
       {/* ── Logo ── */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <img src="/logo.jpg" alt="Tenet" className="w-10 h-10 rounded-xl object-cover flex-shrink-0 shadow-md shadow-emerald-200" />
+          <img src="/logo.png" alt="Tenet" className="w-10 h-10 rounded-xl object-cover flex-shrink-0 shadow-md shadow-emerald-200" />
           <div className="min-w-0">
             <h2 className="font-bold text-base tracking-tight text-foreground">Tenet</h2>
             <p className="text-[11px] text-muted-foreground font-medium">Tender Ecosystem</p>
