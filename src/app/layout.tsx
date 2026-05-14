@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Afomiya - Tender Ecosystem",
+  title: "TenderFlow - Tender Ecosystem",
   description: "Transforming procurement through technology. Connect with verified contractors, discover tenders, and manage projects — all in one platform.",
-  keywords: ["Afomiya", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
+  keywords: ["TenderFlow", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
   icons: {
     icon: "/logo.svg",
   },

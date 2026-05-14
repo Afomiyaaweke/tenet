@@ -402,7 +402,7 @@ export function TenderAnalyzerView() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const token = localStorage.getItem('afomiya_token');
+      const token = localStorage.getItem('tenderflow_token');
       const params = new URLSearchParams();
       if (user?.role === 'tender_owner') params.set('ownerOnly', 'true');
       const res = await fetch(`/api/tenders/export?${params.toString()}`, {
@@ -413,7 +413,7 @@ export function TenderAnalyzerView() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `afomiya-tenders-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `tenderflow-tenders-${new Date().toISOString().slice(0, 10)}.xlsx`;
         a.click();
         window.URL.revokeObjectURL(url);
         toast.success('Excel report downloaded successfully!');

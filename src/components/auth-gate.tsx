@@ -12,6 +12,7 @@ import {
   BrainCircuit,
   Lock,
   ArrowRight,
+  ArrowLeft,
   Loader2,
   Eye,
   EyeOff,
@@ -76,7 +77,7 @@ function FeatureHighlight({ icon, title, delay }: { icon: React.ReactNode; title
 }
 
 /* ───────────────────────── Main Component ───────────────────────── */
-export function AuthGate() {
+export function AuthGate({ onBack }: { onBack?: () => void }) {
   const { login, register } = useAuthStore();
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [regData, setRegData] = useState({
@@ -111,7 +112,7 @@ export function AuthGate() {
     };
     const ok = await register(data);
     if (!ok) toast.error('Registration failed. Email may already exist.');
-    else toast.success('Welcome to Afomiya!');
+    else toast.success('Welcome to TenderFlow!');
     setLoading(false);
   };
 
@@ -128,10 +129,10 @@ export function AuthGate() {
             {/* Logo */}
             <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
               <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/10">
-                <span className="text-white font-extrabold text-xl tracking-tight">A</span>
+                <span className="text-white font-extrabold text-xl tracking-tight">T</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Afomiya</h1>
+                <h1 className="text-2xl font-bold text-white tracking-tight">TenderFlow</h1>
                 <p className="text-emerald-200/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
               </div>
             </div>
@@ -202,10 +203,10 @@ export function AuthGate() {
             <div className="h-1.5 gradient-emerald" />
             <div className="px-6 pt-6 pb-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <span className="text-white font-extrabold text-lg">A</span>
+                <span className="text-white font-extrabold text-lg">T</span>
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900 tracking-tight">Afomiya</h1>
+                <h1 className="text-lg font-bold text-gray-900 tracking-tight">TenderFlow</h1>
                 <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Tender Ecosystem</p>
               </div>
             </div>
@@ -216,6 +217,18 @@ export function AuthGate() {
             <div
               className="w-full max-w-md mx-auto animate-[viewEnter_0.5s_ease-out]"
             >
+              {/* Back button */}
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-6 group"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                  Back to home
+                </button>
+              )}
+
               {/* Tab switcher */}
               <div className="mb-8">
                 <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
@@ -322,7 +335,7 @@ export function AuthGate() {
                       <div className="text-sm">
                         <p className="font-semibold text-emerald-800 mb-1">Demo Credentials</p>
                         <p className="text-emerald-700/70 font-mono text-xs leading-relaxed">
-                          admin@afomiya.com / Admin@123
+                          admin@tenderflow.com / Admin@123
                         </p>
                       </div>
                     </div>
@@ -335,7 +348,7 @@ export function AuthGate() {
                 <div className="animate-[viewEnter_0.3s_ease-out]">
                   <div className="mb-6">
                     <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
-                    <p className="text-gray-500 text-sm mt-1">Join the Afomiya Tender Ecosystem</p>
+                    <p className="text-gray-500 text-sm mt-1">Join the TenderFlow Tender Ecosystem</p>
                   </div>
 
                   <form onSubmit={handleRegister} className="space-y-6">
@@ -508,7 +521,7 @@ export function AuthGate() {
           {/* Footer inside right panel on desktop, or below on mobile */}
           <footer className="px-6 py-4 text-center border-t border-gray-100 lg:border-t lg:py-5">
             <p className="text-xs text-gray-400">
-              © 2025 Afomiya · Transforming Procurement Through Technology
+              © 2025 TenderFlow · Transforming Procurement Through Technology
             </p>
           </footer>
         </div>
