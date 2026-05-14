@@ -112,7 +112,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     };
     const ok = await register(data);
     if (!ok) toast.error('Registration failed. Email may already exist.');
-    else toast.success('Welcome to TenderFlow!');
+    else toast.success('Welcome to Tenet!');
     setLoading(false);
   };
 
@@ -128,11 +128,9 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
-              <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/10">
-                <span className="text-white font-extrabold text-xl tracking-tight">T</span>
-              </div>
+              <img src="/logo.jpg" alt="Tenet" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
               <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">TenderFlow</h1>
+                <h1 className="text-2xl font-bold text-white tracking-tight">Tenet</h1>
                 <p className="text-emerald-200/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
               </div>
             </div>
@@ -202,11 +200,9 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           <div className="lg:hidden">
             <div className="h-1.5 gradient-emerald" />
             <div className="px-6 pt-6 pb-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <span className="text-white font-extrabold text-lg">T</span>
-              </div>
+              <img src="/logo.jpg" alt="Tenet" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
               <div>
-                <h1 className="text-lg font-bold text-gray-900 tracking-tight">TenderFlow</h1>
+                <h1 className="text-lg font-bold text-gray-900 tracking-tight">Tenet</h1>
                 <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Tender Ecosystem</p>
               </div>
             </div>
@@ -335,7 +331,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       <div className="text-sm">
                         <p className="font-semibold text-emerald-800 mb-1">Demo Credentials</p>
                         <p className="text-emerald-700/70 font-mono text-xs leading-relaxed">
-                          admin@tenderflow.com / Admin@123
+                          admin@tenet.com / Admin@123
                         </p>
                       </div>
                     </div>
@@ -348,7 +344,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                 <div className="animate-[viewEnter_0.3s_ease-out]">
                   <div className="mb-6">
                     <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
-                    <p className="text-gray-500 text-sm mt-1">Join the TenderFlow Tender Ecosystem</p>
+                    <p className="text-gray-500 text-sm mt-1">Join the Tenet Tender Ecosystem</p>
                   </div>
 
                   <form onSubmit={handleRegister} className="space-y-6">
@@ -521,7 +517,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           {/* Footer inside right panel on desktop, or below on mobile */}
           <footer className="px-6 py-4 text-center border-t border-gray-100 lg:border-t lg:py-5">
             <p className="text-xs text-gray-400">
-              © 2025 TenderFlow · Transforming Procurement Through Technology
+              © 2025 Tenet · Transforming Procurement Through Technology
             </p>
           </footer>
         </div>

@@ -171,10 +171,8 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl gradient-emerald flex items-center justify-center shadow-md shadow-emerald-200/50">
-                <span className="text-white font-extrabold text-base">T</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900 tracking-tight">TenderFlow</span>
+              <img src="/logo.jpg" alt="Tenet" className="w-9 h-9 rounded-xl object-cover shadow-md" />
+              <span className="text-xl font-bold text-gray-900 tracking-tight">Tenet</span>
             </div>
 
             {/* Nav Links (desktop) */}
@@ -295,7 +293,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Everything You Need to Win Tenders
             </h2>
             <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-              From discovery to award, TenderFlow streamlines every step of your procurement journey with AI-powered tools.
+              From discovery to award, Tenet streamlines every step of your procurement journey with AI-powered tools.
             </p>
           </div>
 
@@ -383,7 +381,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Trusted by Industry Leaders
             </h2>
             <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-              See how organizations are transforming their procurement process with TenderFlow.
+              See how organizations are transforming their procurement process with Tenet.
             </p>
           </div>
 
@@ -391,7 +389,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <TestimonialCard
               name="Abel Tadesse"
               role="Construction Contractor"
-              quote="TenderFlow's AI document studio saved me hours of work. I just input the details and it generates professional proposals instantly."
+              quote="Tenet's AI document studio saved me hours of work. I just input the details and it generates professional proposals instantly."
               delay="0s"
             />
             <TestimonialCard
@@ -422,7 +420,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Ready to Transform Your Tender Workflow?
             </h2>
             <p className="text-emerald-100/80 text-lg mb-10 max-w-xl mx-auto">
-              Join hundreds of organizations already using TenderFlow to discover, prepare, and win tenders with AI-powered tools.
+              Join hundreds of organizations already using Tenet to discover, prepare, and win tenders with AI-powered tools.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
@@ -454,10 +452,8 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             {/* Brand */}
             <div className="sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-9 h-9 rounded-xl gradient-emerald flex items-center justify-center shadow-md">
-                  <span className="text-white font-extrabold text-base">T</span>
-                </div>
-                <span className="text-xl font-bold tracking-tight">TenderFlow</span>
+                <img src="/logo.jpg" alt="Tenet" className="w-9 h-9 rounded-xl object-cover shadow-md" />
+                <span className="text-xl font-bold tracking-tight">Tenet</span>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
                 Transforming procurement through intelligent technology. Connect, prepare, and win with AI.
@@ -502,7 +498,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
 
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-500">&copy; 2025 TenderFlow &middot; Transforming Procurement Through Technology</p>
+            <p className="text-xs text-gray-500">&copy; 2025 Tenet &middot; Transforming Procurement Through Technology</p>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Users className="w-4 h-4" />

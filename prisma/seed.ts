@@ -34,7 +34,7 @@ async function main() {
 
   const admin = await db.user.create({
     data: {
-      email: 'admin@tenderflow.com',
+      email: 'admin@tenet.com',
       passwordHash: adminHash,
       role: 'admin',
       status: 'active',
@@ -96,8 +96,8 @@ async function main() {
       fullName: 'Ato Dereje Bekele',
       phone: '+251911000001',
       location: 'Addis Ababa',
-      address: 'Bole Road, TenderFlow HQ',
-      bio: 'Platform administrator overseeing the TenderFlow Tender Ecosystem.',
+      address: 'Bole Road, Tenet HQ',
+      bio: 'Platform administrator overseeing the Tenet Tender Ecosystem.',
       verified: true,
     },
   })

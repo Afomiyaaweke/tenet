@@ -1,11 +1,11 @@
-// API client for the TenderFlow Tender Ecosystem
+// API client for the Tenet Tender Ecosystem
 
 const API_BASE = '/api';
 
 class ApiClient {
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('tenderflow_token');
+    return localStorage.getItem('tenet_token');
   }
 
   private headers(): HeadersInit {

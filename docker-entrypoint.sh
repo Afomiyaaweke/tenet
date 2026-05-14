@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting TenderFlow Tender Ecosystem..."
+echo "🚀 Starting Tenet Tender Ecosystem..."
 
 # Check if database exists, if not initialize it
 if [ ! -f ./db/custom.db ]; then
