@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="tenderflow-tenders-export-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+        'Content-Disposition': `attachment; filename="tenet-tenders-export-${new Date().toISOString().slice(0, 10)}.xlsx"`,
       },
     });
   } catch (err) {

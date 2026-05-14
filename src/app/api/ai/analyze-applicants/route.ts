@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 
-const SYSTEM_PROMPT = `You are the TenderFlow Tender Ecosystem AI Applicant Analyzer. You analyze bids submitted on a tender and rank the applicants.
+const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Applicant Analyzer. You analyze bids submitted on a tender and rank the applicants.
 
 ## Your Task
 Analyze the bids on a given tender and provide a comprehensive ranking and analysis.

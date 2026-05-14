@@ -1,5 +1,5 @@
 #!/bin/bash
-# TenderFlow Tender Ecosystem - Service Starter
+# Tenet Tender Ecosystem - Service Starter
 # Starts both the Next.js dev server and Chat WebSocket service
 
 # Kill any existing processes
@@ -22,7 +22,7 @@ NEXT_PID=$!
 sleep 5
 
 echo "======================================"
-echo "TenderFlow Tender Ecosystem"
+echo "Tenet Tender Ecosystem"
 echo "======================================"
 echo "Chat service PID: $CHAT_PID (port 3003)"
 echo "Next.js PID: $NEXT_PID (port 3000)"

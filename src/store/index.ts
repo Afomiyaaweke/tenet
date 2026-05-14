@@ -16,13 +16,13 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: typeof window !== 'undefined' ? localStorage.getItem('tenderflow_token') : null,
+  token: typeof window !== 'undefined' ? localStorage.getItem('tenet_token') : null,
   isLoading: true,
 
   login: async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     if (res.success) {
-      localStorage.setItem('tenderflow_token', res.data.token);
+      localStorage.setItem('tenet_token', res.data.token);
       set({ user: res.data.user, token: res.data.token });
       return true;
     }
@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (data) => {
     const res = await api.post('/auth/register', data);
     if (res.success) {
-      localStorage.setItem('tenderflow_token', res.data.token);
+      localStorage.setItem('tenet_token', res.data.token);
       set({ user: res.data.user, token: res.data.token });
       return true;
     }
@@ -40,7 +40,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem('tenderflow_token');
+    localStorage.removeItem('tenet_token');
     set({ user: null, token: null });
   },
 
@@ -49,7 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (res.success) {
       set({ user: res.data, isLoading: false });
     } else {
-      localStorage.removeItem('tenderflow_token');
+      localStorage.removeItem('tenet_token');
       set({ user: null, token: null, isLoading: false });
     }
   },
