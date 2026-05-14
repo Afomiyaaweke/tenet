@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   description: "Transforming procurement through technology. Connect with verified contractors, discover tenders, and manage projects — all in one platform.",
   keywords: ["Tenet", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
   icons: {
-    icon: "/logo.jpg",
+    icon: "/logo.png",
   },
 };
 

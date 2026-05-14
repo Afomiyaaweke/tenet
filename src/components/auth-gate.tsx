@@ -128,7 +128,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
-              <img src="/logo.jpg" alt="Tenet" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
+              <img src="/logo.png" alt="Tenet" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
               <div>
                 <h1 className="text-2xl font-bold text-white tracking-tight">Tenet</h1>
                 <p className="text-emerald-200/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
@@ -200,7 +200,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           <div className="lg:hidden">
             <div className="h-1.5 gradient-emerald" />
             <div className="px-6 pt-6 pb-4 flex items-center gap-3">
-              <img src="/logo.jpg" alt="Tenet" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
+              <img src="/logo.png" alt="Tenet" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
               <div>
                 <h1 className="text-lg font-bold text-gray-900 tracking-tight">Tenet</h1>
                 <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Tender Ecosystem</p>

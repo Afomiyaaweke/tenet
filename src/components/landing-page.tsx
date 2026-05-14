@@ -171,7 +171,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center gap-2.5">
-              <img src="/logo.jpg" alt="Tenet" className="w-9 h-9 rounded-xl object-cover shadow-md" />
+              <img src="/logo.png" alt="Tenet" className="w-9 h-9 rounded-xl object-cover shadow-md" />
               <span className="text-xl font-bold text-gray-900 tracking-tight">Tenet</span>
             </div>
 
@@ -452,7 +452,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             {/* Brand */}
             <div className="sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
-                <img src="/logo.jpg" alt="Tenet" className="w-9 h-9 rounded-xl object-cover shadow-md" />
+                <img src="/logo.png" alt="Tenet" className="w-9 h-9 rounded-xl object-cover shadow-md" />
                 <span className="text-xl font-bold tracking-tight">Tenet</span>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
