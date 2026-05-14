@@ -141,10 +141,10 @@ function SidebarContent({
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-200">
-            <span className="text-white font-extrabold text-lg tracking-tight">A</span>
+            <span className="text-white font-extrabold text-lg tracking-tight">T</span>
           </div>
           <div className="min-w-0">
-            <h2 className="font-bold text-base tracking-tight text-foreground">Afomiya</h2>
+            <h2 className="font-bold text-base tracking-tight text-foreground">TenderFlow</h2>
             <p className="text-[11px] text-muted-foreground font-medium">Tender Ecosystem</p>
           </div>
         </div>

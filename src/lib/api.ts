@@ -1,11 +1,11 @@
-// API client for the Afomiya Tender Ecosystem
+// API client for the TenderFlow Tender Ecosystem
 
 const API_BASE = '/api';
 
 class ApiClient {
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('afomiya_token');
+    return localStorage.getItem('tenderflow_token');
   }
 
   private headers(): HeadersInit {

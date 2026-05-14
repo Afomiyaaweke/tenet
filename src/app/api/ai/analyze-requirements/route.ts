@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 
-const SYSTEM_PROMPT = `You are the Afomiya Tender Ecosystem AI Requirement Analyzer. You analyze tender requirements and provide comprehensive insights for bidders.
+const SYSTEM_PROMPT = `You are the TenderFlow Tender Ecosystem AI Requirement Analyzer. You analyze tender requirements and provide comprehensive insights for bidders.
 
 ## Your Task
 Analyze the given tender requirements and provide a comprehensive analysis.
