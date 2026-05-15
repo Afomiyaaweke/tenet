@@ -208,7 +208,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
   return (
     <div className="h-[calc(100vh-3.5rem)] flex max-w-5xl mx-auto view-enter">
       {/* ── Premium Chat List Sidebar ── */}
-      <div className={`${activeChat && !showSidebar ? 'hidden' : 'flex'} md:flex w-full md:w-80 flex-shrink-0 flex-col bg-white border-r border-border/40`}>
+      <div className={`${activeChat && !showSidebar ? 'hidden' : 'flex'} md:flex w-full md:w-80 flex-shrink-0 flex-col bg-card border-r border-border/40`}>
         {/* Sidebar Header */}
         <div className="px-4 py-3.5 border-b border-border/40">
           <div className="flex items-center justify-between mb-2">
@@ -231,7 +231,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
                 placeholder="Search chats..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="h-8 text-xs pl-8 bg-gray-50/80 border-border/40 rounded-lg focus:border-emerald-300"
+                className="h-8 text-xs pl-8 bg-muted/50 border-border/40 rounded-lg focus:border-primary"
               />
             </div>
           )}
@@ -268,7 +268,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
                     className={`w-full p-3.5 text-left transition-colors duration-150 border-b border-border/20 group relative ${
                       isActive
                         ? 'bg-emerald-50/70'
-                        : 'hover:bg-gray-50/80'
+                        : 'hover:bg-muted/50'
                     }`}>
                     {/* Active indicator bar */}
                     {isActive && (
@@ -326,7 +326,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
         {activeChat ? (
           <>
             {/* ── Premium Chat Header ── */}
-            <div className="px-4 py-3 border-b border-border/40 bg-white/80 backdrop-blur-md flex items-center justify-between flex-shrink-0">
+            <div className="px-4 py-3 border-b border-border/40 bg-card/80 backdrop-blur-md flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <Button variant="ghost" size="icon" className="md:hidden flex-shrink-0 h-8 w-8 rounded-lg"
                   onClick={handleBack}>
@@ -347,13 +347,13 @@ export function ChatView({ chatId }: { chatId?: string }) {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-primary/10">
                   <Phone className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-primary/10">
                   <Video className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-primary/10">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </div>
@@ -496,14 +496,14 @@ export function ChatView({ chatId }: { chatId?: string }) {
             </ScrollArea>
 
             {/* ── Premium Input Area ── */}
-            <div className="p-4 border-t border-border/40 bg-white flex-shrink-0">
+            <div className="p-4 border-t border-border/40 bg-card flex-shrink-0">
               <div className="flex gap-2 items-end">
                 <Input
                   placeholder="Type a message..."
                   value={newMessage}
                   onChange={e => handleTyping(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSend()}
-                  className="flex-1 bg-gray-50/80 border-border/50 focus:border-emerald-300 focus:ring-emerald-200/40 rounded-xl h-11"
+                  className="flex-1 bg-muted/50 border-border/50 focus:border-primary focus:ring-primary/20 rounded-xl h-11"
                 />
                 <motion.div whileTap={{ scale: 0.92 }}>
                   <Button

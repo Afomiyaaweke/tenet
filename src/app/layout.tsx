@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,11 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tenet - Tender Ecosystem",
+  title: "Tenets - Tender Ecosystem",
   description: "Transforming procurement through technology. Connect with verified contractors, discover tenders, and manage projects — all in one platform.",
-  keywords: ["Tenet", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
+  keywords: ["Tenets", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
   icons: {
-    icon: "/logo.png",
+    icon: "/logo.svg",
   },
 };
 
@@ -32,8 +33,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        {children}
-        <Toaster richColors position="top-right" />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );

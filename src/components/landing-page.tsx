@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { TenetsLogo } from '@/components/logo';
 import {
   ShieldCheck,
   BrainCircuit,
@@ -67,7 +68,7 @@ function FeatureCard({
 }) {
   return (
     <div
-      className="group relative bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-xl hover:shadow-emerald-500/5 hover:border-emerald-200/60 transition-all duration-500 animate-[fadeUp_0.6s_ease-out_both]"
+      className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-xl hover:shadow-emerald-500/5 hover:border-emerald-200/60 transition-all duration-500 animate-[fadeUp_0.6s_ease-out_both]"
       style={{ animationDelay: delay }}
     >
       <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-0 group-hover:opacity-[0.02] transition-opacity duration-500" />
@@ -75,8 +76,8 @@ function FeatureCard({
         <div className="w-12 h-12 rounded-xl gradient-emerald flex items-center justify-center mb-4 shadow-lg shadow-emerald-200/50 group-hover:scale-110 transition-transform duration-300">
           {icon}
         </div>
-        <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
-        <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+        <h3 className="text-lg font-bold text-foreground mb-2">{title}</h3>
+        <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
       </div>
     </div>
   );
@@ -103,8 +104,8 @@ function StepCard({
         <span className="text-white font-bold text-sm">{number}</span>
       </div>
       <div>
-        <h4 className="text-base font-bold text-gray-900 mb-1">{title}</h4>
-        <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+        <h4 className="text-base font-bold text-foreground mb-1">{title}</h4>
+        <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
       </div>
     </div>
   );
@@ -118,7 +119,7 @@ function StatCard({ value, label, delay }: { value: string; label: string; delay
       style={{ animationDelay: delay }}
     >
       <p className="text-3xl sm:text-4xl font-extrabold gradient-emerald bg-clip-text text-transparent">{value}</p>
-      <p className="text-sm text-gray-500 mt-1 font-medium">{label}</p>
+      <p className="text-sm text-muted-foreground mt-1 font-medium">{label}</p>
     </div>
   );
 }
@@ -137,7 +138,7 @@ function TestimonialCard({
 }) {
   return (
     <div
-      className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 animate-[fadeUp_0.6s_ease-out_both]"
+      className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 animate-[fadeUp_0.6s_ease-out_both]"
       style={{ animationDelay: delay }}
     >
       <div className="flex items-center gap-1 mb-3">
@@ -145,14 +146,14 @@ function TestimonialCard({
           <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
         ))}
       </div>
-      <p className="text-sm text-gray-600 leading-relaxed mb-4">&ldquo;{quote}&rdquo;</p>
+      <p className="text-sm text-muted-foreground leading-relaxed mb-4">&ldquo;{quote}&rdquo;</p>
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-full gradient-emerald flex items-center justify-center">
           <span className="text-white text-xs font-bold">{name[0]}</span>
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-900">{name}</p>
-          <p className="text-xs text-gray-400">{role}</p>
+          <p className="text-sm font-semibold text-foreground">{name}</p>
+          <p className="text-xs text-muted-foreground">{role}</p>
         </div>
       </div>
     </div>
@@ -164,29 +165,26 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
   const [email, setEmail] = useState('');
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-background">
       {/* ═══════════ NAVBAR ═══════════ */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100/80">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center gap-2.5">
-              <img src="/logo.png" alt="Tenet" className="w-9 h-9 rounded-xl object-cover shadow-md" />
-              <span className="text-xl font-bold text-gray-900 tracking-tight">Tenet</span>
-            </div>
+            <TenetsLogo size="sm" />
 
             {/* Nav Links (desktop) */}
             <nav className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">Features</a>
-              <a href="#how-it-works" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">How It Works</a>
-              <a href="#testimonials" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">Testimonials</a>
+              <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</a>
+              <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
+              <a href="#testimonials" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
             </nav>
 
             {/* CTA */}
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
-                className="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900"
+                className="hidden sm:inline-flex text-sm font-medium text-muted-foreground hover:text-foreground"
                 onClick={onGetStarted}
               >
                 Sign In
@@ -215,7 +213,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             </div>
 
             <h1
-              className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-[1.1] mb-6 animate-[fadeUp_0.6s_ease-out_0.1s_both]"
+              className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-foreground leading-[1.1] mb-6 animate-[fadeUp_0.6s_ease-out_0.1s_both]"
             >
               Transform Your{' '}
               <span className="gradient-emerald bg-clip-text text-transparent">Procurement</span>{' '}
@@ -223,7 +221,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             </h1>
 
             <p
-              className="text-lg sm:text-xl text-gray-500 leading-relaxed mb-10 max-w-2xl mx-auto animate-[fadeUp_0.6s_ease-out_0.2s_both]"
+              className="text-lg sm:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto animate-[fadeUp_0.6s_ease-out_0.2s_both]"
             >
               Discover tenders, prepare documents with AI, submit winning bids, and manage projects — all in one intelligent platform.
             </p>
@@ -238,7 +236,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
                   placeholder="Enter your email to get started"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 px-5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200"
+                  className="w-full h-12 px-5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200"
                 />
               </div>
               <Button
@@ -254,15 +252,15 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <div className="flex items-center justify-center gap-6 mt-8 animate-[fadeUp_0.6s_ease-out_0.4s_both]">
               <div className="flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs text-gray-500 font-medium">Free to start</span>
+                <span className="text-xs text-muted-foreground font-medium">Free to start</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs text-gray-500 font-medium">No credit card required</span>
+                <span className="text-xs text-muted-foreground font-medium">No credit card required</span>
               </div>
               <div className="hidden sm:flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs text-gray-500 font-medium">AI-powered</span>
+                <span className="text-xs text-muted-foreground font-medium">AI-powered</span>
               </div>
             </div>
           </div>
@@ -270,7 +268,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
       </section>
 
       {/* ═══════════ STATS BAR ═══════════ */}
-      <section className="border-y border-gray-100 bg-gray-50/50">
+      <section className="border-y border-border bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <StatCard value="500+" label="Organizations" delay="0s" />
@@ -289,11 +287,11 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               <Zap className="w-3.5 h-3.5 text-emerald-600" />
               <span className="text-xs font-semibold text-emerald-700">Powerful Features</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
               Everything You Need to Win Tenders
             </h2>
-            <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-              From discovery to award, Tenet streamlines every step of your procurement journey with AI-powered tools.
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              From discovery to award, Tenets streamlines every step of your procurement journey with AI-powered tools.
             </p>
           </div>
 
@@ -339,13 +337,13 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
       </section>
 
       {/* ═══════════ HOW IT WORKS ═══════════ */}
-      <section id="how-it-works" className="py-20 sm:py-28 bg-gray-50/50">
+      <section id="how-it-works" className="py-20 sm:py-28 bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
               Get Started in 3 Simple Steps
             </h2>
-            <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               No complicated setup. Sign up, discover tenders, and start winning — it&apos;s that simple.
             </p>
           </div>
@@ -377,11 +375,11 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
       <section id="testimonials" className="py-20 sm:py-28">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
               Trusted by Industry Leaders
             </h2>
-            <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-              See how organizations are transforming their procurement process with Tenet.
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              See how organizations are transforming their procurement process with Tenets.
             </p>
           </div>
 
@@ -389,7 +387,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <TestimonialCard
               name="Abel Tadesse"
               role="Construction Contractor"
-              quote="Tenet's AI document studio saved me hours of work. I just input the details and it generates professional proposals instantly."
+              quote="Tenets' AI document studio saved me hours of work. I just input the details and it generates professional proposals instantly."
               delay="0s"
             />
             <TestimonialCard
@@ -420,7 +418,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Ready to Transform Your Tender Workflow?
             </h2>
             <p className="text-emerald-100/80 text-lg mb-10 max-w-xl mx-auto">
-              Join hundreds of organizations already using Tenet to discover, prepare, and win tenders with AI-powered tools.
+              Join hundreds of organizations already using Tenets to discover, prepare, and win tenders with AI-powered tools.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
@@ -451,10 +449,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
             {/* Brand */}
             <div className="sm:col-span-2 lg:col-span-1">
-              <div className="flex items-center gap-2.5 mb-4">
-                <img src="/logo.png" alt="Tenet" className="w-9 h-9 rounded-xl object-cover shadow-md" />
-                <span className="text-xl font-bold tracking-tight">Tenet</span>
-              </div>
+              <TenetsLogo size="sm" className="mb-4" />
               <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
                 Transforming procurement through intelligent technology. Connect, prepare, and win with AI.
               </p>
@@ -498,7 +493,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
 
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-500">&copy; 2025 Tenet &middot; Transforming Procurement Through Technology</p>
+            <p className="text-xs text-gray-500">&copy; 2025 Tenets &middot; Transforming Procurement Through Technology</p>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Users className="w-4 h-4" />

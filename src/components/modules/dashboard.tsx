@@ -181,7 +181,7 @@ function StatCard({
   return (
     <motion.div whileHover={cardHover} className="cursor-pointer">
       <Card
-        className="bg-white premium-shadow rounded-xl border-0 transition-all duration-300 group h-full"
+        className="bg-card premium-shadow rounded-xl border-0 transition-all duration-300 group h-full"
         onClick={onClick}
       >
         <CardContent className="p-5">
@@ -228,7 +228,7 @@ function QuickAction({
       whileHover={{ y: -3, transition: { duration: 0.2 } }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="group flex items-center gap-3.5 p-4 rounded-xl border border-border/50 bg-white hover:bg-gradient-to-br hover:from-white hover:to-gray-50/80 premium-shadow transition-all duration-200 text-left w-full"
+      className="group flex items-center gap-3.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-gradient-to-br hover:from-card hover:to-muted/50 premium-shadow transition-all duration-200 text-left w-full"
     >
       <div className={`p-2.5 rounded-xl ${gradientClass} flex-shrink-0 shadow-sm`}>
         <Icon className="h-5 w-5 text-white" />
@@ -339,16 +339,11 @@ export function DashboardView() {
 
   // ── Top Tenders ──
   const topTenders = useMemo(() => {
-    if (role === 'contractor') {
-      return [...tenders]
-        .filter(t => t.status === 'open')
-        .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
-        .slice(0, 5);
-    }
     return [...tenders]
-      .sort((a, b) => (b._count?.bids || 0) - (a._count?.bids || 0))
+      .filter(t => t.status === 'open')
+      .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
       .slice(0, 5);
-  }, [tenders, role]);
+  }, [tenders]);
 
   // ── Upcoming Deadlines ──
   const upcomingDeadlines = useMemo(() => {
@@ -373,7 +368,7 @@ export function DashboardView() {
     // Recent notifications
     notifications.slice(0, 4).forEach(n => {
       const Icon = NOTIFICATION_ICONS[n.type] || Info;
-      const color = NOTIFICATION_COLORS[n.type] || 'text-gray-500';
+      const color = NOTIFICATION_COLORS[n.type] || 'text-muted-foreground';
       const bgMap: Record<string, string> = {
         success: 'bg-emerald-50',
         warning: 'bg-amber-50',
@@ -384,7 +379,7 @@ export function DashboardView() {
         id: n.id,
         icon: Icon,
         iconColor: color,
-        iconBg: bgMap[n.type] || 'bg-gray-50',
+        iconBg: bgMap[n.type] || 'bg-muted/50',
         title: n.title,
         description: n.message,
         time: n.createdAt,
@@ -399,7 +394,7 @@ export function DashboardView() {
         awarded: { icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
         rejected: { icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
       };
-      const info = statusMap[b.status] || { icon: Info, color: 'text-gray-500', bg: 'bg-gray-50' };
+      const info = statusMap[b.status] || { icon: Info, color: 'text-muted-foreground', bg: 'bg-muted/50' };
       items.push({
         id: `bid-${b.id}`,
         icon: info.icon,
@@ -436,40 +431,16 @@ export function DashboardView() {
   const projectSparkData = useMemo(() => [2, 3, 1, 4, 3, 5], []);
   const valueSparkData = useMemo(() => [40, 65, 30, 80, 55, 90], []);
 
-  // ── CTA config per role ──
-  const ctaConfig: Record<string, { label: string; view: string; icon: React.ElementType }> = {
-    admin: { label: 'Create Tender', view: 'tenders', icon: Plus },
-    contractor: { label: 'Browse Tenders', view: 'tenders', icon: Search },
-    tender_owner: { label: 'Post a Tender', view: 'tenders', icon: Plus },
-  };
+  // ── Unified CTA ──
+  const cta = { label: 'Publish Tender', view: 'tenders', icon: Plus };
 
-  const cta = ctaConfig[role] || ctaConfig.contractor;
-
-  // ── Quick actions per role ──
-  const quickActions: Record<string, Array<{
-    icon: React.ElementType; label: string; description: string; gradient: string; view: string;
-  }>> = {
-    contractor: [
-      { icon: Search, label: 'Browse Tenders', description: 'Find matching opportunities', gradient: 'gradient-emerald', view: 'tenders' },
-      { icon: Gavel, label: 'Submit Bid', description: 'Apply to open tenders', gradient: 'gradient-amber', view: 'tenders' },
-      { icon: Upload, label: 'Upload Docs', description: 'Verify your credentials', gradient: 'gradient-teal', view: 'documents' },
-      { icon: MessageSquare, label: 'AI Assistant', description: 'Get smart recommendations', gradient: 'gradient-rose', view: 'agent' },
-    ],
-    admin: [
-      { icon: Plus, label: 'Create Tender', description: 'Publish new opportunities', gradient: 'gradient-emerald', view: 'tenders' },
-      { icon: Eye, label: 'Review Bids', description: 'Evaluate submissions', gradient: 'gradient-amber', view: 'bids' },
-      { icon: Shield, label: 'Verify Users', description: 'Manage verifications', gradient: 'gradient-teal', view: 'admin' },
-      { icon: GraduationCap, label: 'Create Workshop', description: 'Plan training events', gradient: 'gradient-rose', view: 'events' },
-    ],
-    tender_owner: [
-      { icon: Plus, label: 'Post Tender', description: 'Create new opportunity', gradient: 'gradient-emerald', view: 'tenders' },
-      { icon: Eye, label: 'Review Bids', description: 'Evaluate submissions', gradient: 'gradient-amber', view: 'bids' },
-      { icon: BarChart3, label: 'Track Projects', description: 'Monitor progress', gradient: 'gradient-teal', view: 'projects' },
-      { icon: MessageSquare, label: 'AI Assistant', description: 'Get smart help', gradient: 'gradient-rose', view: 'agent' },
-    ],
-  };
-
-  const actions = quickActions[role] || quickActions.contractor;
+  // ── Unified quick actions ──
+  const actions = [
+    { icon: Plus, label: 'Publish Tender', description: 'Create new opportunities', gradient: 'gradient-emerald', view: 'tenders' },
+    { icon: Search, label: 'Browse Tenders', description: 'Find matching opportunities', gradient: 'gradient-amber', view: 'tenders' },
+    { icon: Gavel, label: 'My Bids', description: 'Track your submissions', gradient: 'gradient-teal', view: 'bids' },
+    { icon: Sparkles, label: 'AI Doc Studio', description: 'Generate documents with AI', gradient: 'gradient-rose', view: 'agent' },
+  ];
 
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-US', {
@@ -510,7 +481,7 @@ export function DashboardView() {
           <div className="absolute inset-0 gradient-emerald opacity-[0.06]" />
           <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, oklch(0.558 0.155 163 / 5%) 1px, transparent 0)', backgroundSize: '32px 32px' }} />
 
-          <div className="relative bg-white/80 backdrop-blur-sm p-6 md:p-8">
+          <div className="relative bg-card/80 backdrop-blur-sm p-6 md:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="p-3.5 rounded-2xl gradient-emerald shadow-md shadow-emerald-200/40 flex-shrink-0">
@@ -524,9 +495,7 @@ export function DashboardView() {
                     {greeting.text}, <span className="text-gradient-emerald">{userName}</span>
                   </h1>
                   <p className="text-muted-foreground text-sm mt-0.5">
-                    {role === 'admin' && 'Manage your tender ecosystem and keep everything running smoothly.'}
-                    {role === 'contractor' && 'Discover opportunities, submit bids, and grow your business.'}
-                    {role === 'tender_owner' && 'Post tenders, review bids, and manage your projects.'}
+                    Discover opportunities, publish tenders, submit bids, and grow your business.
                   </p>
                 </div>
               </div>
@@ -632,7 +601,7 @@ export function DashboardView() {
       <div className="grid md:grid-cols-2 gap-6">
         {/* Bid Status Donut Chart */}
         <motion.div variants={itemVariants}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden h-full">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <div className="p-1.5 rounded-lg gradient-emerald">
@@ -684,7 +653,7 @@ export function DashboardView() {
 
         {/* Monthly Activity Bar Chart */}
         <motion.div variants={itemVariants}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden h-full">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <div className="p-1.5 rounded-lg gradient-amber">
@@ -725,7 +694,7 @@ export function DashboardView() {
       <div className="grid md:grid-cols-2 gap-6">
         {/* Activity Timeline */}
         <motion.div variants={itemVariants}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden h-full">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -763,7 +732,7 @@ export function DashboardView() {
                           >
                             {/* Icon dot on line */}
                             <div className="absolute -left-7 top-0.5 flex items-center justify-center">
-                              <div className={`h-[22px] w-[22px] rounded-full ${item.iconBg} border-2 border-white shadow-sm flex items-center justify-center z-10`}>
+                              <div className={`h-[22px] w-[22px] rounded-full ${item.iconBg} border-2 border-card shadow-sm flex items-center justify-center z-10`}>
                                 <Icon className={`h-2.5 w-2.5 ${item.iconColor}`} />
                               </div>
                             </div>
@@ -785,14 +754,14 @@ export function DashboardView() {
 
         {/* Top Tenders */}
         <motion.div variants={itemVariants}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden h-full">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <div className="p-1.5 rounded-lg gradient-teal">
                     <Briefcase className="h-3.5 w-3.5 text-white" />
                   </div>
-                  {role === 'contractor' ? 'Best Matches' : 'Top Tenders'}
+                  Top Tenders
                 </CardTitle>
                 <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('tenders')}>
                   View all <ChevronRight className="h-3 w-3 ml-0.5" />
@@ -827,7 +796,7 @@ export function DashboardView() {
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {t.matchScore !== undefined && role === 'contractor' && (
+                          {t.matchScore !== undefined && (
                             <Badge
                               className={`text-[10px] px-1.5 py-0 border-0 ${
                                 t.matchScore >= 70
@@ -847,7 +816,7 @@ export function DashboardView() {
                                 ? 'border-emerald-300 text-emerald-600'
                                 : t.status === 'awarded'
                                   ? 'border-teal-300 text-teal-600'
-                                  : 'border-gray-300 text-gray-500'
+                                  : 'border-muted-foreground/30 text-muted-foreground'
                             }`}
                           >
                             {t.status}
@@ -872,7 +841,7 @@ export function DashboardView() {
           5. QUICK ACTIONS GRID
           ═══════════════════════════════════════════════════════════════ */}
       <motion.div variants={itemVariants}>
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-rose">
@@ -903,7 +872,7 @@ export function DashboardView() {
           ═══════════════════════════════════════════════════════════════ */}
       {upcomingDeadlines.length > 0 && (
         <motion.div variants={itemVariants}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -929,7 +898,7 @@ export function DashboardView() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.05, duration: 0.3 }}
                         onClick={() => setView('tender-detail', { id: t.id })}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:bg-gray-50/80 transition-all duration-200 text-left group"
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:bg-muted/50 transition-all duration-200 text-left group"
                       >
                         <div className={`p-2.5 rounded-xl flex-shrink-0 ${deadlineBg(days)}`}>
                           <Calendar className={`h-4 w-4 ${deadlineColor(days)}`} />

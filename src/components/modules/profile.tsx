@@ -53,7 +53,7 @@ const docTypeConfig = (type: string) => {
     case 'tax_clearance': return { icon: Receipt, bg: 'bg-amber-50', color: 'text-amber-600', label: 'Tax Clearance' };
     case 'portfolio': return { icon: FolderOpen, bg: 'bg-teal-50', color: 'text-teal-600', label: 'Portfolio' };
     case 'certificate': return { icon: Award, bg: 'bg-purple-50', color: 'text-purple-600', label: 'Certificate' };
-    default: return { icon: File, bg: 'bg-gray-50', color: 'text-gray-600', label: type.replace('_', ' ') };
+    default: return { icon: File, bg: 'bg-muted/50', color: 'text-muted-foreground', label: type.replace('_', ' ') };
   }
 };
 
@@ -188,7 +188,7 @@ export function ProfileView() {
           <Button
             variant="outline"
             onClick={() => setEditing(true)}
-            className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+            className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-primary/10 hover:text-emerald-800 transition-colors"
           >
             <Edit2 className="h-4 w-4 mr-2" /> Edit Profile
           </Button>
@@ -213,7 +213,7 @@ export function ProfileView() {
 
       {/* Profile Header Card */}
       <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible">
-        <Card className="premium-shadow-lg rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
               {/* Avatar */}
@@ -276,7 +276,7 @@ export function ProfileView() {
                       {completeness.pct}%
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${completeness.pct}%` }}
@@ -302,7 +302,7 @@ export function ProfileView() {
 
       {/* Personal Information Section */}
       <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible">
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-emerald">
@@ -318,16 +318,16 @@ export function ProfileView() {
                   <User className="h-3 w-3 text-emerald-500" /> Full Name
                 </Label>
                 {editing ? (
-                  <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/80" value={form.fullName} onChange={e => setForm(d => ({ ...d, fullName: e.target.value }))} />
+                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.fullName} onChange={e => setForm(d => ({ ...d, fullName: e.target.value }))} />
                 ) : (
-                  <p className="text-sm p-2.5 bg-gray-50/80 rounded-lg font-medium">{profile?.fullName || '-'}</p>
+                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.fullName || '-'}</p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
                   <Mail className="h-3 w-3 text-emerald-500" /> Email
                 </Label>
-                <p className="text-sm p-2.5 bg-gray-50/80 rounded-lg font-medium">{user?.email}</p>
+                <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{user?.email}</p>
               </div>
             </div>
 
@@ -337,9 +337,9 @@ export function ProfileView() {
                   <Phone className="h-3 w-3 text-emerald-500" /> Phone
                 </Label>
                 {editing ? (
-                  <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/80" value={form.phone} onChange={e => setForm(d => ({ ...d, phone: e.target.value }))} />
+                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.phone} onChange={e => setForm(d => ({ ...d, phone: e.target.value }))} />
                 ) : (
-                  <p className="text-sm p-2.5 bg-gray-50/80 rounded-lg font-medium">{profile?.phone || '-'}</p>
+                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.phone || '-'}</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -347,9 +347,9 @@ export function ProfileView() {
                   <MapPin className="h-3 w-3 text-emerald-500" /> Location
                 </Label>
                 {editing ? (
-                  <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/80" value={form.location} onChange={e => setForm(d => ({ ...d, location: e.target.value }))} />
+                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.location} onChange={e => setForm(d => ({ ...d, location: e.target.value }))} />
                 ) : (
-                  <p className="text-sm p-2.5 bg-gray-50/80 rounded-lg font-medium">{profile?.location || '-'}</p>
+                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.location || '-'}</p>
                 )}
               </div>
             </div>
@@ -360,7 +360,7 @@ export function ProfileView() {
       {/* Company Information Section (conditional) */}
       {profile?.type === 'company' && (
         <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible">
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <div className="p-1.5 rounded-lg gradient-teal">
@@ -376,9 +376,9 @@ export function ProfileView() {
                     <Building className="h-3 w-3 text-teal-500" /> Company Name
                   </Label>
                   {editing ? (
-                    <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/80" value={form.companyName} onChange={e => setForm(d => ({ ...d, companyName: e.target.value }))} />
+                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.companyName} onChange={e => setForm(d => ({ ...d, companyName: e.target.value }))} />
                   ) : (
-                    <p className="text-sm p-2.5 bg-gray-50/80 rounded-lg font-medium">{profile?.companyName || '-'}</p>
+                    <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.companyName || '-'}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -386,10 +386,10 @@ export function ProfileView() {
                     <FileText className="h-3 w-3 text-teal-500" /> TIN Number
                   </Label>
                   {editing ? (
-                    <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/80" value={form.tinNumber} onChange={e => setForm(d => ({ ...d, tinNumber: e.target.value }))} />
+                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.tinNumber} onChange={e => setForm(d => ({ ...d, tinNumber: e.target.value }))} />
                   ) : (
                     <div className="flex items-center gap-2">
-                      <p className="text-sm p-2.5 bg-gray-50/80 rounded-lg font-medium flex-1">{profile?.tinNumber || '-'}</p>
+                      <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium flex-1">{profile?.tinNumber || '-'}</p>
                       {profile?.tinNumber && (
                         <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700">TIN</Badge>
                       )}
@@ -403,10 +403,10 @@ export function ProfileView() {
                     <Award className="h-3 w-3 text-teal-500" /> License Number
                   </Label>
                   {editing ? (
-                    <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/80" value={form.licenseNumber} onChange={e => setForm(d => ({ ...d, licenseNumber: e.target.value }))} />
+                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.licenseNumber} onChange={e => setForm(d => ({ ...d, licenseNumber: e.target.value }))} />
                   ) : (
                     <div className="flex items-center gap-2">
-                      <p className="text-sm p-2.5 bg-gray-50/80 rounded-lg font-medium flex-1">{profile?.licenseNumber || '-'}</p>
+                      <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium flex-1">{profile?.licenseNumber || '-'}</p>
                       {profile?.licenseNumber && (
                         <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700">License</Badge>
                       )}
@@ -418,9 +418,9 @@ export function ProfileView() {
                     <MapPin className="h-3 w-3 text-teal-500" /> Address
                   </Label>
                   {editing ? (
-                    <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/80" value={form.address} onChange={e => setForm(d => ({ ...d, address: e.target.value }))} />
+                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.address} onChange={e => setForm(d => ({ ...d, address: e.target.value }))} />
                   ) : (
-                    <p className="text-sm p-2.5 bg-gray-50/80 rounded-lg font-medium">{profile?.address || '-'}</p>
+                    <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.address || '-'}</p>
                   )}
                 </div>
               </div>
@@ -431,7 +431,7 @@ export function ProfileView() {
 
       {/* Skills Section */}
       <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-amber">
@@ -458,7 +458,7 @@ export function ProfileView() {
                       className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
                         isSelected
                           ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50 hover:bg-emerald-600'
-                          : 'bg-gray-100 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700 border border-border/60'
+                          : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-emerald-700 border border-border/60'
                       }`}
                     >
                       {skill}
@@ -488,7 +488,7 @@ export function ProfileView() {
 
       {/* Bio Section */}
       <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible">
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-rose">
@@ -500,14 +500,14 @@ export function ProfileView() {
           <CardContent>
             {editing ? (
               <Textarea
-                className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/80 min-h-[120px]"
+                className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50 min-h-[120px]"
                 value={form.bio}
                 onChange={e => setForm(d => ({ ...d, bio: e.target.value }))}
                 rows={4}
                 placeholder="Write a brief description about yourself or your company..."
               />
             ) : (
-              <p className="text-sm p-3 bg-gray-50/80 rounded-lg whitespace-pre-wrap leading-relaxed">
+              <p className="text-sm p-3 bg-muted/50 rounded-lg whitespace-pre-wrap leading-relaxed">
                 {profile?.bio || 'No bio provided'}
               </p>
             )}
@@ -517,7 +517,7 @@ export function ProfileView() {
 
       {/* Document Upload & Verification Section */}
       <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible">
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-teal">
@@ -544,7 +544,7 @@ export function ProfileView() {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                      profile?.fullName ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'
+                      profile?.fullName ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
                     }`}>
                       {profile?.fullName ? <CheckCircle className="h-3 w-3" /> : '1'}
                     </div>
@@ -553,7 +553,7 @@ export function ProfileView() {
                   <div className="flex-1 h-px bg-border/60" />
                   <div className="flex items-center gap-2">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                      documents.length > 0 ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'
+                      documents.length > 0 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
                     }`}>
                       {documents.length > 0 ? <CheckCircle className="h-3 w-3" /> : '2'}
                     </div>
@@ -562,7 +562,7 @@ export function ProfileView() {
                   <div className="flex-1 h-px bg-border/60" />
                   <div className="flex items-center gap-2">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                      approvedDocs > 0 ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'
+                      approvedDocs > 0 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
                     }`}>
                       {approvedDocs > 0 ? <CheckCircle className="h-3 w-3" /> : '3'}
                     </div>
@@ -583,7 +583,7 @@ export function ProfileView() {
                 <div className="flex-1 space-y-2">
                   <Label className="text-sm font-medium">Document Type</Label>
                   <select
-                    className="w-full h-9 rounded-xl border border-border/60 bg-white px-3 text-sm focus:ring-emerald-500/20 focus:outline-none"
+                    className="w-full h-9 rounded-xl border border-border/60 bg-card px-3 text-sm focus:ring-primary/20 focus:outline-none"
                     value={docType}
                     onChange={e => setDocType(e.target.value)}
                   >

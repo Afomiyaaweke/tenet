@@ -28,6 +28,8 @@ import {
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Sparkles, Verified, Zap,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { TenetsLogo } from '@/components/logo';
 
 /* ──────────────────────────── constants ──────────────────────────── */
 
@@ -46,10 +48,10 @@ const NOTIFICATION_COLORS: Record<string, string> = {
 };
 
 const NOTIFICATION_BG: Record<string, string> = {
-  success: 'bg-emerald-50',
-  warning: 'bg-amber-50',
-  alert: 'bg-red-50',
-  info: 'bg-emerald-50',
+  success: 'bg-emerald-50 dark:bg-emerald-950/30',
+  warning: 'bg-amber-50 dark:bg-amber-950/30',
+  alert: 'bg-red-50 dark:bg-red-950/30',
+  info: 'bg-emerald-50 dark:bg-emerald-950/30',
 };
 
 interface NavItem {
@@ -136,13 +138,12 @@ function SidebarContent({
   const isVerified = (user?.profile as { verified?: boolean })?.verified ?? false;
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-card">
       {/* ── Logo ── */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Tenet" className="w-10 h-10 rounded-xl object-cover flex-shrink-0 shadow-md shadow-emerald-200" />
+          <TenetsLogo size="sm" />
           <div className="min-w-0">
-            <h2 className="font-bold text-base tracking-tight text-foreground">Tenet</h2>
             <p className="text-[11px] text-muted-foreground font-medium">Tender Ecosystem</p>
           </div>
         </div>
@@ -154,11 +155,11 @@ function SidebarContent({
       <div className="px-4 py-4">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors">
           <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-full gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200">
+            <div className="w-10 h-10 rounded-full gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200 dark:shadow-emerald-900/30">
               <span className="text-white font-bold text-sm">{getUserInitial(user)}</span>
             </div>
             {isVerified && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-card flex items-center justify-center">
                 <Check className="w-2 h-2 text-white" strokeWidth={3} />
               </span>
             )}
@@ -168,9 +169,9 @@ function SidebarContent({
             <div className="flex items-center gap-1.5 mt-0.5">
               <Badge
                 variant="secondary"
-                className="text-[10px] px-1.5 py-0 capitalize font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                className="text-[10px] px-1.5 py-0 font-semibold bg-primary/10 text-primary border border-primary/20"
               >
-                {role.replace('_', ' ')}
+                Member
               </Badge>
               {isVerified && (
                 <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium">
@@ -209,14 +210,14 @@ function SidebarContent({
                         transition-all duration-150 relative
                         ${
                           isActive
-                            ? 'bg-emerald-50 text-emerald-700 border-l-[3px] border-emerald-500 pl-[9px] font-semibold'
-                            : 'text-muted-foreground hover:bg-emerald-50/40 hover:text-foreground border-l-[3px] border-transparent pl-[9px]'
+                            ? 'bg-primary/10 text-primary border-l-[3px] border-primary pl-[9px] font-semibold'
+                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border-l-[3px] border-transparent pl-[9px]'
                         }
                       `}
                     >
                       <Icon
                         className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
-                          isActive ? 'text-emerald-600' : 'text-muted-foreground/60 group-hover:text-emerald-500'
+                          isActive ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-primary'
                         }`}
                       />
                       <span className="truncate flex-1 text-left">{item.label}</span>
@@ -226,7 +227,7 @@ function SidebarContent({
                         </span>
                       )}
                       {isActive && (
-                        <ChevronRight className="h-3.5 w-3.5 ml-auto flex-shrink-0 text-emerald-500" />
+                        <ChevronRight className="h-3.5 w-3.5 ml-auto flex-shrink-0 text-primary" />
                       )}
                     </button>
                   );
@@ -243,7 +244,7 @@ function SidebarContent({
         <div className="relative rounded-xl overflow-hidden p-[1px]">
           {/* Gradient border */}
           <div className="absolute inset-0 gradient-emerald opacity-40 rounded-xl" />
-          <div className="relative bg-white rounded-xl p-3.5">
+          <div className="relative bg-card rounded-xl p-3.5">
             <div className="flex items-center gap-2 mb-1.5">
               <div className="w-7 h-7 rounded-lg gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200">
                 <Zap className="w-3.5 h-3.5 text-white" />
@@ -266,7 +267,7 @@ function SidebarContent({
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+          className="w-full justify-start text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
           onClick={logout}
         >
           <LogOut className="h-4 w-4 mr-2" />
@@ -323,7 +324,7 @@ function NotificationDropdown({
             <Button
               variant="ghost"
               size="sm"
-              className="text-[11px] h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-semibold"
+              className="text-[11px] h-7 px-2 text-primary hover:text-primary/80 hover:bg-primary/10 font-semibold"
               onClick={onMarkAllRead}
             >
               <Check className="h-3 w-3 mr-1" /> Mark all read
@@ -335,7 +336,7 @@ function NotificationDropdown({
         <ScrollArea className="max-h-[340px]">
           {displayItems.length === 0 ? (
             <div className="py-8 text-center">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-50 flex items-center justify-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
                 <CheckCircle className="h-6 w-6 text-emerald-400" />
               </div>
               <p className="text-sm font-medium text-muted-foreground">All caught up!</p>
@@ -367,7 +368,7 @@ function NotificationDropdown({
                       <p className="text-[11px] text-muted-foreground truncate mt-0.5 leading-relaxed">{n.message}</p>
                       <p className="text-[10px] text-muted-foreground/50 mt-1 font-medium">{relativeTime(n.createdAt)}</p>
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 mt-2 ring-2 ring-emerald-100" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 mt-2 ring-2 ring-emerald-100 dark:ring-emerald-900/40" />
                   </button>
                 );
               })}
@@ -470,14 +471,14 @@ export function AppShell() {
   return (
     <div className="min-h-screen flex bg-background">
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-[260px] bg-white border-r border-border/50 flex-col flex-shrink-0 sidebar-shadow">
+      <aside className="hidden md:flex w-[260px] bg-card border-r border-border/50 flex-col flex-shrink-0 sidebar-shadow">
         <SidebarContent {...sidebarProps} />
       </aside>
 
       {/* ── Main Area ── */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* ── Top Bar ── */}
-        <header className="h-14 bg-white/80 backdrop-blur-md border-b border-border/50 flex items-center px-4 gap-3 flex-shrink-0 sticky top-0 z-30">
+        <header className="h-14 bg-background/80 backdrop-blur-md border-b border-border/50 flex items-center px-4 gap-3 flex-shrink-0 sticky top-0 z-30">
           {/* Mobile hamburger */}
           <Sheet>
             <SheetTrigger asChild>
@@ -509,6 +510,9 @@ export function AppShell() {
             <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted/80 transition-colors">
               <Search className="h-[18px] w-[18px] text-muted-foreground" />
             </Button>
+
+            {/* Theme Toggle */}
+            <ThemeToggle />
 
             {/* Notifications */}
             <NotificationDropdown

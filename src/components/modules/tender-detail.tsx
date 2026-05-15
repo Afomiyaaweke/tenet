@@ -104,8 +104,8 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
       case 'open': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
       case 'closed': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
       case 'awarded': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
-      case 'cancelled': return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
-      default: return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
+      case 'cancelled': return 'bg-muted text-muted-foreground hover:bg-muted';
+      default: return 'bg-muted text-muted-foreground hover:bg-muted';
     }
   };
 
@@ -114,8 +114,8 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
       case 'open': return 'bg-emerald-500';
       case 'closed': return 'bg-rose-500';
       case 'awarded': return 'bg-teal-500';
-      case 'cancelled': return 'bg-gray-400';
-      default: return 'bg-gray-400';
+      case 'cancelled': return 'bg-muted-foreground/50';
+      default: return 'bg-muted-foreground/50';
     }
   };
 
@@ -124,8 +124,8 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
       case 'open': return 'from-emerald-400 to-emerald-600';
       case 'closed': return 'from-rose-400 to-rose-600';
       case 'awarded': return 'from-teal-400 to-teal-600';
-      case 'cancelled': return 'from-gray-300 to-gray-400';
-      default: return 'from-gray-300 to-gray-400';
+      case 'cancelled': return 'from-muted to-muted-foreground/50';
+      default: return 'from-muted to-muted-foreground/50';
     }
   };
 
@@ -174,7 +174,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
       {/* Back Button */}
       <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
         <Button variant="ghost" onClick={() => setView('tenders')}
-          className="hover:text-emerald-700 hover:bg-emerald-50 transition-colors rounded-xl">
+          className="hover:text-emerald-700 hover:bg-primary/10 transition-colors rounded-xl">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
         </Button>
       </motion.div>
@@ -185,7 +185,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
       >
-        <Card className="premium-shadow-lg rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
           {/* Accent strip */}
           <div className={`h-2 bg-gradient-to-r ${statusAccent(tender.status)}`} />
 
@@ -196,7 +196,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                   <div className={`p-2.5 rounded-xl flex-shrink-0 ${
                     tender.status === 'open' ? 'gradient-emerald' :
                     tender.status === 'awarded' ? 'gradient-teal' :
-                    tender.status === 'cancelled' ? 'bg-gray-100' :
+                    tender.status === 'cancelled' ? 'bg-muted' :
                     'gradient-rose'
                   }`}>
                     <FileText className="h-5 w-5 text-white" />
@@ -211,7 +211,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         </Badge>
                       </div>
                       {tender.categoryTags.split(',').filter(Boolean).map(tag => (
-                        <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-lg hover:bg-emerald-50">
+                        <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-lg hover:bg-primary/10">
                           {tag.trim()}
                         </Badge>
                       ))}
@@ -275,19 +275,19 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           <Label className="text-sm font-medium">Technical Proposal *</Label>
                           <Textarea placeholder="Methodology, approach, team composition, relevant experience" rows={6}
                             value={bidData.technicalProposal} onChange={e => setBidData(d => ({ ...d, technicalProposal: e.target.value }))}
-                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Financial Proposal (ETB) *</Label>
                           <Input type="number" placeholder="e.g. 250000"
                             value={bidData.financialProposal} onChange={e => setBidData(d => ({ ...d, financialProposal: e.target.value }))}
-                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Timeline *</Label>
                           <Input placeholder="e.g. 30 days or 6 weeks"
                             value={bidData.timeline} onChange={e => setBidData(d => ({ ...d, timeline: e.target.value }))}
-                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
                         </div>
                         <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleSubmitBid}>
                           Submit Bid <ArrowRight className="h-4 w-4 ml-2" />
@@ -333,7 +333,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1 }}
       >
-        <Card className="premium-shadow rounded-xl border-0 bg-white">
+        <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardContent className="p-1.5">
             <div className="flex gap-1">
               {tabs.map(tab => (
@@ -375,7 +375,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             className="space-y-6"
           >
             {/* Scope of Work */}
-            <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+            <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -393,7 +393,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             {/* Requirements & Details Grid */}
             <div className="grid md:grid-cols-2 gap-4">
               {/* Budget Details */}
-              <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -425,7 +425,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
               </Card>
 
               {/* Deadline & Location */}
-              <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-amber-400 to-teal-400" />
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -463,7 +463,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
 
             {/* Required Documents */}
             {tender.requiredDocs && (
-              <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -515,7 +515,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             )}
 
             {(user?.role === 'admin' || user?.role === 'tender_owner') && bids.length > 0 ? (
-              <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -548,7 +548,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 </CardContent>
               </Card>
             ) : bids.length > 0 ? (
-              <Card className="premium-shadow rounded-xl border-0 bg-white">
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4 p-4 bg-emerald-50/50 rounded-xl">
                     <div className="p-2 rounded-lg gradient-emerald">
@@ -562,7 +562,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="premium-shadow rounded-xl border-0 bg-white">
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
                 <CardContent className="p-12 text-center">
                   <div className="relative w-16 h-16 mx-auto mb-4">
                     <div className="absolute inset-0 rounded-2xl gradient-amber opacity-20" />
@@ -586,7 +586,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.3 }}
           >
-            <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+            <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -654,7 +654,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
       case 'rejected': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
       case 'shortlisted': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
       case 'pending_review': return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
-      default: return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
+      default: return 'bg-muted text-muted-foreground hover:bg-muted';
     }
   };
 
@@ -664,7 +664,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
       case 'rejected': return 'bg-rose-500';
       case 'shortlisted': return 'bg-teal-500';
       case 'pending_review': return 'bg-amber-500';
-      default: return 'bg-gray-400';
+      default: return 'bg-muted-foreground/50';
     }
   };
 
@@ -683,7 +683,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+          <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
             <DollarSign className="h-3 w-3 mr-1" /> ETB {bid.financialProposal.toLocaleString()}
           </Badge>
           <Badge className="text-xs border-0 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-50">

@@ -103,11 +103,11 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
           open: 'bg-emerald-100 text-emerald-700',
           closed: 'bg-rose-100 text-rose-700',
           awarded: 'bg-teal-100 text-teal-700',
-          cancelled: 'bg-gray-100 text-gray-600',
-          draft: 'bg-gray-100 text-gray-600',
+          cancelled: 'bg-muted text-muted-foreground',
+          draft: 'bg-muted text-muted-foreground',
         };
         return (
-          <Badge className={`text-xs px-2.5 py-1 border-0 rounded-lg ${colors[t.status] || 'bg-gray-100 text-gray-600'}`}>
+          <Badge className={`text-xs px-2.5 py-1 border-0 rounded-lg ${colors[t.status] || 'bg-muted text-muted-foreground'}`}>
             {t.status}
           </Badge>
         );
@@ -151,7 +151,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
       render: (t: Tender) => (
         <div className="flex flex-wrap gap-1">
           {t.categoryTags.split(',').filter(Boolean).map(tag => (
-            <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+            <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
               {tag.trim()}
             </Badge>
           ))}
@@ -168,8 +168,8 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
       icon: Target,
       render: (t: Tender) => {
         if (t.matchScore === undefined) return <p className="text-xs text-muted-foreground">N/A</p>;
-        const barColor = t.matchScore >= 70 ? 'from-emerald-400 to-emerald-600' : t.matchScore >= 40 ? 'from-amber-400 to-amber-600' : 'from-gray-300 to-gray-400';
-        const textColor = t.matchScore >= 70 ? 'text-emerald-700' : t.matchScore >= 40 ? 'text-amber-700' : 'text-gray-500';
+        const barColor = t.matchScore >= 70 ? 'from-emerald-400 to-emerald-600' : t.matchScore >= 40 ? 'from-amber-400 to-amber-600' : 'from-muted to-muted-foreground/50';
+        const textColor = t.matchScore >= 70 ? 'text-emerald-700' : t.matchScore >= 40 ? 'text-amber-700' : 'text-muted-foreground';
         return (
           <div className="space-y-1">
             <p className={`text-sm font-bold ${textColor}`}>{t.matchScore}%</p>
@@ -224,7 +224,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
           </div>
         </div>
         <Button variant="outline" onClick={() => setView('tenders')}
-          className="rounded-xl hover:text-emerald-700 hover:bg-emerald-50 transition-colors">
+          className="rounded-xl hover:text-emerald-700 hover:bg-primary/10 transition-colors">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
         </Button>
       </motion.div>
@@ -235,7 +235,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
       >
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400" />
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -288,13 +288,13 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
         initial="hidden"
         animate="show"
       >
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-400" />
           <ScrollArea className="w-full">
             <div className="min-w-[600px]">
               {/* Header Row */}
               <div className="grid border-b border-border/50" style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}>
-                <div className="p-4 bg-muted/30 flex items-center gap-2 sticky left-0 z-10 bg-white">
+                <div className="p-4 bg-muted/30 flex items-center gap-2 sticky left-0 z-10 bg-card">
                   <Scale className="h-4 w-4 text-emerald-600" />
                   <span className="text-sm font-bold">Attributes</span>
                 </div>
@@ -306,7 +306,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
                         <p className="text-xs text-muted-foreground mt-0.5">ID: {tender.id.slice(0, 8)}...</p>
                       </div>
                       <Button size="sm" variant="ghost"
-                        className="h-7 w-7 p-0 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 flex-shrink-0"
+                        className="h-7 w-7 p-0 rounded-lg hover:bg-primary/10 hover:text-emerald-700 flex-shrink-0"
                         onClick={() => setView('tender-detail', { id: tender.id })}>
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
@@ -323,7 +323,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
                   className="grid border-b border-border/30 hover:bg-muted/20 transition-colors"
                   style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}
                 >
-                  <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-white">
+                  <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-card">
                     <div className="p-1 rounded bg-muted/50">
                       <field.icon className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>
@@ -343,7 +343,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
                 className="grid"
                 style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}
               >
-                <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-white">
+                <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-card">
                   <div className="p-1 rounded bg-muted/50">
                     <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
                   </div>
@@ -366,7 +366,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
       >
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-amber-400" />
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -413,7 +413,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.35 }}
       >
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-amber-400 to-teal-400" />
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -428,7 +428,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
               const days = daysUntil(tender.deadline);
               const maxDays = Math.max(...tenders.map(t => Math.max(daysUntil(t.deadline), 1)));
               const percent = Math.max(5, (Math.max(days, 0) / maxDays) * 100);
-              const urgency = days <= 0 ? 'bg-gray-300' : days <= 3 ? 'from-rose-400 to-rose-500' : days <= 7 ? 'from-amber-400 to-amber-500' : 'from-emerald-400 to-emerald-500';
+              const urgency = days <= 0 ? 'bg-muted' : days <= 3 ? 'from-rose-400 to-rose-500' : days <= 7 ? 'from-amber-400 to-amber-500' : 'from-emerald-400 to-emerald-500';
               return (
                 <div key={tender.id} className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -436,7 +436,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{new Date(tender.deadline).toLocaleDateString()}</span>
                       <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${
-                        days <= 0 ? 'bg-gray-100 text-gray-600' :
+                        days <= 0 ? 'bg-muted text-muted-foreground' :
                         days <= 3 ? 'bg-rose-100 text-rose-700' :
                         days <= 7 ? 'bg-amber-100 text-amber-700' :
                         'bg-emerald-100 text-emerald-700'
@@ -469,7 +469,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
           <Button
             key={tender.id}
             variant="outline"
-            className="rounded-xl hover:text-emerald-700 hover:bg-emerald-50 transition-all hover:-translate-y-0.5"
+            className="rounded-xl hover:text-emerald-700 hover:bg-primary/10 transition-all hover:-translate-y-0.5"
             onClick={() => setView('tender-detail', { id: tender.id })}
           >
             <Eye className="h-4 w-4 mr-2" />
@@ -603,7 +603,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
           rejected: 'bg-rose-100 text-rose-700',
         };
         return (
-          <Badge className={`text-xs px-2.5 py-1 border-0 rounded-lg ${colors[b.status] || 'bg-gray-100 text-gray-600'}`}>
+          <Badge className={`text-xs px-2.5 py-1 border-0 rounded-lg ${colors[b.status] || 'bg-muted text-muted-foreground'}`}>
             {b.status.replace('_', ' ')}
           </Badge>
         );
@@ -636,7 +636,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
       >
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => setView('tender-detail', { id: tenderId || '' })}
-            className="hover:text-emerald-700 hover:bg-emerald-50 transition-colors rounded-xl p-2">
+            className="hover:text-emerald-700 hover:bg-primary/10 transition-colors rounded-xl p-2">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
@@ -656,7 +656,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
       {/* Tender Summary */}
       {tender && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-400" />
             <CardContent className="p-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -684,7 +684,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
 
       {/* Bid Selection */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
-        <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -744,7 +744,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
                             <p className="text-[10px] text-muted-foreground truncate">{bid.user.profile.companyName}</p>
                           )}
                           <div className="flex items-center gap-2 mt-2">
-                            <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+                            <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
                               <DollarSign className="h-2.5 w-2.5 mr-0.5" /> {formatETB(bid.financialProposal)}
                             </Badge>
                             <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-50">
@@ -780,13 +780,13 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.4 }}
           >
-            <Card className="premium-shadow-lg rounded-xl border-0 bg-white overflow-hidden">
+            <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
               <div className="h-2 bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400" />
               <ScrollArea className="w-full">
                 <div className="min-w-[500px]">
                   {/* Header Row */}
                   <div className="grid border-b border-border/50" style={{ gridTemplateColumns: `180px repeat(${comparedBids.length}, 1fr)` }}>
-                    <div className="p-4 bg-muted/30 flex items-center gap-2 sticky left-0 z-10 bg-white">
+                    <div className="p-4 bg-muted/30 flex items-center gap-2 sticky left-0 z-10 bg-card">
                       <Scale className="h-4 w-4 text-emerald-600" />
                       <span className="text-sm font-bold">Criteria</span>
                     </div>
@@ -816,7 +816,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
                       className="grid border-b border-border/30 hover:bg-muted/10 transition-colors"
                       style={{ gridTemplateColumns: `180px repeat(${comparedBids.length}, 1fr)` }}
                     >
-                      <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-white">
+                      <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-card">
                         <div className="p-1 rounded bg-muted/50">
                           <field.icon className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
@@ -892,7 +892,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-amber-400" />
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">

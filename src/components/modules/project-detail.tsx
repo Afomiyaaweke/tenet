@@ -141,16 +141,16 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
       case 'completed': return { bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500', gradient: 'gradient-teal', label: 'Completed' };
       case 'on_hold': return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500', gradient: 'gradient-amber', label: 'On Hold' };
       case 'cancelled': return { bg: 'bg-rose-100', text: 'text-rose-700', dot: 'bg-rose-500', gradient: 'gradient-rose', label: 'Cancelled' };
-      default: return { bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-500', gradient: 'gradient-emerald', label: status };
+      default: return { bg: 'bg-muted', text: 'text-foreground', dot: 'bg-muted/500', gradient: 'gradient-emerald', label: status };
     }
   };
 
   if (loading) {
     return (
       <div className="p-6 space-y-4 max-w-6xl mx-auto">
-        <div className="h-8 bg-gray-200 rounded-xl w-1/3 animate-pulse" />
-        <div className="h-40 bg-gray-100 rounded-xl animate-pulse premium-shadow" />
-        <div className="h-64 bg-gray-100 rounded-xl animate-pulse premium-shadow" />
+        <div className="h-8 bg-muted rounded-xl w-1/3 animate-pulse" />
+        <div className="h-40 bg-muted rounded-xl animate-pulse premium-shadow" />
+        <div className="h-64 bg-muted rounded-xl animate-pulse premium-shadow" />
       </div>
     );
   }
@@ -199,7 +199,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
         <Button
           variant="ghost"
           onClick={() => setView('projects')}
-          className="text-muted-foreground hover:text-emerald-700 hover:bg-emerald-50 -ml-2"
+          className="text-muted-foreground hover:text-emerald-700 hover:bg-primary/10 -ml-2"
         >
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Projects
         </Button>
@@ -207,7 +207,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
 
       {/* Project Header Card */}
       <motion.div variants={itemVariants}>
-        <Card className="premium-shadow-lg rounded-xl border-0 bg-white overflow-hidden">
+        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
           {/* Gradient top bar */}
           <div className={`h-1.5 ${sc.gradient}`} />
           <CardContent className="p-6">
@@ -254,7 +254,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                   {' / '}ETB {project.contractValue.toLocaleString()} ({paymentProgress.toFixed(0)}%)
                 </p>
               </div>
-              <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-3 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700"
                   style={{ width: `${paymentProgress}%` }}
@@ -268,7 +268,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
       {/* Tabs */}
       <motion.div variants={itemVariants}>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-white premium-shadow rounded-xl border-0 h-11 p-1 gap-1">
+          <TabsList className="bg-card premium-shadow rounded-xl border-0 h-11 p-1 gap-1">
             <TabsTrigger
               value="overview"
               className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
@@ -299,7 +299,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
           <TabsContent value="overview" className="mt-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2.5 rounded-xl gradient-emerald shadow-sm">
@@ -313,7 +313,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
               </motion.div>
 
               <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2.5 rounded-xl gradient-teal shadow-sm">
@@ -330,7 +330,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
               </motion.div>
 
               <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2.5 rounded-xl gradient-amber shadow-sm">
@@ -347,7 +347,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
               </motion.div>
 
               <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="p-2.5 rounded-xl gradient-rose shadow-sm">
@@ -364,7 +364,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
 
             {/* Task & Milestone Progress Row */}
             <div className="grid md:grid-cols-2 gap-4 mb-6">
-              <Card className="premium-shadow rounded-xl border-0 bg-white">
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <div className="p-1.5 rounded-lg gradient-emerald">
@@ -377,7 +377,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm bg-gray-300" />
+                        <div className="w-3 h-3 rounded-sm bg-muted" />
                         <span className="text-sm">To Do</span>
                       </div>
                       <span className="text-sm font-bold">{todoTasks.length}</span>
@@ -397,12 +397,12 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                       <span className="text-sm font-bold">{doneTasks.length}</span>
                     </div>
                     {/* Visual bar */}
-                    <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 mt-2">
+                    <div className="flex h-3 rounded-full overflow-hidden bg-muted mt-2">
                       {tasks.length > 0 && (
                         <>
                           <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${(doneTasks.length / tasks.length) * 100}%` }} />
                           <div className="bg-amber-400 transition-all duration-500" style={{ width: `${(inProgressTasks.length / tasks.length) * 100}%` }} />
-                          <div className="bg-gray-300 transition-all duration-500" style={{ width: `${(todoTasks.length / tasks.length) * 100}%` }} />
+                          <div className="bg-muted transition-all duration-500" style={{ width: `${(todoTasks.length / tasks.length) * 100}%` }} />
                         </>
                       )}
                     </div>
@@ -410,7 +410,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                 </CardContent>
               </Card>
 
-              <Card className="premium-shadow rounded-xl border-0 bg-white">
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <div className="p-1.5 rounded-lg gradient-amber">
@@ -465,7 +465,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
             </div>
 
             {/* Payment Summary */}
-            <Card className="premium-shadow rounded-xl border-0 bg-white">
+            <Card className="premium-shadow rounded-xl border-0 bg-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <div className="p-1.5 rounded-lg gradient-rose">
@@ -489,7 +489,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                     <p className="text-[11px] text-muted-foreground font-medium">Payments</p>
                   </div>
                 </div>
-                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700"
                     style={{ width: `${paymentProgress}%` }}
@@ -520,15 +520,15 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Title *</Label>
-                        <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newTask.title} onChange={e => setNewTask(d => ({ ...d, title: e.target.value }))} />
+                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.title} onChange={e => setNewTask(d => ({ ...d, title: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Description</Label>
-                        <Textarea className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newTask.description} onChange={e => setNewTask(d => ({ ...d, description: e.target.value }))} />
+                        <Textarea className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.description} onChange={e => setNewTask(d => ({ ...d, description: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Due Date</Label>
-                        <Input type="date" className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newTask.dueDate} onChange={e => setNewTask(d => ({ ...d, dueDate: e.target.value }))} />
+                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.dueDate} onChange={e => setNewTask(d => ({ ...d, dueDate: e.target.value }))} />
                       </div>
                       <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddTask}>Add Task</Button>
                     </div>
@@ -563,11 +563,11 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Title *</Label>
-                        <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newMilestone.title} onChange={e => setNewMilestone(d => ({ ...d, title: e.target.value }))} />
+                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newMilestone.title} onChange={e => setNewMilestone(d => ({ ...d, title: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Due Date *</Label>
-                        <Input type="date" className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newMilestone.dueDate} onChange={e => setNewMilestone(d => ({ ...d, dueDate: e.target.value }))} />
+                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newMilestone.dueDate} onChange={e => setNewMilestone(d => ({ ...d, dueDate: e.target.value }))} />
                       </div>
                       <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddMilestone}>Add Milestone</Button>
                     </div>
@@ -577,7 +577,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
             </div>
 
             {milestones.length === 0 ? (
-              <Card className="premium-shadow rounded-xl border-0 bg-white">
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
                 <CardContent className="p-12 text-center">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-teal flex items-center justify-center">
                     <Flag className="h-8 w-8 text-white" />
@@ -589,7 +589,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
             ) : (
               <div className="relative pl-8">
                 {/* Vertical connecting line */}
-                <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-gray-200 rounded-full" />
+                <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-border rounded-full" />
 
                 <AnimatePresence>
                   <div className="space-y-4">
@@ -602,14 +602,14 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                           ? 'bg-rose-500 shadow-md shadow-rose-200'
                           : isSoon
                             ? 'bg-amber-500 shadow-md shadow-amber-200'
-                            : 'bg-gray-300';
+                            : 'bg-muted';
                       const borderColor = ms.completed
                         ? 'border-emerald-200 bg-emerald-50/50'
                         : isMsOverdue
                           ? 'border-rose-200 bg-rose-50/50'
                           : isSoon
                             ? 'border-amber-200 bg-amber-50/50'
-                            : 'border-border/60 bg-white';
+                            : 'border-border/60 bg-card';
 
                       return (
                         <motion.div
@@ -626,7 +626,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                                   <div className={`w-[15px] h-[15px] rounded-full border-2 border-white ${dotColor} z-10`} />
                                 </div>
                                 <button onClick={() => handleToggleMilestone(ms.id, ms.completed)}
-                                  className="w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer hover:border-emerald-400 transition-colors bg-white">
+                                  className="w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer hover:border-emerald-400 transition-colors bg-card">
                                   {ms.completed ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
                                 </button>
                                 <div>
@@ -657,7 +657,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
             {/* Finance stat cards */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
                   <CardContent className="p-5 flex items-center gap-3">
                     <div className="p-2.5 rounded-xl gradient-emerald flex-shrink-0 shadow-sm">
                       <DollarSign className="h-5 w-5 text-white" />
@@ -670,7 +670,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                 </Card>
               </motion.div>
               <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
                   <CardContent className="p-5 flex items-center gap-3">
                     <div className="p-2.5 rounded-xl gradient-amber flex-shrink-0 shadow-sm">
                       <TrendingUp className="h-5 w-5 text-white" />
@@ -683,7 +683,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                 </Card>
               </motion.div>
               <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
                   <CardContent className="p-5 flex items-center gap-3">
                     <div className="p-2.5 rounded-xl gradient-teal flex-shrink-0 shadow-sm">
                       <CheckCircle2 className="h-5 w-5 text-white" />
@@ -712,7 +712,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Amount (ETB) *</Label>
-                        <Input type="number" className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newPayment.amount} onChange={e => setNewPayment(d => ({ ...d, amount: e.target.value }))} />
+                        <Input type="number" className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.amount} onChange={e => setNewPayment(d => ({ ...d, amount: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Payment Method</Label>
@@ -728,15 +728,15 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Reference Number</Label>
-                        <Input className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newPayment.referenceNumber} onChange={e => setNewPayment(d => ({ ...d, referenceNumber: e.target.value }))} />
+                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.referenceNumber} onChange={e => setNewPayment(d => ({ ...d, referenceNumber: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Payment Date *</Label>
-                        <Input type="date" className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newPayment.paymentDate} onChange={e => setNewPayment(d => ({ ...d, paymentDate: e.target.value }))} />
+                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.paymentDate} onChange={e => setNewPayment(d => ({ ...d, paymentDate: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Notes</Label>
-                        <Textarea className="rounded-lg focus:ring-emerald-500 focus:border-emerald-500" value={newPayment.notes} onChange={e => setNewPayment(d => ({ ...d, notes: e.target.value }))} />
+                        <Textarea className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.notes} onChange={e => setNewPayment(d => ({ ...d, notes: e.target.value }))} />
                       </div>
                       <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddPayment}>Log Payment</Button>
                     </div>
@@ -746,7 +746,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
             </div>
 
             {(project.payments || []).length === 0 ? (
-              <Card className="premium-shadow rounded-xl border-0 bg-white">
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
                 <CardContent className="p-12 text-center">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-amber flex items-center justify-center">
                     <CreditCard className="h-8 w-8 text-white" />
@@ -781,7 +781,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                         transition={{ delay: idx * 0.05, duration: 0.3 }}
                         whileHover={{ y: -2, transition: { duration: 0.15 } }}
                       >
-                        <Card className="premium-shadow rounded-xl border-0 bg-white transition-all duration-200">
+                        <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200">
                           <CardContent className="p-4 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <div className={`w-10 h-10 rounded-xl ${g} flex items-center justify-center flex-shrink-0 shadow-sm`}>
@@ -821,19 +821,19 @@ function KanbanColumn({ title, icon, tasks, colorTheme, onMoveTask, moveLabel, m
   onMoveTask: (id: string) => void; moveLabel: string; moveIcon?: React.ReactNode;
 }) {
   const themeStyles: Record<string, { headerBg: string; headerText: string; cardBg: string; dotColor: string }> = {
-    slate: { headerBg: 'bg-gray-50', headerText: 'text-gray-700', cardBg: 'bg-white hover:bg-gray-50/80', dotColor: 'bg-gray-400' },
-    amber: { headerBg: 'bg-amber-50', headerText: 'text-amber-700', cardBg: 'bg-white hover:bg-amber-50/50', dotColor: 'bg-amber-500' },
-    emerald: { headerBg: 'bg-emerald-50', headerText: 'text-emerald-700', cardBg: 'bg-white hover:bg-emerald-50/50', dotColor: 'bg-emerald-500' },
+    slate: { headerBg: 'bg-muted/50', headerText: 'text-foreground', cardBg: 'bg-card hover:bg-muted/50', dotColor: 'bg-muted-foreground/50' },
+    amber: { headerBg: 'bg-amber-50', headerText: 'text-amber-700', cardBg: 'bg-card hover:bg-amber-50/50', dotColor: 'bg-amber-500' },
+    emerald: { headerBg: 'bg-emerald-50', headerText: 'text-emerald-700', cardBg: 'bg-card hover:bg-primary/10', dotColor: 'bg-emerald-500' },
   };
   const theme = themeStyles[colorTheme] || themeStyles.slate;
 
   return (
-    <Card className="premium-shadow rounded-xl border-0 bg-white/80 overflow-hidden">
+    <Card className="premium-shadow rounded-xl border-0 bg-card/80 overflow-hidden">
       <div className={`px-4 py-3 ${theme.headerBg} border-b border-border/30`}>
         <div className="flex items-center gap-2">
           <span className={theme.headerText}>{icon}</span>
           <CardTitle className={`text-sm font-semibold ${theme.headerText}`}>{title}</CardTitle>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto border-0 bg-white/60 font-semibold">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto border-0 bg-card/60 font-semibold">
             {tasks.length}
           </Badge>
         </div>
@@ -874,7 +874,7 @@ function KanbanColumn({ title, icon, tasks, colorTheme, onMoveTask, moveLabel, m
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="w-full text-xs h-7 rounded-lg hover:bg-emerald-50 hover:text-emerald-700 transition-colors font-medium"
+                  className="w-full text-xs h-7 rounded-lg hover:bg-primary/10 hover:text-emerald-700 transition-colors font-medium"
                   onClick={() => onMoveTask(task.id)}
                 >
                   {moveIcon} <span className="ml-1">{moveLabel}</span>
