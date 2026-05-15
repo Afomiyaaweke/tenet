@@ -147,7 +147,7 @@ export function DocumentsView() {
       case 'tax_clearance': return { icon: Receipt, bg: 'bg-amber-50', color: 'text-amber-600', label: 'Tax Clearance' };
       case 'portfolio': return { icon: FolderOpen, bg: 'bg-teal-50', color: 'text-teal-600', label: 'Portfolio' };
       case 'certificate': return { icon: Award, bg: 'bg-purple-50', color: 'text-purple-600', label: 'Certificate' };
-      default: return { icon: File, bg: 'bg-gray-50', color: 'text-gray-600', label: type.replace('_', ' ') };
+      default: return { icon: File, bg: 'bg-muted/50', color: 'text-muted-foreground', label: type.replace('_', ' ') };
     }
   };
 
@@ -184,7 +184,7 @@ export function DocumentsView() {
 
       {/* Verification Status */}
       <motion.div variants={itemVariants}>
-        <Card className="premium-shadow-lg rounded-xl border-0 bg-white">
+        <Card className="premium-shadow-lg rounded-xl border-0 bg-card">
           <CardContent className="p-5 flex items-center gap-4">
             <div className={`p-3 rounded-2xl flex-shrink-0 ${user?.profile?.verified ? 'gradient-emerald' : 'gradient-amber'}`}>
               <Shield className="h-6 w-6 text-white" />
@@ -221,7 +221,7 @@ export function DocumentsView() {
             { count: rejectedCount, label: 'Rejected', icon: XCircle, bg: 'bg-rose-50', color: 'text-rose-600', dot: 'bg-rose-500' },
           ].map(stat => (
             <motion.div key={stat.label} whileHover={cardHover}>
-              <Card className="premium-shadow rounded-xl border-0 bg-white transition-all duration-200 h-full">
+              <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200 h-full">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
                     <stat.icon className={`h-4 w-4 ${stat.color}`} />
@@ -239,7 +239,7 @@ export function DocumentsView() {
 
       {/* Upload Section with Drag-Drop */}
       <motion.div variants={itemVariants}>
-        <Card className="premium-shadow rounded-xl border-0 bg-white">
+        <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-emerald">
@@ -257,7 +257,7 @@ export function DocumentsView() {
               className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
                 isDragging
                   ? 'border-emerald-400 bg-emerald-50/50 scale-[1.01]'
-                  : 'border-border/60 bg-muted/20 hover:border-emerald-300 hover:bg-emerald-50/20'
+                  : 'border-border/60 bg-muted/20 hover:border-emerald-300 hover:bg-primary/10'
               }`}
             >
               <div className="flex flex-col items-center gap-2">
@@ -273,7 +273,7 @@ export function DocumentsView() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                  className="text-xs text-emerald-600 hover:text-emerald-700 hover:bg-primary/10"
                   onClick={() => fileRef.current?.click()}
                 >
                   <FileUp className="h-3.5 w-3.5 mr-1" /> Or browse files
@@ -344,7 +344,7 @@ export function DocumentsView() {
 
       {/* Documents List */}
       <motion.div variants={itemVariants}>
-        <Card className="premium-shadow rounded-xl border-0 bg-white">
+        <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -361,7 +361,7 @@ export function DocumentsView() {
                 <select
                   value={typeFilter}
                   onChange={e => setTypeFilter(e.target.value)}
-                  className="h-7 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-emerald-500 focus:outline-none"
+                  className="h-7 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
                 >
                   <option value="all">All Types</option>
                   <option value="business_license">Business License</option>
@@ -373,7 +373,7 @@ export function DocumentsView() {
                 <select
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
-                  className="h-7 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-emerald-500 focus:outline-none"
+                  className="h-7 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
                 >
                   <option value="all">All Status</option>
                   <option value="pending">Pending</option>

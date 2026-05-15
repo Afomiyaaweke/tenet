@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { db } from '@/lib/db';
 import { NextRequest } from 'next/server';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'tenet-tender-secret-2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'tenets-tender-secret-2026';
 const JWT_EXPIRY = '7d';
 
 export interface JwtPayload {

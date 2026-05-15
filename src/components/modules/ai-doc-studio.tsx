@@ -135,7 +135,7 @@ function getRiskBadge(risk: string): { color: string; Icon: React.ElementType } 
     case 'low': return { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', Icon: CheckCircle2 };
     case 'medium': return { color: 'bg-amber-100 text-amber-700 border-amber-200', Icon: AlertTriangle };
     case 'high': return { color: 'bg-rose-100 text-rose-700 border-rose-200', Icon: XCircle };
-    default: return { color: 'bg-gray-100 text-gray-700 border-gray-200', Icon: Shield };
+    default: return { color: 'bg-muted text-foreground border-border', Icon: Shield };
   }
 }
 
@@ -151,7 +151,7 @@ function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
   };
   return (
     <Button variant="ghost" size="sm" onClick={handleCopy}
-      className="h-7 text-xs gap-1 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50">
+      className="h-7 text-xs gap-1 text-muted-foreground hover:text-emerald-600 hover:bg-primary/10">
       {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
       {copied ? 'Copied' : label}
     </Button>
@@ -175,7 +175,7 @@ function SkillTagSelector({ selected, onChange }: { selected: string[]; onChange
           className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border ${
             selected.includes(skill)
               ? 'bg-emerald-50 text-emerald-700 border-emerald-300 premium-shadow'
-              : 'bg-gray-50 text-muted-foreground border-gray-200 hover:border-emerald-300 hover:text-emerald-600'
+              : 'bg-muted/50 text-muted-foreground border-border hover:border-emerald-300 hover:text-emerald-600'
           }`}>
           {skill}
         </button>
@@ -194,7 +194,7 @@ function DocSectionCard({ title, icon: Icon, content, rawText }: {
 }) {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-      <Card className="border border-emerald-100/60 bg-white premium-shadow overflow-hidden">
+      <Card className="border border-emerald-100/60 bg-card premium-shadow overflow-hidden">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -319,12 +319,12 @@ function TenderBuilderTool() {
               <Label className="text-xs font-medium">Title *</Label>
               <Input placeholder="e.g., Office Building Construction" value={form.title}
                 onChange={e => updateField('title', e.target.value)}
-                className="h-9 text-sm bg-gray-50/80 border-border/50 focus:border-emerald-300" />
+                className="h-9 text-sm bg-muted/50 border-border/50 focus:border-primary" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Category *</Label>
               <Select value={form.category} onValueChange={v => updateField('category', v)}>
-                <SelectTrigger className="h-9 text-sm bg-gray-50/80 border-border/50 w-full">
+                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -336,39 +336,39 @@ function TenderBuilderTool() {
               <Label className="text-xs font-medium">Location</Label>
               <Input placeholder="e.g., Addis Ababa" value={form.location}
                 onChange={e => updateField('location', e.target.value)}
-                className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                className="h-9 text-sm bg-muted/50 border-border/50" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Budget Min (ETB)</Label>
                 <Input type="number" placeholder="0" value={form.budgetMin}
                   onChange={e => updateField('budgetMin', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Budget Max (ETB)</Label>
                 <Input type="number" placeholder="0" value={form.budgetMax}
                   onChange={e => updateField('budgetMax', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Deadline</Label>
               <Input type="date" value={form.deadline}
                 onChange={e => updateField('deadline', e.target.value)}
-                className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                className="h-9 text-sm bg-muted/50 border-border/50" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Brief Description *</Label>
               <Textarea placeholder="Describe the tender scope, objectives, and requirements..."
                 value={form.description} onChange={e => updateField('description', e.target.value)}
-                className="min-h-[80px] text-sm bg-gray-50/80 border-border/50 resize-none" />
+                className="min-h-[80px] text-sm bg-muted/50 border-border/50 resize-none" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Additional Notes (optional)</Label>
               <Textarea placeholder="Any special requirements or conditions..."
                 value={form.notes} onChange={e => updateField('notes', e.target.value)}
-                className="min-h-[60px] text-sm bg-gray-50/80 border-border/50 resize-none" />
+                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
             </div>
             <Button onClick={handleGenerate} disabled={loading}
               className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
@@ -537,7 +537,7 @@ function BidBuilderTool() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Select Tender</Label>
               <Select value={selectedTender} onValueChange={handleSelectTender}>
-                <SelectTrigger className="h-9 text-sm bg-gray-50/80 border-border/50 w-full">
+                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
                   <SelectValue placeholder="Choose a tender (auto-fills fields)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -553,25 +553,25 @@ function BidBuilderTool() {
               <Label className="text-xs font-medium">Tender Title</Label>
               <Input placeholder="Enter tender title" value={form.tenderTitle}
                 onChange={e => updateField('tenderTitle', e.target.value)}
-                className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                className="h-9 text-sm bg-muted/50 border-border/50" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Scope</Label>
               <Textarea placeholder="Tender scope description" value={form.scope}
                 onChange={e => updateField('scope', e.target.value)}
-                className="min-h-[60px] text-sm bg-gray-50/80 border-border/50 resize-none" />
+                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Budget Range</Label>
                 <Input placeholder="e.g., 500K - 1M ETB" value={form.budgetRange}
                   onChange={e => updateField('budgetRange', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Category</Label>
                 <Select value={form.category} onValueChange={v => updateField('category', v)}>
-                  <SelectTrigger className="h-9 text-sm bg-gray-50/80 border-border/50 w-full">
+                  <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -591,33 +591,33 @@ function BidBuilderTool() {
               <Label className="text-xs font-medium">Company Name</Label>
               <Input placeholder="Your company name" value={form.companyName}
                 onChange={e => updateField('companyName', e.target.value)}
-                className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                className="h-9 text-sm bg-muted/50 border-border/50" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Your Experience</Label>
               <Textarea placeholder="Relevant experience and past projects..."
                 value={form.experience} onChange={e => updateField('experience', e.target.value)}
-                className="min-h-[60px] text-sm bg-gray-50/80 border-border/50 resize-none" />
+                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Proposed Budget (ETB)</Label>
                 <Input type="number" placeholder="0" value={form.proposedBudget}
                   onChange={e => updateField('proposedBudget', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Proposed Timeline</Label>
                 <Input placeholder="e.g., 6 months" value={form.proposedTimeline}
                   onChange={e => updateField('proposedTimeline', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Additional Notes (optional)</Label>
               <Textarea placeholder="Any additional information..."
                 value={form.notes} onChange={e => updateField('notes', e.target.value)}
-                className="min-h-[50px] text-sm bg-gray-50/80 border-border/50 resize-none" />
+                className="min-h-[50px] text-sm bg-muted/50 border-border/50 resize-none" />
             </div>
             <Button onClick={handleGenerate} disabled={loading}
               className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
@@ -783,7 +783,7 @@ function RequirementAnalyzerTool() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Select Tender</Label>
               <Select value={selectedTender} onValueChange={handleSelectTender}>
-                <SelectTrigger className="h-9 text-sm bg-gray-50/80 border-border/50 w-full">
+                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
                   <SelectValue placeholder="Choose a tender (auto-fills)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -799,26 +799,26 @@ function RequirementAnalyzerTool() {
               <Label className="text-xs font-medium">Tender Title</Label>
               <Input placeholder="Enter tender title" value={form.tenderTitle}
                 onChange={e => updateField('tenderTitle', e.target.value)}
-                className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                className="h-9 text-sm bg-muted/50 border-border/50" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Scope</Label>
               <Textarea placeholder="Tender scope" value={form.scope}
                 onChange={e => updateField('scope', e.target.value)}
-                className="min-h-[60px] text-sm bg-gray-50/80 border-border/50 resize-none" />
+                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Budget</Label>
                 <Input placeholder="e.g., 1M ETB" value={form.budget}
                   onChange={e => updateField('budget', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Category</Label>
                 <Input placeholder="e.g., Construction" value={form.category}
                   onChange={e => updateField('category', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -826,13 +826,13 @@ function RequirementAnalyzerTool() {
                 <Label className="text-xs font-medium">Required Docs</Label>
                 <Input placeholder="e.g., License, TIN" value={form.requiredDocs}
                   onChange={e => updateField('requiredDocs', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Deadline</Label>
                 <Input type="date" value={form.deadline}
                   onChange={e => updateField('deadline', e.target.value)}
-                  className="h-9 text-sm bg-gray-50/80 border-border/50" />
+                  className="h-9 text-sm bg-muted/50 border-border/50" />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -1024,7 +1024,7 @@ function ApplicantAnalyzerTool() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Select Your Tender</Label>
               <Select value={selectedTender} onValueChange={setSelectedTender}>
-                <SelectTrigger className="h-9 text-sm bg-gray-50/80 border-border/50 w-full">
+                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
                   <SelectValue placeholder="Choose a tender to analyze bids" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1070,11 +1070,11 @@ function ApplicantAnalyzerTool() {
                       <span className="text-sm font-semibold">Summary</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center p-3 bg-white rounded-xl premium-shadow">
+                      <div className="text-center p-3 bg-card rounded-xl premium-shadow">
                         <p className="text-2xl font-bold text-emerald-600">{result.summary.totalBids}</p>
                         <p className="text-xs text-muted-foreground">Total Bids</p>
                       </div>
-                      <div className="text-center p-3 bg-white rounded-xl premium-shadow">
+                      <div className="text-center p-3 bg-card rounded-xl premium-shadow">
                         <p className={`text-2xl font-bold ${scoreColor(result.summary.averageScore)}`}>{result.summary.averageScore}</p>
                         <p className="text-xs text-muted-foreground">Avg Score</p>
                       </div>
@@ -1095,7 +1095,7 @@ function ApplicantAnalyzerTool() {
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                              applicant.rank === 1 ? 'bg-emerald-500' : applicant.rank === 2 ? 'bg-amber-500' : 'bg-gray-400'
+                              applicant.rank === 1 ? 'bg-emerald-500' : applicant.rank === 2 ? 'bg-amber-500' : 'bg-muted-foreground/50'
                             }`}>
                               #{applicant.rank}
                             </div>
@@ -1224,7 +1224,7 @@ export function AIDocStudio() {
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col view-enter">
       {/* Header */}
-      <div className="px-5 py-3 border-b border-border/50 bg-white/80 backdrop-blur-md flex-shrink-0">
+      <div className="px-5 py-3 border-b border-border/50 bg-card/80 backdrop-blur-md flex-shrink-0">
         <div className="flex items-center gap-3">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
@@ -1246,7 +1246,7 @@ export function AIDocStudio() {
       {/* Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Tool Tabs */}
-        <div className="w-[180px] lg:w-[200px] border-r border-border/50 bg-white/50 flex-shrink-0 p-3 hidden sm:flex flex-col gap-1.5">
+        <div className="w-[180px] lg:w-[200px] border-r border-border/50 bg-card/50 flex-shrink-0 p-3 hidden sm:flex flex-col gap-1.5">
           {TOOL_TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -1275,7 +1275,7 @@ export function AIDocStudio() {
         </div>
 
         {/* Mobile tabs */}
-        <div className="sm:hidden flex border-b border-border/50 bg-white overflow-x-auto flex-shrink-0 w-full">
+        <div className="sm:hidden flex border-b border-border/50 bg-card overflow-x-auto flex-shrink-0 w-full">
           {TOOL_TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;

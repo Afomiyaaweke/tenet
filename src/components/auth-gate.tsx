@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { TenetsLogo } from '@/components/logo';
 import {
   ShieldCheck,
   BrainCircuit,
@@ -112,7 +113,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     };
     const ok = await register(data);
     if (!ok) toast.error('Registration failed. Email may already exist.');
-    else toast.success('Welcome to Tenet!');
+    else toast.success('Welcome to Tenets!');
     setLoading(false);
   };
 
@@ -128,9 +129,9 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
-              <img src="/logo.png" alt="Tenet" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
+              <img src="/logo.png" alt="Tenets" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
               <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Tenet</h1>
+                <h1 className="text-2xl font-bold text-white tracking-tight">Tenets</h1>
                 <p className="text-emerald-200/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
               </div>
             </div>
@@ -195,16 +196,12 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
         </div>
 
         {/* ═══════════ RIGHT PANEL (Form) ═══════════ */}
-        <div className="flex-1 flex flex-col min-h-screen lg:min-h-0 bg-white">
+        <div className="flex-1 flex flex-col min-h-screen lg:min-h-0 bg-background">
           {/* Mobile header with gradient bar */}
           <div className="lg:hidden">
             <div className="h-1.5 gradient-emerald" />
             <div className="px-6 pt-6 pb-4 flex items-center gap-3">
-              <img src="/logo.png" alt="Tenet" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
-              <div>
-                <h1 className="text-lg font-bold text-gray-900 tracking-tight">Tenet</h1>
-                <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Tender Ecosystem</p>
-              </div>
+              <TenetsLogo size="sm" />
             </div>
           </div>
 
@@ -218,7 +215,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                 <button
                   type="button"
                   onClick={onBack}
-                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-6 group"
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
                 >
                   <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                   Back to home
@@ -227,14 +224,14 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
               {/* Tab switcher */}
               <div className="mb-8">
-                <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
                   <button
                     type="button"
                     onClick={() => setActiveTab('login')}
                     className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-300 ${
                       activeTab === 'login'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     Welcome Back
@@ -244,8 +241,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     onClick={() => setActiveTab('register')}
                     className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-300 ${
                       activeTab === 'register'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     Create Account
@@ -257,14 +254,14 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
               {activeTab === 'login' && (
                 <div className="animate-[viewEnter_0.3s_ease-out]">
                   <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Sign In</h2>
-                    <p className="text-gray-500 text-sm mt-1">Enter your credentials to access the platform</p>
+                    <h2 className="text-2xl font-bold text-foreground">Sign In</h2>
+                    <p className="text-muted-foreground text-sm mt-1">Enter your credentials to access the platform</p>
                   </div>
 
                   <form onSubmit={handleLogin} className="space-y-5">
                     <div className="space-y-2">
-                      <Label htmlFor="login-email" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <Mail className="w-3.5 h-3.5 text-gray-400" />
+                      <Label htmlFor="login-email" className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
                         Email Address
                       </Label>
                       <Input
@@ -274,13 +271,13 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         value={loginData.email}
                         onChange={e => setLoginData(d => ({ ...d, email: e.target.value }))}
                         required
-                        className="h-11 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200"
+                        className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="login-password" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <Lock className="w-3.5 h-3.5 text-gray-400" />
+                      <Label htmlFor="login-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" />
                         Password
                       </Label>
                       <div className="relative">
@@ -291,12 +288,12 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           value={loginData.password}
                           onChange={e => setLoginData(d => ({ ...d, password: e.target.value }))}
                           required
-                          className="h-11 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 pr-10"
+                          className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 pr-10"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -323,14 +320,14 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                   </form>
 
                   {/* Demo credentials box */}
-                  <div className="mt-6 p-4 rounded-xl bg-emerald-50/80 border border-emerald-100">
+                  <div className="mt-6 p-4 rounded-xl bg-primary/10 border border-primary/20">
                     <div className="flex items-start gap-2.5">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mt-0.5">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center mt-0.5">
+                        <ShieldCheck className="w-4 h-4 text-primary" />
                       </div>
                       <div className="text-sm">
-                        <p className="font-semibold text-emerald-800 mb-1">Demo Credentials</p>
-                        <p className="text-emerald-700/70 font-mono text-xs leading-relaxed">
+                        <p className="font-semibold text-primary mb-1">Demo Credentials</p>
+                        <p className="text-primary/70 font-mono text-xs leading-relaxed">
                           admin@tenet.com / Admin@123
                         </p>
                       </div>
@@ -343,8 +340,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
               {activeTab === 'register' && (
                 <div className="animate-[viewEnter_0.3s_ease-out]">
                   <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
-                    <p className="text-gray-500 text-sm mt-1">Join the Tenet Tender Ecosystem</p>
+                    <h2 className="text-2xl font-bold text-foreground">Create Account</h2>
+                    <p className="text-muted-foreground text-sm mt-1">Join the Tenets Tender Ecosystem</p>
                   </div>
 
                   <form onSubmit={handleRegister} className="space-y-6">
@@ -354,12 +351,12 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
                           <span className="text-white text-[10px] font-bold">1</span>
                         </div>
-                        <h3 className="text-sm font-semibold text-gray-800">Personal Information</h3>
+                        <h3 className="text-sm font-semibold text-foreground">Personal Information</h3>
                       </div>
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                               <User className="w-3 h-3" /> Full Name *
                             </Label>
                             <Input
@@ -367,11 +364,11 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                               required
                               value={regData.fullName}
                               onChange={e => setRegData(d => ({ ...d, fullName: e.target.value }))}
-                              className="h-10 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 text-sm"
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                               <Mail className="w-3 h-3" /> Email *
                             </Label>
                             <Input
@@ -380,13 +377,13 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                               required
                               value={regData.email}
                               onChange={e => setRegData(d => ({ ...d, email: e.target.value }))}
-                              className="h-10 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 text-sm"
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
                             />
                           </div>
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                             <Lock className="w-3 h-3" /> Password *
                           </Label>
                           <div className="relative">
@@ -396,12 +393,12 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                               required
                               value={regData.password}
                               onChange={e => setRegData(d => ({ ...d, password: e.target.value }))}
-                              className="h-10 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 text-sm pr-10"
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm pr-10"
                             />
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                             >
                               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
@@ -410,7 +407,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                               <Phone className="w-3 h-3" /> Phone *
                             </Label>
                             <Input
@@ -418,11 +415,11 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                               required
                               value={regData.phone}
                               onChange={e => setRegData(d => ({ ...d, phone: e.target.value }))}
-                              className="h-10 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 text-sm"
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                               <MapPin className="w-3 h-3" /> Location *
                             </Label>
                             <Input
@@ -430,7 +427,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                               required
                               value={regData.location}
                               onChange={e => setRegData(d => ({ ...d, location: e.target.value }))}
-                              className="h-10 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 text-sm"
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
                             />
                           </div>
                         </div>
@@ -443,14 +440,14 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
                           <span className="text-white text-[10px] font-bold">2</span>
                         </div>
-                        <h3 className="text-sm font-semibold text-gray-800">Professional Details <span className="text-gray-400 font-normal">(optional)</span></h3>
+                        <h3 className="text-sm font-semibold text-foreground">Professional Details <span className="text-muted-foreground font-normal">(optional)</span></h3>
                       </div>
                       <div className="space-y-3">
                         <div className="space-y-2">
-                          <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                             <Briefcase className="w-3 h-3" /> Skill Tags
                             {selectedSkills.length > 0 && (
-                              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
                                 {selectedSkills.length}
                               </span>
                             )}
@@ -466,7 +463,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
                                     isSelected
                                       ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-500/20 scale-105'
-                                      : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50/50'
+                                      : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary hover:bg-primary/5'
                                   }`}
                                 >
                                   {skill}
@@ -477,7 +474,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                             <FileText className="w-3 h-3" /> Bio / Portfolio
                           </Label>
                           <Textarea
@@ -485,7 +482,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                             value={regData.bio}
                             onChange={e => setRegData(d => ({ ...d, bio: e.target.value }))}
                             rows={3}
-                            className="bg-gray-50/80 border-gray-200 focus:bg-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200 text-sm resize-none"
+                            className="bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm resize-none"
                           />
                         </div>
                       </div>
@@ -515,9 +512,9 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           </div>
 
           {/* Footer inside right panel on desktop, or below on mobile */}
-          <footer className="px-6 py-4 text-center border-t border-gray-100 lg:border-t lg:py-5">
-            <p className="text-xs text-gray-400">
-              © 2025 Tenet · Transforming Procurement Through Technology
+          <footer className="px-6 py-4 text-center border-t border-border lg:border-t lg:py-5">
+            <p className="text-xs text-muted-foreground">
+              © 2025 Tenets · Transforming Procurement Through Technology
             </p>
           </footer>
         </div>

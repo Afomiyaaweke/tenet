@@ -69,7 +69,7 @@ export function ProjectsView() {
       case 'completed': return { bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500', gradient: 'gradient-teal', icon: CheckCircle2 };
       case 'on_hold': return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500', gradient: 'gradient-amber', icon: Clock };
       case 'cancelled': return { bg: 'bg-rose-100', text: 'text-rose-700', dot: 'bg-rose-500', gradient: 'gradient-rose', icon: AlertTriangle };
-      default: return { bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-500', gradient: 'gradient-emerald', icon: FolderKanban };
+      default: return { bg: 'bg-muted', text: 'text-foreground', dot: 'bg-muted-foreground/50', gradient: 'gradient-emerald', icon: FolderKanban };
     }
   };
 
@@ -121,20 +121,20 @@ export function ProjectsView() {
             <Card key={i} className="premium-shadow rounded-xl border-0 animate-pulse">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-11 h-11 rounded-xl bg-gray-200" />
+                  <div className="w-11 h-11 rounded-xl bg-muted" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-3/4" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
                   </div>
                 </div>
-                <div className="h-2 bg-gray-100 rounded-full" />
+                <div className="h-2 bg-muted rounded-full" />
               </CardContent>
             </Card>
           ))}
         </div>
       ) : projects.length === 0 ? (
         <motion.div variants={itemVariants}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <CardContent className="p-16 text-center">
               <div className="w-20 h-20 mx-auto mb-6 rounded-2xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-200/40">
                 <FolderKanban className="h-10 w-10 text-white" />
@@ -156,7 +156,7 @@ export function ProjectsView() {
         <>
           {/* Stats Summary Row */}
           <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
+            <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-50 flex-shrink-0">
                   <FolderKanban className="h-4 w-4 text-emerald-600" />
@@ -167,7 +167,7 @@ export function ProjectsView() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
+            <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-teal-50 flex-shrink-0">
                   <CheckCircle2 className="h-4 w-4 text-teal-600" />
@@ -178,7 +178,7 @@ export function ProjectsView() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
+            <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-50 flex-shrink-0">
                   <DollarSign className="h-4 w-4 text-amber-600" />
@@ -189,7 +189,7 @@ export function ProjectsView() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
+            <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-rose-50 flex-shrink-0">
                   <TrendingUp className="h-4 w-4 text-rose-600" />
@@ -224,7 +224,7 @@ export function ProjectsView() {
                   className="cursor-pointer"
                   onClick={() => setView('project-detail', { id: project.id })}
                 >
-                  <Card className="premium-shadow rounded-xl border-0 bg-white transition-all duration-300 group h-full">
+                  <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-300 group h-full">
                     <CardContent className="p-6">
                       {/* Top row: icon + name + status */}
                       <div className="flex items-start gap-3 mb-4">
@@ -262,7 +262,7 @@ export function ProjectsView() {
                           <p className="text-[11px] font-medium text-muted-foreground">Task Progress</p>
                           <p className="text-[11px] font-bold text-emerald-600">{doneTasks}/{totalTasks} done</p>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
                             style={{ width: `${progress}%` }}
@@ -277,7 +277,7 @@ export function ProjectsView() {
                             <p className="text-[11px] font-medium text-muted-foreground">Milestones</p>
                             <p className="text-[11px] font-bold text-teal-600">{milestoneDone}/{milestoneTotal} complete</p>
                           </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full bg-gradient-to-r from-teal-400 to-teal-600 transition-all duration-500"
                               style={{ width: `${milestoneTotal > 0 ? (milestoneDone / milestoneTotal) * 100 : 0}%` }}

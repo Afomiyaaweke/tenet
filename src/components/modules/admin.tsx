@@ -224,7 +224,7 @@ export function AdminView() {
           { icon: FileCheck, value: approvedDocs, label: 'Docs Approved', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
         ].map((stat, idx) => (
           <motion.div key={stat.label} whileHover={cardHover}>
-            <Card className="premium-shadow rounded-xl border-0 bg-white transition-all duration-200 h-full">
+            <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200 h-full">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
                   <stat.icon className={`h-5 w-5 ${stat.color}`} />
@@ -242,7 +242,7 @@ export function AdminView() {
       {/* Activity Feed + Platform Health Row */}
       <motion.div variants={itemVariants} className="grid md:grid-cols-2 gap-4">
         {/* Recent Activity Feed */}
-        <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+        <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-amber">
@@ -259,7 +259,7 @@ export function AdminView() {
               </div>
             ) : (
               <div className="relative pl-7 max-h-[300px] overflow-y-auto">
-                <div className="absolute left-[10px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-gray-200 rounded-full" />
+                <div className="absolute left-[10px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-border rounded-full" />
                 <div className="space-y-3">
                   {activityFeed.map((item) => {
                     const Icon = item.icon;
@@ -285,7 +285,7 @@ export function AdminView() {
         </Card>
 
         {/* Platform Health */}
-        <Card className="premium-shadow rounded-xl border-0 bg-white h-full">
+        <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-teal">
@@ -316,7 +316,7 @@ export function AdminView() {
       {/* Tabs */}
       <motion.div variants={itemVariants}>
         <Tabs defaultValue="users">
-          <TabsList className="bg-white premium-shadow rounded-xl border-0 h-auto p-1">
+          <TabsList className="bg-card premium-shadow rounded-xl border-0 h-auto p-1">
             <TabsTrigger
               value="users"
               className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow px-4 py-2 transition-all">
@@ -338,7 +338,7 @@ export function AdminView() {
 
           {/* Users Tab */}
           <TabsContent value="users" className="mt-4">
-            <Card className="premium-shadow rounded-xl border-0 bg-white">
+            <Card className="premium-shadow rounded-xl border-0 bg-card">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -346,7 +346,7 @@ export function AdminView() {
                       <Users className="h-3.5 w-3.5 text-white" />
                     </div>
                     All Users
-                    <Badge className="bg-emerald-50 text-emerald-700 border-0 rounded-lg text-[10px] ml-1 hover:bg-emerald-50">
+                    <Badge className="bg-emerald-50 text-emerald-700 border-0 rounded-lg text-[10px] ml-1 hover:bg-primary/10">
                       {filteredUsers.length} of {users.length}
                     </Badge>
                   </CardTitle>
@@ -358,14 +358,14 @@ export function AdminView() {
                         placeholder="Search users..."
                         value={userSearch}
                         onChange={e => setUserSearch(e.target.value)}
-                        className="pl-8 h-8 text-xs rounded-lg bg-muted/50 border-border/60 focus:ring-emerald-500 w-48"
+                        className="pl-8 h-8 text-xs rounded-lg bg-muted/50 border-border/60 focus:ring-primary w-48"
                       />
                     </div>
                     {/* Role Filter */}
                     <select
                       value={roleFilter}
                       onChange={e => setRoleFilter(e.target.value)}
-                      className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-emerald-500 focus:outline-none"
+                      className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
                     >
                       <option value="all">All Roles</option>
                       <option value="admin">Admin</option>
@@ -430,7 +430,7 @@ export function AdminView() {
                                 {(u.role || 'user').replace('_', ' ')}
                               </Badge>
                               {u.skillTags && u.skillTags.split(',').filter(Boolean).slice(0, 2).map((tag: string) => (
-                                <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-md hover:bg-emerald-50">{tag.trim()}</Badge>
+                                <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-md hover:bg-primary/10">{tag.trim()}</Badge>
                               ))}
                             </div>
                           </div>
@@ -454,7 +454,7 @@ export function AdminView() {
 
           {/* Documents Tab */}
           <TabsContent value="documents" className="mt-4">
-            <Card className="premium-shadow rounded-xl border-0 bg-white">
+            <Card className="premium-shadow rounded-xl border-0 bg-card">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -473,7 +473,7 @@ export function AdminView() {
                     <select
                       value={docStatusFilter}
                       onChange={e => setDocStatusFilter(e.target.value)}
-                      className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-emerald-500 focus:outline-none"
+                      className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
                     >
                       <option value="all">All Status</option>
                       <option value="pending">Pending</option>

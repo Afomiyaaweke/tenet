@@ -127,8 +127,8 @@ export function TendersView() {
       case 'open': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
       case 'closed': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
       case 'awarded': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
-      case 'cancelled': return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
-      default: return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
+      case 'cancelled': return 'bg-muted text-muted-foreground hover:bg-muted';
+      default: return 'bg-muted text-muted-foreground hover:bg-muted';
     }
   };
 
@@ -251,7 +251,7 @@ export function TendersView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
       >
-        <Card className="premium-shadow rounded-xl border-0 bg-white">
+        <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardContent className="p-4 space-y-3">
             {/* Search row */}
             <div className="flex flex-col sm:flex-row gap-3">
@@ -290,7 +290,7 @@ export function TendersView() {
                     className={`text-[11px] px-3 py-1 rounded-full transition-all duration-200 font-medium ${
                       categoryFilter === cat
                         ? 'gradient-emerald text-white premium-shadow'
-                        : 'bg-muted/60 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700'
+                        : 'bg-muted/60 text-muted-foreground hover:bg-primary/10 hover:text-primary'
                     }`}>
                     {cat}
                   </button>
@@ -316,7 +316,7 @@ export function TendersView() {
             { label: 'Total', count: stats.total, icon: Target, bg: 'bg-emerald-50', color: 'text-emerald-600' },
           ].map(stat => (
             <motion.div key={stat.label} variants={itemVariants}>
-              <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
+              <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
                     <stat.icon className={`h-4 w-4 ${stat.color}`} />
@@ -336,7 +336,7 @@ export function TendersView() {
       {loading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <Card key={i} className="premium-shadow rounded-xl border-0 bg-white animate-pulse overflow-hidden">
+            <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
               <div className="h-1.5 bg-muted/30" />
               <CardContent className="p-5 space-y-3">
                 <div className="h-5 bg-muted/50 rounded-xl w-3/4" />
@@ -349,7 +349,7 @@ export function TendersView() {
         </div>
       ) : tenders.length === 0 ? (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white">
+          <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-16 text-center">
               <div className="relative w-20 h-20 mx-auto mb-6">
                 <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20" />
@@ -395,7 +395,7 @@ export function TendersView() {
                   transition={{ duration: 0.2 }}
                 >
                   <Card
-                    className={`premium-shadow rounded-xl border-0 bg-white cursor-pointer group overflow-hidden transition-all duration-200 ${
+                    className={`premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 ${
                       compareSelection.includes(tender.id) ? 'ring-2 ring-emerald-400 ring-offset-2' : ''
                     }`}
                     onClick={() => setView('tender-detail', { id: tender.id })}
@@ -418,7 +418,7 @@ export function TendersView() {
                             className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
                               compareSelection.includes(tender.id)
                                 ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-200'
-                                : 'border-muted-foreground/30 hover:border-emerald-400 hover:bg-emerald-50'
+                                : 'border-muted-foreground/30 hover:border-primary hover:bg-primary/10'
                             }`}
                             title="Select to compare"
                           >
@@ -490,7 +490,7 @@ export function TendersView() {
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-muted-foreground font-medium">Match Score</span>
                             <span className={`text-[10px] font-bold ${
-                              tender.matchScore >= 70 ? 'text-emerald-700' : tender.matchScore >= 40 ? 'text-amber-700' : 'text-gray-500'
+                              tender.matchScore >= 70 ? 'text-emerald-700' : tender.matchScore >= 40 ? 'text-amber-700' : 'text-muted-foreground'
                             }`}>
                               {tender.matchScore}%
                             </span>
@@ -531,7 +531,7 @@ export function TendersView() {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50"
           >
-            <div className="flex items-center gap-3 bg-white/95 backdrop-blur-md rounded-2xl px-5 py-3 premium-shadow-lg border border-emerald-200/60">
+            <div className="flex items-center gap-3 bg-card/95 backdrop-blur-md rounded-2xl px-5 py-3 premium-shadow-lg border border-primary/20">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg gradient-emerald">
                   <GitCompareArrows className="h-4 w-4 text-white" />
@@ -560,7 +560,7 @@ export function TendersView() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="rounded-xl text-muted-foreground hover:text-rose-600 hover:bg-rose-50"
+                className="rounded-xl text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
                 onClick={() => setCompareSelection([])}
               >
                 <XIcon className="h-3.5 w-3.5 mr-1" /> Clear

@@ -76,7 +76,7 @@ export function BidsView() {
       case 'shortlisted': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
       case 'awarded': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
       case 'rejected': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
-      default: return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
+      default: return 'bg-muted text-muted-foreground hover:bg-muted';
     }
   };
 
@@ -86,7 +86,7 @@ export function BidsView() {
       case 'shortlisted': return { icon: Award, bg: 'bg-teal-50', color: 'text-teal-600' };
       case 'awarded': return { icon: CheckCircle, bg: 'bg-emerald-50', color: 'text-emerald-600' };
       case 'rejected': return { icon: AlertCircle, bg: 'bg-rose-50', color: 'text-rose-600' };
-      default: return { icon: Gavel, bg: 'bg-gray-50', color: 'text-gray-500' };
+      default: return { icon: Gavel, bg: 'bg-muted/50', color: 'text-muted-foreground' };
     }
   };
 
@@ -137,7 +137,7 @@ export function BidsView() {
             { label: 'Rejected', count: stats.rejected, icon: AlertCircle, bg: 'bg-rose-50', color: 'text-rose-600' },
           ].map(stat => (
             <motion.div key={stat.label} variants={itemVariants}>
-              <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
+              <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
                     <stat.icon className={`h-4 w-4 ${stat.color}`} />
@@ -160,7 +160,7 @@ export function BidsView() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.15 }}
         >
-          <Card className="premium-shadow rounded-xl border-0 bg-white">
+          <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-1.5">
               <div className="flex gap-1 overflow-x-auto">
                 {tabs.map(tab => (
@@ -194,7 +194,7 @@ export function BidsView() {
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
-            <Card key={i} className="premium-shadow rounded-xl border-0 bg-white animate-pulse overflow-hidden">
+            <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
               <div className="h-1 bg-muted/30" />
               <CardContent className="p-5"><div className="h-20 bg-muted/50 rounded-xl" /></CardContent>
             </Card>
@@ -202,7 +202,7 @@ export function BidsView() {
         </div>
       ) : bids.length === 0 ? (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white">
+          <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-16 text-center">
               <div className="relative w-20 h-20 mx-auto mb-6">
                 <div className="absolute inset-0 rounded-2xl gradient-amber opacity-20" />
@@ -228,7 +228,7 @@ export function BidsView() {
         </motion.div>
       ) : filteredBids.length === 0 ? (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
-          <Card className="premium-shadow rounded-xl border-0 bg-white">
+          <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-12 text-center">
               <div className="p-3 rounded-2xl bg-muted/50 w-fit mx-auto mb-4">
                 <Filter className="h-8 w-8 text-muted-foreground" />
@@ -261,14 +261,14 @@ export function BidsView() {
                   whileHover={{ y: -2 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
+                  <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                     {/* Status accent strip */}
                     <div className={`h-1 ${
                       bid.status === 'pending_review' ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
                       bid.status === 'shortlisted' ? 'bg-gradient-to-r from-teal-400 to-teal-600' :
                       bid.status === 'awarded' ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
                       bid.status === 'rejected' ? 'bg-gradient-to-r from-rose-400 to-rose-500' :
-                      'bg-gradient-to-r from-gray-300 to-gray-400'
+                      'bg-gradient-to-r from-muted to-muted-foreground/50'
                     }`} />
 
                     <CardContent className="p-0">
@@ -295,7 +295,7 @@ export function BidsView() {
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                             {/* Financial badge */}
-                            <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+                            <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
                               <DollarSign className="h-3 w-3 mr-1" /> ETB {bid.financialProposal.toLocaleString()}
                             </Badge>
                             {/* Timeline badge */}
@@ -399,7 +399,7 @@ export function BidsView() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="rounded-xl text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all"
+                                    className="rounded-xl text-emerald-600 hover:bg-primary/10 hover:text-emerald-700 transition-all"
                                     onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: bid.tender!.id }); }}>
                                     <Eye className="h-3.5 w-3.5 mr-1.5" /> View Tender
                                   </Button>

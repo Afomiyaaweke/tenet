@@ -35,14 +35,14 @@ function formatCountdown(dateStr: string): string {
 }
 
 function countdownColor(days: number): string {
-  if (days < 0) return 'text-gray-500';
+  if (days < 0) return 'text-muted-foreground';
   if (days <= 2) return 'text-rose-600';
   if (days <= 7) return 'text-amber-600';
   return 'text-emerald-600';
 }
 
 function countdownBg(days: number): string {
-  if (days < 0) return 'bg-gray-50';
+  if (days < 0) return 'bg-muted/50';
   if (days <= 2) return 'bg-rose-50';
   if (days <= 7) return 'bg-amber-50';
   return 'bg-emerald-50';
@@ -125,7 +125,7 @@ export function EventsView() {
       case 'ongoing': return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
       case 'completed': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
       case 'cancelled': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
-      default: return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
+      default: return 'bg-muted text-muted-foreground hover:bg-muted';
     }
   };
 
@@ -135,7 +135,7 @@ export function EventsView() {
       case 'ongoing': return 'bg-amber-500';
       case 'completed': return 'bg-teal-500';
       case 'cancelled': return 'bg-rose-500';
-      default: return 'bg-gray-400';
+      default: return 'bg-muted-foreground/50';
     }
   };
 
@@ -215,34 +215,34 @@ export function EventsView() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Title *</Label>
                     <Input value={newEvent.title} onChange={e => setNewEvent(d => ({ ...d, title: e.target.value }))}
-                      className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+                      className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Description *</Label>
                     <Textarea value={newEvent.description} onChange={e => setNewEvent(d => ({ ...d, description: e.target.value }))}
-                      className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+                      className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Date & Time *</Label>
                       <Input type="datetime-local" value={newEvent.eventDate} onChange={e => setNewEvent(d => ({ ...d, eventDate: e.target.value }))}
-                        className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+                        className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Location *</Label>
                       <Input value={newEvent.location} onChange={e => setNewEvent(d => ({ ...d, location: e.target.value }))}
-                        className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+                        className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Capacity</Label>
                       <Input type="number" value={newEvent.capacity} onChange={e => setNewEvent(d => ({ ...d, capacity: e.target.value }))}
-                        className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+                        className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Category</Label>
-                      <select className="w-full h-9 rounded-xl border border-border/60 bg-muted/50 px-3 text-sm focus:ring-emerald-500/20 focus:outline-none"
+                      <select className="w-full h-9 rounded-xl border border-border/60 bg-muted/50 px-3 text-sm focus:ring-primary/20 focus:outline-none"
                         value={newEvent.category}
                         onChange={e => setNewEvent(d => ({ ...d, category: e.target.value }))}>
                         <option value="workshop">Workshop</option>
@@ -270,7 +270,7 @@ export function EventsView() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <Card className="premium-shadow rounded-xl border-0 bg-white">
+            <Card className="premium-shadow rounded-xl border-0 bg-card">
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row gap-4">
                   {/* Category Filter */}
@@ -283,7 +283,7 @@ export function EventsView() {
                           className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
                             filterCategory === cat
                               ? 'gradient-emerald text-white premium-shadow'
-                              : 'bg-gray-100 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700'
+                              : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-emerald-700'
                           }`}
                         >
                           {cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -301,7 +301,7 @@ export function EventsView() {
                           className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
                             filterStatus === status
                               ? 'gradient-emerald text-white premium-shadow'
-                              : 'bg-gray-100 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700'
+                              : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-emerald-700'
                           }`}
                         >
                           {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
@@ -341,7 +341,7 @@ export function EventsView() {
             const Icon = stat.icon;
             return (
               <motion.div key={stat.label} custom={stat.idx} variants={statVariants} initial="hidden" animate="visible">
-                <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200">
+                <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
                       <Icon className={`h-4 w-4 ${stat.color}`} />
@@ -362,7 +362,7 @@ export function EventsView() {
       {loading ? (
         <div className="grid md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map(i => (
-            <Card key={i} className="premium-shadow rounded-xl border-0 bg-white animate-pulse">
+            <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse">
               <CardContent className="p-5 space-y-3">
                 <div className="h-5 bg-muted/50 rounded-xl w-3/4" />
                 <div className="h-4 bg-muted/50 rounded-xl w-full" />
@@ -372,7 +372,7 @@ export function EventsView() {
           ))}
         </div>
       ) : filteredEvents.length === 0 ? (
-        <Card className="premium-shadow rounded-xl border-0 bg-white">
+        <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardContent className="p-12 text-center">
             <div className="p-3 rounded-2xl gradient-emerald w-fit mx-auto mb-4">
               <GraduationCap className="h-8 w-8 text-white" />
@@ -384,7 +384,7 @@ export function EventsView() {
               {activeFilterCount > 0 ? 'Try adjusting or clearing your filters' : 'Check back later for upcoming workshops and training sessions'}
             </p>
             {activeFilterCount > 0 && (
-              <Button variant="outline" className="mt-4 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              <Button variant="outline" className="mt-4 rounded-xl border-emerald-200 text-emerald-700 hover:bg-primary/10"
                 onClick={() => { setFilterCategory('all'); setFilterStatus('all'); }}>
                 Clear Filters
               </Button>
@@ -412,7 +412,7 @@ export function EventsView() {
                   exit="exit"
                   layout
                 >
-                  <Card className="premium-shadow rounded-xl border-0 bg-white hover:-translate-y-0.5 transition-all duration-200 h-full">
+                  <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200 h-full">
                     <CardContent className="p-5 space-y-4 flex flex-col">
                       {/* Header: Category Icon + Title + Countdown */}
                       <div className="flex items-start justify-between gap-2">
@@ -478,7 +478,7 @@ export function EventsView() {
                             {capacityPct}%
                           </span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${capacityPct}%` }}
@@ -496,7 +496,7 @@ export function EventsView() {
                       {user?.role === 'contractor' && (
                         <div className="pt-3 border-t border-border/40 pl-11 mt-auto">
                           {isRegistered ? (
-                            <Button size="sm" variant="outline" className="text-xs h-8 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-all"
+                            <Button size="sm" variant="outline" className="text-xs h-8 rounded-xl border-emerald-200 text-emerald-700 hover:bg-primary/10 transition-all"
                               onClick={() => handleUnregister(event.id)}>
                               <CheckCircle2 className="h-3 w-3 mr-1" /> Registered
                             </Button>
