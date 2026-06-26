@@ -253,6 +253,43 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                     <p className="text-sm font-bold text-purple-700">{tender._count?.bids || 0} received</p>
                   </div>
                 </div>
+
+                {/* Requirements — always visible while viewing the tender */}
+                <div className="rounded-xl border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-900/50">
+                        <ListChecks className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                      </div>
+                      <span className="text-sm font-semibold text-foreground">Tender Requirements</span>
+                    </div>
+                    {tender.requiredDocs && (
+                      <span className="text-[10px] font-medium text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/50 px-2 py-0.5 rounded-full">
+                        {tender.requiredDocs.split(',').filter(Boolean).length} document{tender.requiredDocs.split(',').filter(Boolean).length === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </div>
+                  {tender.requiredDocs ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tender.requiredDocs.split(',').filter(Boolean).map((doc, idx) => (
+                        <span key={`${doc}-${idx}`} className="inline-flex items-center gap-1 text-xs font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded-lg px-2.5 py-1">
+                          <FileStack className="h-3 w-3 shrink-0" />
+                          {doc.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">No specific documents listed — contact the tender owner for eligibility details.</p>
+                  )}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1.5 border-t border-teal-200/50 dark:border-teal-900/30">
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <CircleDot className="h-3 w-3 text-teal-500" /> Eligibility verified at bid submission
+                    </span>
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 text-amber-500" /> Late or incomplete submissions are rejected
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Action buttons */}

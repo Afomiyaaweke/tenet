@@ -17,6 +17,7 @@ import {
   FileSearch, Plus, Search, MapPin, Calendar, DollarSign,
   Clock, ArrowRight, TrendingUp, ChevronRight, Zap, Timer,
   Users, Building2, Target, GitCompareArrows, CheckCircle, X as XIcon,
+  ClipboardList,
 } from 'lucide-react';
 
 const CATEGORIES = ['Construction', 'IT', 'Supply', 'Consulting', 'Engineering', 'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications'];
@@ -384,6 +385,7 @@ export function TendersView() {
               const dlColor = deadlineColor(days);
               const dlBg = deadlineBg(days);
               const tags = tender.categoryTags.split(',').filter(Boolean);
+              const reqDocs = tender.requiredDocs ? tender.requiredDocs.split(',').filter(Boolean) : [];
 
               return (
                 <motion.div
@@ -483,6 +485,27 @@ export function TendersView() {
                           </Badge>
                         )}
                       </div>
+
+                      {/* Requirements preview */}
+                      {reqDocs.length > 0 && (
+                        <div className="rounded-lg border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-2.5 space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <ClipboardList className="h-3 w-3 text-teal-600 dark:text-teal-400 shrink-0" />
+                            <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wide">Requirements</span>
+                            <span className="text-[9px] text-teal-600/70 dark:text-teal-400/70 ml-auto">{reqDocs.length} doc{reqDocs.length === 1 ? '' : 's'}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {reqDocs.slice(0, 3).map((doc, i) => (
+                              <span key={`${doc}-${i}`} className="inline-flex items-center text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5">
+                                {doc.trim()}
+                              </span>
+                            ))}
+                            {reqDocs.length > 3 && (
+                              <span className="text-[10px] text-teal-600/70 dark:text-teal-400/70 px-1.5 py-0.5">+{reqDocs.length - 3}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Match score with progress bar */}
                       {tender.matchScore !== undefined && (

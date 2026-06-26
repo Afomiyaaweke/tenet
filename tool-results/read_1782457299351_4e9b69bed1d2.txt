@@ -1,0 +1,561 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState } from 'react';
+     4→     4→import { useAuthStore } from '@/store';
+     5→     5→import { Button } from '@/components/ui/button';
+     6→     6→import { Input } from '@/components/ui/input';
+     7→     7→import { Label } from '@/components/ui/label';
+     8→     8→import { Textarea } from '@/components/ui/textarea';
+     9→     9→import { toast } from 'sonner';
+    10→    10→import { TenetsLogo } from '@/components/logo';
+    11→    11→import {
+    12→    12→  ShieldCheck,
+    13→    13→  BrainCircuit,
+    14→    14→  Lock,
+    15→    15→  ArrowRight,
+    16→    16→  ArrowLeft,
+    17→    17→  Loader2,
+    18→    18→  Eye,
+    19→    19→  EyeOff,
+    20→    20→  User,
+    21→    21→  Briefcase,
+    22→    22→  MapPin,
+    23→    23→  Phone,
+    24→    24→  Mail,
+    25→    25→  FileText,
+    26→    26→} from 'lucide-react';
+    27→    27→
+    28→    28→const SKILL_OPTIONS = [
+    29→    29→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    30→    30→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Landscaping',
+    31→    31→  'Interior Design', 'Project Management', 'Logistics', 'Manufacturing',
+    32→    32→  'Healthcare', 'Education', 'Finance', 'Legal', 'Agriculture', 'Telecommunications'
+    33→    33→];
+    34→    34→
+    35→    35→/* ───────────────────────── Animated Background Dots ───────────────────────── */
+    36→    36→function FloatingDots() {
+    37→    37→  return (
+    38→    38→    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    39→    39→      {/* Large blurred circles */}
+    40→    40→      <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-white/[0.04] animate-[float1_18s_ease-in-out_infinite]" />
+    41→    41→      <div className="absolute top-1/3 -right-16 w-56 h-56 rounded-full bg-white/[0.06] animate-[float2_22s_ease-in-out_infinite]" />
+    42→    42→      <div className="absolute bottom-1/4 left-1/4 w-40 h-40 rounded-full bg-white/[0.05] animate-[float3_16s_ease-in-out_infinite]" />
+    43→    43→      <div className="absolute -bottom-10 right-1/3 w-64 h-64 rounded-full bg-white/[0.03] animate-[float1_20s_ease-in-out_infinite_2s]" />
+    44→    44→
+    45→    45→      {/* Small dots grid */}
+    46→    46→      {Array.from({ length: 24 }).map((_, i) => (
+    47→    47→        <div
+    48→    48→          key={i}
+    49→    49→          className="absolute w-1 h-1 rounded-full bg-white/[0.15]"
+    50→    50→          style={{
+    51→    51→            top: `${10 + (i * 37) % 80}%`,
+    52→    52→            left: `${5 + (i * 53) % 90}%`,
+    53→    53→            animation: `pulse-dot ${2 + (i % 3)}s ease-in-out ${i * 0.3}s infinite alternate`,
+    54→    54→          }}
+    55→    55→        />
+    56→    56→      ))}
+    57→    57→
+    58→    58→      {/* Decorative ring */}
+    59→    59→      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full border border-white/[0.04] animate-[spin-slow_60s_linear_infinite]" />
+    60→    60→      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[360px] h-[360px] rounded-full border border-white/[0.06] animate-[spin-slow_45s_linear_infinite_reverse]" />
+    61→    61→    </div>
+    62→    62→  );
+    63→    63→}
+    64→    64→
+    65→    65→/* ───────────────────────── Feature Highlight ───────────────────────── */
+    66→    66→function FeatureHighlight({ icon, title, delay }: { icon: React.ReactNode; title: string; delay: string }) {
+    67→    67→  return (
+    68→    68→    <div
+    69→    69→      className="flex items-center gap-3 animate-[slideInLeft_0.5s_ease-out_both]"
+    70→    70→      style={{ animationDelay: delay }}
+    71→    71→    >
+    72→    72→      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-emerald-200">
+    73→    73→        {icon}
+    74→    74→      </div>
+    75→    75→      <span className="text-white/90 text-sm font-medium">{title}</span>
+    76→    76→    </div>
+    77→    77→  );
+    78→    78→}
+    79→    79→
+    80→    80→/* ───────────────────────── Main Component ───────────────────────── */
+    81→    81→export function AuthGate({ onBack }: { onBack?: () => void }) {
+    82→    82→  const { login, register } = useAuthStore();
+    83→    83→  const [loginData, setLoginData] = useState({ email: '', password: '' });
+    84→    84→  const [regData, setRegData] = useState({
+    85→    85→    email: '', password: '', fullName: '', phone: '',
+    86→    86→    location: '', skillTags: '', bio: '',
+    87→    87→  });
+    88→    88→  const [loading, setLoading] = useState(false);
+    89→    89→  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+    90→    90→  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+    91→    91→  const [showPassword, setShowPassword] = useState(false);
+    92→    92→
+    93→    93→  const handleLogin = async (e: React.FormEvent) => {
+    94→    94→    e.preventDefault();
+    95→    95→    setLoading(true);
+    96→    96→    const ok = await login(loginData.email, loginData.password);
+    97→    97→    if (!ok) toast.error('Invalid credentials');
+    98→    98→    setLoading(false);
+    99→    99→  };
+   100→   100→
+   101→   101→  const toggleSkill = (skill: string) => {
+   102→   102→    setSelectedSkills(prev =>
+   103→   103→      prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
+   104→   104→    );
+   105→   105→  };
+   106→   106→
+   107→   107→  const handleRegister = async (e: React.FormEvent) => {
+   108→   108→    e.preventDefault();
+   109→   109→    setLoading(true);
+   110→   110→    const data = {
+   111→   111→      ...regData,
+   112→   112→      skillTags: selectedSkills.join(','),
+   113→   113→    };
+   114→   114→    const ok = await register(data);
+   115→   115→    if (!ok) toast.error('Registration failed. Email may already exist.');
+   116→   116→    else toast.success('Welcome to Tenets!');
+   117→   117→    setLoading(false);
+   118→   118→  };
+   119→   119→
+   120→   120→  return (
+   121→   121→    <div className="min-h-screen flex flex-col">
+   122→   122→      {/* ─── Main content area ─── */}
+   123→   123→      <div className="flex-1 flex flex-col lg:flex-row">
+   124→   124→
+   125→   125→        {/* ═══════════ LEFT PANEL (Desktop) ═══════════ */}
+   126→   126→        <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden gradient-emerald flex-col">
+   127→   127→          <FloatingDots />
+   128→   128→
+   129→   129→          <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
+   130→   130→            {/* Logo */}
+   131→   131→            <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
+   132→   132→              <img src="/logo.png" alt="Tenets" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
+   133→   133→              <div>
+   134→   134→                <h1 className="text-2xl font-bold text-white tracking-tight">Tenets</h1>
+   135→   135→                <p className="text-emerald-200/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
+   136→   136→              </div>
+   137→   137→            </div>
+   138→   138→
+   139→   139→            {/* Main copy */}
+   140→   140→            <div className="flex-1 flex flex-col justify-center max-w-lg">
+   141→   141→              <h2
+   142→   142→                className="text-4xl xl:text-5xl font-extrabold text-white leading-[1.1] mb-4 animate-[slideInLeft_0.7s_ease-out_both]"
+   143→   143→              >
+   144→   144→                Transforming<br />
+   145→   145→                <span className="text-emerald-200">Procurement</span>
+   146→   146→              </h2>
+   147→   147→              <p
+   148→   148→                className="text-emerald-100/70 text-base leading-relaxed mb-10 animate-[slideInLeft_0.7s_ease-out_0.1s_both]"
+   149→   149→              >
+   150→   150→                Connect with verified contractors, discover tenders, and manage projects — all in one intelligent platform built for Ethiopia&apos;s future.
+   151→   151→              </p>
+   152→   152→
+   153→   153→              {/* Feature highlights */}
+   154→   154→              <div className="space-y-4 mb-12">
+   155→   155→                <FeatureHighlight
+   156→   156→                  icon={<ShieldCheck className="w-5 h-5" />}
+   157→   157→                  title="Verified Contractors & Vendors"
+   158→   158→                  delay="0.2s"
+   159→   159→                />
+   160→   160→                <FeatureHighlight
+   161→   161→                  icon={<BrainCircuit className="w-5 h-5" />}
+   162→   162→                  title="AI-Powered Smart Matching"
+   163→   163→                  delay="0.3s"
+   164→   164→                />
+   165→   165→                <FeatureHighlight
+   166→   166→                  icon={<Lock className="w-5 h-5" />}
+   167→   167→                  title="Secure Payments & Escrow"
+   168→   168→                  delay="0.4s"
+   169→   169→                />
+   170→   170→              </div>
+   171→   171→            </div>
+   172→   172→
+   173→   173→            {/* Bottom trust line */}
+   174→   174→            <div
+   175→   175→              className="animate-[fadeUp_0.6s_ease-out_0.5s_both]"
+   176→   176→            >
+   177→   177→              <div className="flex items-center gap-3 pt-8 border-t border-white/10">
+   178→   178→                <div className="flex -space-x-2">
+   179→   179→                  {['bg-amber-400', 'bg-teal-400', 'bg-emerald-300', 'bg-rose-400'].map((bg, i) => (
+   180→   180→                    <div
+   181→   181→                      key={i}
+   182→   182→                      className={`w-8 h-8 rounded-full ${bg} border-2 border-white/20 flex items-center justify-center`}
+   183→   183→                    >
+   184→   184→                      <span className="text-[10px] font-bold text-white/90">
+   185→   185→                        {['AD', 'SK', 'MB', 'TN'][i]}
+   186→   186→                      </span>
+   187→   187→                    </div>
+   188→   188→                  ))}
+   189→   189→                </div>
+   190→   190→                <p className="text-emerald-200/60 text-sm">
+   191→   191→                  Trusted by <span className="text-white font-semibold">500+</span> organizations across Ethiopia
+   192→   192→                </p>
+   193→   193→              </div>
+   194→   194→            </div>
+   195→   195→          </div>
+   196→   196→        </div>
+   197→   197→
+   198→   198→        {/* ═══════════ RIGHT PANEL (Form) ═══════════ */}
+   199→   199→        <div className="flex-1 flex flex-col min-h-screen lg:min-h-0 bg-background">
+   200→   200→          {/* Mobile header with gradient bar */}
+   201→   201→          <div className="lg:hidden">
+   202→   202→            <div className="h-1.5 gradient-emerald" />
+   203→   203→            <div className="px-6 pt-6 pb-4 flex items-center gap-3">
+   204→   204→              <TenetsLogo size="sm" />
+   205→   205→            </div>
+   206→   206→          </div>
+   207→   207→
+   208→   208→          {/* Form content */}
+   209→   209→          <div className="flex-1 flex flex-col justify-center px-6 sm:px-10 lg:px-14 xl:px-20 py-6 lg:py-10">
+   210→   210→            <div
+   211→   211→              className="w-full max-w-md mx-auto animate-[viewEnter_0.5s_ease-out]"
+   212→   212→            >
+   213→   213→              {/* Back button */}
+   214→   214→              {onBack && (
+   215→   215→                <button
+   216→   216→                  type="button"
+   217→   217→                  onClick={onBack}
+   218→   218→                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
+   219→   219→                >
+   220→   220→                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+   221→   221→                  Back to home
+   222→   222→                </button>
+   223→   223→              )}
+   224→   224→
+   225→   225→              {/* Tab switcher */}
+   226→   226→              <div className="mb-8">
+   227→   227→                <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
+   228→   228→                  <button
+   229→   229→                    type="button"
+   230→   230→                    onClick={() => setActiveTab('login')}
+   231→   231→                    className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-300 ${
+   232→   232→                      activeTab === 'login'
+   233→   233→                        ? 'bg-background text-foreground shadow-sm'
+   234→   234→                        : 'text-muted-foreground hover:text-foreground'
+   235→   235→                    }`}
+   236→   236→                  >
+   237→   237→                    Welcome Back
+   238→   238→                  </button>
+   239→   239→                  <button
+   240→   240→                    type="button"
+   241→   241→                    onClick={() => setActiveTab('register')}
+   242→   242→                    className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-300 ${
+   243→   243→                      activeTab === 'register'
+   244→   244→                        ? 'bg-background text-foreground shadow-sm'
+   245→   245→                        : 'text-muted-foreground hover:text-foreground'
+   246→   246→                    }`}
+   247→   247→                  >
+   248→   248→                    Create Account
+   249→   249→                  </button>
+   250→   250→                </div>
+   251→   251→              </div>
+   252→   252→
+   253→   253→              {/* ─── LOGIN FORM ─── */}
+   254→   254→              {activeTab === 'login' && (
+   255→   255→                <div className="animate-[viewEnter_0.3s_ease-out]">
+   256→   256→                  <div className="mb-6">
+   257→   257→                    <h2 className="text-2xl font-bold text-foreground">Sign In</h2>
+   258→   258→                    <p className="text-muted-foreground text-sm mt-1">Enter your credentials to access the platform</p>
+   259→   259→                  </div>
+   260→   260→
+   261→   261→                  <form onSubmit={handleLogin} className="space-y-5">
+   262→   262→                    <div className="space-y-2">
+   263→   263→                      <Label htmlFor="login-email" className="text-sm font-medium text-foreground flex items-center gap-2">
+   264→   264→                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+   265→   265→                        Email Address
+   266→   266→                      </Label>
+   267→   267→                      <Input
+   268→   268→                        id="login-email"
+   269→   269→                        type="email"
+   270→   270→                        placeholder="you@example.com"
+   271→   271→                        value={loginData.email}
+   272→   272→                        onChange={e => setLoginData(d => ({ ...d, email: e.target.value }))}
+   273→   273→                        required
+   274→   274→                        className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
+   275→   275→                      />
+   276→   276→                    </div>
+   277→   277→
+   278→   278→                    <div className="space-y-2">
+   279→   279→                      <Label htmlFor="login-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+   280→   280→                        <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+   281→   281→                        Password
+   282→   282→                      </Label>
+   283→   283→                      <div className="relative">
+   284→   284→                        <Input
+   285→   285→                          id="login-password"
+   286→   286→                          type={showPassword ? 'text' : 'password'}
+   287→   287→                          placeholder="••••••••"
+   288→   288→                          value={loginData.password}
+   289→   289→                          onChange={e => setLoginData(d => ({ ...d, password: e.target.value }))}
+   290→   290→                          required
+   291→   291→                          className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 pr-10"
+   292→   292→                        />
+   293→   293→                        <button
+   294→   294→                          type="button"
+   295→   295→                          onClick={() => setShowPassword(!showPassword)}
+   296→   296→                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+   297→   297→                        >
+   298→   298→                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   299→   299→                        </button>
+   300→   300→                      </div>
+   301→   301→                    </div>
+   302→   302→
+   303→   303→                    <Button
+   304→   304→                      type="submit"
+   305→   305→                      disabled={loading}
+   306→   306→                      className="w-full h-11 gradient-emerald text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
+   307→   307→                    >
+   308→   308→                      {loading ? (
+   309→   309→                        <span className="flex items-center gap-2">
+   310→   310→                          <Loader2 className="w-4 h-4 animate-spin" />
+   311→   311→                          Signing in...
+   312→   312→                        </span>
+   313→   313→                      ) : (
+   314→   314→                        <span className="flex items-center gap-2">
+   315→   315→                          Sign In
+   316→   316→                          <ArrowRight className="w-4 h-4" />
+   317→   317→                        </span>
+   318→   318→                      )}
+   319→   319→                    </Button>
+   320→   320→                  </form>
+   321→   321→
+   322→   322→                  {/* Demo credentials box */}
+   323→   323→                  <div className="mt-6 p-4 rounded-xl bg-primary/10 border border-primary/20">
+   324→   324→                    <div className="flex items-start gap-2.5">
+   325→   325→                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center mt-0.5">
+   326→   326→                        <ShieldCheck className="w-4 h-4 text-primary" />
+   327→   327→                      </div>
+   328→   328→                      <div className="text-sm">
+   329→   329→                        <p className="font-semibold text-primary mb-1">Demo Credentials</p>
+   330→   330→                        <p className="text-primary/70 font-mono text-xs leading-relaxed">
+   331→   331→                          admin@tenet.com / Admin@123
+   332→   332→                        </p>
+   333→   333→                      </div>
+   334→   334→                    </div>
+   335→   335→                  </div>
+   336→   336→                </div>
+   337→   337→              )}
+   338→   338→
+   339→   339→              {/* ─── REGISTER FORM ─── */}
+   340→   340→              {activeTab === 'register' && (
+   341→   341→                <div className="animate-[viewEnter_0.3s_ease-out]">
+   342→   342→                  <div className="mb-6">
+   343→   343→                    <h2 className="text-2xl font-bold text-foreground">Create Account</h2>
+   344→   344→                    <p className="text-muted-foreground text-sm mt-1">Join the Tenets Tender Ecosystem</p>
+   345→   345→                  </div>
+   346→   346→
+   347→   347→                  <form onSubmit={handleRegister} className="space-y-6">
+   348→   348→                    {/* ── Section 1: Personal Info ── */}
+   349→   349→                    <div>
+   350→   350→                      <div className="flex items-center gap-2 mb-3">
+   351→   351→                        <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
+   352→   352→                          <span className="text-white text-[10px] font-bold">1</span>
+   353→   353→                        </div>
+   354→   354→                        <h3 className="text-sm font-semibold text-foreground">Personal Information</h3>
+   355→   355→                      </div>
+   356→   356→                      <div className="space-y-3">
+   357→   357→                        <div className="grid grid-cols-2 gap-3">
+   358→   358→                          <div className="space-y-1.5">
+   359→   359→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   360→   360→                              <User className="w-3 h-3" /> Full Name *
+   361→   361→                            </Label>
+   362→   362→                            <Input
+   363→   363→                              placeholder="Your full name"
+   364→   364→                              required
+   365→   365→                              value={regData.fullName}
+   366→   366→                              onChange={e => setRegData(d => ({ ...d, fullName: e.target.value }))}
+   367→   367→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   368→   368→                            />
+   369→   369→                          </div>
+   370→   370→                          <div className="space-y-1.5">
+   371→   371→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   372→   372→                              <Mail className="w-3 h-3" /> Email *
+   373→   373→                            </Label>
+   374→   374→                            <Input
+   375→   375→                              type="email"
+   376→   376→                              placeholder="you@example.com"
+   377→   377→                              required
+   378→   378→                              value={regData.email}
+   379→   379→                              onChange={e => setRegData(d => ({ ...d, email: e.target.value }))}
+   380→   380→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   381→   381→                            />
+   382→   382→                          </div>
+   383→   383→                        </div>
+   384→   384→
+   385→   385→                        <div className="space-y-1.5">
+   386→   386→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   387→   387→                            <Lock className="w-3 h-3" /> Password *
+   388→   388→                          </Label>
+   389→   389→                          <div className="relative">
+   390→   390→                            <Input
+   391→   391→                              type={showPassword ? 'text' : 'password'}
+   392→   392→                              placeholder="Min 8 chars with uppercase, lowercase, number, special"
+   393→   393→                              required
+   394→   394→                              value={regData.password}
+   395→   395→                              onChange={e => setRegData(d => ({ ...d, password: e.target.value }))}
+   396→   396→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm pr-10"
+   397→   397→                            />
+   398→   398→                            <button
+   399→   399→                              type="button"
+   400→   400→                              onClick={() => setShowPassword(!showPassword)}
+   401→   401→                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+   402→   402→                            >
+   403→   403→                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   404→   404→                            </button>
+   405→   405→                          </div>
+   406→   406→                        </div>
+   407→   407→
+   408→   408→                        <div className="grid grid-cols-2 gap-3">
+   409→   409→                          <div className="space-y-1.5">
+   410→   410→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   411→   411→                              <Phone className="w-3 h-3" /> Phone *
+   412→   412→                            </Label>
+   413→   413→                            <Input
+   414→   414→                              placeholder="+251..."
+   415→   415→                              required
+   416→   416→                              value={regData.phone}
+   417→   417→                              onChange={e => setRegData(d => ({ ...d, phone: e.target.value }))}
+   418→   418→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   419→   419→                            />
+   420→   420→                          </div>
+   421→   421→                          <div className="space-y-1.5">
+   422→   422→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   423→   423→                              <MapPin className="w-3 h-3" /> Location *
+   424→   424→                            </Label>
+   425→   425→                            <Input
+   426→   426→                              placeholder="City, Region"
+   427→   427→                              required
+   428→   428→                              value={regData.location}
+   429→   429→                              onChange={e => setRegData(d => ({ ...d, location: e.target.value }))}
+   430→   430→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   431→   431→                            />
+   432→   432→                          </div>
+   433→   433→                        </div>
+   434→   434→                      </div>
+   435→   435→                    </div>
+   436→   436→
+   437→   437→                    {/* ── Section 2: Professional Details (Optional) ── */}
+   438→   438→                    <div>
+   439→   439→                      <div className="flex items-center gap-2 mb-3">
+   440→   440→                        <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
+   441→   441→                          <span className="text-white text-[10px] font-bold">2</span>
+   442→   442→                        </div>
+   443→   443→                        <h3 className="text-sm font-semibold text-foreground">Professional Details <span className="text-muted-foreground font-normal">(optional)</span></h3>
+   444→   444→                      </div>
+   445→   445→                      <div className="space-y-3">
+   446→   446→                        <div className="space-y-2">
+   447→   447→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   448→   448→                            <Briefcase className="w-3 h-3" /> Skill Tags
+   449→   449→                            {selectedSkills.length > 0 && (
+   450→   450→                              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
+   451→   451→                                {selectedSkills.length}
+   452→   452→                              </span>
+   453→   453→                            )}
+   454→   454→                          </Label>
+   455→   455→                          <div className="flex flex-wrap gap-1.5">
+   456→   456→                            {SKILL_OPTIONS.map(skill => {
+   457→   457→                              const isSelected = selectedSkills.includes(skill);
+   458→   458→                              return (
+   459→   459→                                <button
+   460→   460→                                  key={skill}
+   461→   461→                                  type="button"
+   462→   462→                                  onClick={() => toggleSkill(skill)}
+   463→   463→                                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
+   464→   464→                                    isSelected
+   465→   465→                                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-500/20 scale-105'
+   466→   466→                                      : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary hover:bg-primary/5'
+   467→   467→                                  }`}
+   468→   468→                                >
+   469→   469→                                  {skill}
+   470→   470→                                </button>
+   471→   471→                              );
+   472→   472→                            })}
+   473→   473→                          </div>
+   474→   474→                        </div>
+   475→   475→
+   476→   476→                        <div className="space-y-1.5">
+   477→   477→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   478→   478→                            <FileText className="w-3 h-3" /> Bio / Portfolio
+   479→   479→                          </Label>
+   480→   480→                          <Textarea
+   481→   481→                            placeholder="Brief description of your experience and capabilities"
+   482→   482→                            value={regData.bio}
+   483→   483→                            onChange={e => setRegData(d => ({ ...d, bio: e.target.value }))}
+   484→   484→                            rows={3}
+   485→   485→                            className="bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm resize-none"
+   486→   486→                          />
+   487→   487→                        </div>
+   488→   488→                      </div>
+   489→   489→                    </div>
+   490→   490→
+   491→   491→                    <Button
+   492→   492→                      type="submit"
+   493→   493→                      disabled={loading}
+   494→   494→                      className="w-full h-11 gradient-emerald text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
+   495→   495→                    >
+   496→   496→                      {loading ? (
+   497→   497→                        <span className="flex items-center gap-2">
+   498→   498→                          <Loader2 className="w-4 h-4 animate-spin" />
+   499→   499→                          Creating Account...
+   500→   500→                        </span>
+   501→   501→                      ) : (
+   502→   502→                        <span className="flex items-center gap-2">
+   503→   503→                          Create Account
+   504→   504→                          <ArrowRight className="w-4 h-4" />
+   505→   505→                        </span>
+   506→   506→                      )}
+   507→   507→                    </Button>
+   508→   508→                  </form>
+   509→   509→                </div>
+   510→   510→              )}
+   511→   511→            </div>
+   512→   512→          </div>
+   513→   513→
+   514→   514→          {/* Footer inside right panel on desktop, or below on mobile */}
+   515→   515→          <footer className="px-6 py-4 text-center border-t border-border lg:border-t lg:py-5">
+   516→   516→            <p className="text-xs text-muted-foreground">
+   517→   517→              © 2025 Tenets · Transforming Procurement Through Technology
+   518→   518→            </p>
+   519→   519→          </footer>
+   520→   520→        </div>
+   521→   521→      </div>
+   522→   522→
+   523→   523→      {/* ─── Global keyframe styles ─── */}
+   524→   524→      <style jsx global>{`
+   525→   525→        @keyframes float1 {
+   526→   526→          0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+   527→   527→          50% { transform: translateY(-30px) translateX(15px) scale(1.05); }
+   528→   528→        }
+   529→   529→        @keyframes float2 {
+   530→   530→          0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+   531→   531→          50% { transform: translateY(25px) translateX(-20px) scale(1.08); }
+   532→   532→        }
+   533→   533→        @keyframes float3 {
+   534→   534→          0%, 100% { transform: translateY(0) translateX(0); }
+   535→   535→          50% { transform: translateY(-20px) translateX(10px); }
+   536→   536→        }
+   537→   537→        @keyframes pulse-dot {
+   538→   538→          0% { opacity: 0.2; transform: scale(1); }
+   539→   539→          100% { opacity: 0.5; transform: scale(1.5); }
+   540→   540→        }
+   541→   541→        @keyframes spin-slow {
+   542→   542→          from { transform: translate(-50%, -50%) rotate(0deg); }
+   543→   543→          to { transform: translate(-50%, -50%) rotate(360deg); }
+   544→   544→        }
+   545→   545→        @keyframes fadeDown {
+   546→   546→          from { opacity: 0; transform: translateY(-16px); }
+   547→   547→          to { opacity: 1; transform: translateY(0); }
+   548→   548→        }
+   549→   549→        @keyframes fadeUp {
+   550→   550→          from { opacity: 0; transform: translateY(16px); }
+   551→   551→          to { opacity: 1; transform: translateY(0); }
+   552→   552→        }
+   553→   553→        @keyframes slideInLeft {
+   554→   554→          from { opacity: 0; transform: translateX(-20px); }
+   555→   555→          to { opacity: 1; transform: translateX(0); }
+   556→   556→        }
+   557→   557→      `}</style>
+   558→   558→    </div>
+   559→   559→  );
+   560→   560→}
+   561→   561→

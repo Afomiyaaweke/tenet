@@ -5,6 +5,7 @@ import { useAuthStore, useNavStore, useDataStore } from '@/store';
 import { api } from '@/lib/api';
 import { DashboardView } from '@/components/modules/dashboard';
 import { TendersView } from '@/components/modules/tenders';
+import { LiveTendersView } from '@/components/modules/live-tenders';
 import { TenderDetailView } from '@/components/modules/tender-detail';
 import { TenderCompareView, BidCompareView } from '@/components/modules/tender-compare';
 import { BidsView } from '@/components/modules/bids';
@@ -26,7 +27,7 @@ import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
-  Search, Sparkles, Verified, Zap,
+  Search, Sparkles, Verified, Zap, Globe2,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetsLogo } from '@/components/logo';
@@ -71,6 +72,7 @@ const NAV_ITEMS: NavSection[] = [
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { id: 'tenders', label: 'Tenders', icon: FileSearch },
+      { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
       { id: 'bids', label: 'Bids', icon: Gavel },
     ],
   },
@@ -92,7 +94,7 @@ const NAV_ITEMS: NavSection[] = [
   },
 ];
 
-type View = 'dashboard' | 'tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -431,6 +433,8 @@ export function AppShell() {
         return <DashboardView />;
       case 'tenders':
         return <TendersView />;
+      case 'live-tenders':
+        return <LiveTendersView />;
       case 'tender-detail':
         return <TenderDetailView tenderId={viewParams.id} />;
       case 'tender-compare':
