@@ -314,3 +314,144 @@ Stage Summary:
 - Zero remaining focus:border-emerald-* or focus:ring-emerald-* patterns
 - Brand colors (emerald, amber, teal, rose) preserved for visual identity
 - Lint passes, dev server compiles successfully
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Make the external tender APIs from uploaded Document2.pdf "live" in the Tenets platform
+
+Work Log:
+- Extracted text from /home/z/my-project/upload/Document2.pdf — contains 8 external tender/procurement API sources (World Bank, EU TED, UNGM, Apify ×2, GovRider, Tenderwell, SeeGeneBid)
+- Added LiveTender + DataSource interfaces to src/lib/api.ts (LiveTender extends Tender with source/externalId/externalUrl/currency/borrower/supplier/contractType/signingDate/region)
+- Created src/lib/external-tenders.ts:
+  - DATA_SOURCES registry: all 8 sources from the PDF with name, coverage, access requirements, link, live flag, accent color
+  - fetchWorldBankTenders(): live adapter for https://search.worldbank.org/api/v2/procurement (public, no auth, 8s timeout, normalizes to LiveTender)
+  - fetchEuTedTenders(): live adapter for https://api.ted.europa.eu/v3/notices/search (anonymous POST, normalizes to LiveTender)
+  - curatedFallback(): 5 representative records (3 World Bank + 2 EU TED) used when upstream APIs are unreachable
+  - fetchLiveTenders(): aggregator with 5-minute in-memory TTL cache, source filter, search, fallback logic
+- Created src/app/api/tenders/live/route.ts: GET handler with requireAuth, source/search/rows query params, returns { success, data: LiveTender[], meta: { sources, fallback, dataSources } }
+- Created src/components/modules/live-tenders.tsx: LiveTendersView component with:
+  - Header with gradient Globe2 icon + animated LIVE badge + Refresh feed button
+  - 4-stat strip (Live Tenders, Sources Online, Data Sources, Feed Status)
+  - Fallback banner when using curated samples
+  - Search input (debounced 250ms) + source filter dropdown (All/World Bank/EU TED)
+  - Source status pills showing per-source connection state + record count
+  - Tender cards grid with source badge, status badge, title, scope, budget/currency, location, deadline, borrower, category tags, external link
+  - Connected Data Sources panel: all 8 sources as cards with Live/Reference badge, coverage, access requirements, open link
+- Wired into navigation:
+  - src/store/index.ts: added 'live-tenders' to View union
+  - src/components/app-shell.tsx: added Globe2 import, LiveTendersView import, 'live-tenders' NavItem (in MAIN section after Tenders), View union update, renderView case
+- Ran bun run db:seed to ensure demo accounts exist (admin@tenet.com / Admin@123)
+- Verified end-to-end with Agent Browser:
+  - Logged in as admin@tenet.com
+  - Navigated to Live Tenders via sidebar — view renders with 5 tenders + 8 data sources
+  - Tested search filter ("agriculture" → 1 result) — works
+  - Tested source filter (World Bank → 3 results) — works
+  - All API calls return 200 (confirmed in dev.log)
+  - No browser errors, no console errors
+
+Stage Summary:
+- New "Live Tenders" feature integrates the 8 external tender APIs from Document2.pdf into the Tenets platform
+- World Bank and EU TED adapters fetch live data server-side (public, no auth required)
+- Remaining 6 sources (UNGM, Apify ×2, GovRider, Tenderwell, SeeGeneBid) surfaced as reference data sources with their access requirements and links
+- 5-minute in-memory cache prevents upstream API hammering
+- Graceful fallback to curated sample data when upstream APIs are unreachable (sandbox egress)
+- Feature is auth-gated, fully dark-mode compatible, responsive, and wired into the main navigation
+- Lint passes cleanly (0 errors, 0 warnings), dev server compiles successfully
+
+---
+Task ID: 7-a
+Agent: Backend API Agent
+Task: Build conversation API routes for Telegram-style messaging
+
+Work Log:
+- Read worklog.md, existing chats routes, lib/auth.ts, lib/db.ts, lib/api.ts, and the updated Prisma schema (Conversation / ConversationMember / ChatMessage / MessageReaction models) to confirm patterns
+- Created 9 new API route files plus appended 5 TypeScript interfaces to src/lib/api.ts
+- src/app/api/conversations/route.ts — GET (list user's conversations with members, last-message preview, _count, pinned flag, unreadCount; sorted pinned-first then updatedAt desc) and POST (create; validates type, member count; owner=creator; direct-conversation dedup returns existing instead of duplicating; uses $transaction)
+- src/app/api/conversations/[id]/route.ts — GET (full details with members, last 50 messages oldest-first, myRole, pinned/muted/lastReadAt), PATCH (owner/admin only — title/description/avatarUrl), DELETE (owner only)
+- src/app/api/conversations/[id]/members/route.ts — GET (list with profiles + role + joinedAt), POST (owner/admin add userIds; validates users exist; skips existing members with createMany+skipDuplicates)
+- src/app/api/conversations/[id]/members/[userId]/route.ts — DELETE (self=leave, prevents owner from leaving with 400; kick=owner/admin only; admins cannot kick owners or other admins; non-existent returns 404)
+- src/app/api/conversations/[id]/messages/route.ts — GET (paginated, default 50, excludes soft-deleted, ordered oldest-first; includes user, reactions, replyTo) and POST (validates membership, validates replyToId belongs to same conversation, suspicious-phrase detection reusing the chats list, bumps conversation.updatedAt, returns message with user+reactions+replyTo)
+- src/app/api/conversations/[id]/messages/[messageId]/route.ts — PATCH (author-only edit, sets editedAt, rejects empty content) and DELETE (soft-delete by author OR owner/admin; rejects already-deleted with 400)
+- src/app/api/conversations/[id]/messages/[messageId]/reactions/route.ts — POST (toggles reaction by messageId+userId+emoji using the @@unique compound key; returns full updated reactions list with user info)
+- src/app/api/conversations/[id]/read/route.ts — POST (updates ConversationMember.lastReadAt to now)
+- src/app/api/users/search/route.ts — GET (?q=) — searches email OR profile.fullName with contains, excludes current user, limited to 10, returns {id,email,profile:{fullName,companyName,profilePhoto}}
+- Appended 5 interfaces to src/lib/api.ts (ConversationMember, Conversation, MessageReactionItem, ChatMessageItem) plus a section header comment
+- Membership is enforced on every conversation-scoped operation via ConversationMember lookup (conversationId_userId compound unique) — non-members get 403 with "Forbidden: You are not a member of this conversation"
+- All routes use Next.js 16 Promise<{id}> params style, requireAuth, consistent {success,data|error} shape, try/catch with console.error and 500 fallback
+- Ran `bun run db:generate` to regenerate Prisma client so the new Conversation/ConversationMember/ChatMessage/MessageReaction models are available
+- Restarted the dev server to pick up the regenerated Prisma client
+- Verified with curl end-to-end as admin@tenet.com: created group + added Abel as member, posted message, added 👍 reaction, toggled it off, fetched conversation details, marked read, edited message (editedAt set), posted "direct payment off platform" (flagged=true), created two direct conversations with Dawit (same ID returned — dedup OK), soft-deleted message (excluded from GET), owner-cannot-leave returns 400, owner kicked Abel (200), kicking non-member returns 404, PATCH conversation title works
+- Verified non-member (selam@contractor.com) gets 403 on GET conversation, POST message, POST reaction, GET members
+- Ran `bun run lint` — 0 errors, 0 warnings (exit 0)
+- dev.log shows all new routes compile cleanly (no errors), with proper 200/400/403/404 status codes
+
+Stage Summary:
+- 9 new API route files created under src/app/api/conversations/** and src/app/api/users/search/route.ts
+- All Telegram-style messaging endpoints functional: list/create conversations, get/patch/delete conversation, list/add members, kick/leave members, list/send/edit/soft-delete messages, toggle reactions, mark read, search users
+- Direct-conversation dedup, suspicious-phrase flagging, soft-delete, owner/admin RBAC, and membership enforcement all verified working
+- 5 new TypeScript interfaces added to src/lib/api.ts for frontend type-safety
+- Prisma client regenerated; dev server restarted; lint passes; dev.log clean
+
+---
+Task ID: 7-b
+Agent: Socket.io Service Agent
+Task: Upgrade chat-service for Telegram-style conversation events
+
+Work Log:
+- Read worklog.md and /home/z/my-project/mini-services/chat-service/index.ts to understand the existing in-memory stores, room tracking, suspicious-phrase detection, and graceful-shutdown structure
+- Confirmed architecture: chat-service is a standalone Bun process on port 3003 (no Prisma access); it only relays real-time signals between sockets — persistence is handled by the Next.js API routes built in Task 7-a
+- Added TypeScript interfaces at the top: ReactionItem, MessageReactionItem (type alias), ChatMessageItem (mirrors the frontend shape with user/replyTo/reactions/attachments/flagged/editedAt/deletedAt), and ConvTypingUser
+- Added new in-memory stores: convTypingUsers (key `${conversationId}:${userId}`), onlineUsers Set, userSockets Map (userId -> Set<socketId>), socketUserId Map (socketId -> userId reverse lookup); kept existing messageStore, typingUsers, socketRooms
+- Added helper functions trackRoom / untrackRoom (refactored room tracking) and clearConvTyping (cancels the 4s auto-clear timeout); kept generateId, detectSuspiciousContent, getMessagesForChat, removeTypingUser
+- Implemented 10 new event handlers:
+  - join-conversation / leave-conversation — socket joins/leaves `conv:${id}` room, tracked in socketRooms
+  - conversation-message — broadcasts full message to room INCLUDING sender (io.to), runs suspicious-phrase detection (sets message.flagged=true + emits message-flagged to admin room), clears typing status for the message's userId and emits conversation-stop-typing to the room
+  - conversation-edit-message / conversation-delete-message — relay to room (io.to, includes sender for multi-tab sync)
+  - conversation-reaction — relays the full updated reactions list to room
+  - conversation-typing — stores entry with a 4s auto-clear timeout, broadcasts to room EXCLUDING sender (socket.to)
+  - conversation-stop-typing — clears entry/timeout, broadcasts to room excluding sender
+  - conversation-read — broadcasts read receipt to room excluding sender
+  - user-identity — registers socketId<->userId mapping in userSockets + socketUserId
+  - user-presence — adds/removes userId in onlineUsers and broadcasts {userId,status} to ALL sockets (io.emit)
+- Kept ALL legacy events working unchanged for backward compatibility: join-chat, send-message, typing, stop-typing, flag-message, join-admin, get-chat-history
+- Upgraded disconnect handler to: (1) remove socket from userSockets and, if that was the user's last socket, delete from onlineUsers + broadcast user-presence offline to all; (2) clear all convTypingUsers entries for this socket (cancel timeouts, emit conversation-stop-typing per conversation); (3) clear legacy typingUsers entries; (4) clean socketRooms tracker
+- Updated startup log to print three event groups: legacy (7 events), conversations (9 events), presence (2 events), plus the suspicious-phrase count
+- Restarted the service: initial pkill missed the old process because its cmdline was `bun --hot index.ts` (no path), so killed the port-3003 holder by PID and relaunched cleanly — service now running as pid 6006 on port 3003 with bun --hot
+- Verified startup log shows the full new event list and "9 suspicious phrases tracked"
+- Verified /home/z/my-project/dev.log (last 30 lines) shows no errors — only 200s and the expected 403s from Task 7-a's membership-enforcement tests on a non-member
+- Ran an end-to-end socket.io smoke test (3 clients: A, B, Admin): A emits user-presence online → both A and B receive it; A emits conversation-typing → only B receives it (sender excluded ✓); A posts a clean conversation-message → both A and B receive conversation-message + conversation-stop-typing; A posts a message containing "direct payment off platform" → Admin receives message-flagged with message.flagged=true, and the relayed message to A/B has flagged=true; A emits edit/delete/reaction/read → B receives all four (read excluded sender ✓); A disconnects → B receives user-presence offline (last-socket logic ✓). Smoke test PASSED
+- Removed the temporary smoke-test script after verification
+
+Stage Summary:
+- chat-service upgraded to support Telegram-style real-time messaging while keeping all legacy events working
+- 9 new conversation events + 2 presence events implemented: join-conversation, leave-conversation, conversation-message, conversation-edit-message, conversation-delete-message, conversation-reaction, conversation-typing, conversation-stop-typing, conversation-read, user-identity, user-presence
+- Service remains a pure relay (no DB writes); persistence stays with the Next.js API routes from Task 7-a
+- Suspicious-phrase detection reused for conversation-message (sets flagged=true on the relayed object + notifies the admin room)
+- Presence tracking via userId->Set<socketId> correctly auto-marks users offline when their last socket disconnects
+- Typing indicators auto-clear after 4s of inactivity and are cleaned up on disconnect across all conversations
+- Service restarted cleanly on port 3003 (pid 6006), startup log lists all 18 supported events, dev.log clean, end-to-end smoke test passed
+
+---
+Task ID: 8
+Agent: Frontend Messenger Agent
+Task: Rebuild chat.tsx as Telegram-style messenger with group chat, reactions, replies, read receipts
+
+Work Log:
+- Read worklog.md (Tasks 7-a / 7-b context), the existing src/components/modules/chat.tsx, src/lib/api.ts (Conversation / ConversationMember / ChatMessageItem / MessageReactionItem interfaces), src/store/index.ts (useAuthStore user shape), src/components/app-shell.tsx (ChatView wiring), eslint.config.mjs (permissive rules), globals.css (gradient-emerald/teal/amber/rose + premium-shadow classes), and the conversations API routes to confirm response shapes (list returns members + last message preview + unreadCount + top-level pinned; GET [id] returns members + 50 messages oldest-first + myRole/pinned/muted/lastReadAt; POST reactions returns updated reactions array)
+- Extended the Conversation interface in src/lib/api.ts with optional pinned/muted/lastReadAt/myRole fields (additive, non-breaking) so the frontend can type the API's enriched responses without casting
+- Completely rewrote /home/z/my-project/src/components/modules/chat.tsx (~3060 lines) as a Telegram-style 3-pane messenger. Kept the same named export `ChatView` and `{ chatId?: string }` prop so app-shell.tsx wiring still works (chatId is now interpreted as a conversationId)
+- Sub-components (all module-scope, no inline re-creation): UserAvatar (profilePhoto or gradient circle with initial), GroupAvatar (gradient circle with first letter or Users icon), EmptyState (configurable icon/size), MemberPicker (debounced 250ms GET /api/users/search, excludedIds filter, add-button list), NewGroupDialog (title + description + MemberPicker + removable chips, validates name + ≥1 member, POST /api/conversations type=group), NewDirectDialog (MemberPicker → POST type=direct, auto-opens returned/deduped conv), ConversationList (header with New dropdown, search, All/Groups/Direct filter pills, ScrollArea), ConversationListItem (avatar with online dot, title, last-message preview with sender prefix for groups, "typing…" preview, unread badge, pinned icon, animated active bar via layoutId="activeConvBar"), QuickReactButton (6-emoji popover), MessageReactions (grouped by emoji with count, mine highlighting, quick-react), MessageBubble (gradient-emerald own / bg-muted others, sender name colored per-user for groups, reply preview with left accent border, attachment image/file chip, edited indicator, flagged rose pill, timestamp + Check/CheckCheck/colored-CheckCheck read receipts, hover action bar with Reply/React/Edit/Copy/Delete + mobile MoreHorizontal dropdown), TypingIndicator (3-dot animated bubble with "X is typing…" label), EmojiPickerButton (20-emoji popover for input), MemberRow (avatar + name + email + role badge + kebab Remove for owner/admin), GroupInfoPanel (large avatar, inline-editable title + description for owner/admin, members list with Add button + per-member kebab, Mute/Pin toggles, Delete Group with confirm dialog for owner / Leave for non-owner)
+- Main ChatView component manages all state: conversations[], activeConv (with myRole), messages[], input, replyTo, editingMsg, searchQuery, filterTab, showConvSearch/convSearchQuery, typingByConv (Record<convId, userId[]>), onlineUsers (Set), readReceipts (Record<msgId, 'sent'|'delivered'|'read'>), showInfoPanel, showListMobile, dialog visibility. Uses refs for socketRef, activeConvIdRef, messagesRef, messagesEndRef, lastTypingEmitRef, typingStopTimeoutRef
+- Real-time socket wiring (single useEffect on currentUserId): connects via io('/?XTransformPort=3003', {transports:['websocket','polling'], forceNew:true}) — the only permitted gateway form; on connect emits user-identity + user-presence online; listens for user-presence (updates onlineUsers Set), conversation-message (updates conversations list preview/unread, appends to active messages with id-dedup, auto-marks-read for incoming non-own), conversation-edit-message (updates content+editedAt), conversation-delete-message (removes from list), conversation-reaction (replaces reactions array), conversation-typing/conversation-stop-typing (maintains typingByConv map, excludes self), conversation-read (flips all own message read receipts to 'read'); on unmount emits user-presence offline then disconnects
+- Send flow: POST /api/conversations/[id]/messages → append returned message → set readReceipt='sent' → setTimeout 1500ms to 'delivered' → emit conversation-message (server echoes back to sender, dedup handles it). React flow: POST reactions → update local reactions → emit conversation-reaction. Edit flow: PATCH → update local → emit conversation-edit-message. Delete flow: DELETE → remove local → emit conversation-delete-message
+- Typing emit: rate-limited to once per 2s via lastTypingEmitRef; auto-emits conversation-stop-typing after 2s of no input via typingStopTimeoutRef. Selecting a conversation: emits leave-conversation for previous, join-conversation for new, fetches GET /api/conversations/[id], POSTs /read to mark read, clears unreadCount
+- Layout: outer `h-[calc(100vh-3.5rem)] max-w-7xl mx-auto view-enter flex`. Left pane (md:w-80 lg:w-96, hidden on mobile when showListMobile=false). Middle pane (flex-1, hidden on mobile when showListMobile=true). Right info pane (md:w-80 lg:w-96, slide-in via AnimatePresence width animation on desktop, full-screen Dialog on mobile). Back button (mobile only) toggles showListMobile. All internal panes use `flex flex-col min-h-0` with ScrollArea filling `flex-1 min-h-0`
+- Styling: theme-aware tokens throughout (bg-card, bg-background, bg-muted, bg-muted/50, bg-primary/10, text-foreground, text-muted-foreground, text-primary, border-border). Brand gradients (gradient-emerald for own bubbles + send button + active bar + unread badges + own reactions; gradient-teal/amber/rose for per-user sender colors via getSenderColor). premium-shadow / premium-shadow-lg on avatars, send button, active bar. framer-motion for message enter (msgVariants spring), list item slide-in (chatItemVariants), typing dots, active bar (layoutId), info panel width slide, reply/edit bar height animation, quick-react popover scale
+- Backward compatibility: ChatView export name + {chatId?} prop preserved (chatId auto-opens the matching conversation via deep-link useEffect). Did NOT touch app-shell.tsx or store/index.ts. Legacy chats/fetchChats left untouched in the store (the new component does not import them). Socket connection uses the mandated XTransformPort=3003 query form only
+- Verification: `bun run lint` → 0 errors, 0 warnings (exit 0). `bunx tsc --noEmit` → 0 errors in chat.tsx (the only project-wide errors are pre-existing in admin.tsx framer-motion Variants, skills/, conversations/members/route.ts, and tenders/export/route.ts — none in chat.tsx). Fixed the two initial chat.tsx tsc errors by typing msgVariants and chatItemVariants as `Variants` from framer-motion. Restarted dev server → "✓ Ready in 693ms", GET / 200, no compile errors in dev.log
+
+Stage Summary:
+- chat.tsx rebuilt as a full Telegram-style messenger with 3-pane responsive layout, conversation list (search + All/Groups/Direct filter pills + unread badges + pinned + online dots + typing preview + animated active bar), new group + new direct dialogs with live user search, message bubbles with replies/reactions/edit/delete/copy/read-receipts/flagged/edited/attachments, hover + mobile action toolbars, quick-react emoji popover, input emoji picker, typing indicator, group info panel (inline-editable title/description, members management, mute/pin toggles, delete/leave), and full real-time socket.io wiring for presence/messages/edits/deletes/reactions/typing/read-receipts
+- Lint passes cleanly (0 errors, 0 warnings); TypeScript clean for chat.tsx; dev server compiles successfully
+- ChatView export + {chatId?} prop preserved for app-shell.tsx wiring; legacy store APIs untouched

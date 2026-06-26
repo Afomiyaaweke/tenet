@@ -131,6 +131,38 @@ export interface Tender {
   _count?: { bids: number };
 }
 
+/**
+ * A tender fetched live from an external public procurement API
+ * (World Bank, EU TED, UNGM, etc.). Extends the local Tender shape so
+ * existing card components can render it, plus carries provenance metadata.
+ */
+export interface LiveTender extends Tender {
+  source: string;
+  externalId: string;
+  externalUrl: string;
+  currency: string;
+  borrower?: string;
+  supplier?: string;
+  contractType?: string;
+  signingDate?: string;
+  region?: string;
+}
+
+/**
+ * Metadata describing an external tender data source — derived from the
+ * uploaded API coverage document (Document2.pdf). Used to render the
+ * "Data Sources" reference panel inside the Live Tenders view.
+ */
+export interface DataSource {
+  id: string;
+  name: string;
+  coverage: string;
+  access: string;
+  link: string;
+  live: boolean;
+  accent: string;
+}
+
 export interface Bid {
   id: string;
   tenderId: string;
@@ -244,4 +276,83 @@ export interface Notification {
   read: boolean;
   link?: string;
   createdAt: string;
+}
+
+// ==========================================
+// TELEGRAM-STYLE MESSAGING (Conversations)
+// ==========================================
+
+export interface ConversationMember {
+  id: string;
+  conversationId: string;
+  userId: string;
+  role: 'owner' | 'admin' | 'member';
+  joinedAt: string;
+  lastReadAt?: string;
+  muted: boolean;
+  pinned: boolean;
+  user: {
+    id: string;
+    email: string;
+    profile?: {
+      fullName: string;
+      companyName?: string;
+      profilePhoto?: string;
+    };
+  };
+}
+
+export interface Conversation {
+  id: string;
+  type: 'direct' | 'group' | 'channel' | 'project';
+  title?: string;
+  description?: string;
+  avatarUrl?: string;
+  createdBy: string;
+  tenderId?: string;
+  projectId?: string;
+  createdAt: string;
+  updatedAt: string;
+  members?: ConversationMember[];
+  messages?: ChatMessageItem[];
+  _count?: { messages: number };
+  unreadCount?: number;
+  pinned?: boolean;
+  muted?: boolean;
+  lastReadAt?: string;
+  myRole?: 'owner' | 'admin' | 'member';
+}
+
+export interface MessageReactionItem {
+  id: string;
+  emoji: string;
+  userId: string;
+  user: { id: string; profile?: { fullName: string } };
+}
+
+export interface ChatMessageItem {
+  id: string;
+  conversationId: string;
+  userId: string;
+  content: string;
+  replyToId?: string;
+  editedAt?: string;
+  deletedAt?: string;
+  attachmentUrl?: string;
+  attachmentType?: string;
+  attachmentName?: string;
+  flagged: boolean;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    profile?: { fullName: string; profilePhoto?: string };
+  };
+  replyTo?: {
+    id: string;
+    content: string;
+    userId: string;
+    user?: { profile?: { fullName: string } };
+  } | null;
+  reactions: MessageReactionItem[];
 }

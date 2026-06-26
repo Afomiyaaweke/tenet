@@ -58,7 +58,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 // Navigation Store
-type View = 'dashboard' | 'tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
 
 interface NavState {
   view: View;

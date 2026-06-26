@@ -26,6 +26,9 @@ model User {
   bids        Bid[]
   messages    Message[]
   registrations Registration[]
+  conversationMemberships ConversationMember[]
+  chatMessages ChatMessage[]
+  messageReactions MessageReaction[]
 }
 
 // ==========================================
@@ -262,4 +265,101 @@ model Notification {
   read      Boolean  @default(false)
   link      String?
   createdAt DateTime @default(now())
+}
+
+// ==========================================
+// TELEGRAM-STYLE MESSAGING (Conversations, Groups, Channels)
+// ==========================================
+
+/**
+ * A conversation is the container for any chat thread.
+ *  - type "direct": 1:1 between two users
+ *  - type "group": multi-member group chat
+ *  - type "channel": broadcast (owner-only posting)
+ *  - type "project": legacy project/tender-scoped chat (mirrors Chat)
+ */
+model Conversation {
+  id          String   @id @default(cuid())
+  type        String   @default("group") // direct, group, channel, project
+  title       String?  // required for group/channel/project; optional for direct
+  description String?  // group/channel bio
+  avatarUrl   String?  // group/channel photo
+  createdBy   String   // user id who created the conversation
+  tenderId    String?  // optional link to a tender (for project-scoped groups)
+  projectId   String?  // optional link to a project
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members  ConversationMember[]
+  messages ChatMessage[]
+
+  @@index([type])
+  @@index([tenderId])
+}
+
+/**
+ * Membership row linking a user to a conversation.
+ * Carries per-user role, read cursor, mute and pin state.
+ */
+model ConversationMember {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  role           String   @default("member") // owner, admin, member
+  joinedAt       DateTime @default(now())
+  lastReadAt     DateTime? @default(now())
+  muted          Boolean  @default(false)
+  pinned         Boolean  @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+/**
+ * A message inside a conversation. Supports replies (threaded),
+ * soft-delete, edit tracking, and attachments.
+ */
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  content        String
+  replyToId      String?  // threaded reply target
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  attachmentUrl  String?
+  attachmentType String?  // image, file, audio, voice
+  attachmentName String?
+  flagged        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo      ChatMessage?  @relation("MessageReply", fields: [replyToId], references: [id])
+  replies      ChatMessage[] @relation("MessageReply")
+  reactions    MessageReaction[]
+
+  @@index([conversationId, createdAt])
+  @@index([userId])
+}
+
+/**
+ * An emoji reaction by a user on a message.
+ * One (messageId, userId, emoji) tuple per user+emoji.
+ */
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
