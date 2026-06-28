@@ -1,0 +1,1312 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useEffect } from 'react';
+     4→     4→import { useAuthStore } from '@/store';
+     5→     5→import { api } from '@/lib/api';
+     6→     6→import { Button } from '@/components/ui/button';
+     7→     7→import { Input } from '@/components/ui/input';
+     8→     8→import { Textarea } from '@/components/ui/textarea';
+     9→     9→import { Label } from '@/components/ui/label';
+    10→    10→import { Badge } from '@/components/ui/badge';
+    11→    11→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    12→    12→import { Separator } from '@/components/ui/separator';
+    13→    13→import { ScrollArea } from '@/components/ui/scroll-area';
+    14→    14→import { Skeleton } from '@/components/ui/skeleton';
+    15→    15→import { Progress } from '@/components/ui/progress';
+    16→    16→import {
+    17→    17→  Select,
+    18→    18→  SelectContent,
+    19→    19→  SelectItem,
+    20→    20→  SelectTrigger,
+    21→    21→  SelectValue,
+    22→    22→} from '@/components/ui/select';
+    23→    23→import { toast } from 'sonner';
+    24→    24→import {
+    25→    25→  FileText, PenTool, Search, Users, Copy, Check, Sparkles,
+    26→    26→  AlertTriangle, CheckCircle2, XCircle, Star, TrendingUp,
+    27→    27→  Shield, Clock, DollarSign, Target, Zap, Award, ChevronRight,
+    28→    28→} from 'lucide-react';
+    29→    29→import { motion, AnimatePresence } from 'framer-motion';
+    30→    30→
+    31→    31→/* ──────────────────────── Types ──────────────────────── */
+    32→    32→
+    33→    33→type ToolTab = 'tender-builder' | 'bid-builder' | 'requirement-analyzer' | 'applicant-analyzer';
+    34→    34→
+    35→    35→interface TenderOption {
+    36→    36→  id: string;
+    37→    37→  title: string;
+    38→    38→  scope?: string;
+    39→    39→  budgetMin?: number;
+    40→    40→  budgetMax?: number;
+    41→    41→  categoryTags?: string;
+    42→    42→  requiredDocs?: string;
+    43→    43→  deadline?: string;
+    44→    44→  _count?: { bids: number };
+    45→    45→}
+    46→    46→
+    47→    47→/* ──────────────────────── Constants ──────────────────────── */
+    48→    48→
+    49→    49→const CATEGORIES = [
+    50→    50→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    51→    51→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics',
+    52→    52→  'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications',
+    53→    53→];
+    54→    54→
+    55→    55→const COMMON_SKILLS = [
+    56→    56→  'Project Management', 'Construction', 'Engineering', 'IT Solutions',
+    57→    57→  'Consulting', 'Architecture', 'Electrical Work', 'Plumbing',
+    58→    58→  'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance',
+    59→    59→  'Agriculture', 'Telecommunications', 'Web Development', 'Software',
+    60→    60→  'Design', 'Research', 'Training', 'Maintenance', 'Procurement',
+    61→    61→  'Supply Chain', 'Quality Assurance', 'Safety Management',
+    62→    62→];
+    63→    63→
+    64→    64→const TOOL_TABS: { id: ToolTab; label: string; icon: React.ElementType; desc: string }[] = [
+    65→    65→  { id: 'tender-builder', label: 'Tender Builder', icon: FileText, desc: 'Create professional tender documents with AI' },
+    66→    66→  { id: 'bid-builder', label: 'Bid Proposal', icon: PenTool, desc: 'Write compelling bid proposals with AI' },
+    67→    67→  { id: 'requirement-analyzer', label: 'Req Analyzer', icon: Search, desc: 'Understand what a tender requires' },
+    68→    68→  { id: 'applicant-analyzer', label: 'Applicant Rank', icon: Users, desc: 'Score and rank bid applicants' },
+    69→    69→];
+    70→    70→
+    71→    71→/* ──────────────────────── Helpers ──────────────────────── */
+    72→    72→
+    73→    73→function formatSectionContent(content: string): React.ReactNode {
+    74→    74→  const lines = content.split('\n');
+    75→    75→  return lines.map((line, i) => {
+    76→    76→    const bulletMatch = line.match(/^[\s]*[-*•]\s+(.*)/);
+    77→    77→    if (bulletMatch) {
+    78→    78→      return (
+    79→    79→        <div key={i} className="flex items-start gap-2 ml-2">
+    80→    80→          <span className="text-emerald-500 mt-0.5 flex-shrink-0">•</span>
+    81→    81→          <span>{formatInline(bulletMatch[1])}</span>
+    82→    82→        </div>
+    83→    83→      );
+    84→    84→    }
+    85→    85→    const numberedMatch = line.match(/^[\s]*(\d+)[.)]\s+(.*)/);
+    86→    86→    if (numberedMatch) {
+    87→    87→      return (
+    88→    88→        <div key={i} className="flex items-start gap-2 ml-2">
+    89→    89→          <span className="text-emerald-600 font-semibold flex-shrink-0">{numberedMatch[1]}.</span>
+    90→    90→          <span>{formatInline(numberedMatch[2])}</span>
+    91→    91→        </div>
+    92→    92→      );
+    93→    93→    }
+    94→    94→    if (line.trim() === '') return <div key={i} className="h-2" />;
+    95→    95→    const headingMatch = line.match(/^#{1,3}\s+(.*)/);
+    96→    96→    if (headingMatch) {
+    97→    97→      return <div key={i} className="font-semibold text-foreground mt-2">{headingMatch[1]}</div>;
+    98→    98→    }
+    99→    99→    return <div key={i}>{formatInline(line)}</div>;
+   100→   100→  });
+   101→   101→}
+   102→   102→
+   103→   103→function formatInline(text: string): React.ReactNode {
+   104→   104→  const parts: React.ReactNode[] = [];
+   105→   105→  let remaining = text;
+   106→   106→  let key = 0;
+   107→   107→  while (remaining.length > 0) {
+   108→   108→    const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+   109→   109→    if (boldMatch && boldMatch.index !== undefined) {
+   110→   110→      if (boldMatch.index > 0) parts.push(<span key={`t-${key++}`}>{remaining.slice(0, boldMatch.index)}</span>);
+   111→   111→      parts.push(<strong key={`b-${key++}`} className="font-semibold text-foreground">{boldMatch[1]}</strong>);
+   112→   112→      remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+   113→   113→    } else {
+   114→   114→      parts.push(<span key={`t-${key++}`}>{remaining}</span>);
+   115→   115→      break;
+   116→   116→    }
+   117→   117→  }
+   118→   118→  return <>{parts}</>;
+   119→   119→}
+   120→   120→
+   121→   121→function scoreColor(score: number): string {
+   122→   122→  if (score >= 75) return 'text-emerald-600';
+   123→   123→  if (score >= 50) return 'text-amber-600';
+   124→   124→  return 'text-rose-600';
+   125→   125→}
+   126→   126→
+   127→   127→function scoreBg(score: number): string {
+   128→   128→  if (score >= 75) return 'bg-emerald-500';
+   129→   129→  if (score >= 50) return 'bg-amber-500';
+   130→   130→  return 'bg-rose-500';
+   131→   131→}
+   132→   132→
+   133→   133→function getRiskBadge(risk: string): { color: string; Icon: React.ElementType } {
+   134→   134→  switch (risk?.toLowerCase()) {
+   135→   135→    case 'low': return { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', Icon: CheckCircle2 };
+   136→   136→    case 'medium': return { color: 'bg-amber-100 text-amber-700 border-amber-200', Icon: AlertTriangle };
+   137→   137→    case 'high': return { color: 'bg-rose-100 text-rose-700 border-rose-200', Icon: XCircle };
+   138→   138→    default: return { color: 'bg-muted text-foreground border-border', Icon: Shield };
+   139→   139→  }
+   140→   140→}
+   141→   141→
+   142→   142→/* ──────────────────────── Copy Button ──────────────────────── */
+   143→   143→
+   144→   144→function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
+   145→   145→  const [copied, setCopied] = useState(false);
+   146→   146→  const handleCopy = () => {
+   147→   147→    navigator.clipboard.writeText(text);
+   148→   148→    setCopied(true);
+   149→   149→    toast.success('Copied to clipboard');
+   150→   150→    setTimeout(() => setCopied(false), 2000);
+   151→   151→  };
+   152→   152→  return (
+   153→   153→    <Button variant="ghost" size="sm" onClick={handleCopy}
+   154→   154→      className="h-7 text-xs gap-1 text-muted-foreground hover:text-emerald-600 hover:bg-primary/10">
+   155→   155→      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+   156→   156→      {copied ? 'Copied' : label}
+   157→   157→    </Button>
+   158→   158→  );
+   159→   159→}
+   160→   160→
+   161→   161→/* ──────────────────────── Skill Tags ──────────────────────── */
+   162→   162→
+   163→   163→function SkillTagSelector({ selected, onChange }: { selected: string[]; onChange: (s: string[]) => void }) {
+   164→   164→  const toggle = (skill: string) => {
+   165→   165→    if (selected.includes(skill)) {
+   166→   166→      onChange(selected.filter(s => s !== skill));
+   167→   167→    } else {
+   168→   168→      onChange([...selected, skill]);
+   169→   169→    }
+   170→   170→  };
+   171→   171→  return (
+   172→   172→    <div className="flex flex-wrap gap-1.5">
+   173→   173→      {COMMON_SKILLS.map(skill => (
+   174→   174→        <button key={skill} type="button" onClick={() => toggle(skill)}
+   175→   175→          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border ${
+   176→   176→            selected.includes(skill)
+   177→   177→              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 premium-shadow'
+   178→   178→              : 'bg-muted/50 text-muted-foreground border-border hover:border-emerald-300 hover:text-emerald-600'
+   179→   179→          }`}>
+   180→   180→          {skill}
+   181→   181→        </button>
+   182→   182→      ))}
+   183→   183→    </div>
+   184→   184→  );
+   185→   185→}
+   186→   186→
+   187→   187→/* ──────────────────────── Doc Section Card ──────────────────────── */
+   188→   188→
+   189→   189→function DocSectionCard({ title, icon: Icon, content, rawText }: {
+   190→   190→  title: string;
+   191→   191→  icon: React.ElementType;
+   192→   192→  content: string;
+   193→   193→  rawText: string;
+   194→   194→}) {
+   195→   195→  return (
+   196→   196→    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   197→   197→      <Card className="border border-emerald-100/60 bg-card premium-shadow overflow-hidden">
+   198→   198→        <CardHeader className="pb-2">
+   199→   199→          <div className="flex items-center justify-between">
+   200→   200→            <div className="flex items-center gap-2">
+   201→   201→              <div className="w-7 h-7 rounded-lg gradient-emerald flex items-center justify-center">
+   202→   202→                <Icon className="h-3.5 w-3.5 text-white" />
+   203→   203→              </div>
+   204→   204→              <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+   205→   205→            </div>
+   206→   206→            <CopyBtn text={rawText} />
+   207→   207→          </div>
+   208→   208→        </CardHeader>
+   209→   209→        <CardContent className="pt-0">
+   210→   210→          <div className="text-sm leading-relaxed text-muted-foreground space-y-1">
+   211→   211→            {formatSectionContent(content)}
+   212→   212→          </div>
+   213→   213→        </CardContent>
+   214→   214→      </Card>
+   215→   215→    </motion.div>
+   216→   216→  );
+   217→   217→}
+   218→   218→
+   219→   219→/* ──────────────────────── Loading Skeleton ──────────────────────── */
+   220→   220→
+   221→   221→function GeneratingSkeleton() {
+   222→   222→  return (
+   223→   223→    <div className="space-y-4 p-4">
+   224→   224→      <div className="flex items-center gap-3 mb-4">
+   225→   225→        <motion.div
+   226→   226→          animate={{ rotate: 360 }}
+   227→   227→          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+   228→   228→          className="w-8 h-8 rounded-xl gradient-emerald flex items-center justify-center"
+   229→   229→        >
+   230→   230→          <Sparkles className="h-4 w-4 text-white" />
+   231→   231→        </motion.div>
+   232→   232→        <div>
+   233→   233→          <p className="text-sm font-semibold text-foreground">Generating with AI...</p>
+   234→   234→          <p className="text-xs text-muted-foreground">This may take a moment</p>
+   235→   235→        </div>
+   236→   236→      </div>
+   237→   237→      {[1, 2, 3].map(i => (
+   238→   238→        <Card key={i} className="border-emerald-100/40">
+   239→   239→          <CardContent className="p-4 space-y-2">
+   240→   240→            <Skeleton className="h-4 w-1/3" />
+   241→   241→            <Skeleton className="h-3 w-full" />
+   242→   242→            <Skeleton className="h-3 w-5/6" />
+   243→   243→            <Skeleton className="h-3 w-4/6" />
+   244→   244→          </CardContent>
+   245→   245→        </Card>
+   246→   246→      ))}
+   247→   247→    </div>
+   248→   248→  );
+   249→   249→}
+   250→   250→
+   251→   251→/* ══════════════════════════════════════════════════════════════
+   252→   252→   TOOL 1: TENDER BUILDER
+   253→   253→   ══════════════════════════════════════════════════════════════ */
+   254→   254→
+   255→   255→function TenderBuilderTool() {
+   256→   256→  const { user } = useAuthStore();
+   257→   257→  const [loading, setLoading] = useState(false);
+   258→   258→  const [result, setResult] = useState<Record<string, string> | null>(null);
+   259→   259→  const [form, setForm] = useState({
+   260→   260→    title: '', category: '', location: '', budgetMin: '', budgetMax: '',
+   261→   261→    deadline: '', description: '', notes: '',
+   262→   262→  });
+   263→   263→
+   264→   264→  const updateField = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+   265→   265→
+   266→   266→  const handleGenerate = async () => {
+   267→   267→    if (!form.title || !form.category || !form.description) {
+   268→   268→      toast.error('Please fill in Title, Category, and Description');
+   269→   269→      return;
+   270→   270→    }
+   271→   271→    setLoading(true);
+   272→   272→    setResult(null);
+   273→   273→    try {
+   274→   274→      const res = await api.post('/ai/tender-prep', {
+   275→   275→        title: form.title,
+   276→   276→        category: form.category,
+   277→   277→        location: form.location,
+   278→   278→        budgetMin: form.budgetMin,
+   279→   279→        budgetMax: form.budgetMax,
+   280→   280→        deadline: form.deadline,
+   281→   281→        description: form.description,
+   282→   282→        notes: form.notes,
+   283→   283→        skills: user?.profile?.skillTags || '',
+   284→   284→        userName: user?.profile?.fullName || '',
+   285→   285→      });
+   286→   286→      if (res.success) {
+   287→   287→        setResult(res.data);
+   288→   288→        toast.success('Tender document generated!');
+   289→   289→      } else {
+   290→   290→        toast.error(res.error || 'Failed to generate tender document');
+   291→   291→      }
+   292→   292→    } catch {
+   293→   293→      toast.error('AI generation failed. Please try again.');
+   294→   294→    } finally {
+   295→   295→      setLoading(false);
+   296→   296→    }
+   297→   297→  };
+   298→   298→
+   299→   299→  const fullDoc = result ? Object.entries(result).map(([k, v]) => `## ${k.replace(/([A-Z])/g, ' $1').trim()}\n${v}`).join('\n\n') : '';
+   300→   300→
+   301→   301→  return (
+   302→   302→    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   303→   303→      {/* Form */}
+   304→   304→      <div className="space-y-4">
+   305→   305→        <Card className="border-emerald-100/60">
+   306→   306→          <CardHeader>
+   307→   307→            <div className="flex items-center gap-2">
+   308→   308→              <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center">
+   309→   309→                <FileText className="h-4 w-4 text-white" />
+   310→   310→              </div>
+   311→   311→              <div>
+   312→   312→                <CardTitle className="text-base">Tender Builder</CardTitle>
+   313→   313→                <p className="text-xs text-muted-foreground">Create professional tender documents with AI</p>
+   314→   314→              </div>
+   315→   315→            </div>
+   316→   316→          </CardHeader>
+   317→   317→          <CardContent className="space-y-3">
+   318→   318→            <div className="space-y-1.5">
+   319→   319→              <Label className="text-xs font-medium">Title *</Label>
+   320→   320→              <Input placeholder="e.g., Office Building Construction" value={form.title}
+   321→   321→                onChange={e => updateField('title', e.target.value)}
+   322→   322→                className="h-9 text-sm bg-muted/50 border-border/50 focus:border-primary" />
+   323→   323→            </div>
+   324→   324→            <div className="space-y-1.5">
+   325→   325→              <Label className="text-xs font-medium">Category *</Label>
+   326→   326→              <Select value={form.category} onValueChange={v => updateField('category', v)}>
+   327→   327→                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+   328→   328→                  <SelectValue placeholder="Select category" />
+   329→   329→                </SelectTrigger>
+   330→   330→                <SelectContent>
+   331→   331→                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+   332→   332→                </SelectContent>
+   333→   333→              </Select>
+   334→   334→            </div>
+   335→   335→            <div className="space-y-1.5">
+   336→   336→              <Label className="text-xs font-medium">Location</Label>
+   337→   337→              <Input placeholder="e.g., Addis Ababa" value={form.location}
+   338→   338→                onChange={e => updateField('location', e.target.value)}
+   339→   339→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   340→   340→            </div>
+   341→   341→            <div className="grid grid-cols-2 gap-3">
+   342→   342→              <div className="space-y-1.5">
+   343→   343→                <Label className="text-xs font-medium">Budget Min (ETB)</Label>
+   344→   344→                <Input type="number" placeholder="0" value={form.budgetMin}
+   345→   345→                  onChange={e => updateField('budgetMin', e.target.value)}
+   346→   346→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   347→   347→              </div>
+   348→   348→              <div className="space-y-1.5">
+   349→   349→                <Label className="text-xs font-medium">Budget Max (ETB)</Label>
+   350→   350→                <Input type="number" placeholder="0" value={form.budgetMax}
+   351→   351→                  onChange={e => updateField('budgetMax', e.target.value)}
+   352→   352→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   353→   353→              </div>
+   354→   354→            </div>
+   355→   355→            <div className="space-y-1.5">
+   356→   356→              <Label className="text-xs font-medium">Deadline</Label>
+   357→   357→              <Input type="date" value={form.deadline}
+   358→   358→                onChange={e => updateField('deadline', e.target.value)}
+   359→   359→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   360→   360→            </div>
+   361→   361→            <div className="space-y-1.5">
+   362→   362→              <Label className="text-xs font-medium">Brief Description *</Label>
+   363→   363→              <Textarea placeholder="Describe the tender scope, objectives, and requirements..."
+   364→   364→                value={form.description} onChange={e => updateField('description', e.target.value)}
+   365→   365→                className="min-h-[80px] text-sm bg-muted/50 border-border/50 resize-none" />
+   366→   366→            </div>
+   367→   367→            <div className="space-y-1.5">
+   368→   368→              <Label className="text-xs font-medium">Additional Notes (optional)</Label>
+   369→   369→              <Textarea placeholder="Any special requirements or conditions..."
+   370→   370→                value={form.notes} onChange={e => updateField('notes', e.target.value)}
+   371→   371→                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
+   372→   372→            </div>
+   373→   373→            <Button onClick={handleGenerate} disabled={loading}
+   374→   374→              className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
+   375→   375→              {loading ? (
+   376→   376→                <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+   377→   377→                  className="inline-block"><Sparkles className="h-4 w-4 mr-2" /></motion.span>Generating...</>
+   378→   378→              ) : (
+   379→   379→                <><Sparkles className="h-4 w-4 mr-2" />Generate with AI</>
+   380→   380→              )}
+   381→   381→            </Button>
+   382→   382→          </CardContent>
+   383→   383→        </Card>
+   384→   384→      </div>
+   385→   385→
+   386→   386→      {/* Result */}
+   387→   387→      <div>
+   388→   388→        {loading ? <GeneratingSkeleton /> : result ? (
+   389→   389→          <ScrollArea className="max-h-[calc(100vh-12rem)]">
+   390→   390→            <div className="space-y-4 pr-2">
+   391→   391→              <div className="flex items-center justify-between mb-2">
+   392→   392→                <div className="flex items-center gap-2">
+   393→   393→                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+   394→   394→                  <h3 className="font-semibold text-sm">Generated Document</h3>
+   395→   395→                </div>
+   396→   396→                <CopyBtn text={fullDoc} label="Copy Full Doc" />
+   397→   397→              </div>
+   398→   398→
+   399→   399→              {result.scopeOfWork && (
+   400→   400→                <DocSectionCard title="Scope of Work" icon={Target} content={result.scopeOfWork} rawText={result.scopeOfWork} />
+   401→   401→              )}
+   402→   402→              {result.requiredDocuments && (
+   403→   403→                <DocSectionCard title="Required Documents" icon={FileText} content={result.requiredDocuments} rawText={result.requiredDocuments} />
+   404→   404→              )}
+   405→   405→              {result.evaluationCriteria && (
+   406→   406→                <DocSectionCard title="Evaluation Criteria" icon={Star} content={result.evaluationCriteria} rawText={result.evaluationCriteria} />
+   407→   407→              )}
+   408→   408→              {result.deliverables && (
+   409→   409→                <DocSectionCard title="Deliverables" icon={CheckCircle2} content={result.deliverables} rawText={result.deliverables} />
+   410→   410→              )}
+   411→   411→              {result.timeline && (
+   412→   412→                <DocSectionCard title="Timeline" icon={Clock} content={result.timeline} rawText={result.timeline} />
+   413→   413→              )}
+   414→   414→              {result.termsAndConditions && (
+   415→   415→                <DocSectionCard title="Terms & Conditions" icon={Shield} content={result.termsAndConditions} rawText={result.termsAndConditions} />
+   416→   416→              )}
+   417→   417→              {result.categoryTags && (
+   418→   418→                <DocSectionCard title="Category Tags" icon={Zap} content={result.categoryTags} rawText={result.categoryTags} />
+   419→   419→              )}
+   420→   420→
+   421→   421→              <div className="flex gap-2 pt-2">
+   422→   422→                <Button className="flex-1 gradient-emerald text-white border-0 premium-shadow hover:opacity-90"
+   423→   423→                  onClick={() => toast.success('Tender draft saved! Go to Tenders to finalize.')}>
+   424→   424→                  Use This to Create Tender
+   425→   425→                </Button>
+   426→   426→              </div>
+   427→   427→            </div>
+   428→   428→          </ScrollArea>
+   429→   429→        ) : (
+   430→   430→          <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+   431→   431→            <div className="w-16 h-16 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow mb-4">
+   432→   432→              <FileText className="h-8 w-8 text-white" />
+   433→   433→            </div>
+   434→   434→            <h3 className="font-semibold text-foreground mb-1">Tender Document Builder</h3>
+   435→   435→            <p className="text-sm text-muted-foreground max-w-xs">
+   436→   436→              Fill in the form and click Generate to create a professional tender document with AI assistance.
+   437→   437→            </p>
+   438→   438→          </div>
+   439→   439→        )}
+   440→   440→      </div>
+   441→   441→    </div>
+   442→   442→  );
+   443→   443→}
+   444→   444→
+   445→   445→/* ══════════════════════════════════════════════════════════════
+   446→   446→   TOOL 2: BID PROPOSAL BUILDER
+   447→   447→   ══════════════════════════════════════════════════════════════ */
+   448→   448→
+   449→   449→function BidBuilderTool() {
+   450→   450→  const { user } = useAuthStore();
+   451→   451→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   452→   452→  const [loading, setLoading] = useState(false);
+   453→   453→  const [result, setResult] = useState<Record<string, string> | null>(null);
+   454→   454→  const [selectedTender, setSelectedTender] = useState('');
+   455→   455→  const [skills, setSkills] = useState<string[]>([]);
+   456→   456→  const [form, setForm] = useState({
+   457→   457→    tenderTitle: '', scope: '', budgetRange: '', category: '',
+   458→   458→    companyName: '', experience: '', proposedBudget: '', proposedTimeline: '', notes: '',
+   459→   459→  });
+   460→   460→
+   461→   461→  useEffect(() => {
+   462→   462→    api.get('/tenders', { status: 'open', limit: '50' }).then(res => {
+   463→   463→      if (res.success) setTenders(res.data || []);
+   464→   464→    }).catch(() => {});
+   465→   465→  }, []);
+   466→   466→
+   467→   467→  const updateField = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+   468→   468→
+   469→   469→  const handleSelectTender = (tenderId: string) => {
+   470→   470→    setSelectedTender(tenderId);
+   471→   471→    const tender = tenders.find(t => t.id === tenderId);
+   472→   472→    if (tender) {
+   473→   473→      setForm(prev => ({
+   474→   474→        ...prev,
+   475→   475→        tenderTitle: tender.title,
+   476→   476→        scope: tender.scope || '',
+   477→   477→        budgetRange: tender.budgetMin && tender.budgetMax ? `${tender.budgetMin} - ${tender.budgetMax} ETB` : '',
+   478→   478→        category: tender.categoryTags || '',
+   479→   479→      }));
+   480→   480→    }
+   481→   481→  };
+   482→   482→
+   483→   483→  const handleGenerate = async () => {
+   484→   484→    if (!form.tenderTitle && !selectedTender) {
+   485→   485→      toast.error('Please select a tender or enter tender details');
+   486→   486→      return;
+   487→   487→    }
+   488→   488→    setLoading(true);
+   489→   489→    setResult(null);
+   490→   490→    try {
+   491→   491→      const res = await api.post('/ai/bid-prep', {
+   492→   492→        tenderId: selectedTender || undefined,
+   493→   493→        tenderTitle: form.tenderTitle,
+   494→   494→        scope: form.scope,
+   495→   495→        budgetRange: form.budgetRange,
+   496→   496→        category: form.category,
+   497→   497→        skills: skills.join(', '),
+   498→   498→        companyName: form.companyName,
+   499→   499→        experience: form.experience,
+   500→   500→        proposedBudget: form.proposedBudget,
+   501→   501→        proposedTimeline: form.proposedTimeline,
+   502→   502→        notes: form.notes,
+   503→   503→        userName: user?.profile?.fullName || '',
+   504→   504→        userSkills: user?.profile?.skillTags || '',
+   505→   505→      });
+   506→   506→      if (res.success) {
+   507→   507→        setResult(res.data);
+   508→   508→        toast.success('Bid proposal generated!');
+   509→   509→      } else {
+   510→   510→        toast.error(res.error || 'Failed to generate proposal');
+   511→   511→      }
+   512→   512→    } catch {
+   513→   513→      toast.error('AI generation failed. Please try again.');
+   514→   514→    } finally {
+   515→   515→      setLoading(false);
+   516→   516→    }
+   517→   517→  };
+   518→   518→
+   519→   519→  const fullDoc = result ? Object.entries(result).map(([k, v]) => `## ${k.replace(/([A-Z])/g, ' $1').trim()}\n${v}`).join('\n\n') : '';
+   520→   520→
+   521→   521→  return (
+   522→   522→    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   523→   523→      <div className="space-y-4">
+   524→   524→        <Card className="border-emerald-100/60">
+   525→   525→          <CardHeader>
+   526→   526→            <div className="flex items-center gap-2">
+   527→   527→              <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center">
+   528→   528→                <PenTool className="h-4 w-4 text-white" />
+   529→   529→              </div>
+   530→   530→              <div>
+   531→   531→                <CardTitle className="text-base">Bid Proposal Builder</CardTitle>
+   532→   532→                <p className="text-xs text-muted-foreground">Write compelling bid proposals with AI</p>
+   533→   533→              </div>
+   534→   534→            </div>
+   535→   535→          </CardHeader>
+   536→   536→          <CardContent className="space-y-3">
+   537→   537→            <div className="space-y-1.5">
+   538→   538→              <Label className="text-xs font-medium">Select Tender</Label>
+   539→   539→              <Select value={selectedTender} onValueChange={handleSelectTender}>
+   540→   540→                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+   541→   541→                  <SelectValue placeholder="Choose a tender (auto-fills fields)" />
+   542→   542→                </SelectTrigger>
+   543→   543→                <SelectContent>
+   544→   544→                  {tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+   545→   545→                </SelectContent>
+   546→   546→              </Select>
+   547→   547→            </div>
+   548→   548→
+   549→   549→            <Separator className="my-1" />
+   550→   550→            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Or enter manually</p>
+   551→   551→
+   552→   552→            <div className="space-y-1.5">
+   553→   553→              <Label className="text-xs font-medium">Tender Title</Label>
+   554→   554→              <Input placeholder="Enter tender title" value={form.tenderTitle}
+   555→   555→                onChange={e => updateField('tenderTitle', e.target.value)}
+   556→   556→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   557→   557→            </div>
+   558→   558→            <div className="space-y-1.5">
+   559→   559→              <Label className="text-xs font-medium">Scope</Label>
+   560→   560→              <Textarea placeholder="Tender scope description" value={form.scope}
+   561→   561→                onChange={e => updateField('scope', e.target.value)}
+   562→   562→                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
+   563→   563→            </div>
+   564→   564→            <div className="grid grid-cols-2 gap-3">
+   565→   565→              <div className="space-y-1.5">
+   566→   566→                <Label className="text-xs font-medium">Budget Range</Label>
+   567→   567→                <Input placeholder="e.g., 500K - 1M ETB" value={form.budgetRange}
+   568→   568→                  onChange={e => updateField('budgetRange', e.target.value)}
+   569→   569→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   570→   570→              </div>
+   571→   571→              <div className="space-y-1.5">
+   572→   572→                <Label className="text-xs font-medium">Category</Label>
+   573→   573→                <Select value={form.category} onValueChange={v => updateField('category', v)}>
+   574→   574→                  <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+   575→   575→                    <SelectValue placeholder="Select" />
+   576→   576→                  </SelectTrigger>
+   577→   577→                  <SelectContent>
+   578→   578→                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+   579→   579→                  </SelectContent>
+   580→   580→                </Select>
+   581→   581→              </div>
+   582→   582→            </div>
+   583→   583→
+   584→   584→            <Separator className="my-1" />
+   585→   585→
+   586→   586→            <div className="space-y-1.5">
+   587→   587→              <Label className="text-xs font-medium">Your Skills</Label>
+   588→   588→              <SkillTagSelector selected={skills} onChange={setSkills} />
+   589→   589→            </div>
+   590→   590→            <div className="space-y-1.5">
+   591→   591→              <Label className="text-xs font-medium">Company Name</Label>
+   592→   592→              <Input placeholder="Your company name" value={form.companyName}
+   593→   593→                onChange={e => updateField('companyName', e.target.value)}
+   594→   594→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   595→   595→            </div>
+   596→   596→            <div className="space-y-1.5">
+   597→   597→              <Label className="text-xs font-medium">Your Experience</Label>
+   598→   598→              <Textarea placeholder="Relevant experience and past projects..."
+   599→   599→                value={form.experience} onChange={e => updateField('experience', e.target.value)}
+   600→   600→                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
+   601→   601→            </div>
+   602→   602→            <div className="grid grid-cols-2 gap-3">
+   603→   603→              <div className="space-y-1.5">
+   604→   604→                <Label className="text-xs font-medium">Proposed Budget (ETB)</Label>
+   605→   605→                <Input type="number" placeholder="0" value={form.proposedBudget}
+   606→   606→                  onChange={e => updateField('proposedBudget', e.target.value)}
+   607→   607→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   608→   608→              </div>
+   609→   609→              <div className="space-y-1.5">
+   610→   610→                <Label className="text-xs font-medium">Proposed Timeline</Label>
+   611→   611→                <Input placeholder="e.g., 6 months" value={form.proposedTimeline}
+   612→   612→                  onChange={e => updateField('proposedTimeline', e.target.value)}
+   613→   613→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   614→   614→              </div>
+   615→   615→            </div>
+   616→   616→            <div className="space-y-1.5">
+   617→   617→              <Label className="text-xs font-medium">Additional Notes (optional)</Label>
+   618→   618→              <Textarea placeholder="Any additional information..."
+   619→   619→                value={form.notes} onChange={e => updateField('notes', e.target.value)}
+   620→   620→                className="min-h-[50px] text-sm bg-muted/50 border-border/50 resize-none" />
+   621→   621→            </div>
+   622→   622→            <Button onClick={handleGenerate} disabled={loading}
+   623→   623→              className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
+   624→   624→              {loading ? (
+   625→   625→                <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+   626→   626→                  className="inline-block"><Sparkles className="h-4 w-4 mr-2" /></motion.span>Generating...</>
+   627→   627→              ) : (
+   628→   628→                <><Sparkles className="h-4 w-4 mr-2" />Generate Proposal</>
+   629→   629→              )}
+   630→   630→            </Button>
+   631→   631→          </CardContent>
+   632→   632→        </Card>
+   633→   633→      </div>
+   634→   634→
+   635→   635→      <div>
+   636→   636→        {loading ? <GeneratingSkeleton /> : result ? (
+   637→   637→          <ScrollArea className="max-h-[calc(100vh-12rem)]">
+   638→   638→            <div className="space-y-4 pr-2">
+   639→   639→              <div className="flex items-center justify-between mb-2">
+   640→   640→                <div className="flex items-center gap-2">
+   641→   641→                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+   642→   642→                  <h3 className="font-semibold text-sm">Generated Bid Proposal</h3>
+   643→   643→                </div>
+   644→   644→                <CopyBtn text={fullDoc} label="Copy Full Proposal" />
+   645→   645→              </div>
+   646→   646→
+   647→   647→              {result.technicalProposal && (
+   648→   648→                <DocSectionCard title="Technical Proposal" icon={Target} content={result.technicalProposal} rawText={result.technicalProposal} />
+   649→   649→              )}
+   650→   650→              {result.methodology && (
+   651→   651→                <DocSectionCard title="Methodology" icon={TrendingUp} content={result.methodology} rawText={result.methodology} />
+   652→   652→              )}
+   653→   653→              {result.teamStructure && (
+   654→   654→                <DocSectionCard title="Team Structure" icon={Users} content={result.teamStructure} rawText={result.teamStructure} />
+   655→   655→              )}
+   656→   656→              {result.riskMitigation && (
+   657→   657→                <DocSectionCard title="Risk Mitigation" icon={Shield} content={result.riskMitigation} rawText={result.riskMitigation} />
+   658→   658→              )}
+   659→   659→              {result.valueAddition && (
+   660→   660→                <DocSectionCard title="Value Addition" icon={Star} content={result.valueAddition} rawText={result.valueAddition} />
+   661→   661→              )}
+   662→   662→              {result.budgetJustification && (
+   663→   663→                <DocSectionCard title="Budget Justification" icon={DollarSign} content={result.budgetJustification} rawText={result.budgetJustification} />
+   664→   664→              )}
+   665→   665→              {result.complianceNotes && (
+   666→   666→                <DocSectionCard title="Compliance Notes" icon={CheckCircle2} content={result.complianceNotes} rawText={result.complianceNotes} />
+   667→   667→              )}
+   668→   668→
+   669→   669→              <div className="flex gap-2 pt-2">
+   670→   670→                <Button className="flex-1 gradient-emerald text-white border-0 premium-shadow hover:opacity-90"
+   671→   671→                  onClick={() => toast.success('Bid submitted! Check your Bids section for status.')}>
+   672→   672→                  Submit This Bid
+   673→   673→                </Button>
+   674→   674→              </div>
+   675→   675→            </div>
+   676→   676→          </ScrollArea>
+   677→   677→        ) : (
+   678→   678→          <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+   679→   679→            <div className="w-16 h-16 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow mb-4">
+   680→   680→              <PenTool className="h-8 w-8 text-white" />
+   681→   681→            </div>
+   682→   682→            <h3 className="font-semibold text-foreground mb-1">Bid Proposal Builder</h3>
+   683→   683→            <p className="text-sm text-muted-foreground max-w-xs">
+   684→   684→              Select a tender or enter details, then generate a professional bid proposal with AI.
+   685→   685→            </p>
+   686→   686→          </div>
+   687→   687→        )}
+   688→   688→      </div>
+   689→   689→    </div>
+   690→   690→  );
+   691→   691→}
+   692→   692→
+   693→   693→/* ══════════════════════════════════════════════════════════════
+   694→   694→   TOOL 3: REQUIREMENT ANALYZER
+   695→   695→   ══════════════════════════════════════════════════════════════ */
+   696→   696→
+   697→   697→function RequirementAnalyzerTool() {
+   698→   698→  const { user } = useAuthStore();
+   699→   699→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   700→   700→  const [loading, setLoading] = useState(false);
+   701→   701→  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+   702→   702→  const [selectedTender, setSelectedTender] = useState('');
+   703→   703→  const [skills, setSkills] = useState<string[]>([]);
+   704→   704→  const [form, setForm] = useState({
+   705→   705→    tenderTitle: '', scope: '', budget: '', category: '',
+   706→   706→    requiredDocs: '', deadline: '',
+   707→   707→  });
+   708→   708→
+   709→   709→  useEffect(() => {
+   710→   710→    api.get('/tenders', { status: 'open', limit: '50' }).then(res => {
+   711→   711→      if (res.success) setTenders(res.data || []);
+   712→   712→    }).catch(() => {});
+   713→   713→  }, []);
+   714→   714→
+   715→   715→  const updateField = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+   716→   716→
+   717→   717→  const handleSelectTender = (tenderId: string) => {
+   718→   718→    setSelectedTender(tenderId);
+   719→   719→    const tender = tenders.find(t => t.id === tenderId);
+   720→   720→    if (tender) {
+   721→   721→      setForm({
+   722→   722→        tenderTitle: tender.title,
+   723→   723→        scope: tender.scope || '',
+   724→   724→        budget: tender.budgetMin && tender.budgetMax ? `${tender.budgetMin} - ${tender.budgetMax} ETB` : '',
+   725→   725→        category: tender.categoryTags || '',
+   726→   726→        requiredDocs: tender.requiredDocs || '',
+   727→   727→        deadline: tender.deadline ? new Date(tender.deadline).toISOString().split('T')[0] : '',
+   728→   728→      });
+   729→   729→    }
+   730→   730→  };
+   731→   731→
+   732→   732→  const handleAnalyze = async () => {
+   733→   733→    if (!form.tenderTitle && !selectedTender) {
+   734→   734→      toast.error('Please select a tender or enter tender details');
+   735→   735→      return;
+   736→   736→    }
+   737→   737→    setLoading(true);
+   738→   738→    setResult(null);
+   739→   739→    try {
+   740→   740→      const res = await api.post('/ai/analyze-requirements', {
+   741→   741→        tenderId: selectedTender || undefined,
+   742→   742→        tenderTitle: form.tenderTitle,
+   743→   743→        scope: form.scope,
+   744→   744→        budget: form.budget,
+   745→   745→        category: form.category,
+   746→   746→        requiredDocs: form.requiredDocs,
+   747→   747→        deadline: form.deadline,
+   748→   748→        skills: skills.join(', '),
+   749→   749→        userName: user?.profile?.fullName || '',
+   750→   750→        userSkills: user?.profile?.skillTags || '',
+   751→   751→      });
+   752→   752→      if (res.success) {
+   753→   753→        setResult(res.data);
+   754→   754→        toast.success('Requirements analyzed!');
+   755→   755→      } else {
+   756→   756→        toast.error(res.error || 'Failed to analyze requirements');
+   757→   757→      }
+   758→   758→    } catch {
+   759→   759→      toast.error('AI analysis failed. Please try again.');
+   760→   760→    } finally {
+   761→   761→      setLoading(false);
+   762→   762→    }
+   763→   763→  };
+   764→   764→
+   765→   765→  const matchScore = typeof result?.matchScore === 'number' ? result.matchScore : null;
+   766→   766→
+   767→   767→  return (
+   768→   768→    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   769→   769→      <div className="space-y-4">
+   770→   770→        <Card className="border-emerald-100/60">
+   771→   771→          <CardHeader>
+   772→   772→            <div className="flex items-center gap-2">
+   773→   773→              <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center">
+   774→   774→                <Search className="h-4 w-4 text-white" />
+   775→   775→              </div>
+   776→   776→              <div>
+   777→   777→                <CardTitle className="text-base">Requirement Analyzer</CardTitle>
+   778→   778→                <p className="text-xs text-muted-foreground">Understand what a tender requires</p>
+   779→   779→              </div>
+   780→   780→            </div>
+   781→   781→          </CardHeader>
+   782→   782→          <CardContent className="space-y-3">
+   783→   783→            <div className="space-y-1.5">
+   784→   784→              <Label className="text-xs font-medium">Select Tender</Label>
+   785→   785→              <Select value={selectedTender} onValueChange={handleSelectTender}>
+   786→   786→                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+   787→   787→                  <SelectValue placeholder="Choose a tender (auto-fills)" />
+   788→   788→                </SelectTrigger>
+   789→   789→                <SelectContent>
+   790→   790→                  {tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+   791→   791→                </SelectContent>
+   792→   792→              </Select>
+   793→   793→            </div>
+   794→   794→
+   795→   795→            <Separator className="my-1" />
+   796→   796→            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Or enter manually</p>
+   797→   797→
+   798→   798→            <div className="space-y-1.5">
+   799→   799→              <Label className="text-xs font-medium">Tender Title</Label>
+   800→   800→              <Input placeholder="Enter tender title" value={form.tenderTitle}
+   801→   801→                onChange={e => updateField('tenderTitle', e.target.value)}
+   802→   802→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   803→   803→            </div>
+   804→   804→            <div className="space-y-1.5">
+   805→   805→              <Label className="text-xs font-medium">Scope</Label>
+   806→   806→              <Textarea placeholder="Tender scope" value={form.scope}
+   807→   807→                onChange={e => updateField('scope', e.target.value)}
+   808→   808→                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
+   809→   809→            </div>
+   810→   810→            <div className="grid grid-cols-2 gap-3">
+   811→   811→              <div className="space-y-1.5">
+   812→   812→                <Label className="text-xs font-medium">Budget</Label>
+   813→   813→                <Input placeholder="e.g., 1M ETB" value={form.budget}
+   814→   814→                  onChange={e => updateField('budget', e.target.value)}
+   815→   815→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   816→   816→              </div>
+   817→   817→              <div className="space-y-1.5">
+   818→   818→                <Label className="text-xs font-medium">Category</Label>
+   819→   819→                <Input placeholder="e.g., Construction" value={form.category}
+   820→   820→                  onChange={e => updateField('category', e.target.value)}
+   821→   821→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   822→   822→              </div>
+   823→   823→            </div>
+   824→   824→            <div className="grid grid-cols-2 gap-3">
+   825→   825→              <div className="space-y-1.5">
+   826→   826→                <Label className="text-xs font-medium">Required Docs</Label>
+   827→   827→                <Input placeholder="e.g., License, TIN" value={form.requiredDocs}
+   828→   828→                  onChange={e => updateField('requiredDocs', e.target.value)}
+   829→   829→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   830→   830→              </div>
+   831→   831→              <div className="space-y-1.5">
+   832→   832→                <Label className="text-xs font-medium">Deadline</Label>
+   833→   833→                <Input type="date" value={form.deadline}
+   834→   834→                  onChange={e => updateField('deadline', e.target.value)}
+   835→   835→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   836→   836→              </div>
+   837→   837→            </div>
+   838→   838→            <div className="space-y-1.5">
+   839→   839→              <Label className="text-xs font-medium">Your Skills</Label>
+   840→   840→              <SkillTagSelector selected={skills} onChange={setSkills} />
+   841→   841→            </div>
+   842→   842→            <Button onClick={handleAnalyze} disabled={loading}
+   843→   843→              className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
+   844→   844→              {loading ? (
+   845→   845→                <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+   846→   846→                  className="inline-block"><Sparkles className="h-4 w-4 mr-2" /></motion.span>Analyzing...</>
+   847→   847→              ) : (
+   848→   848→                <><Sparkles className="h-4 w-4 mr-2" />Analyze Requirements</>
+   849→   849→              )}
+   850→   850→            </Button>
+   851→   851→          </CardContent>
+   852→   852→        </Card>
+   853→   853→      </div>
+   854→   854→
+   855→   855→      <div>
+   856→   856→        {loading ? <GeneratingSkeleton /> : result ? (
+   857→   857→          <ScrollArea className="max-h-[calc(100vh-12rem)]">
+   858→   858→            <div className="space-y-4 pr-2">
+   859→   859→              {/* Match Score */}
+   860→   860→              {matchScore !== null && (
+   861→   861→                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+   862→   862→                  <Card className="border-emerald-100/60 bg-gradient-to-br from-emerald-50 to-white">
+   863→   863→                    <CardContent className="p-4">
+   864→   864→                      <div className="flex items-center justify-between mb-2">
+   865→   865→                        <div className="flex items-center gap-2">
+   866→   866→                          <Target className="h-4 w-4 text-emerald-600" />
+   867→   867→                          <span className="text-sm font-semibold">Match Analysis</span>
+   868→   868→                        </div>
+   869→   869→                        <span className={`text-2xl font-bold ${scoreColor(matchScore)}`}>{matchScore}%</span>
+   870→   870→                      </div>
+   871→   871→                      <Progress value={matchScore} className="h-2.5" />
+   872→   872→                      <p className="text-xs text-muted-foreground mt-2">
+   873→   873→                        {matchScore >= 75 ? 'Excellent match! Your skills align well with this tender.' :
+   874→   874→                         matchScore >= 50 ? 'Good match. Consider strengthening some areas.' :
+   875→   875→                         'Low match. You may need additional qualifications.'}
+   876→   876→                      </p>
+   877→   877→                    </CardContent>
+   878→   878→                  </Card>
+   879→   879→                </motion.div>
+   880→   880→              )}
+   881→   881→
+   882→   882→              {/* Competitiveness Assessment */}
+   883→   883→              {result.competitivenessAssessment && (
+   884→   884→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+   885→   885→                  <Card className="border-emerald-100/60">
+   886→   886→                    <CardContent className="p-4">
+   887→   887→                      <div className="flex items-center gap-2 mb-2">
+   888→   888→                        <Award className="h-4 w-4 text-emerald-600" />
+   889→   889→                        <span className="text-sm font-semibold">Competitiveness Assessment</span>
+   890→   890→                      </div>
+   891→   891→                      <Badge className={`${String(result.competitivenessAssessment).toLowerCase().includes('high') ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : String(result.competitivenessAssessment).toLowerCase().includes('medium') ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-rose-100 text-rose-700 border-rose-200'} border text-xs font-semibold`}>
+   892→   892→                        {String(result.competitivenessAssessment)}
+   893→   893→                      </Badge>
+   894→   894→                    </CardContent>
+   895→   895→                  </Card>
+   896→   896→                </motion.div>
+   897→   897→              )}
+   898→   898→
+   899→   899→              {result.requirementSummary && (
+   900→   900→                <DocSectionCard title="Requirement Summary" icon={FileText} content={String(result.requirementSummary)} rawText={String(result.requirementSummary)} />
+   901→   901→              )}
+   902→   902→              {result.mandatoryRequirements && (
+   903→   903→                <DocSectionCard title="Mandatory Requirements" icon={CheckCircle2} content={String(result.mandatoryRequirements)} rawText={String(result.mandatoryRequirements)} />
+   904→   904→              )}
+   905→   905→              {result.preferredQualifications && (
+   906→   906→                <DocSectionCard title="Preferred Qualifications" icon={Star} content={String(result.preferredQualifications)} rawText={String(result.preferredQualifications)} />
+   907→   907→              )}
+   908→   908→              {result.requiredDocuments && (
+   909→   909→                <DocSectionCard title="Required Documents" icon={FileText} content={String(result.requiredDocuments)} rawText={String(result.requiredDocuments)} />
+   910→   910→              )}
+   911→   911→              {result.evaluationBreakdown && (
+   912→   912→                <DocSectionCard title="Evaluation Breakdown" icon={TrendingUp} content={String(result.evaluationBreakdown)} rawText={String(result.evaluationBreakdown)} />
+   913→   913→              )}
+   914→   914→
+   915→   915→              {result.riskFactors && (
+   916→   916→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+   917→   917→                  <Card className="border-amber-200/60 bg-amber-50/30">
+   918→   918→                    <CardContent className="p-4">
+   919→   919→                      <div className="flex items-center gap-2 mb-2">
+   920→   920→                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+   921→   921→                        <span className="text-sm font-semibold">Risk Factors</span>
+   922→   922→                      </div>
+   923→   923→                      <div className="text-sm text-muted-foreground space-y-1">
+   924→   924→                        {formatSectionContent(String(result.riskFactors))}
+   925→   925→                      </div>
+   926→   926→                    </CardContent>
+   927→   927→                  </Card>
+   928→   928→                </motion.div>
+   929→   929→              )}
+   930→   930→
+   931→   931→              {result.preparationTips && (
+   932→   932→                <DocSectionCard title="Preparation Tips" icon={Zap} content={String(result.preparationTips)} rawText={String(result.preparationTips)} />
+   933→   933→              )}
+   934→   934→              {result.recommendedActions && (
+   935→   935→                <DocSectionCard title="Recommended Actions" icon={ChevronRight} content={String(result.recommendedActions)} rawText={String(result.recommendedActions)} />
+   936→   936→              )}
+   937→   937→            </div>
+   938→   938→          </ScrollArea>
+   939→   939→        ) : (
+   940→   940→          <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+   941→   941→            <div className="w-16 h-16 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow mb-4">
+   942→   942→              <Search className="h-8 w-8 text-white" />
+   943→   943→            </div>
+   944→   944→            <h3 className="font-semibold text-foreground mb-1">Requirement Analyzer</h3>
+   945→   945→            <p className="text-sm text-muted-foreground max-w-xs">
+   946→   946→              Select a tender and analyze its requirements, risks, and your match score.
+   947→   947→            </p>
+   948→   948→          </div>
+   949→   949→        )}
+   950→   950→      </div>
+   951→   951→    </div>
+   952→   952→  );
+   953→   953→}
+   954→   954→
+   955→   955→/* ══════════════════════════════════════════════════════════════
+   956→   956→   TOOL 4: APPLICANT ANALYZER
+   957→   957→   ══════════════════════════════════════════════════════════════ */
+   958→   958→
+   959→   959→interface ApplicantResult {
+   960→   960→  summary: { totalBids: number; averageScore: number };
+   961→   961→  applicants: Array<{
+   962→   962→    rank: number; name: string; company: string; overallScore: number;
+   963→   963→    technicalScore: number; financialScore: number;
+   964→   964→    strengths: string[]; weaknesses: string[];
+   965→   965→    recommendation: string; riskLevel: string;
+   966→   966→  }>;
+   967→   967→  budgetAnalysis: string;
+   968→   968→  riskSummary: string;
+   969→   969→  finalRecommendation: string;
+   970→   970→}
+   971→   971→
+   972→   972→function ApplicantAnalyzerTool() {
+   973→   973→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   974→   974→  const [loading, setLoading] = useState(false);
+   975→   975→  const [result, setResult] = useState<ApplicantResult | null>(null);
+   976→   976→  const [selectedTender, setSelectedTender] = useState('');
+   977→   977→
+   978→   978→  useEffect(() => {
+   979→   979→    api.get('/tenders', { limit: '50' }).then(res => {
+   980→   980→      if (res.success) setTenders(res.data || []);
+   981→   981→    }).catch(() => {});
+   982→   982→  }, []);
+   983→   983→
+   984→   984→  const selectedTenderData = tenders.find(t => t.id === selectedTender);
+   985→   985→
+   986→   986→  const handleAnalyze = async () => {
+   987→   987→    if (!selectedTender) {
+   988→   988→      toast.error('Please select a tender');
+   989→   989→      return;
+   990→   990→    }
+   991→   991→    setLoading(true);
+   992→   992→    setResult(null);
+   993→   993→    try {
+   994→   994→      const res = await api.post('/ai/analyze-applicants', { tenderId: selectedTender });
+   995→   995→      if (res.success) {
+   996→   996→        setResult(res.data);
+   997→   997→        toast.success('Applicants analyzed!');
+   998→   998→      } else {
+   999→   999→        toast.error(res.error || 'Failed to analyze applicants');
+  1000→  1000→      }
+  1001→  1001→    } catch {
+  1002→  1002→      toast.error('AI analysis failed. Please try again.');
+  1003→  1003→    } finally {
+  1004→  1004→      setLoading(false);
+  1005→  1005→    }
+  1006→  1006→  };
+  1007→  1007→
+  1008→  1008→  return (
+  1009→  1009→    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  1010→  1010→      <div className="space-y-4">
+  1011→  1011→        <Card className="border-emerald-100/60">
+  1012→  1012→          <CardHeader>
+  1013→  1013→            <div className="flex items-center gap-2">
+  1014→  1014→              <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center">
+  1015→  1015→                <Users className="h-4 w-4 text-white" />
+  1016→  1016→              </div>
+  1017→  1017→              <div>
+  1018→  1018→                <CardTitle className="text-base">Applicant Analyzer</CardTitle>
+  1019→  1019→                <p className="text-xs text-muted-foreground">Score and rank bid applicants</p>
+  1020→  1020→              </div>
+  1021→  1021→            </div>
+  1022→  1022→          </CardHeader>
+  1023→  1023→          <CardContent className="space-y-3">
+  1024→  1024→            <div className="space-y-1.5">
+  1025→  1025→              <Label className="text-xs font-medium">Select Your Tender</Label>
+  1026→  1026→              <Select value={selectedTender} onValueChange={setSelectedTender}>
+  1027→  1027→                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+  1028→  1028→                  <SelectValue placeholder="Choose a tender to analyze bids" />
+  1029→  1029→                </SelectTrigger>
+  1030→  1030→                <SelectContent>
+  1031→  1031→                  {tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+  1032→  1032→                </SelectContent>
+  1033→  1033→              </Select>
+  1034→  1034→            </div>
+  1035→  1035→
+  1036→  1036→            {selectedTenderData && (
+  1037→  1037→              <Card className="bg-muted/40 border-0">
+  1038→  1038→                <CardContent className="p-3">
+  1039→  1039→                  <div className="grid grid-cols-2 gap-2 text-xs">
+  1040→  1040→                    <div><span className="text-muted-foreground">Category:</span> <span className="font-medium">{selectedTenderData.categoryTags}</span></div>
+  1041→  1041→                    <div><span className="text-muted-foreground">Bids:</span> <span className="font-medium">{selectedTenderData._count?.bids ?? 0}</span></div>
+  1042→  1042→                  </div>
+  1043→  1043→                </CardContent>
+  1044→  1044→              </Card>
+  1045→  1045→            )}
+  1046→  1046→
+  1047→  1047→            <Button onClick={handleAnalyze} disabled={loading || !selectedTender}
+  1048→  1048→              className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
+  1049→  1049→              {loading ? (
+  1050→  1050→                <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+  1051→  1051→                  className="inline-block"><Sparkles className="h-4 w-4 mr-2" /></motion.span>Analyzing...</>
+  1052→  1052→              ) : (
+  1053→  1053→                <><Sparkles className="h-4 w-4 mr-2" />Analyze Applicants</>
+  1054→  1054→              )}
+  1055→  1055→            </Button>
+  1056→  1056→          </CardContent>
+  1057→  1057→        </Card>
+  1058→  1058→      </div>
+  1059→  1059→
+  1060→  1060→      <div>
+  1061→  1061→        {loading ? <GeneratingSkeleton /> : result ? (
+  1062→  1062→          <ScrollArea className="max-h-[calc(100vh-12rem)]">
+  1063→  1063→            <div className="space-y-4 pr-2">
+  1064→  1064→              {/* Summary */}
+  1065→  1065→              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+  1066→  1066→                <Card className="border-emerald-100/60 bg-gradient-to-br from-emerald-50 to-white">
+  1067→  1067→                  <CardContent className="p-4">
+  1068→  1068→                    <div className="flex items-center gap-2 mb-3">
+  1069→  1069→                      <Award className="h-4 w-4 text-emerald-600" />
+  1070→  1070→                      <span className="text-sm font-semibold">Summary</span>
+  1071→  1071→                    </div>
+  1072→  1072→                    <div className="grid grid-cols-2 gap-4">
+  1073→  1073→                      <div className="text-center p-3 bg-card rounded-xl premium-shadow">
+  1074→  1074→                        <p className="text-2xl font-bold text-emerald-600">{result.summary.totalBids}</p>
+  1075→  1075→                        <p className="text-xs text-muted-foreground">Total Bids</p>
+  1076→  1076→                      </div>
+  1077→  1077→                      <div className="text-center p-3 bg-card rounded-xl premium-shadow">
+  1078→  1078→                        <p className={`text-2xl font-bold ${scoreColor(result.summary.averageScore)}`}>{result.summary.averageScore}</p>
+  1079→  1079→                        <p className="text-xs text-muted-foreground">Avg Score</p>
+  1080→  1080→                      </div>
+  1081→  1081→                    </div>
+  1082→  1082→                  </CardContent>
+  1083→  1083→                </Card>
+  1084→  1084→              </motion.div>
+  1085→  1085→
+  1086→  1086→              {/* Ranked Applicants */}
+  1087→  1087→              {result.applicants?.map((applicant, idx) => {
+  1088→  1088→                const risk = getRiskBadge(applicant.riskLevel);
+  1089→  1089→                const RiskIcon = risk.Icon;
+  1090→  1090→                return (
+  1091→  1091→                  <motion.div key={idx} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+  1092→  1092→                    transition={{ delay: idx * 0.08 }}>
+  1093→  1093→                    <Card className={`border ${applicant.rank === 1 ? 'border-emerald-200 bg-emerald-50/20' : 'border-border/40'}`}>
+  1094→  1094→                      <CardContent className="p-4">
+  1095→  1095→                        <div className="flex items-start justify-between mb-3">
+  1096→  1096→                          <div className="flex items-center gap-2">
+  1097→  1097→                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+  1098→  1098→                              applicant.rank === 1 ? 'bg-emerald-500' : applicant.rank === 2 ? 'bg-amber-500' : 'bg-muted-foreground/50'
+  1099→  1099→                            }`}>
+  1100→  1100→                              #{applicant.rank}
+  1101→  1101→                            </div>
+  1102→  1102→                            <div>
+  1103→  1103→                              <p className="text-sm font-semibold">{applicant.name}</p>
+  1104→  1104→                              <p className="text-xs text-muted-foreground">{applicant.company}</p>
+  1105→  1105→                            </div>
+  1106→  1106→                          </div>
+  1107→  1107→                          <div className="flex items-center gap-2">
+  1108→  1108→                            <Badge className={`${risk.color} border text-[10px] font-semibold`}>
+  1109→  1109→                              <RiskIcon className="h-3 w-3 mr-0.5" />
+  1110→  1110→                              {applicant.riskLevel}
+  1111→  1111→                            </Badge>
+  1112→  1112→                            <span className={`text-lg font-bold ${scoreColor(applicant.overallScore)}`}>
+  1113→  1113→                              {applicant.overallScore}
+  1114→  1114→                            </span>
+  1115→  1115→                          </div>
+  1116→  1116→                        </div>
+  1117→  1117→
+  1118→  1118→                        <div className="space-y-2 mb-3">
+  1119→  1119→                          <div>
+  1120→  1120→                            <div className="flex justify-between text-xs mb-0.5">
+  1121→  1121→                              <span className="text-muted-foreground">Technical</span>
+  1122→  1122→                              <span className={`font-medium ${scoreColor(applicant.technicalScore)}`}>{applicant.technicalScore}%</span>
+  1123→  1123→                            </div>
+  1124→  1124→                            <Progress value={applicant.technicalScore} className="h-1.5" />
+  1125→  1125→                          </div>
+  1126→  1126→                          <div>
+  1127→  1127→                            <div className="flex justify-between text-xs mb-0.5">
+  1128→  1128→                              <span className="text-muted-foreground">Financial</span>
+  1129→  1129→                              <span className={`font-medium ${scoreColor(applicant.financialScore)}`}>{applicant.financialScore}%</span>
+  1130→  1130→                            </div>
+  1131→  1131→                            <Progress value={applicant.financialScore} className="h-1.5" />
+  1132→  1132→                          </div>
+  1133→  1133→                        </div>
+  1134→  1134→
+  1135→  1135→                        <div className="flex flex-wrap gap-1 mb-2">
+  1136→  1136→                          {applicant.strengths?.map((s, i) => (
+  1137→  1137→                            <Badge key={i} className="bg-emerald-100 text-emerald-700 border-emerald-200 border text-[10px] font-medium">
+  1138→  1138→                              {s}
+  1139→  1139→                            </Badge>
+  1140→  1140→                          ))}
+  1141→  1141→                          {applicant.weaknesses?.map((w, i) => (
+  1142→  1142→                            <Badge key={`w-${i}`} className="bg-amber-100 text-amber-700 border-amber-200 border text-[10px] font-medium">
+  1143→  1143→                              {w}
+  1144→  1144→                            </Badge>
+  1145→  1145→                          ))}
+  1146→  1146→                        </div>
+  1147→  1147→
+  1148→  1148→                        <p className="text-xs text-muted-foreground">{applicant.recommendation}</p>
+  1149→  1149→                      </CardContent>
+  1150→  1150→                    </Card>
+  1151→  1151→                  </motion.div>
+  1152→  1152→                );
+  1153→  1153→              })}
+  1154→  1154→
+  1155→  1155→              {result.budgetAnalysis && (
+  1156→  1156→                <DocSectionCard title="Budget Analysis" icon={DollarSign} content={String(result.budgetAnalysis)} rawText={String(result.budgetAnalysis)} />
+  1157→  1157→              )}
+  1158→  1158→
+  1159→  1159→              {result.riskSummary && (
+  1160→  1160→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+  1161→  1161→                  <Card className="border-amber-200/60 bg-amber-50/30">
+  1162→  1162→                    <CardContent className="p-4">
+  1163→  1163→                      <div className="flex items-center gap-2 mb-2">
+  1164→  1164→                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+  1165→  1165→                        <span className="text-sm font-semibold">Risk Summary</span>
+  1166→  1166→                      </div>
+  1167→  1167→                      <div className="text-sm text-muted-foreground space-y-1">
+  1168→  1168→                        {formatSectionContent(String(result.riskSummary))}
+  1169→  1169→                      </div>
+  1170→  1170→                    </CardContent>
+  1171→  1171→                  </Card>
+  1172→  1172→                </motion.div>
+  1173→  1173→              )}
+  1174→  1174→
+  1175→  1175→              {result.finalRecommendation && (
+  1176→  1176→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+  1177→  1177→                  <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-white">
+  1178→  1178→                    <CardContent className="p-4">
+  1179→  1179→                      <div className="flex items-center gap-2 mb-2">
+  1180→  1180→                        <Award className="h-4 w-4 text-emerald-600" />
+  1181→  1181→                        <span className="text-sm font-semibold">Final Recommendation</span>
+  1182→  1182→                      </div>
+  1183→  1183→                      <div className="text-sm text-muted-foreground space-y-1">
+  1184→  1184→                        {formatSectionContent(String(result.finalRecommendation))}
+  1185→  1185→                      </div>
+  1186→  1186→                    </CardContent>
+  1187→  1187→                  </Card>
+  1188→  1188→                </motion.div>
+  1189→  1189→              )}
+  1190→  1190→            </div>
+  1191→  1191→          </ScrollArea>
+  1192→  1192→        ) : (
+  1193→  1193→          <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+  1194→  1194→            <div className="w-16 h-16 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow mb-4">
+  1195→  1195→              <Users className="h-8 w-8 text-white" />
+  1196→  1196→            </div>
+  1197→  1197→            <h3 className="font-semibold text-foreground mb-1">Applicant Analyzer</h3>
+  1198→  1198→            <p className="text-sm text-muted-foreground max-w-xs">
+  1199→  1199→              Select one of your tenders to analyze and rank the submitted bids.
+  1200→  1200→            </p>
+  1201→  1201→          </div>
+  1202→  1202→        )}
+  1203→  1203→      </div>
+  1204→  1204→    </div>
+  1205→  1205→  );
+  1206→  1206→}
+  1207→  1207→
+  1208→  1208→/* ══════════════════════════════════════════════════════════════
+  1209→  1209→   MAIN COMPONENT: AI DOC STUDIO
+  1210→  1210→   ══════════════════════════════════════════════════════════════ */
+  1211→  1211→
+  1212→  1212→export function AIDocStudio() {
+  1213→  1213→  const [activeTab, setActiveTab] = useState<ToolTab>('tender-builder');
+  1214→  1214→
+  1215→  1215→  const renderTool = () => {
+  1216→  1216→    switch (activeTab) {
+  1217→  1217→      case 'tender-builder': return <TenderBuilderTool />;
+  1218→  1218→      case 'bid-builder': return <BidBuilderTool />;
+  1219→  1219→      case 'requirement-analyzer': return <RequirementAnalyzerTool />;
+  1220→  1220→      case 'applicant-analyzer': return <ApplicantAnalyzerTool />;
+  1221→  1221→    }
+  1222→  1222→  };
+  1223→  1223→
+  1224→  1224→  return (
+  1225→  1225→    <div className="h-[calc(100vh-3.5rem)] flex flex-col view-enter">
+  1226→  1226→      {/* Header */}
+  1227→  1227→      <div className="px-5 py-3 border-b border-border/50 bg-card/80 backdrop-blur-md flex-shrink-0">
+  1228→  1228→        <div className="flex items-center gap-3">
+  1229→  1229→          <motion.div
+  1230→  1230→            initial={{ scale: 0.8, opacity: 0 }}
+  1231→  1231→            animate={{ scale: 1, opacity: 1 }}
+  1232→  1232→            className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center premium-shadow"
+  1233→  1233→          >
+  1234→  1234→            <Sparkles className="h-5 w-5 text-white" />
+  1235→  1235→          </motion.div>
+  1236→  1236→          <div>
+  1237→  1237→            <h3 className="font-semibold text-sm flex items-center gap-2">
+  1238→  1238→              AI Doc Studio
+  1239→  1239→              <Badge className="text-[9px] px-1.5 py-0 gradient-emerald text-white border-0 font-medium">AI Powered</Badge>
+  1240→  1240→            </h3>
+  1241→  1241→            <p className="text-[11px] text-muted-foreground">Document preparation workspace</p>
+  1242→  1242→          </div>
+  1243→  1243→        </div>
+  1244→  1244→      </div>
+  1245→  1245→
+  1246→  1246→      {/* Body */}
+  1247→  1247→      <div className="flex-1 flex overflow-hidden">
+  1248→  1248→        {/* Sidebar - Tool Tabs */}
+  1249→  1249→        <div className="w-[180px] lg:w-[200px] border-r border-border/50 bg-card/50 flex-shrink-0 p-3 hidden sm:flex flex-col gap-1.5">
+  1250→  1250→          {TOOL_TABS.map(tab => {
+  1251→  1251→            const Icon = tab.icon;
+  1252→  1252→            const isActive = activeTab === tab.id;
+  1253→  1253→            return (
+  1254→  1254→              <motion.button key={tab.id}
+  1255→  1255→                whileHover={{ x: 2 }}
+  1256→  1256→                whileTap={{ scale: 0.98 }}
+  1257→  1257→                onClick={() => setActiveTab(tab.id)}
+  1258→  1258→                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all duration-150 ${
+  1259→  1259→                  isActive
+  1260→  1260→                    ? 'bg-emerald-50 text-emerald-700 premium-shadow border border-emerald-200/60'
+  1261→  1261→                    : 'text-muted-foreground hover:bg-muted/50 border border-transparent'
+  1262→  1262→                }`}>
+  1263→  1263→                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+  1264→  1264→                  isActive ? 'gradient-emerald text-white' : 'bg-muted/60 text-muted-foreground'
+  1265→  1265→                }`}>
+  1266→  1266→                  <Icon className="h-3.5 w-3.5" />
+  1267→  1267→                </div>
+  1268→  1268→                <div className="min-w-0">
+  1269→  1269→                  <p className={`text-xs font-semibold truncate ${isActive ? 'text-emerald-700' : ''}`}>{tab.label}</p>
+  1270→  1270→                  <p className="text-[9px] text-muted-foreground truncate hidden lg:block">{tab.desc}</p>
+  1271→  1271→                </div>
+  1272→  1272→              </motion.button>
+  1273→  1273→            );
+  1274→  1274→          })}
+  1275→  1275→        </div>
+  1276→  1276→
+  1277→  1277→        {/* Mobile tabs */}
+  1278→  1278→        <div className="sm:hidden flex border-b border-border/50 bg-card overflow-x-auto flex-shrink-0 w-full">
+  1279→  1279→          {TOOL_TABS.map(tab => {
+  1280→  1280→            const Icon = tab.icon;
+  1281→  1281→            const isActive = activeTab === tab.id;
+  1282→  1282→            return (
+  1283→  1283→              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+  1284→  1284→                className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+  1285→  1285→                  isActive ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-muted-foreground'
+  1286→  1286→                }`}>
+  1287→  1287→                <Icon className="h-3.5 w-3.5" />
+  1288→  1288→                {tab.label}
+  1289→  1289→              </button>
+  1290→  1290→            );
+  1291→  1291→          })}
+  1292→  1292→        </div>
+  1293→  1293→
+  1294→  1294→        {/* Main Content */}
+  1295→  1295→        <div className="flex-1 overflow-auto p-4 md:p-6">
+  1296→  1296→          <AnimatePresence mode="wait">
+  1297→  1297→            <motion.div
+  1298→  1298→              key={activeTab}
+  1299→  1299→              initial={{ opacity: 0, y: 8 }}
+  1300→  1300→              animate={{ opacity: 1, y: 0 }}
+  1301→  1301→              exit={{ opacity: 0, y: -8 }}
+  1302→  1302→              transition={{ duration: 0.2 }}
+  1303→  1303→            >
+  1304→  1304→              {renderTool()}
+  1305→  1305→            </motion.div>
+  1306→  1306→          </AnimatePresence>
+  1307→  1307→        </div>
+  1308→  1308→      </div>
+  1309→  1309→    </div>
+  1310→  1310→  );
+  1311→  1311→}
+  1312→  1312→

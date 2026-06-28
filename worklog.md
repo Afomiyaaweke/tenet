@@ -455,3 +455,74 @@ Stage Summary:
 - chat.tsx rebuilt as a full Telegram-style messenger with 3-pane responsive layout, conversation list (search + All/Groups/Direct filter pills + unread badges + pinned + online dots + typing preview + animated active bar), new group + new direct dialogs with live user search, message bubbles with replies/reactions/edit/delete/copy/read-receipts/flagged/edited/attachments, hover + mobile action toolbars, quick-react emoji popover, input emoji picker, typing indicator, group info panel (inline-editable title/description, members management, mute/pin toggles, delete/leave), and full real-time socket.io wiring for presence/messages/edits/deletes/reactions/typing/read-receipts
 - Lint passes cleanly (0 errors, 0 warnings); TypeScript clean for chat.tsx; dev server compiles successfully
 - ChatView export + {chatId?} prop preserved for app-shell.tsx wiring; legacy store APIs untouched
+
+---
+Task ID: 9
+Agent: WPS Editor Agent
+Task: Redesign AI Doc Studio as WPS Office-like document editor with signature/stamp
+
+Work Log:
+- Completely rewrote /home/z/my-project/src/components/modules/ai-doc-studio.tsx (from 1311 lines to ~1237 lines)
+- Replaced left-sidebar + static-card layout with WPS Office Writer-like interface
+- Built title bar with editable document name, save status indicator, save/export/print buttons
+- Implemented 5-tab ribbon toolbar: Home, Insert, Review, AI Tools, Sign
+- Home tab: font family/size dropdowns, bold/italic/underline, text/highlight color pickers, alignment, lists, undo/redo, heading selector
+- Insert tab: table insertion (2x2, 3x3, 4x4), horizontal rule, image upload, date/time, page break, page number
+- Review tab: word/char count display, spell check button, author/created info
+- AI Tools tab: 4 AI tool buttons that open the right-side panel
+- Sign tab: draw signature, upload signature, add stamp (APPROVED/VERIFIED/CONFIDENTIAL), saved signatures gallery
+- Built document canvas as A4 page (794x1123px) with contentEditable div, header/footer, zoom support
+- Implemented signature drawing via HTML5 canvas with mouse events
+- Implemented stamp generation as SVG-to-dataURL with circular seal design
+- Built signature/stamp placement mode: click signature → crosshair cursor → click on document to insert
+- Signature/stamp removal via click-to-confirm on placed images
+- Signatures persisted to localStorage (tenets_signatures key)
+- Built right-side AI assistant panel (350px) with slide-in animation via framer-motion
+- All 4 AI tool forms preserved in compact format: Tender Builder, Bid Proposal, Requirement Analyzer, Applicant Analyzer
+- AI generation output populates document canvas as formatted HTML
+- Status bar with page number, word/char count, zoom controls (75%-150%)
+- Formatting via document.execCommand for all rich text operations
+- Renamed lucide Image import to ImageIcon to fix jsx-a11y/alt-text lint warning
+- Lint passes cleanly (0 errors, 0 warnings)
+- Dev server compiles and serves successfully
+
+Stage Summary:
+- AI Doc Studio fully redesigned as WPS Office-like document editor
+- Professional ribbon toolbar with 5 tabs and full formatting controls
+- contentEditable document canvas on A4-styled white page
+- Signature drawing, uploading, and placement system with stamp generation
+- AI tools integrated via right-side panel, output fills document canvas
+- All exports remain compatible (AIDocStudio → AgentView in agent.tsx)
+
+---
+Task ID: 9
+Agent: Main Agent
+Task: Add logout, redesign AI Doc Studio as WPS Office-like document editor with signature/stamp
+
+Work Log:
+- Added user avatar dropdown menu in header with Profile, Documents, and Sign Out options
+- Added DropdownMenu import to app-shell.tsx
+- Completely rewrote ai-doc-studio.tsx as WPS Office-like document editor
+- Built ribbon toolbar with 5 tabs: Home, Insert, Review, AI Tools, Sign
+- Home tab: font family/size, bold/italic/underline, text/highlight color, alignment, lists, headings, undo/redo
+- Insert tab: table, horizontal rule, image, date/time, page break, page number
+- Review tab: word/char count, spell check, document info
+- AI Tools tab: 4 AI generation tools (Tender Builder, Bid Proposal, Req Analyzer, Applicant Rank) with right panel forms
+- Sign tab: Draw Signature (canvas), Upload Signature, Stamp generation (APPROVED/VERIFIED/CONFIDENTIAL circular seals)
+- Document canvas: A4-styled page with contentEditable, header ("TENETS TENDER ECOSYSTEM"), footer (page number)
+- Title bar with editable document name, save/export/print buttons
+- Status bar with page number, word/char count, zoom controls
+- Signature drawing using HTML5 canvas with save to localStorage
+- Stamp generation using SVG-based circular seals with text and date
+- Placement mode for signatures/stamps on document
+- All 4 AI tools preserved with compact right-panel forms
+
+Stage Summary:
+- Logout is now accessible from the user avatar dropdown in the header (in addition to sidebar)
+- AI Doc Studio completely redesigned as WPS Office-like document editor
+- Full formatting toolbar (Home ribbon) with bold/italic/underline/alignment/fonts/lists
+- Signature drawing canvas with save to localStorage
+- Stamp/seal generation (APPROVED, VERIFIED, CONFIDENTIAL) as SVG circular stamps
+- Document canvas with contentEditable for inline editing
+- AI tools generate content directly into the document canvas
+- Lint passes, dev server runs cleanly

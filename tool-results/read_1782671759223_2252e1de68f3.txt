@@ -1,0 +1,1312 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api } from '@/lib/api';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Textarea } from '@/components/ui/textarea';
+     9→import { Label } from '@/components/ui/label';
+    10→import { Badge } from '@/components/ui/badge';
+    11→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    12→import { Separator } from '@/components/ui/separator';
+    13→import { ScrollArea } from '@/components/ui/scroll-area';
+    14→import { Skeleton } from '@/components/ui/skeleton';
+    15→import { Progress } from '@/components/ui/progress';
+    16→import {
+    17→  Select,
+    18→  SelectContent,
+    19→  SelectItem,
+    20→  SelectTrigger,
+    21→  SelectValue,
+    22→} from '@/components/ui/select';
+    23→import { toast } from 'sonner';
+    24→import {
+    25→  FileText, PenTool, Search, Users, Copy, Check, Sparkles,
+    26→  AlertTriangle, CheckCircle2, XCircle, Star, TrendingUp,
+    27→  Shield, Clock, DollarSign, Target, Zap, Award, ChevronRight,
+    28→} from 'lucide-react';
+    29→import { motion, AnimatePresence } from 'framer-motion';
+    30→
+    31→/* ──────────────────────── Types ──────────────────────── */
+    32→
+    33→type ToolTab = 'tender-builder' | 'bid-builder' | 'requirement-analyzer' | 'applicant-analyzer';
+    34→
+    35→interface TenderOption {
+    36→  id: string;
+    37→  title: string;
+    38→  scope?: string;
+    39→  budgetMin?: number;
+    40→  budgetMax?: number;
+    41→  categoryTags?: string;
+    42→  requiredDocs?: string;
+    43→  deadline?: string;
+    44→  _count?: { bids: number };
+    45→}
+    46→
+    47→/* ──────────────────────── Constants ──────────────────────── */
+    48→
+    49→const CATEGORIES = [
+    50→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    51→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics',
+    52→  'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications',
+    53→];
+    54→
+    55→const COMMON_SKILLS = [
+    56→  'Project Management', 'Construction', 'Engineering', 'IT Solutions',
+    57→  'Consulting', 'Architecture', 'Electrical Work', 'Plumbing',
+    58→  'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance',
+    59→  'Agriculture', 'Telecommunications', 'Web Development', 'Software',
+    60→  'Design', 'Research', 'Training', 'Maintenance', 'Procurement',
+    61→  'Supply Chain', 'Quality Assurance', 'Safety Management',
+    62→];
+    63→
+    64→const TOOL_TABS: { id: ToolTab; label: string; icon: React.ElementType; desc: string }[] = [
+    65→  { id: 'tender-builder', label: 'Tender Builder', icon: FileText, desc: 'Create professional tender documents with AI' },
+    66→  { id: 'bid-builder', label: 'Bid Proposal', icon: PenTool, desc: 'Write compelling bid proposals with AI' },
+    67→  { id: 'requirement-analyzer', label: 'Req Analyzer', icon: Search, desc: 'Understand what a tender requires' },
+    68→  { id: 'applicant-analyzer', label: 'Applicant Rank', icon: Users, desc: 'Score and rank bid applicants' },
+    69→];
+    70→
+    71→/* ──────────────────────── Helpers ──────────────────────── */
+    72→
+    73→function formatSectionContent(content: string): React.ReactNode {
+    74→  const lines = content.split('\n');
+    75→  return lines.map((line, i) => {
+    76→    const bulletMatch = line.match(/^[\s]*[-*•]\s+(.*)/);
+    77→    if (bulletMatch) {
+    78→      return (
+    79→        <div key={i} className="flex items-start gap-2 ml-2">
+    80→          <span className="text-emerald-500 mt-0.5 flex-shrink-0">•</span>
+    81→          <span>{formatInline(bulletMatch[1])}</span>
+    82→        </div>
+    83→      );
+    84→    }
+    85→    const numberedMatch = line.match(/^[\s]*(\d+)[.)]\s+(.*)/);
+    86→    if (numberedMatch) {
+    87→      return (
+    88→        <div key={i} className="flex items-start gap-2 ml-2">
+    89→          <span className="text-emerald-600 font-semibold flex-shrink-0">{numberedMatch[1]}.</span>
+    90→          <span>{formatInline(numberedMatch[2])}</span>
+    91→        </div>
+    92→      );
+    93→    }
+    94→    if (line.trim() === '') return <div key={i} className="h-2" />;
+    95→    const headingMatch = line.match(/^#{1,3}\s+(.*)/);
+    96→    if (headingMatch) {
+    97→      return <div key={i} className="font-semibold text-foreground mt-2">{headingMatch[1]}</div>;
+    98→    }
+    99→    return <div key={i}>{formatInline(line)}</div>;
+   100→  });
+   101→}
+   102→
+   103→function formatInline(text: string): React.ReactNode {
+   104→  const parts: React.ReactNode[] = [];
+   105→  let remaining = text;
+   106→  let key = 0;
+   107→  while (remaining.length > 0) {
+   108→    const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+   109→    if (boldMatch && boldMatch.index !== undefined) {
+   110→      if (boldMatch.index > 0) parts.push(<span key={`t-${key++}`}>{remaining.slice(0, boldMatch.index)}</span>);
+   111→      parts.push(<strong key={`b-${key++}`} className="font-semibold text-foreground">{boldMatch[1]}</strong>);
+   112→      remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+   113→    } else {
+   114→      parts.push(<span key={`t-${key++}`}>{remaining}</span>);
+   115→      break;
+   116→    }
+   117→  }
+   118→  return <>{parts}</>;
+   119→}
+   120→
+   121→function scoreColor(score: number): string {
+   122→  if (score >= 75) return 'text-emerald-600';
+   123→  if (score >= 50) return 'text-amber-600';
+   124→  return 'text-rose-600';
+   125→}
+   126→
+   127→function scoreBg(score: number): string {
+   128→  if (score >= 75) return 'bg-emerald-500';
+   129→  if (score >= 50) return 'bg-amber-500';
+   130→  return 'bg-rose-500';
+   131→}
+   132→
+   133→function getRiskBadge(risk: string): { color: string; Icon: React.ElementType } {
+   134→  switch (risk?.toLowerCase()) {
+   135→    case 'low': return { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', Icon: CheckCircle2 };
+   136→    case 'medium': return { color: 'bg-amber-100 text-amber-700 border-amber-200', Icon: AlertTriangle };
+   137→    case 'high': return { color: 'bg-rose-100 text-rose-700 border-rose-200', Icon: XCircle };
+   138→    default: return { color: 'bg-muted text-foreground border-border', Icon: Shield };
+   139→  }
+   140→}
+   141→
+   142→/* ──────────────────────── Copy Button ──────────────────────── */
+   143→
+   144→function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
+   145→  const [copied, setCopied] = useState(false);
+   146→  const handleCopy = () => {
+   147→    navigator.clipboard.writeText(text);
+   148→    setCopied(true);
+   149→    toast.success('Copied to clipboard');
+   150→    setTimeout(() => setCopied(false), 2000);
+   151→  };
+   152→  return (
+   153→    <Button variant="ghost" size="sm" onClick={handleCopy}
+   154→      className="h-7 text-xs gap-1 text-muted-foreground hover:text-emerald-600 hover:bg-primary/10">
+   155→      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+   156→      {copied ? 'Copied' : label}
+   157→    </Button>
+   158→  );
+   159→}
+   160→
+   161→/* ──────────────────────── Skill Tags ──────────────────────── */
+   162→
+   163→function SkillTagSelector({ selected, onChange }: { selected: string[]; onChange: (s: string[]) => void }) {
+   164→  const toggle = (skill: string) => {
+   165→    if (selected.includes(skill)) {
+   166→      onChange(selected.filter(s => s !== skill));
+   167→    } else {
+   168→      onChange([...selected, skill]);
+   169→    }
+   170→  };
+   171→  return (
+   172→    <div className="flex flex-wrap gap-1.5">
+   173→      {COMMON_SKILLS.map(skill => (
+   174→        <button key={skill} type="button" onClick={() => toggle(skill)}
+   175→          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border ${
+   176→            selected.includes(skill)
+   177→              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 premium-shadow'
+   178→              : 'bg-muted/50 text-muted-foreground border-border hover:border-emerald-300 hover:text-emerald-600'
+   179→          }`}>
+   180→          {skill}
+   181→        </button>
+   182→      ))}
+   183→    </div>
+   184→  );
+   185→}
+   186→
+   187→/* ──────────────────────── Doc Section Card ──────────────────────── */
+   188→
+   189→function DocSectionCard({ title, icon: Icon, content, rawText }: {
+   190→  title: string;
+   191→  icon: React.ElementType;
+   192→  content: string;
+   193→  rawText: string;
+   194→}) {
+   195→  return (
+   196→    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   197→      <Card className="border border-emerald-100/60 bg-card premium-shadow overflow-hidden">
+   198→        <CardHeader className="pb-2">
+   199→          <div className="flex items-center justify-between">
+   200→            <div className="flex items-center gap-2">
+   201→              <div className="w-7 h-7 rounded-lg gradient-emerald flex items-center justify-center">
+   202→                <Icon className="h-3.5 w-3.5 text-white" />
+   203→              </div>
+   204→              <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+   205→            </div>
+   206→            <CopyBtn text={rawText} />
+   207→          </div>
+   208→        </CardHeader>
+   209→        <CardContent className="pt-0">
+   210→          <div className="text-sm leading-relaxed text-muted-foreground space-y-1">
+   211→            {formatSectionContent(content)}
+   212→          </div>
+   213→        </CardContent>
+   214→      </Card>
+   215→    </motion.div>
+   216→  );
+   217→}
+   218→
+   219→/* ──────────────────────── Loading Skeleton ──────────────────────── */
+   220→
+   221→function GeneratingSkeleton() {
+   222→  return (
+   223→    <div className="space-y-4 p-4">
+   224→      <div className="flex items-center gap-3 mb-4">
+   225→        <motion.div
+   226→          animate={{ rotate: 360 }}
+   227→          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+   228→          className="w-8 h-8 rounded-xl gradient-emerald flex items-center justify-center"
+   229→        >
+   230→          <Sparkles className="h-4 w-4 text-white" />
+   231→        </motion.div>
+   232→        <div>
+   233→          <p className="text-sm font-semibold text-foreground">Generating with AI...</p>
+   234→          <p className="text-xs text-muted-foreground">This may take a moment</p>
+   235→        </div>
+   236→      </div>
+   237→      {[1, 2, 3].map(i => (
+   238→        <Card key={i} className="border-emerald-100/40">
+   239→          <CardContent className="p-4 space-y-2">
+   240→            <Skeleton className="h-4 w-1/3" />
+   241→            <Skeleton className="h-3 w-full" />
+   242→            <Skeleton className="h-3 w-5/6" />
+   243→            <Skeleton className="h-3 w-4/6" />
+   244→          </CardContent>
+   245→        </Card>
+   246→      ))}
+   247→    </div>
+   248→  );
+   249→}
+   250→
+   251→/* ══════════════════════════════════════════════════════════════
+   252→   TOOL 1: TENDER BUILDER
+   253→   ══════════════════════════════════════════════════════════════ */
+   254→
+   255→function TenderBuilderTool() {
+   256→  const { user } = useAuthStore();
+   257→  const [loading, setLoading] = useState(false);
+   258→  const [result, setResult] = useState<Record<string, string> | null>(null);
+   259→  const [form, setForm] = useState({
+   260→    title: '', category: '', location: '', budgetMin: '', budgetMax: '',
+   261→    deadline: '', description: '', notes: '',
+   262→  });
+   263→
+   264→  const updateField = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+   265→
+   266→  const handleGenerate = async () => {
+   267→    if (!form.title || !form.category || !form.description) {
+   268→      toast.error('Please fill in Title, Category, and Description');
+   269→      return;
+   270→    }
+   271→    setLoading(true);
+   272→    setResult(null);
+   273→    try {
+   274→      const res = await api.post('/ai/tender-prep', {
+   275→        title: form.title,
+   276→        category: form.category,
+   277→        location: form.location,
+   278→        budgetMin: form.budgetMin,
+   279→        budgetMax: form.budgetMax,
+   280→        deadline: form.deadline,
+   281→        description: form.description,
+   282→        notes: form.notes,
+   283→        skills: user?.profile?.skillTags || '',
+   284→        userName: user?.profile?.fullName || '',
+   285→      });
+   286→      if (res.success) {
+   287→        setResult(res.data);
+   288→        toast.success('Tender document generated!');
+   289→      } else {
+   290→        toast.error(res.error || 'Failed to generate tender document');
+   291→      }
+   292→    } catch {
+   293→      toast.error('AI generation failed. Please try again.');
+   294→    } finally {
+   295→      setLoading(false);
+   296→    }
+   297→  };
+   298→
+   299→  const fullDoc = result ? Object.entries(result).map(([k, v]) => `## ${k.replace(/([A-Z])/g, ' $1').trim()}\n${v}`).join('\n\n') : '';
+   300→
+   301→  return (
+   302→    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   303→      {/* Form */}
+   304→      <div className="space-y-4">
+   305→        <Card className="border-emerald-100/60">
+   306→          <CardHeader>
+   307→            <div className="flex items-center gap-2">
+   308→              <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center">
+   309→                <FileText className="h-4 w-4 text-white" />
+   310→              </div>
+   311→              <div>
+   312→                <CardTitle className="text-base">Tender Builder</CardTitle>
+   313→                <p className="text-xs text-muted-foreground">Create professional tender documents with AI</p>
+   314→              </div>
+   315→            </div>
+   316→          </CardHeader>
+   317→          <CardContent className="space-y-3">
+   318→            <div className="space-y-1.5">
+   319→              <Label className="text-xs font-medium">Title *</Label>
+   320→              <Input placeholder="e.g., Office Building Construction" value={form.title}
+   321→                onChange={e => updateField('title', e.target.value)}
+   322→                className="h-9 text-sm bg-muted/50 border-border/50 focus:border-primary" />
+   323→            </div>
+   324→            <div className="space-y-1.5">
+   325→              <Label className="text-xs font-medium">Category *</Label>
+   326→              <Select value={form.category} onValueChange={v => updateField('category', v)}>
+   327→                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+   328→                  <SelectValue placeholder="Select category" />
+   329→                </SelectTrigger>
+   330→                <SelectContent>
+   331→                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+   332→                </SelectContent>
+   333→              </Select>
+   334→            </div>
+   335→            <div className="space-y-1.5">
+   336→              <Label className="text-xs font-medium">Location</Label>
+   337→              <Input placeholder="e.g., Addis Ababa" value={form.location}
+   338→                onChange={e => updateField('location', e.target.value)}
+   339→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   340→            </div>
+   341→            <div className="grid grid-cols-2 gap-3">
+   342→              <div className="space-y-1.5">
+   343→                <Label className="text-xs font-medium">Budget Min (ETB)</Label>
+   344→                <Input type="number" placeholder="0" value={form.budgetMin}
+   345→                  onChange={e => updateField('budgetMin', e.target.value)}
+   346→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   347→              </div>
+   348→              <div className="space-y-1.5">
+   349→                <Label className="text-xs font-medium">Budget Max (ETB)</Label>
+   350→                <Input type="number" placeholder="0" value={form.budgetMax}
+   351→                  onChange={e => updateField('budgetMax', e.target.value)}
+   352→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   353→              </div>
+   354→            </div>
+   355→            <div className="space-y-1.5">
+   356→              <Label className="text-xs font-medium">Deadline</Label>
+   357→              <Input type="date" value={form.deadline}
+   358→                onChange={e => updateField('deadline', e.target.value)}
+   359→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   360→            </div>
+   361→            <div className="space-y-1.5">
+   362→              <Label className="text-xs font-medium">Brief Description *</Label>
+   363→              <Textarea placeholder="Describe the tender scope, objectives, and requirements..."
+   364→                value={form.description} onChange={e => updateField('description', e.target.value)}
+   365→                className="min-h-[80px] text-sm bg-muted/50 border-border/50 resize-none" />
+   366→            </div>
+   367→            <div className="space-y-1.5">
+   368→              <Label className="text-xs font-medium">Additional Notes (optional)</Label>
+   369→              <Textarea placeholder="Any special requirements or conditions..."
+   370→                value={form.notes} onChange={e => updateField('notes', e.target.value)}
+   371→                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
+   372→            </div>
+   373→            <Button onClick={handleGenerate} disabled={loading}
+   374→              className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
+   375→              {loading ? (
+   376→                <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+   377→                  className="inline-block"><Sparkles className="h-4 w-4 mr-2" /></motion.span>Generating...</>
+   378→              ) : (
+   379→                <><Sparkles className="h-4 w-4 mr-2" />Generate with AI</>
+   380→              )}
+   381→            </Button>
+   382→          </CardContent>
+   383→        </Card>
+   384→      </div>
+   385→
+   386→      {/* Result */}
+   387→      <div>
+   388→        {loading ? <GeneratingSkeleton /> : result ? (
+   389→          <ScrollArea className="max-h-[calc(100vh-12rem)]">
+   390→            <div className="space-y-4 pr-2">
+   391→              <div className="flex items-center justify-between mb-2">
+   392→                <div className="flex items-center gap-2">
+   393→                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+   394→                  <h3 className="font-semibold text-sm">Generated Document</h3>
+   395→                </div>
+   396→                <CopyBtn text={fullDoc} label="Copy Full Doc" />
+   397→              </div>
+   398→
+   399→              {result.scopeOfWork && (
+   400→                <DocSectionCard title="Scope of Work" icon={Target} content={result.scopeOfWork} rawText={result.scopeOfWork} />
+   401→              )}
+   402→              {result.requiredDocuments && (
+   403→                <DocSectionCard title="Required Documents" icon={FileText} content={result.requiredDocuments} rawText={result.requiredDocuments} />
+   404→              )}
+   405→              {result.evaluationCriteria && (
+   406→                <DocSectionCard title="Evaluation Criteria" icon={Star} content={result.evaluationCriteria} rawText={result.evaluationCriteria} />
+   407→              )}
+   408→              {result.deliverables && (
+   409→                <DocSectionCard title="Deliverables" icon={CheckCircle2} content={result.deliverables} rawText={result.deliverables} />
+   410→              )}
+   411→              {result.timeline && (
+   412→                <DocSectionCard title="Timeline" icon={Clock} content={result.timeline} rawText={result.timeline} />
+   413→              )}
+   414→              {result.termsAndConditions && (
+   415→                <DocSectionCard title="Terms & Conditions" icon={Shield} content={result.termsAndConditions} rawText={result.termsAndConditions} />
+   416→              )}
+   417→              {result.categoryTags && (
+   418→                <DocSectionCard title="Category Tags" icon={Zap} content={result.categoryTags} rawText={result.categoryTags} />
+   419→              )}
+   420→
+   421→              <div className="flex gap-2 pt-2">
+   422→                <Button className="flex-1 gradient-emerald text-white border-0 premium-shadow hover:opacity-90"
+   423→                  onClick={() => toast.success('Tender draft saved! Go to Tenders to finalize.')}>
+   424→                  Use This to Create Tender
+   425→                </Button>
+   426→              </div>
+   427→            </div>
+   428→          </ScrollArea>
+   429→        ) : (
+   430→          <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+   431→            <div className="w-16 h-16 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow mb-4">
+   432→              <FileText className="h-8 w-8 text-white" />
+   433→            </div>
+   434→            <h3 className="font-semibold text-foreground mb-1">Tender Document Builder</h3>
+   435→            <p className="text-sm text-muted-foreground max-w-xs">
+   436→              Fill in the form and click Generate to create a professional tender document with AI assistance.
+   437→            </p>
+   438→          </div>
+   439→        )}
+   440→      </div>
+   441→    </div>
+   442→  );
+   443→}
+   444→
+   445→/* ══════════════════════════════════════════════════════════════
+   446→   TOOL 2: BID PROPOSAL BUILDER
+   447→   ══════════════════════════════════════════════════════════════ */
+   448→
+   449→function BidBuilderTool() {
+   450→  const { user } = useAuthStore();
+   451→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   452→  const [loading, setLoading] = useState(false);
+   453→  const [result, setResult] = useState<Record<string, string> | null>(null);
+   454→  const [selectedTender, setSelectedTender] = useState('');
+   455→  const [skills, setSkills] = useState<string[]>([]);
+   456→  const [form, setForm] = useState({
+   457→    tenderTitle: '', scope: '', budgetRange: '', category: '',
+   458→    companyName: '', experience: '', proposedBudget: '', proposedTimeline: '', notes: '',
+   459→  });
+   460→
+   461→  useEffect(() => {
+   462→    api.get('/tenders', { status: 'open', limit: '50' }).then(res => {
+   463→      if (res.success) setTenders(res.data || []);
+   464→    }).catch(() => {});
+   465→  }, []);
+   466→
+   467→  const updateField = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+   468→
+   469→  const handleSelectTender = (tenderId: string) => {
+   470→    setSelectedTender(tenderId);
+   471→    const tender = tenders.find(t => t.id === tenderId);
+   472→    if (tender) {
+   473→      setForm(prev => ({
+   474→        ...prev,
+   475→        tenderTitle: tender.title,
+   476→        scope: tender.scope || '',
+   477→        budgetRange: tender.budgetMin && tender.budgetMax ? `${tender.budgetMin} - ${tender.budgetMax} ETB` : '',
+   478→        category: tender.categoryTags || '',
+   479→      }));
+   480→    }
+   481→  };
+   482→
+   483→  const handleGenerate = async () => {
+   484→    if (!form.tenderTitle && !selectedTender) {
+   485→      toast.error('Please select a tender or enter tender details');
+   486→      return;
+   487→    }
+   488→    setLoading(true);
+   489→    setResult(null);
+   490→    try {
+   491→      const res = await api.post('/ai/bid-prep', {
+   492→        tenderId: selectedTender || undefined,
+   493→        tenderTitle: form.tenderTitle,
+   494→        scope: form.scope,
+   495→        budgetRange: form.budgetRange,
+   496→        category: form.category,
+   497→        skills: skills.join(', '),
+   498→        companyName: form.companyName,
+   499→        experience: form.experience,
+   500→        proposedBudget: form.proposedBudget,
+   501→        proposedTimeline: form.proposedTimeline,
+   502→        notes: form.notes,
+   503→        userName: user?.profile?.fullName || '',
+   504→        userSkills: user?.profile?.skillTags || '',
+   505→      });
+   506→      if (res.success) {
+   507→        setResult(res.data);
+   508→        toast.success('Bid proposal generated!');
+   509→      } else {
+   510→        toast.error(res.error || 'Failed to generate proposal');
+   511→      }
+   512→    } catch {
+   513→      toast.error('AI generation failed. Please try again.');
+   514→    } finally {
+   515→      setLoading(false);
+   516→    }
+   517→  };
+   518→
+   519→  const fullDoc = result ? Object.entries(result).map(([k, v]) => `## ${k.replace(/([A-Z])/g, ' $1').trim()}\n${v}`).join('\n\n') : '';
+   520→
+   521→  return (
+   522→    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   523→      <div className="space-y-4">
+   524→        <Card className="border-emerald-100/60">
+   525→          <CardHeader>
+   526→            <div className="flex items-center gap-2">
+   527→              <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center">
+   528→                <PenTool className="h-4 w-4 text-white" />
+   529→              </div>
+   530→              <div>
+   531→                <CardTitle className="text-base">Bid Proposal Builder</CardTitle>
+   532→                <p className="text-xs text-muted-foreground">Write compelling bid proposals with AI</p>
+   533→              </div>
+   534→            </div>
+   535→          </CardHeader>
+   536→          <CardContent className="space-y-3">
+   537→            <div className="space-y-1.5">
+   538→              <Label className="text-xs font-medium">Select Tender</Label>
+   539→              <Select value={selectedTender} onValueChange={handleSelectTender}>
+   540→                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+   541→                  <SelectValue placeholder="Choose a tender (auto-fills fields)" />
+   542→                </SelectTrigger>
+   543→                <SelectContent>
+   544→                  {tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+   545→                </SelectContent>
+   546→              </Select>
+   547→            </div>
+   548→
+   549→            <Separator className="my-1" />
+   550→            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Or enter manually</p>
+   551→
+   552→            <div className="space-y-1.5">
+   553→              <Label className="text-xs font-medium">Tender Title</Label>
+   554→              <Input placeholder="Enter tender title" value={form.tenderTitle}
+   555→                onChange={e => updateField('tenderTitle', e.target.value)}
+   556→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   557→            </div>
+   558→            <div className="space-y-1.5">
+   559→              <Label className="text-xs font-medium">Scope</Label>
+   560→              <Textarea placeholder="Tender scope description" value={form.scope}
+   561→                onChange={e => updateField('scope', e.target.value)}
+   562→                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
+   563→            </div>
+   564→            <div className="grid grid-cols-2 gap-3">
+   565→              <div className="space-y-1.5">
+   566→                <Label className="text-xs font-medium">Budget Range</Label>
+   567→                <Input placeholder="e.g., 500K - 1M ETB" value={form.budgetRange}
+   568→                  onChange={e => updateField('budgetRange', e.target.value)}
+   569→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   570→              </div>
+   571→              <div className="space-y-1.5">
+   572→                <Label className="text-xs font-medium">Category</Label>
+   573→                <Select value={form.category} onValueChange={v => updateField('category', v)}>
+   574→                  <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+   575→                    <SelectValue placeholder="Select" />
+   576→                  </SelectTrigger>
+   577→                  <SelectContent>
+   578→                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+   579→                  </SelectContent>
+   580→                </Select>
+   581→              </div>
+   582→            </div>
+   583→
+   584→            <Separator className="my-1" />
+   585→
+   586→            <div className="space-y-1.5">
+   587→              <Label className="text-xs font-medium">Your Skills</Label>
+   588→              <SkillTagSelector selected={skills} onChange={setSkills} />
+   589→            </div>
+   590→            <div className="space-y-1.5">
+   591→              <Label className="text-xs font-medium">Company Name</Label>
+   592→              <Input placeholder="Your company name" value={form.companyName}
+   593→                onChange={e => updateField('companyName', e.target.value)}
+   594→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   595→            </div>
+   596→            <div className="space-y-1.5">
+   597→              <Label className="text-xs font-medium">Your Experience</Label>
+   598→              <Textarea placeholder="Relevant experience and past projects..."
+   599→                value={form.experience} onChange={e => updateField('experience', e.target.value)}
+   600→                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
+   601→            </div>
+   602→            <div className="grid grid-cols-2 gap-3">
+   603→              <div className="space-y-1.5">
+   604→                <Label className="text-xs font-medium">Proposed Budget (ETB)</Label>
+   605→                <Input type="number" placeholder="0" value={form.proposedBudget}
+   606→                  onChange={e => updateField('proposedBudget', e.target.value)}
+   607→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   608→              </div>
+   609→              <div className="space-y-1.5">
+   610→                <Label className="text-xs font-medium">Proposed Timeline</Label>
+   611→                <Input placeholder="e.g., 6 months" value={form.proposedTimeline}
+   612→                  onChange={e => updateField('proposedTimeline', e.target.value)}
+   613→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   614→              </div>
+   615→            </div>
+   616→            <div className="space-y-1.5">
+   617→              <Label className="text-xs font-medium">Additional Notes (optional)</Label>
+   618→              <Textarea placeholder="Any additional information..."
+   619→                value={form.notes} onChange={e => updateField('notes', e.target.value)}
+   620→                className="min-h-[50px] text-sm bg-muted/50 border-border/50 resize-none" />
+   621→            </div>
+   622→            <Button onClick={handleGenerate} disabled={loading}
+   623→              className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
+   624→              {loading ? (
+   625→                <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+   626→                  className="inline-block"><Sparkles className="h-4 w-4 mr-2" /></motion.span>Generating...</>
+   627→              ) : (
+   628→                <><Sparkles className="h-4 w-4 mr-2" />Generate Proposal</>
+   629→              )}
+   630→            </Button>
+   631→          </CardContent>
+   632→        </Card>
+   633→      </div>
+   634→
+   635→      <div>
+   636→        {loading ? <GeneratingSkeleton /> : result ? (
+   637→          <ScrollArea className="max-h-[calc(100vh-12rem)]">
+   638→            <div className="space-y-4 pr-2">
+   639→              <div className="flex items-center justify-between mb-2">
+   640→                <div className="flex items-center gap-2">
+   641→                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+   642→                  <h3 className="font-semibold text-sm">Generated Bid Proposal</h3>
+   643→                </div>
+   644→                <CopyBtn text={fullDoc} label="Copy Full Proposal" />
+   645→              </div>
+   646→
+   647→              {result.technicalProposal && (
+   648→                <DocSectionCard title="Technical Proposal" icon={Target} content={result.technicalProposal} rawText={result.technicalProposal} />
+   649→              )}
+   650→              {result.methodology && (
+   651→                <DocSectionCard title="Methodology" icon={TrendingUp} content={result.methodology} rawText={result.methodology} />
+   652→              )}
+   653→              {result.teamStructure && (
+   654→                <DocSectionCard title="Team Structure" icon={Users} content={result.teamStructure} rawText={result.teamStructure} />
+   655→              )}
+   656→              {result.riskMitigation && (
+   657→                <DocSectionCard title="Risk Mitigation" icon={Shield} content={result.riskMitigation} rawText={result.riskMitigation} />
+   658→              )}
+   659→              {result.valueAddition && (
+   660→                <DocSectionCard title="Value Addition" icon={Star} content={result.valueAddition} rawText={result.valueAddition} />
+   661→              )}
+   662→              {result.budgetJustification && (
+   663→                <DocSectionCard title="Budget Justification" icon={DollarSign} content={result.budgetJustification} rawText={result.budgetJustification} />
+   664→              )}
+   665→              {result.complianceNotes && (
+   666→                <DocSectionCard title="Compliance Notes" icon={CheckCircle2} content={result.complianceNotes} rawText={result.complianceNotes} />
+   667→              )}
+   668→
+   669→              <div className="flex gap-2 pt-2">
+   670→                <Button className="flex-1 gradient-emerald text-white border-0 premium-shadow hover:opacity-90"
+   671→                  onClick={() => toast.success('Bid submitted! Check your Bids section for status.')}>
+   672→                  Submit This Bid
+   673→                </Button>
+   674→              </div>
+   675→            </div>
+   676→          </ScrollArea>
+   677→        ) : (
+   678→          <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+   679→            <div className="w-16 h-16 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow mb-4">
+   680→              <PenTool className="h-8 w-8 text-white" />
+   681→            </div>
+   682→            <h3 className="font-semibold text-foreground mb-1">Bid Proposal Builder</h3>
+   683→            <p className="text-sm text-muted-foreground max-w-xs">
+   684→              Select a tender or enter details, then generate a professional bid proposal with AI.
+   685→            </p>
+   686→          </div>
+   687→        )}
+   688→      </div>
+   689→    </div>
+   690→  );
+   691→}
+   692→
+   693→/* ══════════════════════════════════════════════════════════════
+   694→   TOOL 3: REQUIREMENT ANALYZER
+   695→   ══════════════════════════════════════════════════════════════ */
+   696→
+   697→function RequirementAnalyzerTool() {
+   698→  const { user } = useAuthStore();
+   699→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   700→  const [loading, setLoading] = useState(false);
+   701→  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+   702→  const [selectedTender, setSelectedTender] = useState('');
+   703→  const [skills, setSkills] = useState<string[]>([]);
+   704→  const [form, setForm] = useState({
+   705→    tenderTitle: '', scope: '', budget: '', category: '',
+   706→    requiredDocs: '', deadline: '',
+   707→  });
+   708→
+   709→  useEffect(() => {
+   710→    api.get('/tenders', { status: 'open', limit: '50' }).then(res => {
+   711→      if (res.success) setTenders(res.data || []);
+   712→    }).catch(() => {});
+   713→  }, []);
+   714→
+   715→  const updateField = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+   716→
+   717→  const handleSelectTender = (tenderId: string) => {
+   718→    setSelectedTender(tenderId);
+   719→    const tender = tenders.find(t => t.id === tenderId);
+   720→    if (tender) {
+   721→      setForm({
+   722→        tenderTitle: tender.title,
+   723→        scope: tender.scope || '',
+   724→        budget: tender.budgetMin && tender.budgetMax ? `${tender.budgetMin} - ${tender.budgetMax} ETB` : '',
+   725→        category: tender.categoryTags || '',
+   726→        requiredDocs: tender.requiredDocs || '',
+   727→        deadline: tender.deadline ? new Date(tender.deadline).toISOString().split('T')[0] : '',
+   728→      });
+   729→    }
+   730→  };
+   731→
+   732→  const handleAnalyze = async () => {
+   733→    if (!form.tenderTitle && !selectedTender) {
+   734→      toast.error('Please select a tender or enter tender details');
+   735→      return;
+   736→    }
+   737→    setLoading(true);
+   738→    setResult(null);
+   739→    try {
+   740→      const res = await api.post('/ai/analyze-requirements', {
+   741→        tenderId: selectedTender || undefined,
+   742→        tenderTitle: form.tenderTitle,
+   743→        scope: form.scope,
+   744→        budget: form.budget,
+   745→        category: form.category,
+   746→        requiredDocs: form.requiredDocs,
+   747→        deadline: form.deadline,
+   748→        skills: skills.join(', '),
+   749→        userName: user?.profile?.fullName || '',
+   750→        userSkills: user?.profile?.skillTags || '',
+   751→      });
+   752→      if (res.success) {
+   753→        setResult(res.data);
+   754→        toast.success('Requirements analyzed!');
+   755→      } else {
+   756→        toast.error(res.error || 'Failed to analyze requirements');
+   757→      }
+   758→    } catch {
+   759→      toast.error('AI analysis failed. Please try again.');
+   760→    } finally {
+   761→      setLoading(false);
+   762→    }
+   763→  };
+   764→
+   765→  const matchScore = typeof result?.matchScore === 'number' ? result.matchScore : null;
+   766→
+   767→  return (
+   768→    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   769→      <div className="space-y-4">
+   770→        <Card className="border-emerald-100/60">
+   771→          <CardHeader>
+   772→            <div className="flex items-center gap-2">
+   773→              <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center">
+   774→                <Search className="h-4 w-4 text-white" />
+   775→              </div>
+   776→              <div>
+   777→                <CardTitle className="text-base">Requirement Analyzer</CardTitle>
+   778→                <p className="text-xs text-muted-foreground">Understand what a tender requires</p>
+   779→              </div>
+   780→            </div>
+   781→          </CardHeader>
+   782→          <CardContent className="space-y-3">
+   783→            <div className="space-y-1.5">
+   784→              <Label className="text-xs font-medium">Select Tender</Label>
+   785→              <Select value={selectedTender} onValueChange={handleSelectTender}>
+   786→                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+   787→                  <SelectValue placeholder="Choose a tender (auto-fills)" />
+   788→                </SelectTrigger>
+   789→                <SelectContent>
+   790→                  {tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+   791→                </SelectContent>
+   792→              </Select>
+   793→            </div>
+   794→
+   795→            <Separator className="my-1" />
+   796→            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Or enter manually</p>
+   797→
+   798→            <div className="space-y-1.5">
+   799→              <Label className="text-xs font-medium">Tender Title</Label>
+   800→              <Input placeholder="Enter tender title" value={form.tenderTitle}
+   801→                onChange={e => updateField('tenderTitle', e.target.value)}
+   802→                className="h-9 text-sm bg-muted/50 border-border/50" />
+   803→            </div>
+   804→            <div className="space-y-1.5">
+   805→              <Label className="text-xs font-medium">Scope</Label>
+   806→              <Textarea placeholder="Tender scope" value={form.scope}
+   807→                onChange={e => updateField('scope', e.target.value)}
+   808→                className="min-h-[60px] text-sm bg-muted/50 border-border/50 resize-none" />
+   809→            </div>
+   810→            <div className="grid grid-cols-2 gap-3">
+   811→              <div className="space-y-1.5">
+   812→                <Label className="text-xs font-medium">Budget</Label>
+   813→                <Input placeholder="e.g., 1M ETB" value={form.budget}
+   814→                  onChange={e => updateField('budget', e.target.value)}
+   815→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   816→              </div>
+   817→              <div className="space-y-1.5">
+   818→                <Label className="text-xs font-medium">Category</Label>
+   819→                <Input placeholder="e.g., Construction" value={form.category}
+   820→                  onChange={e => updateField('category', e.target.value)}
+   821→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   822→              </div>
+   823→            </div>
+   824→            <div className="grid grid-cols-2 gap-3">
+   825→              <div className="space-y-1.5">
+   826→                <Label className="text-xs font-medium">Required Docs</Label>
+   827→                <Input placeholder="e.g., License, TIN" value={form.requiredDocs}
+   828→                  onChange={e => updateField('requiredDocs', e.target.value)}
+   829→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   830→              </div>
+   831→              <div className="space-y-1.5">
+   832→                <Label className="text-xs font-medium">Deadline</Label>
+   833→                <Input type="date" value={form.deadline}
+   834→                  onChange={e => updateField('deadline', e.target.value)}
+   835→                  className="h-9 text-sm bg-muted/50 border-border/50" />
+   836→              </div>
+   837→            </div>
+   838→            <div className="space-y-1.5">
+   839→              <Label className="text-xs font-medium">Your Skills</Label>
+   840→              <SkillTagSelector selected={skills} onChange={setSkills} />
+   841→            </div>
+   842→            <Button onClick={handleAnalyze} disabled={loading}
+   843→              className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
+   844→              {loading ? (
+   845→                <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+   846→                  className="inline-block"><Sparkles className="h-4 w-4 mr-2" /></motion.span>Analyzing...</>
+   847→              ) : (
+   848→                <><Sparkles className="h-4 w-4 mr-2" />Analyze Requirements</>
+   849→              )}
+   850→            </Button>
+   851→          </CardContent>
+   852→        </Card>
+   853→      </div>
+   854→
+   855→      <div>
+   856→        {loading ? <GeneratingSkeleton /> : result ? (
+   857→          <ScrollArea className="max-h-[calc(100vh-12rem)]">
+   858→            <div className="space-y-4 pr-2">
+   859→              {/* Match Score */}
+   860→              {matchScore !== null && (
+   861→                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+   862→                  <Card className="border-emerald-100/60 bg-gradient-to-br from-emerald-50 to-white">
+   863→                    <CardContent className="p-4">
+   864→                      <div className="flex items-center justify-between mb-2">
+   865→                        <div className="flex items-center gap-2">
+   866→                          <Target className="h-4 w-4 text-emerald-600" />
+   867→                          <span className="text-sm font-semibold">Match Analysis</span>
+   868→                        </div>
+   869→                        <span className={`text-2xl font-bold ${scoreColor(matchScore)}`}>{matchScore}%</span>
+   870→                      </div>
+   871→                      <Progress value={matchScore} className="h-2.5" />
+   872→                      <p className="text-xs text-muted-foreground mt-2">
+   873→                        {matchScore >= 75 ? 'Excellent match! Your skills align well with this tender.' :
+   874→                         matchScore >= 50 ? 'Good match. Consider strengthening some areas.' :
+   875→                         'Low match. You may need additional qualifications.'}
+   876→                      </p>
+   877→                    </CardContent>
+   878→                  </Card>
+   879→                </motion.div>
+   880→              )}
+   881→
+   882→              {/* Competitiveness Assessment */}
+   883→              {result.competitivenessAssessment && (
+   884→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+   885→                  <Card className="border-emerald-100/60">
+   886→                    <CardContent className="p-4">
+   887→                      <div className="flex items-center gap-2 mb-2">
+   888→                        <Award className="h-4 w-4 text-emerald-600" />
+   889→                        <span className="text-sm font-semibold">Competitiveness Assessment</span>
+   890→                      </div>
+   891→                      <Badge className={`${String(result.competitivenessAssessment).toLowerCase().includes('high') ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : String(result.competitivenessAssessment).toLowerCase().includes('medium') ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-rose-100 text-rose-700 border-rose-200'} border text-xs font-semibold`}>
+   892→                        {String(result.competitivenessAssessment)}
+   893→                      </Badge>
+   894→                    </CardContent>
+   895→                  </Card>
+   896→                </motion.div>
+   897→              )}
+   898→
+   899→              {result.requirementSummary && (
+   900→                <DocSectionCard title="Requirement Summary" icon={FileText} content={String(result.requirementSummary)} rawText={String(result.requirementSummary)} />
+   901→              )}
+   902→              {result.mandatoryRequirements && (
+   903→                <DocSectionCard title="Mandatory Requirements" icon={CheckCircle2} content={String(result.mandatoryRequirements)} rawText={String(result.mandatoryRequirements)} />
+   904→              )}
+   905→              {result.preferredQualifications && (
+   906→                <DocSectionCard title="Preferred Qualifications" icon={Star} content={String(result.preferredQualifications)} rawText={String(result.preferredQualifications)} />
+   907→              )}
+   908→              {result.requiredDocuments && (
+   909→                <DocSectionCard title="Required Documents" icon={FileText} content={String(result.requiredDocuments)} rawText={String(result.requiredDocuments)} />
+   910→              )}
+   911→              {result.evaluationBreakdown && (
+   912→                <DocSectionCard title="Evaluation Breakdown" icon={TrendingUp} content={String(result.evaluationBreakdown)} rawText={String(result.evaluationBreakdown)} />
+   913→              )}
+   914→
+   915→              {result.riskFactors && (
+   916→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+   917→                  <Card className="border-amber-200/60 bg-amber-50/30">
+   918→                    <CardContent className="p-4">
+   919→                      <div className="flex items-center gap-2 mb-2">
+   920→                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+   921→                        <span className="text-sm font-semibold">Risk Factors</span>
+   922→                      </div>
+   923→                      <div className="text-sm text-muted-foreground space-y-1">
+   924→                        {formatSectionContent(String(result.riskFactors))}
+   925→                      </div>
+   926→                    </CardContent>
+   927→                  </Card>
+   928→                </motion.div>
+   929→              )}
+   930→
+   931→              {result.preparationTips && (
+   932→                <DocSectionCard title="Preparation Tips" icon={Zap} content={String(result.preparationTips)} rawText={String(result.preparationTips)} />
+   933→              )}
+   934→              {result.recommendedActions && (
+   935→                <DocSectionCard title="Recommended Actions" icon={ChevronRight} content={String(result.recommendedActions)} rawText={String(result.recommendedActions)} />
+   936→              )}
+   937→            </div>
+   938→          </ScrollArea>
+   939→        ) : (
+   940→          <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+   941→            <div className="w-16 h-16 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow mb-4">
+   942→              <Search className="h-8 w-8 text-white" />
+   943→            </div>
+   944→            <h3 className="font-semibold text-foreground mb-1">Requirement Analyzer</h3>
+   945→            <p className="text-sm text-muted-foreground max-w-xs">
+   946→              Select a tender and analyze its requirements, risks, and your match score.
+   947→            </p>
+   948→          </div>
+   949→        )}
+   950→      </div>
+   951→    </div>
+   952→  );
+   953→}
+   954→
+   955→/* ══════════════════════════════════════════════════════════════
+   956→   TOOL 4: APPLICANT ANALYZER
+   957→   ══════════════════════════════════════════════════════════════ */
+   958→
+   959→interface ApplicantResult {
+   960→  summary: { totalBids: number; averageScore: number };
+   961→  applicants: Array<{
+   962→    rank: number; name: string; company: string; overallScore: number;
+   963→    technicalScore: number; financialScore: number;
+   964→    strengths: string[]; weaknesses: string[];
+   965→    recommendation: string; riskLevel: string;
+   966→  }>;
+   967→  budgetAnalysis: string;
+   968→  riskSummary: string;
+   969→  finalRecommendation: string;
+   970→}
+   971→
+   972→function ApplicantAnalyzerTool() {
+   973→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   974→  const [loading, setLoading] = useState(false);
+   975→  const [result, setResult] = useState<ApplicantResult | null>(null);
+   976→  const [selectedTender, setSelectedTender] = useState('');
+   977→
+   978→  useEffect(() => {
+   979→    api.get('/tenders', { limit: '50' }).then(res => {
+   980→      if (res.success) setTenders(res.data || []);
+   981→    }).catch(() => {});
+   982→  }, []);
+   983→
+   984→  const selectedTenderData = tenders.find(t => t.id === selectedTender);
+   985→
+   986→  const handleAnalyze = async () => {
+   987→    if (!selectedTender) {
+   988→      toast.error('Please select a tender');
+   989→      return;
+   990→    }
+   991→    setLoading(true);
+   992→    setResult(null);
+   993→    try {
+   994→      const res = await api.post('/ai/analyze-applicants', { tenderId: selectedTender });
+   995→      if (res.success) {
+   996→        setResult(res.data);
+   997→        toast.success('Applicants analyzed!');
+   998→      } else {
+   999→        toast.error(res.error || 'Failed to analyze applicants');
+  1000→      }
+  1001→    } catch {
+  1002→      toast.error('AI analysis failed. Please try again.');
+  1003→    } finally {
+  1004→      setLoading(false);
+  1005→    }
+  1006→  };
+  1007→
+  1008→  return (
+  1009→    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  1010→      <div className="space-y-4">
+  1011→        <Card className="border-emerald-100/60">
+  1012→          <CardHeader>
+  1013→            <div className="flex items-center gap-2">
+  1014→              <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center">
+  1015→                <Users className="h-4 w-4 text-white" />
+  1016→              </div>
+  1017→              <div>
+  1018→                <CardTitle className="text-base">Applicant Analyzer</CardTitle>
+  1019→                <p className="text-xs text-muted-foreground">Score and rank bid applicants</p>
+  1020→              </div>
+  1021→            </div>
+  1022→          </CardHeader>
+  1023→          <CardContent className="space-y-3">
+  1024→            <div className="space-y-1.5">
+  1025→              <Label className="text-xs font-medium">Select Your Tender</Label>
+  1026→              <Select value={selectedTender} onValueChange={setSelectedTender}>
+  1027→                <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50 w-full">
+  1028→                  <SelectValue placeholder="Choose a tender to analyze bids" />
+  1029→                </SelectTrigger>
+  1030→                <SelectContent>
+  1031→                  {tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+  1032→                </SelectContent>
+  1033→              </Select>
+  1034→            </div>
+  1035→
+  1036→            {selectedTenderData && (
+  1037→              <Card className="bg-muted/40 border-0">
+  1038→                <CardContent className="p-3">
+  1039→                  <div className="grid grid-cols-2 gap-2 text-xs">
+  1040→                    <div><span className="text-muted-foreground">Category:</span> <span className="font-medium">{selectedTenderData.categoryTags}</span></div>
+  1041→                    <div><span className="text-muted-foreground">Bids:</span> <span className="font-medium">{selectedTenderData._count?.bids ?? 0}</span></div>
+  1042→                  </div>
+  1043→                </CardContent>
+  1044→              </Card>
+  1045→            )}
+  1046→
+  1047→            <Button onClick={handleAnalyze} disabled={loading || !selectedTender}
+  1048→              className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-10">
+  1049→              {loading ? (
+  1050→                <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+  1051→                  className="inline-block"><Sparkles className="h-4 w-4 mr-2" /></motion.span>Analyzing...</>
+  1052→              ) : (
+  1053→                <><Sparkles className="h-4 w-4 mr-2" />Analyze Applicants</>
+  1054→              )}
+  1055→            </Button>
+  1056→          </CardContent>
+  1057→        </Card>
+  1058→      </div>
+  1059→
+  1060→      <div>
+  1061→        {loading ? <GeneratingSkeleton /> : result ? (
+  1062→          <ScrollArea className="max-h-[calc(100vh-12rem)]">
+  1063→            <div className="space-y-4 pr-2">
+  1064→              {/* Summary */}
+  1065→              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+  1066→                <Card className="border-emerald-100/60 bg-gradient-to-br from-emerald-50 to-white">
+  1067→                  <CardContent className="p-4">
+  1068→                    <div className="flex items-center gap-2 mb-3">
+  1069→                      <Award className="h-4 w-4 text-emerald-600" />
+  1070→                      <span className="text-sm font-semibold">Summary</span>
+  1071→                    </div>
+  1072→                    <div className="grid grid-cols-2 gap-4">
+  1073→                      <div className="text-center p-3 bg-card rounded-xl premium-shadow">
+  1074→                        <p className="text-2xl font-bold text-emerald-600">{result.summary.totalBids}</p>
+  1075→                        <p className="text-xs text-muted-foreground">Total Bids</p>
+  1076→                      </div>
+  1077→                      <div className="text-center p-3 bg-card rounded-xl premium-shadow">
+  1078→                        <p className={`text-2xl font-bold ${scoreColor(result.summary.averageScore)}`}>{result.summary.averageScore}</p>
+  1079→                        <p className="text-xs text-muted-foreground">Avg Score</p>
+  1080→                      </div>
+  1081→                    </div>
+  1082→                  </CardContent>
+  1083→                </Card>
+  1084→              </motion.div>
+  1085→
+  1086→              {/* Ranked Applicants */}
+  1087→              {result.applicants?.map((applicant, idx) => {
+  1088→                const risk = getRiskBadge(applicant.riskLevel);
+  1089→                const RiskIcon = risk.Icon;
+  1090→                return (
+  1091→                  <motion.div key={idx} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+  1092→                    transition={{ delay: idx * 0.08 }}>
+  1093→                    <Card className={`border ${applicant.rank === 1 ? 'border-emerald-200 bg-emerald-50/20' : 'border-border/40'}`}>
+  1094→                      <CardContent className="p-4">
+  1095→                        <div className="flex items-start justify-between mb-3">
+  1096→                          <div className="flex items-center gap-2">
+  1097→                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+  1098→                              applicant.rank === 1 ? 'bg-emerald-500' : applicant.rank === 2 ? 'bg-amber-500' : 'bg-muted-foreground/50'
+  1099→                            }`}>
+  1100→                              #{applicant.rank}
+  1101→                            </div>
+  1102→                            <div>
+  1103→                              <p className="text-sm font-semibold">{applicant.name}</p>
+  1104→                              <p className="text-xs text-muted-foreground">{applicant.company}</p>
+  1105→                            </div>
+  1106→                          </div>
+  1107→                          <div className="flex items-center gap-2">
+  1108→                            <Badge className={`${risk.color} border text-[10px] font-semibold`}>
+  1109→                              <RiskIcon className="h-3 w-3 mr-0.5" />
+  1110→                              {applicant.riskLevel}
+  1111→                            </Badge>
+  1112→                            <span className={`text-lg font-bold ${scoreColor(applicant.overallScore)}`}>
+  1113→                              {applicant.overallScore}
+  1114→                            </span>
+  1115→                          </div>
+  1116→                        </div>
+  1117→
+  1118→                        <div className="space-y-2 mb-3">
+  1119→                          <div>
+  1120→                            <div className="flex justify-between text-xs mb-0.5">
+  1121→                              <span className="text-muted-foreground">Technical</span>
+  1122→                              <span className={`font-medium ${scoreColor(applicant.technicalScore)}`}>{applicant.technicalScore}%</span>
+  1123→                            </div>
+  1124→                            <Progress value={applicant.technicalScore} className="h-1.5" />
+  1125→                          </div>
+  1126→                          <div>
+  1127→                            <div className="flex justify-between text-xs mb-0.5">
+  1128→                              <span className="text-muted-foreground">Financial</span>
+  1129→                              <span className={`font-medium ${scoreColor(applicant.financialScore)}`}>{applicant.financialScore}%</span>
+  1130→                            </div>
+  1131→                            <Progress value={applicant.financialScore} className="h-1.5" />
+  1132→                          </div>
+  1133→                        </div>
+  1134→
+  1135→                        <div className="flex flex-wrap gap-1 mb-2">
+  1136→                          {applicant.strengths?.map((s, i) => (
+  1137→                            <Badge key={i} className="bg-emerald-100 text-emerald-700 border-emerald-200 border text-[10px] font-medium">
+  1138→                              {s}
+  1139→                            </Badge>
+  1140→                          ))}
+  1141→                          {applicant.weaknesses?.map((w, i) => (
+  1142→                            <Badge key={`w-${i}`} className="bg-amber-100 text-amber-700 border-amber-200 border text-[10px] font-medium">
+  1143→                              {w}
+  1144→                            </Badge>
+  1145→                          ))}
+  1146→                        </div>
+  1147→
+  1148→                        <p className="text-xs text-muted-foreground">{applicant.recommendation}</p>
+  1149→                      </CardContent>
+  1150→                    </Card>
+  1151→                  </motion.div>
+  1152→                );
+  1153→              })}
+  1154→
+  1155→              {result.budgetAnalysis && (
+  1156→                <DocSectionCard title="Budget Analysis" icon={DollarSign} content={String(result.budgetAnalysis)} rawText={String(result.budgetAnalysis)} />
+  1157→              )}
+  1158→
+  1159→              {result.riskSummary && (
+  1160→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+  1161→                  <Card className="border-amber-200/60 bg-amber-50/30">
+  1162→                    <CardContent className="p-4">
+  1163→                      <div className="flex items-center gap-2 mb-2">
+  1164→                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+  1165→                        <span className="text-sm font-semibold">Risk Summary</span>
+  1166→                      </div>
+  1167→                      <div className="text-sm text-muted-foreground space-y-1">
+  1168→                        {formatSectionContent(String(result.riskSummary))}
+  1169→                      </div>
+  1170→                    </CardContent>
+  1171→                  </Card>
+  1172→                </motion.div>
+  1173→              )}
+  1174→
+  1175→              {result.finalRecommendation && (
+  1176→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+  1177→                  <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-white">
+  1178→                    <CardContent className="p-4">
+  1179→                      <div className="flex items-center gap-2 mb-2">
+  1180→                        <Award className="h-4 w-4 text-emerald-600" />
+  1181→                        <span className="text-sm font-semibold">Final Recommendation</span>
+  1182→                      </div>
+  1183→                      <div className="text-sm text-muted-foreground space-y-1">
+  1184→                        {formatSectionContent(String(result.finalRecommendation))}
+  1185→                      </div>
+  1186→                    </CardContent>
+  1187→                  </Card>
+  1188→                </motion.div>
+  1189→              )}
+  1190→            </div>
+  1191→          </ScrollArea>
+  1192→        ) : (
+  1193→          <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+  1194→            <div className="w-16 h-16 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow mb-4">
+  1195→              <Users className="h-8 w-8 text-white" />
+  1196→            </div>
+  1197→            <h3 className="font-semibold text-foreground mb-1">Applicant Analyzer</h3>
+  1198→            <p className="text-sm text-muted-foreground max-w-xs">
+  1199→              Select one of your tenders to analyze and rank the submitted bids.
+  1200→            </p>
+  1201→          </div>
+  1202→        )}
+  1203→      </div>
+  1204→    </div>
+  1205→  );
+  1206→}
+  1207→
+  1208→/* ══════════════════════════════════════════════════════════════
+  1209→   MAIN COMPONENT: AI DOC STUDIO
+  1210→   ══════════════════════════════════════════════════════════════ */
+  1211→
+  1212→export function AIDocStudio() {
+  1213→  const [activeTab, setActiveTab] = useState<ToolTab>('tender-builder');
+  1214→
+  1215→  const renderTool = () => {
+  1216→    switch (activeTab) {
+  1217→      case 'tender-builder': return <TenderBuilderTool />;
+  1218→      case 'bid-builder': return <BidBuilderTool />;
+  1219→      case 'requirement-analyzer': return <RequirementAnalyzerTool />;
+  1220→      case 'applicant-analyzer': return <ApplicantAnalyzerTool />;
+  1221→    }
+  1222→  };
+  1223→
+  1224→  return (
+  1225→    <div className="h-[calc(100vh-3.5rem)] flex flex-col view-enter">
+  1226→      {/* Header */}
+  1227→      <div className="px-5 py-3 border-b border-border/50 bg-card/80 backdrop-blur-md flex-shrink-0">
+  1228→        <div className="flex items-center gap-3">
+  1229→          <motion.div
+  1230→            initial={{ scale: 0.8, opacity: 0 }}
+  1231→            animate={{ scale: 1, opacity: 1 }}
+  1232→            className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center premium-shadow"
+  1233→          >
+  1234→            <Sparkles className="h-5 w-5 text-white" />
+  1235→          </motion.div>
+  1236→          <div>
+  1237→            <h3 className="font-semibold text-sm flex items-center gap-2">
+  1238→              AI Doc Studio
+  1239→              <Badge className="text-[9px] px-1.5 py-0 gradient-emerald text-white border-0 font-medium">AI Powered</Badge>
+  1240→            </h3>
+  1241→            <p className="text-[11px] text-muted-foreground">Document preparation workspace</p>
+  1242→          </div>
+  1243→        </div>
+  1244→      </div>
+  1245→
+  1246→      {/* Body */}
+  1247→      <div className="flex-1 flex overflow-hidden">
+  1248→        {/* Sidebar - Tool Tabs */}
+  1249→        <div className="w-[180px] lg:w-[200px] border-r border-border/50 bg-card/50 flex-shrink-0 p-3 hidden sm:flex flex-col gap-1.5">
+  1250→          {TOOL_TABS.map(tab => {
+  1251→            const Icon = tab.icon;
+  1252→            const isActive = activeTab === tab.id;
+  1253→            return (
+  1254→              <motion.button key={tab.id}
+  1255→                whileHover={{ x: 2 }}
+  1256→                whileTap={{ scale: 0.98 }}
+  1257→                onClick={() => setActiveTab(tab.id)}
+  1258→                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all duration-150 ${
+  1259→                  isActive
+  1260→                    ? 'bg-emerald-50 text-emerald-700 premium-shadow border border-emerald-200/60'
+  1261→                    : 'text-muted-foreground hover:bg-muted/50 border border-transparent'
+  1262→                }`}>
+  1263→                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+  1264→                  isActive ? 'gradient-emerald text-white' : 'bg-muted/60 text-muted-foreground'
+  1265→                }`}>
+  1266→                  <Icon className="h-3.5 w-3.5" />
+  1267→                </div>
+  1268→                <div className="min-w-0">
+  1269→                  <p className={`text-xs font-semibold truncate ${isActive ? 'text-emerald-700' : ''}`}>{tab.label}</p>
+  1270→                  <p className="text-[9px] text-muted-foreground truncate hidden lg:block">{tab.desc}</p>
+  1271→                </div>
+  1272→              </motion.button>
+  1273→            );
+  1274→          })}
+  1275→        </div>
+  1276→
+  1277→        {/* Mobile tabs */}
+  1278→        <div className="sm:hidden flex border-b border-border/50 bg-card overflow-x-auto flex-shrink-0 w-full">
+  1279→          {TOOL_TABS.map(tab => {
+  1280→            const Icon = tab.icon;
+  1281→            const isActive = activeTab === tab.id;
+  1282→            return (
+  1283→              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+  1284→                className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+  1285→                  isActive ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-muted-foreground'
+  1286→                }`}>
+  1287→                <Icon className="h-3.5 w-3.5" />
+  1288→                {tab.label}
+  1289→              </button>
+  1290→            );
+  1291→          })}
+  1292→        </div>
+  1293→
+  1294→        {/* Main Content */}
+  1295→        <div className="flex-1 overflow-auto p-4 md:p-6">
+  1296→          <AnimatePresence mode="wait">
+  1297→            <motion.div
+  1298→              key={activeTab}
+  1299→              initial={{ opacity: 0, y: 8 }}
+  1300→              animate={{ opacity: 1, y: 0 }}
+  1301→              exit={{ opacity: 0, y: -8 }}
+  1302→              transition={{ duration: 0.2 }}
+  1303→            >
+  1304→              {renderTool()}
+  1305→            </motion.div>
+  1306→          </AnimatePresence>
+  1307→        </div>
+  1308→      </div>
+  1309→    </div>
+  1310→  );
+  1311→}
+  1312→
