@@ -1,0 +1,929 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { useAuthStore, useNavStore, useDataStore } from '@/store';
+     5→import { api, Tender, Bid, Project, Notification } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { ScrollArea } from '@/components/ui/scroll-area';
+    10→import { Separator } from '@/components/ui/separator';
+    11→import {
+    12→  ChartContainer,
+    13→  ChartTooltip,
+    14→  ChartTooltipContent,
+    15→  ChartLegend,
+    16→  ChartLegendContent,
+    17→  type ChartConfig,
+    18→} from '@/components/ui/chart';
+    19→import {
+    20→  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
+    21→} from 'recharts';
+    22→import { motion } from 'framer-motion';
+    23→import {
+    24→  FileSearch, Gavel, FolderKanban, DollarSign, Users, FileCheck,
+    25→  Shield, GraduationCap, Bell, CheckCircle, AlertCircle,
+    26→  Info, AlertTriangle, Lightbulb, ArrowRight, Clock,
+    27→  Calendar, TrendingUp, TrendingDown, Sparkles, Plus, Search, Upload,
+    28→  MessageSquare, Eye, BarChart3, Target, Briefcase,
+    29→  Award, Zap, ChevronRight, Sun, Moon, Sunrise,
+    30→  ArrowUpRight, ArrowDownRight, Activity,
+    31→} from 'lucide-react';
+    32→
+    33→// ─── Color Constants ────────────────────────────────────────────────
+    34→const CHART_COLORS = {
+    35→  emerald: '#10b981',
+    36→  amber: '#f59e0b',
+    37→  teal: '#14b8a6',
+    38→  rose: '#f43f5e',
+    39→  purple: '#8b5cf6',
+    40→};
+    41→
+    42→// ─── Mock Monthly Data ──────────────────────────────────────────────
+    43→const MONTHLY_ACTIVITY = [
+    44→  { month: 'Oct', tenders: 3, bids: 8 },
+    45→  { month: 'Nov', tenders: 5, bids: 12 },
+    46→  { month: 'Dec', tenders: 2, bids: 6 },
+    47→  { month: 'Jan', tenders: 7, bids: 15 },
+    48→  { month: 'Feb', tenders: 4, bids: 10 },
+    49→  { month: 'Mar', tenders: 6, bids: 14 },
+    50→];
+    51→
+    52→// ─── Chart Configs ──────────────────────────────────────────────────
+    53→const bidStatusChartConfig: ChartConfig = {
+    54→  awarded: { label: 'Awarded', color: CHART_COLORS.emerald },
+    55→  pending: { label: 'Pending', color: CHART_COLORS.amber },
+    56→  shortlisted: { label: 'Shortlisted', color: CHART_COLORS.teal },
+    57→  rejected: { label: 'Rejected', color: CHART_COLORS.rose },
+    58→};
+    59→
+    60→const monthlyChartConfig: ChartConfig = {
+    61→  tenders: { label: 'Tenders Published', color: CHART_COLORS.emerald },
+    62→  bids: { label: 'Bids Submitted', color: CHART_COLORS.amber },
+    63→};
+    64→
+    65→// ─── Notification Helpers ───────────────────────────────────────────
+    66→const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
+    67→  success: CheckCircle,
+    68→  warning: AlertTriangle,
+    69→  alert: AlertCircle,
+    70→  info: Info,
+    71→};
+    72→
+    73→const NOTIFICATION_COLORS: Record<string, string> = {
+    74→  success: 'text-emerald-500',
+    75→  warning: 'text-amber-500',
+    76→  alert: 'text-rose-500',
+    77→  info: 'text-teal-500',
+    78→};
+    79→
+    80→// ─── Animation Variants ─────────────────────────────────────────────
+    81→const containerVariants = {
+    82→  hidden: { opacity: 0 },
+    83→  visible: {
+    84→    opacity: 1,
+    85→    transition: { staggerChildren: 0.07, delayChildren: 0.1 },
+    86→  },
+    87→};
+    88→
+    89→const itemVariants = {
+    90→  hidden: { opacity: 0, y: 16 },
+    91→  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] } },
+    92→};
+    93→
+    94→const cardHover = {
+    95→  y: -4,
+    96→  transition: { duration: 0.2, ease: 'easeOut' },
+    97→};
+    98→
+    99→// ─── Time Greeting ──────────────────────────────────────────────────
+   100→function getGreeting(): { text: string; icon: React.ElementType } {
+   101→  const h = new Date().getHours();
+   102→  if (h < 12) return { text: 'Good morning', icon: Sunrise };
+   103→  if (h < 17) return { text: 'Good afternoon', icon: Sun };
+   104→  return { text: 'Good evening', icon: Moon };
+   105→}
+   106→
+   107→function formatETB(amount: number): string {
+   108→  if (amount >= 1_000_000) return `ETB ${(amount / 1_000_000).toFixed(1)}M`;
+   109→  if (amount >= 1_000) return `ETB ${(amount / 1_000).toFixed(0)}K`;
+   110→  return `ETB ${amount.toLocaleString()}`;
+   111→}
+   112→
+   113→function timeAgo(dateStr: string): string {
+   114→  const diff = Date.now() - new Date(dateStr).getTime();
+   115→  const mins = Math.floor(diff / 60000);
+   116→  if (mins < 1) return 'just now';
+   117→  if (mins < 60) return `${mins}m ago`;
+   118→  const hrs = Math.floor(mins / 60);
+   119→  if (hrs < 24) return `${hrs}h ago`;
+   120→  const days = Math.floor(hrs / 24);
+   121→  return `${days}d ago`;
+   122→}
+   123→
+   124→function daysUntil(dateStr: string): number {
+   125→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+   126→}
+   127→
+   128→// ─── Sparkline SVG Component ────────────────────────────────────────
+   129→function SparklineBars({ data, color = '#10b981', height = 32 }: { data: number[]; color?: string; height?: number }) {
+   130→  if (!data.length) return null;
+   131→  const max = Math.max(...data, 1);
+   132→  const barW = 4;
+   133→  const gap = 3;
+   134→  const totalW = data.length * (barW + gap) - gap;
+   135→
+   136→  return (
+   137→    <svg width={totalW} height={height} className="flex-shrink-0">
+   138→      {data.map((v, i) => {
+   139→        const barH = Math.max((v / max) * (height - 4), 3);
+   140→        return (
+   141→          <rect
+   142→            key={i}
+   143→            x={i * (barW + gap)}
+   144→            y={height - barH}
+   145→            width={barW}
+   146→            height={barH}
+   147→            rx={2}
+   148→            fill={color}
+   149→            opacity={0.35 + (i / data.length) * 0.45}
+   150→          />
+   151→        );
+   152→      })}
+   153→    </svg>
+   154→  );
+   155→}
+   156→
+   157→// ─── Stat Card Component ────────────────────────────────────────────
+   158→function StatCard({
+   159→  icon: Icon,
+   160→  label,
+   161→  value,
+   162→  subtext,
+   163→  gradientClass,
+   164→  sparkData,
+   165→  sparkColor,
+   166→  trend,
+   167→  trendLabel,
+   168→  onClick,
+   169→}: {
+   170→  icon: React.ElementType;
+   171→  label: string;
+   172→  value: string | number;
+   173→  subtext: string;
+   174→  gradientClass: string;
+   175→  sparkData?: number[];
+   176→  sparkColor?: string;
+   177→  trend?: { value: number; isUp: boolean };
+   178→  trendLabel?: string;
+   179→  onClick?: () => void;
+   180→}) {
+   181→  return (
+   182→    <motion.div whileHover={cardHover} className="cursor-pointer">
+   183→      <Card
+   184→        className="bg-card premium-shadow rounded-xl border-0 transition-all duration-300 group h-full"
+   185→        onClick={onClick}
+   186→      >
+   187→        <CardContent className="p-5">
+   188→          <div className="flex items-start justify-between mb-3">
+   189→            <div className={`p-2.5 rounded-xl ${gradientClass} shadow-sm`}>
+   190→              <Icon className="h-5 w-5 text-white" />
+   191→            </div>
+   192→            {sparkData && <SparklineBars data={sparkData} color={sparkColor || '#10b981'} />}
+   193→          </div>
+   194→          <p className="text-3xl font-bold tracking-tight">{value}</p>
+   195→          <p className="text-sm font-medium text-muted-foreground mt-0.5">{label}</p>
+   196→          <div className="flex items-center justify-between mt-2">
+   197→            <p className="text-xs text-muted-foreground/70">{subtext}</p>
+   198→            {trend && (
+   199→              <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${trend.isUp ? 'text-emerald-600' : 'text-rose-500'}`}>
+   200→                {trend.isUp ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+   201→                {trend.value}%
+   202→                {trendLabel && <span className="text-muted-foreground/60 font-normal ml-0.5">{trendLabel}</span>}
+   203→              </span>
+   204→            )}
+   205→          </div>
+   206→        </CardContent>
+   207→      </Card>
+   208→    </motion.div>
+   209→  );
+   210→}
+   211→
+   212→// ─── Quick Action Button ────────────────────────────────────────────
+   213→function QuickAction({
+   214→  icon: Icon,
+   215→  label,
+   216→  description,
+   217→  gradientClass,
+   218→  onClick,
+   219→}: {
+   220→  icon: React.ElementType;
+   221→  label: string;
+   222→  description: string;
+   223→  gradientClass: string;
+   224→  onClick: () => void;
+   225→}) {
+   226→  return (
+   227→    <motion.button
+   228→      whileHover={{ y: -3, transition: { duration: 0.2 } }}
+   229→      whileTap={{ scale: 0.98 }}
+   230→      onClick={onClick}
+   231→      className="group flex items-center gap-3.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-gradient-to-br hover:from-card hover:to-muted/50 premium-shadow transition-all duration-200 text-left w-full"
+   232→    >
+   233→      <div className={`p-2.5 rounded-xl ${gradientClass} flex-shrink-0 shadow-sm`}>
+   234→        <Icon className="h-5 w-5 text-white" />
+   235→      </div>
+   236→      <div className="min-w-0">
+   237→        <p className="text-sm font-semibold truncate group-hover:text-emerald-700 transition-colors">{label}</p>
+   238→        <p className="text-[11px] text-muted-foreground truncate">{description}</p>
+   239→      </div>
+   240→      <ArrowRight className="h-4 w-4 ml-auto text-muted-foreground/0 group-hover:text-emerald-500 transition-all duration-200 translate-x-0 group-hover:translate-x-1 flex-shrink-0" />
+   241→    </motion.button>
+   242→  );
+   243→}
+   244→
+   245→// ─── Deadline Color ─────────────────────────────────────────────────
+   246→function deadlineColor(days: number): string {
+   247→  if (days < 0) return 'text-gray-400';
+   248→  if (days <= 3) return 'text-rose-500';
+   249→  if (days <= 7) return 'text-amber-500';
+   250→  return 'text-emerald-500';
+   251→}
+   252→
+   253→function deadlineBg(days: number): string {
+   254→  if (days < 0) return 'bg-gray-100';
+   255→  if (days <= 3) return 'bg-rose-50';
+   256→  if (days <= 7) return 'bg-amber-50';
+   257→  return 'bg-emerald-50';
+   258→}
+   259→
+   260→function deadlineBadge(days: number): string {
+   261→  if (days < 0) return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
+   262→  if (days <= 3) return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   263→  if (days <= 7) return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
+   264→  return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   265→}
+   266→
+   267→// ─── Main Dashboard ─────────────────────────────────────────────────
+   268→export function DashboardView() {
+   269→  const { user } = useAuthStore();
+   270→  const { setView } = useNavStore();
+   271→  const { notifications, fetchNotifications } = useDataStore();
+   272→
+   273→  const [tenders, setTenders] = useState<Tender[]>([]);
+   274→  const [bids, setBids] = useState<Bid[]>([]);
+   275→  const [projects, setProjects] = useState<Project[]>([]);
+   276→
+   277→  const role = user?.role || 'contractor';
+   278→  const greeting = getGreeting();
+   279→  const userName = user?.profile?.fullName || user?.email?.split('@')[0] || 'User';
+   280→
+   281→  // ── Data Loading ──
+   282→  const loadDashboard = useCallback(async () => {
+   283→    const [tendersRes, bidsRes, projectsRes] = await Promise.all([
+   284→      api.get('/tenders'),
+   285→      api.get('/bids'),
+   286→      api.get('/projects'),
+   287→    ]);
+   288→    if (tendersRes.success) setTenders(tendersRes.data);
+   289→    if (bidsRes.success) setBids(bidsRes.data);
+   290→    if (projectsRes.success) setProjects(projectsRes.data);
+   291→  }, []);
+   292→
+   293→  useEffect(() => {
+   294→    loadDashboard();
+   295→    fetchNotifications();
+   296→  }, [loadDashboard, fetchNotifications]);
+   297→
+   298→  // ── Computed Stats ──
+   299→  const stats = useMemo(() => {
+   300→    const openTenders = tenders.filter(t => t.status === 'open');
+   301→    const closedTenders = tenders.filter(t => t.status === 'closed' || t.status === 'awarded');
+   302→    const activeBids = bids.filter(b => b.status === 'pending_review' || b.status === 'shortlisted');
+   303→    const pendingBids = bids.filter(b => b.status === 'pending_review');
+   304→    const shortlistedBids = bids.filter(b => b.status === 'shortlisted');
+   305→    const activeProjects = projects.filter(p => p.status === 'active');
+   306→    const totalContractValue = projects.reduce((sum, p) => sum + (p.contractValue || 0), 0);
+   307→    const completedTasks = projects.reduce((sum, p) => sum + (p.tasks?.filter(t => t.status === 'done').length || 0), 0);
+   308→    const totalTasks = projects.reduce((sum, p) => sum + (p.tasks?.length || 0), 0);
+   309→    const completionPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+   310→
+   311→    return {
+   312→      openTenders: openTenders.length,
+   313→      closedThisWeek: closedTenders.length,
+   314→      activeBids: activeBids.length,
+   315→      pendingBids: pendingBids.length,
+   316→      shortlistedBids: shortlistedBids.length,
+   317→      activeProjects: activeProjects.length,
+   318→      completionPct,
+   319→      totalContractValue,
+   320→      projectCount: projects.length,
+   321→    };
+   322→  }, [tenders, bids, projects]);
+   323→
+   324→  // ── Bid Status Pie Data ──
+   325→  const bidStatusData = useMemo(() => {
+   326→    const awarded = bids.filter(b => b.status === 'awarded').length;
+   327→    const pending = bids.filter(b => b.status === 'pending_review').length;
+   328→    const shortlisted = bids.filter(b => b.status === 'shortlisted').length;
+   329→    const rejected = bids.filter(b => b.status === 'rejected').length;
+   330→    return [
+   331→      { name: 'awarded', value: awarded, fill: CHART_COLORS.emerald },
+   332→      { name: 'pending', value: pending, fill: CHART_COLORS.amber },
+   333→      { name: 'shortlisted', value: shortlisted, fill: CHART_COLORS.teal },
+   334→      { name: 'rejected', value: rejected, fill: CHART_COLORS.rose },
+   335→    ].filter(d => d.value > 0);
+   336→  }, [bids]);
+   337→
+   338→  const totalBids = bids.length;
+   339→
+   340→  // ── Top Tenders ──
+   341→  const topTenders = useMemo(() => {
+   342→    return [...tenders]
+   343→      .filter(t => t.status === 'open')
+   344→      .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+   345→      .slice(0, 5);
+   346→  }, [tenders]);
+   347→
+   348→  // ── Upcoming Deadlines ──
+   349→  const upcomingDeadlines = useMemo(() => {
+   350→    return tenders
+   351→      .filter(t => t.status === 'open' && new Date(t.deadline).getTime() > Date.now())
+   352→      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+   353→      .slice(0, 5);
+   354→  }, [tenders]);
+   355→
+   356→  // ── Activity Timeline Items ──
+   357→  const timelineItems = useMemo(() => {
+   358→    const items: Array<{
+   359→      id: string;
+   360→      icon: React.ElementType;
+   361→      iconColor: string;
+   362→      iconBg: string;
+   363→      title: string;
+   364→      description: string;
+   365→      time: string;
+   366→    }> = [];
+   367→
+   368→    // Recent notifications
+   369→    notifications.slice(0, 4).forEach(n => {
+   370→      const Icon = NOTIFICATION_ICONS[n.type] || Info;
+   371→      const color = NOTIFICATION_COLORS[n.type] || 'text-muted-foreground';
+   372→      const bgMap: Record<string, string> = {
+   373→        success: 'bg-emerald-50',
+   374→        warning: 'bg-amber-50',
+   375→        alert: 'bg-rose-50',
+   376→        info: 'bg-teal-50',
+   377→      };
+   378→      items.push({
+   379→        id: n.id,
+   380→        icon: Icon,
+   381→        iconColor: color,
+   382→        iconBg: bgMap[n.type] || 'bg-muted/50',
+   383→        title: n.title,
+   384→        description: n.message,
+   385→        time: n.createdAt,
+   386→      });
+   387→    });
+   388→
+   389→    // Recent bids
+   390→    bids.slice(0, 3).forEach(b => {
+   391→      const statusMap: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+   392→        pending_review: { icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50' },
+   393→        shortlisted: { icon: Award, color: 'text-teal-500', bg: 'bg-teal-50' },
+   394→        awarded: { icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+   395→        rejected: { icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
+   396→      };
+   397→      const info = statusMap[b.status] || { icon: Info, color: 'text-muted-foreground', bg: 'bg-muted/50' };
+   398→      items.push({
+   399→        id: `bid-${b.id}`,
+   400→        icon: info.icon,
+   401→        iconColor: info.color,
+   402→        iconBg: info.bg,
+   403→        title: `Bid ${b.status.replace('_', ' ')}`,
+   404→        description: b.tender?.title || 'Tender bid',
+   405→        time: b.createdAt,
+   406→      });
+   407→    });
+   408→
+   409→    // Recent tender updates
+   410→    tenders.filter(t => t.status === 'open').slice(0, 2).forEach(t => {
+   411→      items.push({
+   412→        id: `tender-${t.id}`,
+   413→        icon: FileSearch,
+   414→        iconColor: 'text-emerald-500',
+   415→        iconBg: 'bg-emerald-50',
+   416→        title: 'Tender published',
+   417→        description: t.title,
+   418→        time: t.createdAt,
+   419→      });
+   420→    });
+   421→
+   422→    // Sort by time descending and take top 8
+   423→    return items
+   424→      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+   425→      .slice(0, 8);
+   426→  }, [notifications, bids, tenders]);
+   427→
+   428→  // ── Sparkline data for stat cards ──
+   429→  const tenderSparkData = useMemo(() => MONTHLY_ACTIVITY.map(m => m.tenders), []);
+   430→  const bidSparkData = useMemo(() => MONTHLY_ACTIVITY.map(m => m.bids), []);
+   431→  const projectSparkData = useMemo(() => [2, 3, 1, 4, 3, 5], []);
+   432→  const valueSparkData = useMemo(() => [40, 65, 30, 80, 55, 90], []);
+   433→
+   434→  // ── Unified CTA ──
+   435→  const cta = { label: 'Publish Tender', view: 'tenders', icon: Plus };
+   436→
+   437→  // ── Unified quick actions ──
+   438→  const actions = [
+   439→    { icon: Plus, label: 'Publish Tender', description: 'Create new opportunities', gradient: 'gradient-emerald', view: 'tenders' },
+   440→    { icon: Search, label: 'Browse Tenders', description: 'Find matching opportunities', gradient: 'gradient-amber', view: 'tenders' },
+   441→    { icon: Gavel, label: 'My Bids', description: 'Track your submissions', gradient: 'gradient-teal', view: 'bids' },
+   442→    { icon: Sparkles, label: 'AI Doc Studio', description: 'Generate documents with AI', gradient: 'gradient-rose', view: 'agent' },
+   443→  ];
+   444→
+   445→  const today = new Date();
+   446→  const dateStr = today.toLocaleDateString('en-US', {
+   447→    weekday: 'long',
+   448→    year: 'numeric',
+   449→    month: 'long',
+   450→    day: 'numeric',
+   451→  });
+   452→
+   453→  // ── Custom legend for donut chart ──
+   454→  const DonutLegend = () => (
+   455→    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 mt-3 pb-1">
+   456→      {bidStatusData.map((entry) => (
+   457→        <div key={entry.name} className="flex items-center gap-1.5">
+   458→          <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: entry.fill }} />
+   459→          <span className="text-[11px] text-muted-foreground font-medium">
+   460→            {bidStatusChartConfig[entry.name as keyof typeof bidStatusChartConfig]?.label}
+   461→          </span>
+   462→          <span className="text-[11px] font-semibold text-foreground">{entry.value}</span>
+   463→        </div>
+   464→      ))}
+   465→    </div>
+   466→  );
+   467→
+   468→  return (
+   469→    <motion.div
+   470→      className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto"
+   471→      variants={containerVariants}
+   472→      initial="hidden"
+   473→      animate="visible"
+   474→    >
+   475→      {/* ═══════════════════════════════════════════════════════════════
+   476→          1. WELCOME HERO SECTION
+   477→          ═══════════════════════════════════════════════════════════════ */}
+   478→      <motion.div variants={itemVariants}>
+   479→        <div className="relative rounded-2xl overflow-hidden premium-shadow-lg">
+   480→          {/* Background gradient */}
+   481→          <div className="absolute inset-0 gradient-emerald opacity-[0.06]" />
+   482→          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, oklch(0.558 0.155 163 / 5%) 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+   483→
+   484→          <div className="relative bg-card/80 backdrop-blur-sm p-6 md:p-8">
+   485→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   486→              <div className="flex items-center gap-4">
+   487→                <div className="p-3.5 rounded-2xl gradient-emerald shadow-md shadow-emerald-200/40 flex-shrink-0">
+   488→                  {(() => {
+   489→                    const GIcon = greeting.icon;
+   490→                    return <GIcon className="h-7 w-7 text-white" />;
+   491→                  })()}
+   492→                </div>
+   493→                <div>
+   494→                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+   495→                    {greeting.text}, <span className="text-gradient-emerald">{userName}</span>
+   496→                  </h1>
+   497→                  <p className="text-muted-foreground text-sm mt-0.5">
+   498→                    Discover opportunities, publish tenders, submit bids, and grow your business.
+   499→                  </p>
+   500→                </div>
+   501→              </div>
+   502→              <div className="flex items-center gap-3 sm:flex-shrink-0">
+   503→                <div className="text-right hidden sm:block">
+   504→                  <p className="text-sm font-semibold text-foreground">{dateStr}</p>
+   505→                  <p className="text-xs text-muted-foreground mt-0.5">
+   506→                    {today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+   507→                  </p>
+   508→                </div>
+   509→                <Separator orientation="vertical" className="h-8 hidden sm:block" />
+   510→                <Button
+   511→                  className="gradient-emerald hover:opacity-90 text-white rounded-xl px-6 h-10 premium-shadow transition-all hover:-translate-y-0.5 border-0"
+   512→                  onClick={() => setView(cta.view as 'tenders')}
+   513→                >
+   514→                  <cta.icon className="h-4 w-4 mr-2" />
+   515→                  {cta.label}
+   516→                  <ArrowRight className="h-4 w-4 ml-1.5" />
+   517→                </Button>
+   518→              </div>
+   519→            </div>
+   520→
+   521→            {/* Quick summary strip */}
+   522→            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 pt-4 border-t border-border/40">
+   523→              <div className="flex items-center gap-2">
+   524→                <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-300" />
+   525→                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{stats.openTenders}</span> open tenders</span>
+   526→              </div>
+   527→              <div className="flex items-center gap-2">
+   528→                <div className="h-2 w-2 rounded-full bg-amber-500 shadow-sm shadow-amber-300" />
+   529→                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{stats.activeBids}</span> active bids</span>
+   530→              </div>
+   531→              <div className="flex items-center gap-2">
+   532→                <div className="h-2 w-2 rounded-full bg-teal-500 shadow-sm shadow-teal-300" />
+   533→                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{stats.activeProjects}</span> projects</span>
+   534→              </div>
+   535→              <div className="flex items-center gap-2">
+   536→                <div className="h-2 w-2 rounded-full bg-rose-400 shadow-sm shadow-rose-300" />
+   537→                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{formatETB(stats.totalContractValue)}</span> contract value</span>
+   538→              </div>
+   539→            </div>
+   540→          </div>
+   541→        </div>
+   542→      </motion.div>
+   543→
+   544→      {/* ═══════════════════════════════════════════════════════════════
+   545→          2. KPI STATS CARDS (4 cards in a row)
+   546→          ═══════════════════════════════════════════════════════════════ */}
+   547→      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   548→        <StatCard
+   549→          icon={FileSearch}
+   550→          label="Open Tenders"
+   551→          value={stats.openTenders}
+   552→          subtext={`${stats.closedThisWeek} closed this week`}
+   553→          gradientClass="gradient-emerald"
+   554→          sparkData={tenderSparkData}
+   555→          sparkColor={CHART_COLORS.emerald}
+   556→          trend={{ value: 12, isUp: true }}
+   557→          trendLabel="vs last month"
+   558→          onClick={() => setView('tenders')}
+   559→        />
+   560→        <StatCard
+   561→          icon={Gavel}
+   562→          label="Active Bids"
+   563→          value={stats.activeBids}
+   564→          subtext={`${stats.pendingBids} pending · ${stats.shortlistedBids} shortlisted`}
+   565→          gradientClass="gradient-amber"
+   566→          sparkData={bidSparkData}
+   567→          sparkColor={CHART_COLORS.amber}
+   568→          trend={{ value: 8, isUp: true }}
+   569→          trendLabel="vs last month"
+   570→          onClick={() => setView('bids')}
+   571→        />
+   572→        <StatCard
+   573→          icon={FolderKanban}
+   574→          label="Active Projects"
+   575→          value={stats.activeProjects}
+   576→          subtext={`${stats.completionPct}% average completion`}
+   577→          gradientClass="gradient-teal"
+   578→          sparkData={projectSparkData}
+   579→          sparkColor={CHART_COLORS.teal}
+   580→          trend={{ value: 5, isUp: true }}
+   581→          trendLabel="growth"
+   582→          onClick={() => setView('projects')}
+   583→        />
+   584→        <StatCard
+   585→          icon={DollarSign}
+   586→          label="Contract Value"
+   587→          value={formatETB(stats.totalContractValue)}
+   588→          subtext={`Across ${stats.projectCount} project${stats.projectCount !== 1 ? 's' : ''}`}
+   589→          gradientClass="gradient-rose"
+   590→          sparkData={valueSparkData}
+   591→          sparkColor={CHART_COLORS.rose}
+   592→          trend={{ value: 15, isUp: true }}
+   593→          trendLabel="growth"
+   594→          onClick={() => setView('projects')}
+   595→        />
+   596→      </motion.div>
+   597→
+   598→      {/* ═══════════════════════════════════════════════════════════════
+   599→          3. CHARTS SECTION (2 columns)
+   600→          ═══════════════════════════════════════════════════════════════ */}
+   601→      <div className="grid md:grid-cols-2 gap-6">
+   602→        {/* Bid Status Donut Chart */}
+   603→        <motion.div variants={itemVariants}>
+   604→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
+   605→            <CardHeader className="pb-2">
+   606→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   607→                <div className="p-1.5 rounded-lg gradient-emerald">
+   608→                  <Target className="h-3.5 w-3.5 text-white" />
+   609→                </div>
+   610→                Bid Status Overview
+   611→              </CardTitle>
+   612→            </CardHeader>
+   613→            <CardContent>
+   614→              {bidStatusData.length === 0 ? (
+   615→                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+   616→                  <Gavel className="h-10 w-10 mb-2 opacity-30" />
+   617→                  <p className="text-sm">No bid data yet</p>
+   618→                </div>
+   619→              ) : (
+   620→                <div className="relative">
+   621→                  <ChartContainer config={bidStatusChartConfig} className="mx-auto aspect-square max-h-[240px]">
+   622→                    <PieChart>
+   623→                      <Pie
+   624→                        data={bidStatusData}
+   625→                        cx="50%"
+   626→                        cy="50%"
+   627→                        innerRadius={60}
+   628→                        outerRadius={90}
+   629→                        paddingAngle={3}
+   630→                        dataKey="value"
+   631→                        strokeWidth={0}
+   632→                      >
+   633→                        {bidStatusData.map((entry, index) => (
+   634→                          <Cell key={`cell-${index}`} fill={entry.fill} />
+   635→                        ))}
+   636→                      </Pie>
+   637→                      <ChartTooltip content={<ChartTooltipContent />} />
+   638→                      <ChartLegend content={<ChartLegendContent nameKey="name" />} className="mt-2" />
+   639→                    </PieChart>
+   640→                  </ChartContainer>
+   641→                  {/* Center label */}
+   642→                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ top: '-8px' }}>
+   643→                    <p className="text-3xl font-bold">{totalBids}</p>
+   644→                    <p className="text-[11px] text-muted-foreground">Total Bids</p>
+   645→                  </div>
+   646→                </div>
+   647→              )}
+   648→              {/* Custom legend below */}
+   649→              <DonutLegend />
+   650→            </CardContent>
+   651→          </Card>
+   652→        </motion.div>
+   653→
+   654→        {/* Monthly Activity Bar Chart */}
+   655→        <motion.div variants={itemVariants}>
+   656→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
+   657→            <CardHeader className="pb-2">
+   658→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   659→                <div className="p-1.5 rounded-lg gradient-amber">
+   660→                  <BarChart3 className="h-3.5 w-3.5 text-white" />
+   661→                </div>
+   662→                Monthly Activity
+   663→              </CardTitle>
+   664→            </CardHeader>
+   665→            <CardContent>
+   666→              <ChartContainer config={monthlyChartConfig} className="aspect-[4/3] max-h-[280px]">
+   667→                <BarChart data={MONTHLY_ACTIVITY} barGap={4} barCategoryGap="20%">
+   668→                  <XAxis
+   669→                    dataKey="month"
+   670→                    axisLine={false}
+   671→                    tickLine={false}
+   672→                    tick={{ fontSize: 12, fill: 'oklch(0.5 0.01 265)' }}
+   673→                  />
+   674→                  <YAxis
+   675→                    axisLine={false}
+   676→                    tickLine={false}
+   677→                    tick={{ fontSize: 11, fill: 'oklch(0.5 0.01 265)' }}
+   678→                    width={28}
+   679→                  />
+   680→                  <ChartTooltip content={<ChartTooltipContent />} />
+   681→                  <Bar dataKey="tenders" fill={CHART_COLORS.emerald} radius={[4, 4, 0, 0]} maxBarSize={32} />
+   682→                  <Bar dataKey="bids" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} maxBarSize={32} />
+   683→                  <ChartLegend content={<ChartLegendContent />} className="mt-2" />
+   684→                </BarChart>
+   685→              </ChartContainer>
+   686→            </CardContent>
+   687→          </Card>
+   688→        </motion.div>
+   689→      </div>
+   690→
+   691→      {/* ═══════════════════════════════════════════════════════════════
+   692→          4. ACTIVITY TIMELINE + TOP TENDERS (2 columns)
+   693→          ═══════════════════════════════════════════════════════════════ */}
+   694→      <div className="grid md:grid-cols-2 gap-6">
+   695→        {/* Activity Timeline */}
+   696→        <motion.div variants={itemVariants}>
+   697→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
+   698→            <CardHeader className="pb-2">
+   699→              <div className="flex items-center justify-between">
+   700→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   701→                  <div className="p-1.5 rounded-lg gradient-amber">
+   702→                    <Activity className="h-3.5 w-3.5 text-white" />
+   703→                  </div>
+   704→                  Recent Activity
+   705→                </CardTitle>
+   706→                <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('dashboard')}>
+   707→                  View all <ChevronRight className="h-3 w-3 ml-0.5" />
+   708→                </Button>
+   709→              </div>
+   710→            </CardHeader>
+   711→            <CardContent>
+   712→              {timelineItems.length === 0 ? (
+   713→                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+   714→                  <Clock className="h-8 w-8 mb-2 opacity-30" />
+   715→                  <p className="text-sm">No recent activity</p>
+   716→                </div>
+   717→              ) : (
+   718→                <ScrollArea className="max-h-[340px]">
+   719→                  <div className="relative pl-7">
+   720→                    {/* Vertical gradient line */}
+   721→                    <div className="absolute left-[10px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-gray-200 rounded-full" />
+   722→                    <div className="space-y-4">
+   723→                      {timelineItems.map((item) => {
+   724→                        const Icon = item.icon;
+   725→                        return (
+   726→                          <motion.div
+   727→                            key={item.id}
+   728→                            initial={{ opacity: 0, x: -8 }}
+   729→                            animate={{ opacity: 1, x: 0 }}
+   730→                            transition={{ duration: 0.3 }}
+   731→                            className="relative flex items-start gap-3"
+   732→                          >
+   733→                            {/* Icon dot on line */}
+   734→                            <div className="absolute -left-7 top-0.5 flex items-center justify-center">
+   735→                              <div className={`h-[22px] w-[22px] rounded-full ${item.iconBg} border-2 border-card shadow-sm flex items-center justify-center z-10`}>
+   736→                                <Icon className={`h-2.5 w-2.5 ${item.iconColor}`} />
+   737→                              </div>
+   738→                            </div>
+   739→                            <div className="min-w-0 flex-1 pb-1">
+   740→                              <p className="text-sm font-medium truncate">{item.title}</p>
+   741→                              <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+   742→                              <p className="text-[10px] text-muted-foreground/50 mt-0.5">{timeAgo(item.time)}</p>
+   743→                            </div>
+   744→                          </motion.div>
+   745→                        );
+   746→                      })}
+   747→                    </div>
+   748→                  </div>
+   749→                </ScrollArea>
+   750→              )}
+   751→            </CardContent>
+   752→          </Card>
+   753→        </motion.div>
+   754→
+   755→        {/* Top Tenders */}
+   756→        <motion.div variants={itemVariants}>
+   757→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
+   758→            <CardHeader className="pb-2">
+   759→              <div className="flex items-center justify-between">
+   760→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   761→                  <div className="p-1.5 rounded-lg gradient-teal">
+   762→                    <Briefcase className="h-3.5 w-3.5 text-white" />
+   763→                  </div>
+   764→                  Top Tenders
+   765→                </CardTitle>
+   766→                <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('tenders')}>
+   767→                  View all <ChevronRight className="h-3 w-3 ml-0.5" />
+   768→                </Button>
+   769→              </div>
+   770→            </CardHeader>
+   771→            <CardContent>
+   772→              {topTenders.length === 0 ? (
+   773→                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+   774→                  <FileSearch className="h-8 w-8 mb-2 opacity-30" />
+   775→                  <p className="text-sm">No tenders available</p>
+   776→                </div>
+   777→              ) : (
+   778→                <ScrollArea className="max-h-[340px]">
+   779→                  <div className="space-y-2">
+   780→                    {topTenders.map((t, idx) => (
+   781→                      <motion.button
+   782→                        key={t.id}
+   783→                        initial={{ opacity: 0, y: 8 }}
+   784→                        animate={{ opacity: 1, y: 0 }}
+   785→                        transition={{ delay: idx * 0.05, duration: 0.3 }}
+   786→                        onClick={() => setView('tender-detail', { id: t.id })}
+   787→                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:border-emerald-200 hover:bg-emerald-50/20 transition-all duration-200 text-left group"
+   788→                      >
+   789→                        <div className="p-2 rounded-lg bg-emerald-50 flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
+   790→                          <FileSearch className="h-4 w-4 text-emerald-600" />
+   791→                        </div>
+   792→                        <div className="min-w-0 flex-1">
+   793→                          <p className="text-sm font-medium truncate group-hover:text-emerald-700 transition-colors">{t.title}</p>
+   794→                          <p className="text-xs text-muted-foreground">
+   795→                            ETB {t.budgetMin.toLocaleString()} – {t.budgetMax.toLocaleString()}
+   796→                          </p>
+   797→                        </div>
+   798→                        <div className="flex items-center gap-1.5 flex-shrink-0">
+   799→                          {t.matchScore !== undefined && (
+   800→                            <Badge
+   801→                              className={`text-[10px] px-1.5 py-0 border-0 ${
+   802→                                t.matchScore >= 70
+   803→                                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
+   804→                                  : t.matchScore >= 40
+   805→                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-100'
+   806→                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+   807→                              }`}
+   808→                            >
+   809→                              {t.matchScore}%
+   810→                            </Badge>
+   811→                          )}
+   812→                          <Badge
+   813→                            variant="outline"
+   814→                            className={`text-[10px] px-1.5 py-0 capitalize ${
+   815→                              t.status === 'open'
+   816→                                ? 'border-emerald-300 text-emerald-600'
+   817→                                : t.status === 'awarded'
+   818→                                  ? 'border-teal-300 text-teal-600'
+   819→                                  : 'border-muted-foreground/30 text-muted-foreground'
+   820→                            }`}
+   821→                          >
+   822→                            {t.status}
+   823→                          </Badge>
+   824→                          {t._count?.bids !== undefined && (
+   825→                            <span className="text-[10px] text-muted-foreground">
+   826→                              {t._count.bids} bid{t._count.bids !== 1 ? 's' : ''}
+   827→                            </span>
+   828→                          )}
+   829→                        </div>
+   830→                      </motion.button>
+   831→                    ))}
+   832→                  </div>
+   833→                </ScrollArea>
+   834→              )}
+   835→            </CardContent>
+   836→          </Card>
+   837→        </motion.div>
+   838→      </div>
+   839→
+   840→      {/* ═══════════════════════════════════════════════════════════════
+   841→          5. QUICK ACTIONS GRID
+   842→          ═══════════════════════════════════════════════════════════════ */}
+   843→      <motion.div variants={itemVariants}>
+   844→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   845→          <CardHeader className="pb-2">
+   846→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   847→              <div className="p-1.5 rounded-lg gradient-rose">
+   848→                <Sparkles className="h-3.5 w-3.5 text-white" />
+   849→              </div>
+   850→              Quick Actions
+   851→            </CardTitle>
+   852→          </CardHeader>
+   853→          <CardContent>
+   854→            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   855→              {actions.map((action) => (
+   856→                <QuickAction
+   857→                  key={action.label}
+   858→                  icon={action.icon}
+   859→                  label={action.label}
+   860→                  description={action.description}
+   861→                  gradientClass={action.gradient}
+   862→                  onClick={() => setView(action.view as 'tenders')}
+   863→                />
+   864→              ))}
+   865→            </div>
+   866→          </CardContent>
+   867→        </Card>
+   868→      </motion.div>
+   869→
+   870→      {/* ═══════════════════════════════════════════════════════════════
+   871→          6. UPCOMING DEADLINES
+   872→          ═══════════════════════════════════════════════════════════════ */}
+   873→      {upcomingDeadlines.length > 0 && (
+   874→        <motion.div variants={itemVariants}>
+   875→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   876→            <CardHeader className="pb-2">
+   877→              <div className="flex items-center justify-between">
+   878→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   879→                  <div className="p-1.5 rounded-lg gradient-rose">
+   880→                    <Clock className="h-3.5 w-3.5 text-white" />
+   881→                  </div>
+   882→                  Upcoming Deadlines
+   883→                </CardTitle>
+   884→                <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('tenders')}>
+   885→                  View all <ChevronRight className="h-3 w-3 ml-0.5" />
+   886→                </Button>
+   887→              </div>
+   888→            </CardHeader>
+   889→            <CardContent>
+   890→              <ScrollArea className="max-h-[240px]">
+   891→                <div className="space-y-2">
+   892→                  {upcomingDeadlines.map((t, idx) => {
+   893→                    const days = daysUntil(t.deadline);
+   894→                    return (
+   895→                      <motion.button
+   896→                        key={t.id}
+   897→                        initial={{ opacity: 0, y: 6 }}
+   898→                        animate={{ opacity: 1, y: 0 }}
+   899→                        transition={{ delay: idx * 0.05, duration: 0.3 }}
+   900→                        onClick={() => setView('tender-detail', { id: t.id })}
+   901→                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:bg-muted/50 transition-all duration-200 text-left group"
+   902→                      >
+   903→                        <div className={`p-2.5 rounded-xl flex-shrink-0 ${deadlineBg(days)}`}>
+   904→                          <Calendar className={`h-4 w-4 ${deadlineColor(days)}`} />
+   905→                        </div>
+   906→                        <div className="min-w-0 flex-1">
+   907→                          <p className="text-sm font-medium truncate group-hover:text-emerald-700 transition-colors">{t.title}</p>
+   908→                          <p className="text-xs text-muted-foreground">
+   909→                            Deadline: {new Date(t.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   910→                          </p>
+   911→                        </div>
+   912→                        <Badge
+   913→                          className={`text-[10px] px-2.5 py-0.5 border-0 font-semibold ${deadlineBadge(days)}`}
+   914→                        >
+   915→                          {days < 0 ? 'Expired' : `${days} day${days !== 1 ? 's' : ''} left`}
+   916→                        </Badge>
+   917→                      </motion.button>
+   918→                    );
+   919→                  })}
+   920→                </div>
+   921→              </ScrollArea>
+   922→            </CardContent>
+   923→          </Card>
+   924→        </motion.div>
+   925→      )}
+   926→    </motion.div>
+   927→  );
+   928→}
+   929→

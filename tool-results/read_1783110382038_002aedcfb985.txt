@@ -1,0 +1,890 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api, Project, Task, Milestone, Payment } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Textarea } from '@/components/ui/textarea';
+    11→import { Label } from '@/components/ui/label';
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    13→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    14→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    15→import { toast } from 'sonner';
+    16→import { motion, AnimatePresence } from 'framer-motion';
+    17→import {
+    18→  ArrowLeft, FolderKanban, Plus, Clock, CheckCircle2,
+    19→  Circle, DollarSign, TrendingUp, AlertTriangle, Calendar, MessageSquare,
+    20→  ChevronRight, Sparkles, CreditCard, Flag, ListChecks,
+    21→  BarChart3, Target, Users, Zap, ArrowRight,
+    22→} from 'lucide-react';
+    23→
+    24→// ─── Animation Variants ─────────────────────────────────────────────
+    25→const containerVariants = {
+    26→  hidden: { opacity: 0 },
+    27→  visible: {
+    28→    opacity: 1,
+    29→    transition: { staggerChildren: 0.06, delayChildren: 0.08 },
+    30→  },
+    31→};
+    32→
+    33→const itemVariants = {
+    34→  hidden: { opacity: 0, y: 12 },
+    35→  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
+    36→};
+    37→
+    38→const cardHover = {
+    39→  y: -3,
+    40→  transition: { duration: 0.2, ease: 'easeOut' },
+    41→};
+    42→
+    43→// ─── Helpers ────────────────────────────────────────────────────────
+    44→function formatETB(amount: number): string {
+    45→  if (amount >= 1_000_000) return `ETB ${(amount / 1_000_000).toFixed(1)}M`;
+    46→  if (amount >= 1_000) return `ETB ${(amount / 1_000).toFixed(0)}K`;
+    47→  return `ETB ${amount.toLocaleString()}`;
+    48→}
+    49→
+    50→function daysUntil(dateStr: string): number {
+    51→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+    52→}
+    53→
+    54→function isOverdue(dateStr: string): boolean {
+    55→  return new Date(dateStr).getTime() < Date.now();
+    56→}
+    57→
+    58→export function ProjectDetailView({ projectId }: { projectId?: string }) {
+    59→  const { user } = useAuthStore();
+    60→  const { setView } = useNavStore();
+    61→  const [project, setProject] = useState<Project | null>(null);
+    62→  const [loading, setLoading] = useState(true);
+    63→  const [activeTab, setActiveTab] = useState('overview');
+    64→
+    65→  // Form states
+    66→  const [showAddTask, setShowAddTask] = useState(false);
+    67→  const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '', status: 'todo' });
+    68→  const [showAddMilestone, setShowAddMilestone] = useState(false);
+    69→  const [newMilestone, setNewMilestone] = useState({ title: '', dueDate: '' });
+    70→  const [showAddPayment, setShowAddPayment] = useState(false);
+    71→  const [newPayment, setNewPayment] = useState({ amount: '', paymentMethod: 'bank_transfer', referenceNumber: '', notes: '', paymentDate: '' });
+    72→
+    73→  const loadProject = useCallback(async () => {
+    74→    setLoading(true);
+    75→    const res = await api.get(`/projects/${projectId}`);
+    76→    if (res.success) setProject(res.data);
+    77→    setLoading(false);
+    78→  }, [projectId]);
+    79→
+    80→  /* eslint-disable react-hooks/set-state-in-effect */
+    81→  useEffect(() => {
+    82→    if (projectId) loadProject();
+    83→  }, [projectId, loadProject]);
+    84→  /* eslint-enable react-hooks/set-state-in-effect */
+    85→
+    86→  const handleAddTask = async () => {
+    87→    const res = await api.post(`/projects/${projectId}/tasks`, newTask);
+    88→    if (res.success) {
+    89→      toast.success('Task added');
+    90→      setShowAddTask(false);
+    91→      setNewTask({ title: '', description: '', dueDate: '', status: 'todo' });
+    92→      loadProject();
+    93→    } else toast.error(res.error || 'Failed to add task');
+    94→  };
+    95→
+    96→  const handleUpdateTaskStatus = async (taskId: string, status: string) => {
+    97→    const res = await api.patch(`/projects/${projectId}/tasks/${taskId}/status`, { status });
+    98→    if (res.success) {
+    99→      toast.success('Task updated');
+   100→      loadProject();
+   101→    } else toast.error(res.error || 'Failed to update task');
+   102→  };
+   103→
+   104→  const handleAddMilestone = async () => {
+   105→    const res = await api.post(`/projects/${projectId}/milestones`, newMilestone);
+   106→    if (res.success) {
+   107→      toast.success('Milestone added');
+   108→      setShowAddMilestone(false);
+   109→      setNewMilestone({ title: '', dueDate: '' });
+   110→      loadProject();
+   111→    } else toast.error(res.error || 'Failed to add milestone');
+   112→  };
+   113→
+   114→  const handleToggleMilestone = async (milestoneId: string, completed: boolean) => {
+   115→    const res = await api.patch(`/projects/${projectId}/milestones/${milestoneId}`, { completed: !completed });
+   116→    if (res.success) {
+   117→      toast.success(completed ? 'Milestone reopened' : 'Milestone completed');
+   118→      loadProject();
+   119→    }
+   120→  };
+   121→
+   122→  const handleAddPayment = async () => {
+   123→    const res = await api.post(`/projects/${projectId}/payments`, {
+   124→      ...newPayment,
+   125→      amount: parseFloat(newPayment.amount),
+   126→    });
+   127→    if (res.success) {
+   128→      toast.success('Payment logged');
+   129→      setShowAddPayment(false);
+   130→      setNewPayment({ amount: '', paymentMethod: 'bank_transfer', referenceNumber: '', notes: '', paymentDate: '' });
+   131→      loadProject();
+   132→    } else toast.error(res.error || 'Failed to log payment');
+   133→  };
+   134→
+   135→  const totalPaid = project?.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+   136→  const paymentProgress = project?.contractValue ? Math.min((totalPaid / project.contractValue) * 100, 100) : 0;
+   137→
+   138→  const statusConfig = (status: string) => {
+   139→    switch (status) {
+   140→      case 'active': return { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500', gradient: 'gradient-emerald', label: 'Active' };
+   141→      case 'completed': return { bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500', gradient: 'gradient-teal', label: 'Completed' };
+   142→      case 'on_hold': return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500', gradient: 'gradient-amber', label: 'On Hold' };
+   143→      case 'cancelled': return { bg: 'bg-rose-100', text: 'text-rose-700', dot: 'bg-rose-500', gradient: 'gradient-rose', label: 'Cancelled' };
+   144→      default: return { bg: 'bg-muted', text: 'text-foreground', dot: 'bg-muted/500', gradient: 'gradient-emerald', label: status };
+   145→    }
+   146→  };
+   147→
+   148→  if (loading) {
+   149→    return (
+   150→      <div className="p-6 space-y-4 max-w-6xl mx-auto">
+   151→        <div className="h-8 bg-muted rounded-xl w-1/3 animate-pulse" />
+   152→        <div className="h-40 bg-muted rounded-xl animate-pulse premium-shadow" />
+   153→        <div className="h-64 bg-muted rounded-xl animate-pulse premium-shadow" />
+   154→      </div>
+   155→    );
+   156→  }
+   157→
+   158→  if (!project) {
+   159→    return (
+   160→      <div className="p-6 text-center view-enter">
+   161→        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-rose flex items-center justify-center">
+   162→          <AlertTriangle className="h-8 w-8 text-white" />
+   163→        </div>
+   164→        <h3 className="text-lg font-bold text-foreground mb-2">Project not found</h3>
+   165→        <p className="text-muted-foreground text-sm mb-4">The project you are looking for does not exist or you do not have access.</p>
+   166→        <Button
+   167→          className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow"
+   168→          onClick={() => setView('projects')}
+   169→        >
+   170→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
+   171→        </Button>
+   172→      </div>
+   173→    );
+   174→  }
+   175→
+   176→  const tasks = project.tasks || [];
+   177→  const todoTasks = tasks.filter(t => t.status === 'todo');
+   178→  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+   179→  const doneTasks = tasks.filter(t => t.status === 'done');
+   180→  const taskProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
+   181→  const milestones = project.milestones || [];
+   182→  const completedMilestones = milestones.filter(m => m.completed).length;
+   183→  const milestoneProgress = milestones.length > 0 ? Math.round((completedMilestones / milestones.length) * 100) : 0;
+   184→  const nextMilestone = milestones.filter(m => !m.completed).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+   185→
+   186→  const sc = statusConfig(project.status);
+   187→  const isAdmin = user?.role === 'admin';
+   188→  const isTenderOwner = user?.role === 'tender_owner';
+   189→
+   190→  return (
+   191→    <motion.div
+   192→      className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto"
+   193→      variants={containerVariants}
+   194→      initial="hidden"
+   195→      animate="visible"
+   196→    >
+   197→      {/* Back button */}
+   198→      <motion.div variants={itemVariants}>
+   199→        <Button
+   200→          variant="ghost"
+   201→          onClick={() => setView('projects')}
+   202→          className="text-muted-foreground hover:text-emerald-700 hover:bg-primary/10 -ml-2"
+   203→        >
+   204→          <ArrowLeft className="h-4 w-4 mr-1" /> Back to Projects
+   205→        </Button>
+   206→      </motion.div>
+   207→
+   208→      {/* Project Header Card */}
+   209→      <motion.div variants={itemVariants}>
+   210→        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
+   211→          {/* Gradient top bar */}
+   212→          <div className={`h-1.5 ${sc.gradient}`} />
+   213→          <CardContent className="p-6">
+   214→            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+   215→              <div className="flex items-start gap-4">
+   216→                <div className={`w-14 h-14 rounded-2xl ${sc.gradient} flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-200/30`}>
+   217→                  <FolderKanban className="h-7 w-7 text-white" />
+   218→                </div>
+   219→                <div>
+   220→                  <h2 className="text-2xl font-bold tracking-tight">{project.tender?.title || 'Project'}</h2>
+   221→                  <p className="text-sm text-muted-foreground mt-1">
+   222→                    Contractor: {project.bid?.user?.profile?.fullName || 'Assigned'} &middot; Timeline: {project.bid?.timeline || 'N/A'}
+   223→                  </p>
+   224→                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+   225→                    <Badge className={`text-xs px-2.5 py-0.5 border-0 font-semibold ${sc.bg} ${sc.text}`}>
+   226→                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} mr-1.5 inline-block`} />
+   227→                      {sc.label}
+   228→                    </Badge>
+   229→                    <Badge className="text-xs px-2.5 py-0.5 border-0 font-semibold bg-emerald-50 text-emerald-700">
+   230→                      <DollarSign className="h-3 w-3 mr-1" /> ETB {project.contractValue.toLocaleString()}
+   231→                    </Badge>
+   232→                    {project.tender?.categoryTags && project.tender.categoryTags.split(',').filter(Boolean).map((tag: string) => (
+   233→                      <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-medium">
+   234→                        {tag.trim()}
+   235→                      </Badge>
+   236→                    ))}
+   237→                  </div>
+   238→                </div>
+   239→              </div>
+   240→              <Button
+   241→                className="gradient-emerald hover:opacity-90 text-white rounded-xl px-4 premium-shadow transition-all hover:-translate-y-0.5 flex-shrink-0"
+   242→                onClick={() => setView('chat', { id: project.chat?.id || '' })}
+   243→              >
+   244→                <MessageSquare className="h-4 w-4 mr-2" /> Chat
+   245→              </Button>
+   246→            </div>
+   247→
+   248→            {/* Payment Progress */}
+   249→            <div className="mt-6 pt-5 border-t border-border/50">
+   250→              <div className="flex items-center justify-between mb-2">
+   251→                <p className="text-sm font-semibold text-foreground">Payment Progress</p>
+   252→                <p className="text-sm text-muted-foreground">
+   253→                  <span className="font-bold text-emerald-600">ETB {totalPaid.toLocaleString()}</span>
+   254→                  {' / '}ETB {project.contractValue.toLocaleString()} ({paymentProgress.toFixed(0)}%)
+   255→                </p>
+   256→              </div>
+   257→              <div className="h-3 bg-muted rounded-full overflow-hidden">
+   258→                <div
+   259→                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700"
+   260→                  style={{ width: `${paymentProgress}%` }}
+   261→                />
+   262→              </div>
+   263→            </div>
+   264→          </CardContent>
+   265→        </Card>
+   266→      </motion.div>
+   267→
+   268→      {/* Tabs */}
+   269→      <motion.div variants={itemVariants}>
+   270→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   271→          <TabsList className="bg-card premium-shadow rounded-xl border-0 h-11 p-1 gap-1">
+   272→            <TabsTrigger
+   273→              value="overview"
+   274→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
+   275→            >
+   276→              <BarChart3 className="h-3.5 w-3.5 mr-1.5" /> Overview
+   277→            </TabsTrigger>
+   278→            <TabsTrigger
+   279→              value="tasks"
+   280→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
+   281→            >
+   282→              <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Tasks
+   283→            </TabsTrigger>
+   284→            <TabsTrigger
+   285→              value="milestones"
+   286→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
+   287→            >
+   288→              <Flag className="h-3.5 w-3.5 mr-1.5" /> Milestones
+   289→            </TabsTrigger>
+   290→            <TabsTrigger
+   291→              value="payments"
+   292→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
+   293→            >
+   294→              <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Payments
+   295→            </TabsTrigger>
+   296→          </TabsList>
+   297→
+   298→          {/* ─── Overview Tab ─────────────────────────────────────────── */}
+   299→          <TabsContent value="overview" className="mt-4">
+   300→            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+   301→              <motion.div whileHover={cardHover}>
+   302→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   303→                  <CardContent className="p-5">
+   304→                    <div className="flex items-start justify-between mb-3">
+   305→                      <div className="p-2.5 rounded-xl gradient-emerald shadow-sm">
+   306→                        <DollarSign className="h-5 w-5 text-white" />
+   307→                      </div>
+   308→                    </div>
+   309→                    <p className="text-2xl font-bold tracking-tight">ETB {project.contractValue.toLocaleString()}</p>
+   310→                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Contract Value</p>
+   311→                  </CardContent>
+   312→                </Card>
+   313→              </motion.div>
+   314→
+   315→              <motion.div whileHover={cardHover}>
+   316→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   317→                  <CardContent className="p-5">
+   318→                    <div className="flex items-start justify-between mb-3">
+   319→                      <div className="p-2.5 rounded-xl gradient-teal shadow-sm">
+   320→                        <Target className="h-5 w-5 text-white" />
+   321→                      </div>
+   322→                      <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-semibold">
+   323→                        {taskProgress}%
+   324→                      </Badge>
+   325→                    </div>
+   326→                    <p className="text-2xl font-bold tracking-tight">{doneTasks.length}<span className="text-muted-foreground/40 text-lg font-normal">/{tasks.length}</span></p>
+   327→                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Tasks Completed</p>
+   328→                  </CardContent>
+   329→                </Card>
+   330→              </motion.div>
+   331→
+   332→              <motion.div whileHover={cardHover}>
+   333→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   334→                  <CardContent className="p-5">
+   335→                    <div className="flex items-start justify-between mb-3">
+   336→                      <div className="p-2.5 rounded-xl gradient-amber shadow-sm">
+   337→                        <Flag className="h-5 w-5 text-white" />
+   338→                      </div>
+   339→                      <Badge className="text-[10px] px-1.5 py-0 border-0 bg-amber-50 text-amber-700 font-semibold">
+   340→                        {milestoneProgress}%
+   341→                      </Badge>
+   342→                    </div>
+   343→                    <p className="text-2xl font-bold tracking-tight">{completedMilestones}<span className="text-muted-foreground/40 text-lg font-normal">/{milestones.length}</span></p>
+   344→                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Milestones Done</p>
+   345→                  </CardContent>
+   346→                </Card>
+   347→              </motion.div>
+   348→
+   349→              <motion.div whileHover={cardHover}>
+   350→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   351→                  <CardContent className="p-5">
+   352→                    <div className="flex items-start justify-between mb-3">
+   353→                      <div className="p-2.5 rounded-xl gradient-rose shadow-sm">
+   354→                        <Users className="h-5 w-5 text-white" />
+   355→                      </div>
+   356→                    </div>
+   357→                    <p className="text-sm font-bold tracking-tight">{project.bid?.user?.profile?.fullName || 'Assigned'}</p>
+   358→                    <p className="text-xs text-muted-foreground font-medium mt-0.5">{project.bid?.user?.profile?.companyName || 'Contractor'}</p>
+   359→                    <p className="text-xs text-muted-foreground mt-1">{project.bid?.timeline || 'N/A'} timeline</p>
+   360→                  </CardContent>
+   361→                </Card>
+   362→              </motion.div>
+   363→            </div>
+   364→
+   365→            {/* Task & Milestone Progress Row */}
+   366→            <div className="grid md:grid-cols-2 gap-4 mb-6">
+   367→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   368→                <CardHeader className="pb-2">
+   369→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   370→                    <div className="p-1.5 rounded-lg gradient-emerald">
+   371→                      <ListChecks className="h-3.5 w-3.5 text-white" />
+   372→                    </div>
+   373→                    Task Breakdown
+   374→                  </CardTitle>
+   375→                </CardHeader>
+   376→                <CardContent>
+   377→                  <div className="space-y-3">
+   378→                    <div className="flex items-center justify-between">
+   379→                      <div className="flex items-center gap-2">
+   380→                        <div className="w-3 h-3 rounded-sm bg-muted" />
+   381→                        <span className="text-sm">To Do</span>
+   382→                      </div>
+   383→                      <span className="text-sm font-bold">{todoTasks.length}</span>
+   384→                    </div>
+   385→                    <div className="flex items-center justify-between">
+   386→                      <div className="flex items-center gap-2">
+   387→                        <div className="w-3 h-3 rounded-sm bg-amber-400" />
+   388→                        <span className="text-sm">In Progress</span>
+   389→                      </div>
+   390→                      <span className="text-sm font-bold">{inProgressTasks.length}</span>
+   391→                    </div>
+   392→                    <div className="flex items-center justify-between">
+   393→                      <div className="flex items-center gap-2">
+   394→                        <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+   395→                        <span className="text-sm">Done</span>
+   396→                      </div>
+   397→                      <span className="text-sm font-bold">{doneTasks.length}</span>
+   398→                    </div>
+   399→                    {/* Visual bar */}
+   400→                    <div className="flex h-3 rounded-full overflow-hidden bg-muted mt-2">
+   401→                      {tasks.length > 0 && (
+   402→                        <>
+   403→                          <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${(doneTasks.length / tasks.length) * 100}%` }} />
+   404→                          <div className="bg-amber-400 transition-all duration-500" style={{ width: `${(inProgressTasks.length / tasks.length) * 100}%` }} />
+   405→                          <div className="bg-muted transition-all duration-500" style={{ width: `${(todoTasks.length / tasks.length) * 100}%` }} />
+   406→                        </>
+   407→                      )}
+   408→                    </div>
+   409→                  </div>
+   410→                </CardContent>
+   411→              </Card>
+   412→
+   413→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   414→                <CardHeader className="pb-2">
+   415→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   416→                    <div className="p-1.5 rounded-lg gradient-amber">
+   417→                      <Flag className="h-3.5 w-3.5 text-white" />
+   418→                    </div>
+   419→                    Next Up
+   420→                  </CardTitle>
+   421→                </CardHeader>
+   422→                <CardContent>
+   423→                  {nextMilestone ? (
+   424→                    <div className="space-y-3">
+   425→                      <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+   426→                        <div className="p-2 rounded-lg gradient-amber shadow-sm">
+   427→                          <Flag className="h-4 w-4 text-white" />
+   428→                        </div>
+   429→                        <div className="min-w-0 flex-1">
+   430→                          <p className="text-sm font-semibold">{nextMilestone.title}</p>
+   431→                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+   432→                            <Calendar className="h-3 w-3" />
+   433→                            {new Date(nextMilestone.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   434→                          </p>
+   435→                        </div>
+   436→                        <Badge className={`text-[10px] px-1.5 py-0 border-0 font-semibold ${
+   437→                          isOverdue(nextMilestone.dueDate) ? 'bg-rose-100 text-rose-700' :
+   438→                          daysUntil(nextMilestone.dueDate) <= 7 ? 'bg-amber-100 text-amber-700' :
+   439→                          'bg-emerald-100 text-emerald-700'
+   440→                        }`}>
+   441→                          {isOverdue(nextMilestone.dueDate) ? 'Overdue' : `${daysUntil(nextMilestone.dueDate)}d left`}
+   442→                        </Badge>
+   443→                      </div>
+   444→                    </div>
+   445→                  ) : (
+   446→                    <div className="text-center py-6">
+   447→                      <div className="w-10 h-10 mx-auto mb-2 rounded-xl gradient-teal flex items-center justify-center">
+   448→                        <CheckCircle2 className="h-5 w-5 text-white" />
+   449→                      </div>
+   450→                      <p className="text-sm font-medium text-muted-foreground">All milestones completed!</p>
+   451→                    </div>
+   452→                  )}
+   453→
+   454→                  {/* Overdue tasks warning */}
+   455→                  {tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length > 0 && (
+   456→                    <div className="mt-3 p-2.5 rounded-lg bg-rose-50 border border-rose-100 flex items-center gap-2">
+   457→                      <AlertTriangle className="h-3.5 w-3.5 text-rose-500 flex-shrink-0" />
+   458→                      <p className="text-[11px] text-rose-700 font-medium">
+   459→                        {tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length} overdue task{tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length !== 1 ? 's' : ''}
+   460→                      </p>
+   461→                    </div>
+   462→                  )}
+   463→                </CardContent>
+   464→              </Card>
+   465→            </div>
+   466→
+   467→            {/* Payment Summary */}
+   468→            <Card className="premium-shadow rounded-xl border-0 bg-card">
+   469→              <CardHeader className="pb-2">
+   470→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   471→                  <div className="p-1.5 rounded-lg gradient-rose">
+   472→                    <CreditCard className="h-3.5 w-3.5 text-white" />
+   473→                  </div>
+   474→                  Payment Summary
+   475→                </CardTitle>
+   476→              </CardHeader>
+   477→              <CardContent>
+   478→                <div className="grid grid-cols-3 gap-4 mb-4">
+   479→                  <div className="p-3 rounded-xl bg-emerald-50/50 text-center">
+   480→                    <p className="text-lg font-bold text-emerald-700">{formatETB(totalPaid)}</p>
+   481→                    <p className="text-[11px] text-muted-foreground font-medium">Paid</p>
+   482→                  </div>
+   483→                  <div className="p-3 rounded-xl bg-amber-50/50 text-center">
+   484→                    <p className="text-lg font-bold text-amber-700">{formatETB(project.contractValue - totalPaid)}</p>
+   485→                    <p className="text-[11px] text-muted-foreground font-medium">Remaining</p>
+   486→                  </div>
+   487→                  <div className="p-3 rounded-xl bg-teal-50/50 text-center">
+   488→                    <p className="text-lg font-bold text-teal-700">{project.payments?.length || 0}</p>
+   489→                    <p className="text-[11px] text-muted-foreground font-medium">Payments</p>
+   490→                  </div>
+   491→                </div>
+   492→                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+   493→                  <div
+   494→                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700"
+   495→                    style={{ width: `${paymentProgress}%` }}
+   496→                  />
+   497→                </div>
+   498→              </CardContent>
+   499→            </Card>
+   500→          </TabsContent>
+   501→
+   502→          {/* ─── Tasks Tab (Kanban) ──────────────────────────────── */}
+   503→          <TabsContent value="tasks" className="mt-4">
+   504→            <div className="flex items-center justify-between mb-4">
+   505→              <div className="flex items-center gap-3">
+   506→                <h3 className="text-lg font-bold text-foreground">Task Board</h3>
+   507→                <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-emerald-200 text-emerald-700 bg-emerald-50/50">
+   508→                  {taskProgress}% complete
+   509→                </Badge>
+   510→              </div>
+   511→              {isAdmin && (
+   512→                <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
+   513→                  <DialogTrigger asChild>
+   514→                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
+   515→                      <Plus className="h-4 w-4 mr-1" /> Add Task
+   516→                    </Button>
+   517→                  </DialogTrigger>
+   518→                  <DialogContent className="rounded-xl">
+   519→                    <DialogHeader><DialogTitle className="text-lg font-bold">Add New Task</DialogTitle></DialogHeader>
+   520→                    <div className="space-y-4">
+   521→                      <div className="space-y-2">
+   522→                        <Label className="text-sm font-semibold">Title *</Label>
+   523→                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.title} onChange={e => setNewTask(d => ({ ...d, title: e.target.value }))} />
+   524→                      </div>
+   525→                      <div className="space-y-2">
+   526→                        <Label className="text-sm font-semibold">Description</Label>
+   527→                        <Textarea className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.description} onChange={e => setNewTask(d => ({ ...d, description: e.target.value }))} />
+   528→                      </div>
+   529→                      <div className="space-y-2">
+   530→                        <Label className="text-sm font-semibold">Due Date</Label>
+   531→                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.dueDate} onChange={e => setNewTask(d => ({ ...d, dueDate: e.target.value }))} />
+   532→                      </div>
+   533→                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddTask}>Add Task</Button>
+   534→                    </div>
+   535→                  </DialogContent>
+   536→                </Dialog>
+   537→              )}
+   538→            </div>
+   539→
+   540→            <div className="grid md:grid-cols-3 gap-4">
+   541→              <KanbanColumn title="To Do" icon={<Circle className="h-4 w-4" />} tasks={todoTasks}
+   542→                colorTheme="slate" onMoveTask={(id) => handleUpdateTaskStatus(id, 'in_progress')} moveLabel="Start" moveIcon={<ChevronRight className="h-3 w-3" />} />
+   543→              <KanbanColumn title="In Progress" icon={<Clock className="h-4 w-4" />} tasks={inProgressTasks}
+   544→                colorTheme="amber" onMoveTask={(id) => handleUpdateTaskStatus(id, 'done')} moveLabel="Complete" moveIcon={<CheckCircle2 className="h-3 w-3" />} />
+   545→              <KanbanColumn title="Done" icon={<CheckCircle2 className="h-4 w-4" />} tasks={doneTasks}
+   546→                colorTheme="emerald" onMoveTask={(id) => handleUpdateTaskStatus(id, 'todo')} moveLabel="Reopen" moveIcon={<Circle className="h-3 w-3" />} />
+   547→            </div>
+   548→          </TabsContent>
+   549→
+   550→          {/* ─── Milestones Tab (Timeline) ───────────────────────── */}
+   551→          <TabsContent value="milestones" className="mt-4">
+   552→            <div className="flex items-center justify-between mb-4">
+   553→              <h3 className="text-lg font-bold text-foreground">Milestones</h3>
+   554→              {isAdmin && (
+   555→                <Dialog open={showAddMilestone} onOpenChange={setShowAddMilestone}>
+   556→                  <DialogTrigger asChild>
+   557→                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
+   558→                      <Plus className="h-4 w-4 mr-1" /> Add Milestone
+   559→                    </Button>
+   560→                  </DialogTrigger>
+   561→                  <DialogContent className="rounded-xl">
+   562→                    <DialogHeader><DialogTitle className="text-lg font-bold">Add Milestone</DialogTitle></DialogHeader>
+   563→                    <div className="space-y-4">
+   564→                      <div className="space-y-2">
+   565→                        <Label className="text-sm font-semibold">Title *</Label>
+   566→                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newMilestone.title} onChange={e => setNewMilestone(d => ({ ...d, title: e.target.value }))} />
+   567→                      </div>
+   568→                      <div className="space-y-2">
+   569→                        <Label className="text-sm font-semibold">Due Date *</Label>
+   570→                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newMilestone.dueDate} onChange={e => setNewMilestone(d => ({ ...d, dueDate: e.target.value }))} />
+   571→                      </div>
+   572→                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddMilestone}>Add Milestone</Button>
+   573→                    </div>
+   574→                  </DialogContent>
+   575→                </Dialog>
+   576→              )}
+   577→            </div>
+   578→
+   579→            {milestones.length === 0 ? (
+   580→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   581→                <CardContent className="p-12 text-center">
+   582→                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-teal flex items-center justify-center">
+   583→                    <Flag className="h-8 w-8 text-white" />
+   584→                  </div>
+   585→                  <h4 className="text-base font-bold text-foreground mb-1">No milestones defined</h4>
+   586→                  <p className="text-sm text-muted-foreground">Add milestones to track key project deliverables.</p>
+   587→                </CardContent>
+   588→              </Card>
+   589→            ) : (
+   590→              <div className="relative pl-8">
+   591→                {/* Vertical connecting line */}
+   592→                <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-border rounded-full" />
+   593→
+   594→                <AnimatePresence>
+   595→                  <div className="space-y-4">
+   596→                    {milestones.map((ms, idx) => {
+   597→                      const isMsOverdue = !ms.completed && isOverdue(ms.dueDate);
+   598→                      const isSoon = !ms.completed && !isMsOverdue && daysUntil(ms.dueDate) <= 7;
+   599→                      const dotColor = ms.completed
+   600→                        ? 'bg-emerald-500 shadow-md shadow-emerald-200'
+   601→                        : isMsOverdue
+   602→                          ? 'bg-rose-500 shadow-md shadow-rose-200'
+   603→                          : isSoon
+   604→                            ? 'bg-amber-500 shadow-md shadow-amber-200'
+   605→                            : 'bg-muted';
+   606→                      const borderColor = ms.completed
+   607→                        ? 'border-emerald-200 bg-emerald-50/50'
+   608→                        : isMsOverdue
+   609→                          ? 'border-rose-200 bg-rose-50/50'
+   610→                          : isSoon
+   611→                            ? 'border-amber-200 bg-amber-50/50'
+   612→                            : 'border-border/60 bg-card';
+   613→
+   614→                      return (
+   615→                        <motion.div
+   616→                          key={ms.id}
+   617→                          initial={{ opacity: 0, x: -12 }}
+   618→                          animate={{ opacity: 1, x: 0 }}
+   619→                          transition={{ delay: idx * 0.06, duration: 0.3 }}
+   620→                        >
+   621→                          <Card className="premium-shadow rounded-xl border-0 overflow-hidden">
+   622→                            <CardContent className={`p-4 border-l-4 ${borderColor} flex items-center justify-between`}>
+   623→                              <div className="flex items-center gap-4">
+   624→                                {/* Timeline dot */}
+   625→                                <div className="absolute left-[8px]">
+   626→                                  <div className={`w-[15px] h-[15px] rounded-full border-2 border-white ${dotColor} z-10`} />
+   627→                                </div>
+   628→                                <button onClick={() => handleToggleMilestone(ms.id, ms.completed)}
+   629→                                  className="w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer hover:border-emerald-400 transition-colors bg-card">
+   630→                                  {ms.completed ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
+   631→                                </button>
+   632→                                <div>
+   633→                                  <p className={`text-sm font-semibold ${ms.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{ms.title}</p>
+   634→                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+   635→                                    <Calendar className="h-3 w-3" /> {new Date(ms.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   636→                                  </p>
+   637→                                </div>
+   638→                              </div>
+   639→                              <div className="flex items-center gap-2">
+   640→                                {isMsOverdue && <Badge className="bg-rose-100 text-rose-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Overdue</Badge>}
+   641→                                {isSoon && <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Due Soon</Badge>}
+   642→                                {ms.completed && <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Complete</Badge>}
+   643→                              </div>
+   644→                            </CardContent>
+   645→                          </Card>
+   646→                        </motion.div>
+   647→                      );
+   648→                    })}
+   649→                  </div>
+   650→                </AnimatePresence>
+   651→              </div>
+   652→            )}
+   653→          </TabsContent>
+   654→
+   655→          {/* ─── Payments Tab ────────────────────────────────────── */}
+   656→          <TabsContent value="payments" className="mt-4">
+   657→            {/* Finance stat cards */}
+   658→            <div className="grid grid-cols-3 gap-4 mb-6">
+   659→              <motion.div whileHover={cardHover}>
+   660→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   661→                  <CardContent className="p-5 flex items-center gap-3">
+   662→                    <div className="p-2.5 rounded-xl gradient-emerald flex-shrink-0 shadow-sm">
+   663→                      <DollarSign className="h-5 w-5 text-white" />
+   664→                    </div>
+   665→                    <div>
+   666→                      <p className="text-2xl font-bold tracking-tight">ETB {totalPaid.toLocaleString()}</p>
+   667→                      <p className="text-xs text-muted-foreground font-medium">Total Paid</p>
+   668→                    </div>
+   669→                  </CardContent>
+   670→                </Card>
+   671→              </motion.div>
+   672→              <motion.div whileHover={cardHover}>
+   673→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   674→                  <CardContent className="p-5 flex items-center gap-3">
+   675→                    <div className="p-2.5 rounded-xl gradient-amber flex-shrink-0 shadow-sm">
+   676→                      <TrendingUp className="h-5 w-5 text-white" />
+   677→                    </div>
+   678→                    <div>
+   679→                      <p className="text-2xl font-bold tracking-tight">ETB {(project.contractValue - totalPaid).toLocaleString()}</p>
+   680→                      <p className="text-xs text-muted-foreground font-medium">Remaining</p>
+   681→                    </div>
+   682→                  </CardContent>
+   683→                </Card>
+   684→              </motion.div>
+   685→              <motion.div whileHover={cardHover}>
+   686→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   687→                  <CardContent className="p-5 flex items-center gap-3">
+   688→                    <div className="p-2.5 rounded-xl gradient-teal flex-shrink-0 shadow-sm">
+   689→                      <CheckCircle2 className="h-5 w-5 text-white" />
+   690→                    </div>
+   691→                    <div>
+   692→                      <p className="text-2xl font-bold tracking-tight">{paymentProgress.toFixed(0)}%</p>
+   693→                      <p className="text-xs text-muted-foreground font-medium">Progress</p>
+   694→                    </div>
+   695→                  </CardContent>
+   696→                </Card>
+   697→              </motion.div>
+   698→            </div>
+   699→
+   700→            {/* Payment Log */}
+   701→            <div className="flex items-center justify-between mb-4">
+   702→              <h3 className="text-lg font-bold text-foreground">Payment Log</h3>
+   703→              {(isAdmin || isTenderOwner) && (
+   704→                <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
+   705→                  <DialogTrigger asChild>
+   706→                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
+   707→                      <Plus className="h-4 w-4 mr-1" /> Log Payment
+   708→                    </Button>
+   709→                  </DialogTrigger>
+   710→                  <DialogContent className="rounded-xl">
+   711→                    <DialogHeader><DialogTitle className="text-lg font-bold">Log Payment</DialogTitle></DialogHeader>
+   712→                    <div className="space-y-4">
+   713→                      <div className="space-y-2">
+   714→                        <Label className="text-sm font-semibold">Amount (ETB) *</Label>
+   715→                        <Input type="number" className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.amount} onChange={e => setNewPayment(d => ({ ...d, amount: e.target.value }))} />
+   716→                      </div>
+   717→                      <div className="space-y-2">
+   718→                        <Label className="text-sm font-semibold">Payment Method</Label>
+   719→                        <Select value={newPayment.paymentMethod} onValueChange={v => setNewPayment(d => ({ ...d, paymentMethod: v }))}>
+   720→                          <SelectTrigger className="rounded-lg"><SelectValue /></SelectTrigger>
+   721→                          <SelectContent>
+   722→                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+   723→                            <SelectItem value="cbe_birr">CBE Birr</SelectItem>
+   724→                            <SelectItem value="cash">Cash</SelectItem>
+   725→                            <SelectItem value="check">Check</SelectItem>
+   726→                          </SelectContent>
+   727→                        </Select>
+   728→                      </div>
+   729→                      <div className="space-y-2">
+   730→                        <Label className="text-sm font-semibold">Reference Number</Label>
+   731→                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.referenceNumber} onChange={e => setNewPayment(d => ({ ...d, referenceNumber: e.target.value }))} />
+   732→                      </div>
+   733→                      <div className="space-y-2">
+   734→                        <Label className="text-sm font-semibold">Payment Date *</Label>
+   735→                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.paymentDate} onChange={e => setNewPayment(d => ({ ...d, paymentDate: e.target.value }))} />
+   736→                      </div>
+   737→                      <div className="space-y-2">
+   738→                        <Label className="text-sm font-semibold">Notes</Label>
+   739→                        <Textarea className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.notes} onChange={e => setNewPayment(d => ({ ...d, notes: e.target.value }))} />
+   740→                      </div>
+   741→                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddPayment}>Log Payment</Button>
+   742→                    </div>
+   743→                  </DialogContent>
+   744→                </Dialog>
+   745→              )}
+   746→            </div>
+   747→
+   748→            {(project.payments || []).length === 0 ? (
+   749→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   750→                <CardContent className="p-12 text-center">
+   751→                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-amber flex items-center justify-center">
+   752→                    <CreditCard className="h-8 w-8 text-white" />
+   753→                  </div>
+   754→                  <h4 className="text-base font-bold text-foreground mb-1">No payments logged yet</h4>
+   755→                  <p className="text-sm text-muted-foreground">Record payments as they are received.</p>
+   756→                </CardContent>
+   757→              </Card>
+   758→            ) : (
+   759→              <div className="space-y-3">
+   760→                <AnimatePresence>
+   761→                  {(project.payments ?? []).map((payment, idx) => {
+   762→                    const methodGradient: Record<string, string> = {
+   763→                      bank_transfer: 'gradient-teal',
+   764→                      cbe_birr: 'gradient-emerald',
+   765→                      cash: 'gradient-amber',
+   766→                      check: 'gradient-rose',
+   767→                    };
+   768→                    const methodIcon: Record<string, React.ElementType> = {
+   769→                      bank_transfer: DollarSign,
+   770→                      cbe_birr: Zap,
+   771→                      cash: CreditCard,
+   772→                      check: ArrowRight,
+   773→                    };
+   774→                    const g = methodGradient[payment.paymentMethod] || 'gradient-emerald';
+   775→                    const MIcon = methodIcon[payment.paymentMethod] || CreditCard;
+   776→                    return (
+   777→                      <motion.div
+   778→                        key={payment.id}
+   779→                        initial={{ opacity: 0, y: 8 }}
+   780→                        animate={{ opacity: 1, y: 0 }}
+   781→                        transition={{ delay: idx * 0.05, duration: 0.3 }}
+   782→                        whileHover={{ y: -2, transition: { duration: 0.15 } }}
+   783→                      >
+   784→                        <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200">
+   785→                          <CardContent className="p-4 flex items-center justify-between">
+   786→                            <div className="flex items-center gap-3">
+   787→                              <div className={`w-10 h-10 rounded-xl ${g} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+   788→                                <MIcon className="h-5 w-5 text-white" />
+   789→                              </div>
+   790→                              <div>
+   791→                                <p className="font-bold text-sm">ETB {payment.amount.toLocaleString()}</p>
+   792→                                <p className="text-xs text-muted-foreground mt-0.5">
+   793→                                  {payment.paymentMethod.replace('_', ' ')} &middot; {new Date(payment.paymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   794→                                </p>
+   795→                                {payment.referenceNumber && (
+   796→                                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">Ref: {payment.referenceNumber}</p>
+   797→                                )}
+   798→                                {payment.notes && <p className="text-xs text-muted-foreground mt-1 italic">{payment.notes}</p>}
+   799→                              </div>
+   800→                            </div>
+   801→                            <Badge className="text-[10px] px-1.5 py-0 border-0 font-semibold bg-emerald-50 text-emerald-700">
+   802→                              {payment.paymentMethod.replace('_', ' ')}
+   803→                            </Badge>
+   804→                          </CardContent>
+   805→                        </Card>
+   806→                      </motion.div>
+   807→                    );
+   808→                  })}
+   809→                </AnimatePresence>
+   810→              </div>
+   811→            )}
+   812→          </TabsContent>
+   813→        </Tabs>
+   814→      </motion.div>
+   815→    </motion.div>
+   816→  );
+   817→}
+   818→
+   819→function KanbanColumn({ title, icon, tasks, colorTheme, onMoveTask, moveLabel, moveIcon }: {
+   820→  title: string; icon: React.ReactNode; tasks: Task[]; colorTheme: string;
+   821→  onMoveTask: (id: string) => void; moveLabel: string; moveIcon?: React.ReactNode;
+   822→}) {
+   823→  const themeStyles: Record<string, { headerBg: string; headerText: string; cardBg: string; dotColor: string }> = {
+   824→    slate: { headerBg: 'bg-muted/50', headerText: 'text-foreground', cardBg: 'bg-card hover:bg-muted/50', dotColor: 'bg-muted-foreground/50' },
+   825→    amber: { headerBg: 'bg-amber-50', headerText: 'text-amber-700', cardBg: 'bg-card hover:bg-amber-50/50', dotColor: 'bg-amber-500' },
+   826→    emerald: { headerBg: 'bg-emerald-50', headerText: 'text-emerald-700', cardBg: 'bg-card hover:bg-primary/10', dotColor: 'bg-emerald-500' },
+   827→  };
+   828→  const theme = themeStyles[colorTheme] || themeStyles.slate;
+   829→
+   830→  return (
+   831→    <Card className="premium-shadow rounded-xl border-0 bg-card/80 overflow-hidden">
+   832→      <div className={`px-4 py-3 ${theme.headerBg} border-b border-border/30`}>
+   833→        <div className="flex items-center gap-2">
+   834→          <span className={theme.headerText}>{icon}</span>
+   835→          <CardTitle className={`text-sm font-semibold ${theme.headerText}`}>{title}</CardTitle>
+   836→          <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto border-0 bg-card/60 font-semibold">
+   837→            {tasks.length}
+   838→          </Badge>
+   839→        </div>
+   840→      </div>
+   841→      <CardContent className="p-3 space-y-2.5 max-h-96 overflow-y-auto">
+   842→        {tasks.length === 0 ? (
+   843→          <div className="py-8 text-center">
+   844→            <div className={`w-8 h-8 mx-auto mb-2 rounded-full ${theme.headerBg} flex items-center justify-center`}>
+   845→              <span className={`w-2 h-2 rounded-full ${theme.dotColor}`} />
+   846→            </div>
+   847→            <p className="text-xs text-muted-foreground">No tasks</p>
+   848→          </div>
+   849→        ) : (
+   850→          <AnimatePresence>
+   851→            {tasks.map((task, idx) => (
+   852→              <motion.div
+   853→                key={task.id}
+   854→                initial={{ opacity: 0, y: 8 }}
+   855→                animate={{ opacity: 1, y: 0 }}
+   856→                transition={{ delay: idx * 0.05, duration: 0.25 }}
+   857→                className={`${theme.cardBg} rounded-xl p-3.5 space-y-2.5 premium-shadow transition-all duration-200 border border-border/30`}
+   858→              >
+   859→                <div className="flex items-start gap-2">
+   860→                  <span className={`w-2 h-2 rounded-full ${theme.dotColor} mt-1.5 flex-shrink-0`} />
+   861→                  <p className="text-sm font-medium text-foreground">{task.title}</p>
+   862→                </div>
+   863→                {task.description && <p className="text-xs text-muted-foreground line-clamp-2 ml-4">{task.description}</p>}
+   864→                {task.dueDate && (
+   865→                  <div className="flex items-center justify-between ml-4">
+   866→                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+   867→                      <Calendar className="h-3 w-3" /> {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+   868→                    </p>
+   869→                    {task.status !== 'done' && isOverdue(task.dueDate) && (
+   870→                      <Badge className="text-[10px] px-1 py-0 border-0 bg-rose-100 text-rose-700 font-semibold">Overdue</Badge>
+   871→                    )}
+   872→                  </div>
+   873→                )}
+   874→                <Button
+   875→                  size="sm"
+   876→                  variant="ghost"
+   877→                  className="w-full text-xs h-7 rounded-lg hover:bg-primary/10 hover:text-emerald-700 transition-colors font-medium"
+   878→                  onClick={() => onMoveTask(task.id)}
+   879→                >
+   880→                  {moveIcon} <span className="ml-1">{moveLabel}</span>
+   881→                </Button>
+   882→              </motion.div>
+   883→            ))}
+   884→          </AnimatePresence>
+   885→        )}
+   886→      </CardContent>
+   887→    </Card>
+   888→  );
+   889→}
+   890→

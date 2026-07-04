@@ -1,0 +1,623 @@
+    80→   129→   129→      setShowAddPayment(false);
+    81→   130→   130→      setNewPayment({ amount: '', paymentMethod: 'bank_transfer', referenceNumber: '', notes: '', paymentDate: '' });
+    82→   131→   131→      loadProject();
+    83→   132→   132→    } else toast.error(res.error || 'Failed to log payment');
+    84→   133→   133→  };
+    85→   134→   134→
+    86→   135→   135→  const totalPaid = project?.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+    87→   136→   136→  const paymentProgress = project?.contractValue ? Math.min((totalPaid / project.contractValue) * 100, 100) : 0;
+    88→   137→   137→
+    89→   138→   138→  const statusConfig = (status: string) => {
+    90→   139→   139→    switch (status) {
+    91→   140→   140→      case 'active': return { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500', gradient: 'gradient-emerald', label: 'Active' };
+    92→   141→   141→      case 'completed': return { bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500', gradient: 'gradient-teal', label: 'Completed' };
+    93→   142→   142→      case 'on_hold': return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500', gradient: 'gradient-amber', label: 'On Hold' };
+    94→   143→   143→      case 'cancelled': return { bg: 'bg-rose-100', text: 'text-rose-700', dot: 'bg-rose-500', gradient: 'gradient-rose', label: 'Cancelled' };
+    95→   144→   144→      default: return { bg: 'bg-muted', text: 'text-foreground', dot: 'bg-muted/500', gradient: 'gradient-emerald', label: status };
+    96→   145→   145→    }
+    97→   146→   146→  };
+    98→   147→   147→
+    99→   148→   148→  if (loading) {
+   100→   149→   149→    return (
+   101→   150→   150→      <div className="p-6 space-y-4 max-w-6xl mx-auto">
+   102→   151→   151→        <div className="h-8 bg-muted rounded-xl w-1/3 animate-pulse" />
+   103→   152→   152→        <div className="h-40 bg-muted rounded-xl animate-pulse premium-shadow" />
+   104→   153→   153→        <div className="h-64 bg-muted rounded-xl animate-pulse premium-shadow" />
+   105→   154→   154→      </div>
+   106→   155→   155→    );
+   107→   156→   156→  }
+   108→   157→   157→
+   109→   158→   158→  if (!project) {
+   110→   159→   159→    return (
+   111→   160→   160→      <div className="p-6 text-center view-enter">
+   112→   161→   161→        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-rose flex items-center justify-center">
+   113→   162→   162→          <AlertTriangle className="h-8 w-8 text-white" />
+   114→   163→   163→        </div>
+   115→   164→   164→        <h3 className="text-lg font-bold text-foreground mb-2">Project not found</h3>
+   116→   165→   165→        <p className="text-muted-foreground text-sm mb-4">The project you are looking for does not exist or you do not have access.</p>
+   117→   166→   166→        <Button
+   118→   167→   167→          className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow"
+   119→   168→   168→          onClick={() => setView('projects')}
+   120→   169→   169→        >
+   121→   170→   170→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
+   122→   171→   171→        </Button>
+   123→   172→   172→      </div>
+   124→   173→   173→    );
+   125→   174→   174→  }
+   126→   175→   175→
+   127→   176→   176→  const tasks = project.tasks || [];
+   128→   177→   177→  const todoTasks = tasks.filter(t => t.status === 'todo');
+   129→   178→   178→  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+   130→   179→   179→  const doneTasks = tasks.filter(t => t.status === 'done');
+   131→   180→   180→  const taskProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
+   132→   181→   181→  const milestones = project.milestones || [];
+   133→   182→   182→  const completedMilestones = milestones.filter(m => m.completed).length;
+   134→   183→   183→  const milestoneProgress = milestones.length > 0 ? Math.round((completedMilestones / milestones.length) * 100) : 0;
+   135→   184→   184→  const nextMilestone = milestones.filter(m => !m.completed).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+   136→   185→   185→
+   137→   186→   186→  const sc = statusConfig(project.status);
+   138→   187→   187→  const isAdmin = user?.role === 'admin';
+   139→   188→   188→  const isTenderOwner = user?.role === 'tender_owner';
+   140→   189→   189→
+   141→   190→   190→  return (
+   142→   191→   191→    <motion.div
+   143→   192→   192→      className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto"
+   144→   193→   193→      variants={containerVariants}
+   145→   194→   194→      initial="hidden"
+   146→   195→   195→      animate="visible"
+   147→   196→   196→    >
+   148→   197→   197→      {/* Back button */}
+   149→   198→   198→      <motion.div variants={itemVariants}>
+   150→   199→   199→        <Button
+   151→   200→   200→          variant="ghost"
+   152→   201→   201→          onClick={() => setView('projects')}
+   153→   202→   202→          className="text-muted-foreground hover:text-emerald-700 hover:bg-primary/10 -ml-2"
+   154→   203→   203→        >
+   155→   204→   204→          <ArrowLeft className="h-4 w-4 mr-1" /> Back to Projects
+   156→   205→   205→        </Button>
+   157→   206→   206→      </motion.div>
+   158→   207→   207→
+   159→   208→   208→      {/* Project Header Card */}
+   160→   209→   209→      <motion.div variants={itemVariants}>
+   161→   210→   210→        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
+   162→   211→   211→          {/* Gradient top bar */}
+   163→   212→   212→          <div className={`h-1.5 ${sc.gradient}`} />
+   164→   213→   213→          <CardContent className="p-6">
+   165→   214→   214→            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+   166→   215→   215→              <div className="flex items-start gap-4">
+   167→   216→   216→                <div className={`w-14 h-14 rounded-2xl ${sc.gradient} flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-200/30`}>
+   168→   217→   217→                  <FolderKanban className="h-7 w-7 text-white" />
+   169→   218→   218→                </div>
+   170→   219→   219→                <div>
+   171→   220→   220→                  <h2 className="text-2xl font-bold tracking-tight">{project.tender?.title || 'Project'}</h2>
+   172→   221→   221→                  <p className="text-sm text-muted-foreground mt-1">
+   173→   222→   222→                    Contractor: {project.bid?.user?.profile?.fullName || 'Assigned'} &middot; Timeline: {project.bid?.timeline || 'N/A'}
+   174→   223→   223→                  </p>
+   175→   224→   224→                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+   176→   225→   225→                    <Badge className={`text-xs px-2.5 py-0.5 border-0 font-semibold ${sc.bg} ${sc.text}`}>
+   177→   226→   226→                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} mr-1.5 inline-block`} />
+   178→   227→   227→                      {sc.label}
+   179→   228→   228→                    </Badge>
+   180→   229→   229→                    <Badge className="text-xs px-2.5 py-0.5 border-0 font-semibold bg-emerald-50 text-emerald-700">
+   181→   230→   230→                      <DollarSign className="h-3 w-3 mr-1" /> ETB {project.contractValue.toLocaleString()}
+   182→   231→   231→                    </Badge>
+   183→   232→   232→                    {project.tender?.categoryTags && project.tender.categoryTags.split(',').filter(Boolean).map((tag: string) => (
+   184→   233→   233→                      <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-medium">
+   185→   234→   234→                        {tag.trim()}
+   186→   235→   235→                      </Badge>
+   187→   236→   236→                    ))}
+   188→   237→   237→                  </div>
+   189→   238→   238→                </div>
+   190→   239→   239→              </div>
+   191→   240→   240→              <Button
+   192→   241→   241→                className="gradient-emerald hover:opacity-90 text-white rounded-xl px-4 premium-shadow transition-all hover:-translate-y-0.5 flex-shrink-0"
+   193→   242→   242→                onClick={() => setView('chat', { id: project.chat?.id || '' })}
+   194→   243→   243→              >
+   195→   244→   244→                <MessageSquare className="h-4 w-4 mr-2" /> Chat
+   196→   245→   245→              </Button>
+   197→   246→   246→            </div>
+   198→   247→   247→
+   199→   248→   248→            {/* Payment Progress */}
+   200→   249→   249→            <div className="mt-6 pt-5 border-t border-border/50">
+   201→   250→   250→              <div className="flex items-center justify-between mb-2">
+   202→   251→   251→                <p className="text-sm font-semibold text-foreground">Payment Progress</p>
+   203→   252→   252→                <p className="text-sm text-muted-foreground">
+   204→   253→   253→                  <span className="font-bold text-emerald-600">ETB {totalPaid.toLocaleString()}</span>
+   205→   254→   254→                  {' / '}ETB {project.contractValue.toLocaleString()} ({paymentProgress.toFixed(0)}%)
+   206→   255→   255→                </p>
+   207→   256→   256→              </div>
+   208→   257→   257→              <div className="h-3 bg-muted rounded-full overflow-hidden">
+   209→   258→   258→                <div
+   210→   259→   259→                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700"
+   211→   260→   260→                  style={{ width: `${paymentProgress}%` }}
+   212→   261→   261→                />
+   213→   262→   262→              </div>
+   214→   263→   263→            </div>
+   215→   264→   264→          </CardContent>
+   216→   265→   265→        </Card>
+   217→   266→   266→      </motion.div>
+   218→   267→   267→
+   219→   268→   268→      {/* Tabs */}
+   220→   269→   269→      <motion.div variants={itemVariants}>
+   221→   270→   270→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   222→   271→   271→          <TabsList className="bg-card premium-shadow rounded-xl border-0 h-11 p-1 gap-1">
+   223→   272→   272→            <TabsTrigger
+   224→   273→   273→              value="overview"
+   225→   274→   274→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
+   226→   275→   275→            >
+   227→   276→   276→              <BarChart3 className="h-3.5 w-3.5 mr-1.5" /> Overview
+   228→   277→   277→            </TabsTrigger>
+   229→   278→   278→            <TabsTrigger
+   230→   279→   279→              value="tasks"
+   231→   280→   280→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
+   232→   281→   281→            >
+   233→   282→   282→              <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Tasks
+   234→   283→   283→            </TabsTrigger>
+   235→   284→   284→            <TabsTrigger
+   236→   285→   285→              value="milestones"
+   237→   286→   286→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
+   238→   287→   287→            >
+   239→   288→   288→              <Flag className="h-3.5 w-3.5 mr-1.5" /> Milestones
+   240→   289→   289→            </TabsTrigger>
+   241→   290→   290→            <TabsTrigger
+   242→   291→   291→              value="payments"
+   243→   292→   292→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
+   244→   293→   293→            >
+   245→   294→   294→              <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Payments
+   246→   295→   295→            </TabsTrigger>
+   247→   296→   296→          </TabsList>
+   248→   297→   297→
+   249→   298→   298→          {/* ─── Overview Tab ─────────────────────────────────────────── */}
+   250→   299→   299→          <TabsContent value="overview" className="mt-4">
+   251→   300→   300→            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+   252→   301→   301→              <motion.div whileHover={cardHover}>
+   253→   302→   302→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   254→   303→   303→                  <CardContent className="p-5">
+   255→   304→   304→                    <div className="flex items-start justify-between mb-3">
+   256→   305→   305→                      <div className="p-2.5 rounded-xl gradient-emerald shadow-sm">
+   257→   306→   306→                        <DollarSign className="h-5 w-5 text-white" />
+   258→   307→   307→                      </div>
+   259→   308→   308→                    </div>
+   260→   309→   309→                    <p className="text-2xl font-bold tracking-tight">ETB {project.contractValue.toLocaleString()}</p>
+   261→   310→   310→                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Contract Value</p>
+   262→   311→   311→                  </CardContent>
+   263→   312→   312→                </Card>
+   264→   313→   313→              </motion.div>
+   265→   314→   314→
+   266→   315→   315→              <motion.div whileHover={cardHover}>
+   267→   316→   316→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   268→   317→   317→                  <CardContent className="p-5">
+   269→   318→   318→                    <div className="flex items-start justify-between mb-3">
+   270→   319→   319→                      <div className="p-2.5 rounded-xl gradient-teal shadow-sm">
+   271→   320→   320→                        <Target className="h-5 w-5 text-white" />
+   272→   321→   321→                      </div>
+   273→   322→   322→                      <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-semibold">
+   274→   323→   323→                        {taskProgress}%
+   275→   324→   324→                      </Badge>
+   276→   325→   325→                    </div>
+   277→   326→   326→                    <p className="text-2xl font-bold tracking-tight">{doneTasks.length}<span className="text-muted-foreground/40 text-lg font-normal">/{tasks.length}</span></p>
+   278→   327→   327→                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Tasks Completed</p>
+   279→   328→   328→                  </CardContent>
+   280→   329→   329→                </Card>
+   281→   330→   330→              </motion.div>
+   282→   331→   331→
+   283→   332→   332→              <motion.div whileHover={cardHover}>
+   284→   333→   333→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   285→   334→   334→                  <CardContent className="p-5">
+   286→   335→   335→                    <div className="flex items-start justify-between mb-3">
+   287→   336→   336→                      <div className="p-2.5 rounded-xl gradient-amber shadow-sm">
+   288→   337→   337→                        <Flag className="h-5 w-5 text-white" />
+   289→   338→   338→                      </div>
+   290→   339→   339→                      <Badge className="text-[10px] px-1.5 py-0 border-0 bg-amber-50 text-amber-700 font-semibold">
+   291→   340→   340→                        {milestoneProgress}%
+   292→   341→   341→                      </Badge>
+   293→   342→   342→                    </div>
+   294→   343→   343→                    <p className="text-2xl font-bold tracking-tight">{completedMilestones}<span className="text-muted-foreground/40 text-lg font-normal">/{milestones.length}</span></p>
+   295→   344→   344→                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Milestones Done</p>
+   296→   345→   345→                  </CardContent>
+   297→   346→   346→                </Card>
+   298→   347→   347→              </motion.div>
+   299→   348→   348→
+   300→   349→   349→              <motion.div whileHover={cardHover}>
+   301→   350→   350→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   302→   351→   351→                  <CardContent className="p-5">
+   303→   352→   352→                    <div className="flex items-start justify-between mb-3">
+   304→   353→   353→                      <div className="p-2.5 rounded-xl gradient-rose shadow-sm">
+   305→   354→   354→                        <Users className="h-5 w-5 text-white" />
+   306→   355→   355→                      </div>
+   307→   356→   356→                    </div>
+   308→   357→   357→                    <p className="text-sm font-bold tracking-tight">{project.bid?.user?.profile?.fullName || 'Assigned'}</p>
+   309→   358→   358→                    <p className="text-xs text-muted-foreground font-medium mt-0.5">{project.bid?.user?.profile?.companyName || 'Contractor'}</p>
+   310→   359→   359→                    <p className="text-xs text-muted-foreground mt-1">{project.bid?.timeline || 'N/A'} timeline</p>
+   311→   360→   360→                  </CardContent>
+   312→   361→   361→                </Card>
+   313→   362→   362→              </motion.div>
+   314→   363→   363→            </div>
+   315→   364→   364→
+   316→   365→   365→            {/* Task & Milestone Progress Row */}
+   317→   366→   366→            <div className="grid md:grid-cols-2 gap-4 mb-6">
+   318→   367→   367→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   319→   368→   368→                <CardHeader className="pb-2">
+   320→   369→   369→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   321→   370→   370→                    <div className="p-1.5 rounded-lg gradient-emerald">
+   322→   371→   371→                      <ListChecks className="h-3.5 w-3.5 text-white" />
+   323→   372→   372→                    </div>
+   324→   373→   373→                    Task Breakdown
+   325→   374→   374→                  </CardTitle>
+   326→   375→   375→                </CardHeader>
+   327→   376→   376→                <CardContent>
+   328→   377→   377→                  <div className="space-y-3">
+   329→   378→   378→                    <div className="flex items-center justify-between">
+   330→   379→   379→                      <div className="flex items-center gap-2">
+   331→   380→   380→                        <div className="w-3 h-3 rounded-sm bg-muted" />
+   332→   381→   381→                        <span className="text-sm">To Do</span>
+   333→   382→   382→                      </div>
+   334→   383→   383→                      <span className="text-sm font-bold">{todoTasks.length}</span>
+   335→   384→   384→                    </div>
+   336→   385→   385→                    <div className="flex items-center justify-between">
+   337→   386→   386→                      <div className="flex items-center gap-2">
+   338→   387→   387→                        <div className="w-3 h-3 rounded-sm bg-amber-400" />
+   339→   388→   388→                        <span className="text-sm">In Progress</span>
+   340→   389→   389→                      </div>
+   341→   390→   390→                      <span className="text-sm font-bold">{inProgressTasks.length}</span>
+   342→   391→   391→                    </div>
+   343→   392→   392→                    <div className="flex items-center justify-between">
+   344→   393→   393→                      <div className="flex items-center gap-2">
+   345→   394→   394→                        <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+   346→   395→   395→                        <span className="text-sm">Done</span>
+   347→   396→   396→                      </div>
+   348→   397→   397→                      <span className="text-sm font-bold">{doneTasks.length}</span>
+   349→   398→   398→                    </div>
+   350→   399→   399→                    {/* Visual bar */}
+   351→   400→   400→                    <div className="flex h-3 rounded-full overflow-hidden bg-muted mt-2">
+   352→   401→   401→                      {tasks.length > 0 && (
+   353→   402→   402→                        <>
+   354→   403→   403→                          <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${(doneTasks.length / tasks.length) * 100}%` }} />
+   355→   404→   404→                          <div className="bg-amber-400 transition-all duration-500" style={{ width: `${(inProgressTasks.length / tasks.length) * 100}%` }} />
+   356→   405→   405→                          <div className="bg-muted transition-all duration-500" style={{ width: `${(todoTasks.length / tasks.length) * 100}%` }} />
+   357→   406→   406→                        </>
+   358→   407→   407→                      )}
+   359→   408→   408→                    </div>
+   360→   409→   409→                  </div>
+   361→   410→   410→                </CardContent>
+   362→   411→   411→              </Card>
+   363→   412→   412→
+   364→   413→   413→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   365→   414→   414→                <CardHeader className="pb-2">
+   366→   415→   415→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   367→   416→   416→                    <div className="p-1.5 rounded-lg gradient-amber">
+   368→   417→   417→                      <Flag className="h-3.5 w-3.5 text-white" />
+   369→   418→   418→                    </div>
+   370→   419→   419→                    Next Up
+   371→   420→   420→                  </CardTitle>
+   372→   421→   421→                </CardHeader>
+   373→   422→   422→                <CardContent>
+   374→   423→   423→                  {nextMilestone ? (
+   375→   424→   424→                    <div className="space-y-3">
+   376→   425→   425→                      <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+   377→   426→   426→                        <div className="p-2 rounded-lg gradient-amber shadow-sm">
+   378→   427→   427→                          <Flag className="h-4 w-4 text-white" />
+   379→   428→   428→                        </div>
+   380→   429→   429→                        <div className="min-w-0 flex-1">
+   381→   430→   430→                          <p className="text-sm font-semibold">{nextMilestone.title}</p>
+   382→   431→   431→                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+   383→   432→   432→                            <Calendar className="h-3 w-3" />
+   384→   433→   433→                            {new Date(nextMilestone.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   385→   434→   434→                          </p>
+   386→   435→   435→                        </div>
+   387→   436→   436→                        <Badge className={`text-[10px] px-1.5 py-0 border-0 font-semibold ${
+   388→   437→   437→                          isOverdue(nextMilestone.dueDate) ? 'bg-rose-100 text-rose-700' :
+   389→   438→   438→                          daysUntil(nextMilestone.dueDate) <= 7 ? 'bg-amber-100 text-amber-700' :
+   390→   439→   439→                          'bg-emerald-100 text-emerald-700'
+   391→   440→   440→                        }`}>
+   392→   441→   441→                          {isOverdue(nextMilestone.dueDate) ? 'Overdue' : `${daysUntil(nextMilestone.dueDate)}d left`}
+   393→   442→   442→                        </Badge>
+   394→   443→   443→                      </div>
+   395→   444→   444→                    </div>
+   396→   445→   445→                  ) : (
+   397→   446→   446→                    <div className="text-center py-6">
+   398→   447→   447→                      <div className="w-10 h-10 mx-auto mb-2 rounded-xl gradient-teal flex items-center justify-center">
+   399→   448→   448→                        <CheckCircle2 className="h-5 w-5 text-white" />
+   400→   449→   449→                      </div>
+   401→   450→   450→                      <p className="text-sm font-medium text-muted-foreground">All milestones completed!</p>
+   402→   451→   451→                    </div>
+   403→   452→   452→                  )}
+   404→   453→   453→
+   405→   454→   454→                  {/* Overdue tasks warning */}
+   406→   455→   455→                  {tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length > 0 && (
+   407→   456→   456→                    <div className="mt-3 p-2.5 rounded-lg bg-rose-50 border border-rose-100 flex items-center gap-2">
+   408→   457→   457→                      <AlertTriangle className="h-3.5 w-3.5 text-rose-500 flex-shrink-0" />
+   409→   458→   458→                      <p className="text-[11px] text-rose-700 font-medium">
+   410→   459→   459→                        {tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length} overdue task{tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length !== 1 ? 's' : ''}
+   411→   460→   460→                      </p>
+   412→   461→   461→                    </div>
+   413→   462→   462→                  )}
+   414→   463→   463→                </CardContent>
+   415→   464→   464→              </Card>
+   416→   465→   465→            </div>
+   417→   466→   466→
+   418→   467→   467→            {/* Payment Summary */}
+   419→   468→   468→            <Card className="premium-shadow rounded-xl border-0 bg-card">
+   420→   469→   469→              <CardHeader className="pb-2">
+   421→   470→   470→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   422→   471→   471→                  <div className="p-1.5 rounded-lg gradient-rose">
+   423→   472→   472→                    <CreditCard className="h-3.5 w-3.5 text-white" />
+   424→   473→   473→                  </div>
+   425→   474→   474→                  Payment Summary
+   426→   475→   475→                </CardTitle>
+   427→   476→   476→              </CardHeader>
+   428→   477→   477→              <CardContent>
+   429→   478→   478→                <div className="grid grid-cols-3 gap-4 mb-4">
+   430→   479→   479→                  <div className="p-3 rounded-xl bg-emerald-50/50 text-center">
+   431→   480→   480→                    <p className="text-lg font-bold text-emerald-700">{formatETB(totalPaid)}</p>
+   432→   481→   481→                    <p className="text-[11px] text-muted-foreground font-medium">Paid</p>
+   433→   482→   482→                  </div>
+   434→   483→   483→                  <div className="p-3 rounded-xl bg-amber-50/50 text-center">
+   435→   484→   484→                    <p className="text-lg font-bold text-amber-700">{formatETB(project.contractValue - totalPaid)}</p>
+   436→   485→   485→                    <p className="text-[11px] text-muted-foreground font-medium">Remaining</p>
+   437→   486→   486→                  </div>
+   438→   487→   487→                  <div className="p-3 rounded-xl bg-teal-50/50 text-center">
+   439→   488→   488→                    <p className="text-lg font-bold text-teal-700">{project.payments?.length || 0}</p>
+   440→   489→   489→                    <p className="text-[11px] text-muted-foreground font-medium">Payments</p>
+   441→   490→   490→                  </div>
+   442→   491→   491→                </div>
+   443→   492→   492→                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+   444→   493→   493→                  <div
+   445→   494→   494→                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700"
+   446→   495→   495→                    style={{ width: `${paymentProgress}%` }}
+   447→   496→   496→                  />
+   448→   497→   497→                </div>
+   449→   498→   498→              </CardContent>
+   450→   499→   499→            </Card>
+   451→   500→   500→          </TabsContent>
+   452→   501→   501→
+   453→   502→   502→          {/* ─── Tasks Tab (Kanban) ──────────────────────────────── */}
+   454→   503→   503→          <TabsContent value="tasks" className="mt-4">
+   455→   504→   504→            <div className="flex items-center justify-between mb-4">
+   456→   505→   505→              <div className="flex items-center gap-3">
+   457→   506→   506→                <h3 className="text-lg font-bold text-foreground">Task Board</h3>
+   458→   507→   507→                <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-emerald-200 text-emerald-700 bg-emerald-50/50">
+   459→   508→   508→                  {taskProgress}% complete
+   460→   509→   509→                </Badge>
+   461→   510→   510→              </div>
+   462→   511→   511→              {isAdmin && (
+   463→   512→   512→                <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
+   464→   513→   513→                  <DialogTrigger asChild>
+   465→   514→   514→                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
+   466→   515→   515→                      <Plus className="h-4 w-4 mr-1" /> Add Task
+   467→   516→   516→                    </Button>
+   468→   517→   517→                  </DialogTrigger>
+   469→   518→   518→                  <DialogContent className="rounded-xl">
+   470→   519→   519→                    <DialogHeader><DialogTitle className="text-lg font-bold">Add New Task</DialogTitle></DialogHeader>
+   471→   520→   520→                    <div className="space-y-4">
+   472→   521→   521→                      <div className="space-y-2">
+   473→   522→   522→                        <Label className="text-sm font-semibold">Title *</Label>
+   474→   523→   523→                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.title} onChange={e => setNewTask(d => ({ ...d, title: e.target.value }))} />
+   475→   524→   524→                      </div>
+   476→   525→   525→                      <div className="space-y-2">
+   477→   526→   526→                        <Label className="text-sm font-semibold">Description</Label>
+   478→   527→   527→                        <Textarea className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.description} onChange={e => setNewTask(d => ({ ...d, description: e.target.value }))} />
+   479→   528→   528→                      </div>
+   480→   529→   529→                      <div className="space-y-2">
+   481→   530→   530→                        <Label className="text-sm font-semibold">Due Date</Label>
+   482→   531→   531→                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.dueDate} onChange={e => setNewTask(d => ({ ...d, dueDate: e.target.value }))} />
+   483→   532→   532→                      </div>
+   484→   533→   533→                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddTask}>Add Task</Button>
+   485→   534→   534→                    </div>
+   486→   535→   535→                  </DialogContent>
+   487→   536→   536→                </Dialog>
+   488→   537→   537→              )}
+   489→   538→   538→            </div>
+   490→   539→   539→
+   491→   540→   540→            <div className="grid md:grid-cols-3 gap-4">
+   492→   541→   541→              <KanbanColumn title="To Do" icon={<Circle className="h-4 w-4" />} tasks={todoTasks}
+   493→   542→   542→                colorTheme="slate" onMoveTask={(id) => handleUpdateTaskStatus(id, 'in_progress')} moveLabel="Start" moveIcon={<ChevronRight className="h-3 w-3" />} />
+   494→   543→   543→              <KanbanColumn title="In Progress" icon={<Clock className="h-4 w-4" />} tasks={inProgressTasks}
+   495→   544→   544→                colorTheme="amber" onMoveTask={(id) => handleUpdateTaskStatus(id, 'done')} moveLabel="Complete" moveIcon={<CheckCircle2 className="h-3 w-3" />} />
+   496→   545→   545→              <KanbanColumn title="Done" icon={<CheckCircle2 className="h-4 w-4" />} tasks={doneTasks}
+   497→   546→   546→                colorTheme="emerald" onMoveTask={(id) => handleUpdateTaskStatus(id, 'todo')} moveLabel="Reopen" moveIcon={<Circle className="h-3 w-3" />} />
+   498→   547→   547→            </div>
+   499→   548→   548→          </TabsContent>
+   500→   549→   549→
+   501→   550→   550→          {/* ─── Milestones Tab (Timeline) ───────────────────────── */}
+   502→   551→   551→          <TabsContent value="milestones" className="mt-4">
+   503→   552→   552→            <div className="flex items-center justify-between mb-4">
+   504→   553→   553→              <h3 className="text-lg font-bold text-foreground">Milestones</h3>
+   505→   554→   554→              {isAdmin && (
+   506→   555→   555→                <Dialog open={showAddMilestone} onOpenChange={setShowAddMilestone}>
+   507→   556→   556→                  <DialogTrigger asChild>
+   508→   557→   557→                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
+   509→   558→   558→                      <Plus className="h-4 w-4 mr-1" /> Add Milestone
+   510→   559→   559→                    </Button>
+   511→   560→   560→                  </DialogTrigger>
+   512→   561→   561→                  <DialogContent className="rounded-xl">
+   513→   562→   562→                    <DialogHeader><DialogTitle className="text-lg font-bold">Add Milestone</DialogTitle></DialogHeader>
+   514→   563→   563→                    <div className="space-y-4">
+   515→   564→   564→                      <div className="space-y-2">
+   516→   565→   565→                        <Label className="text-sm font-semibold">Title *</Label>
+   517→   566→   566→                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newMilestone.title} onChange={e => setNewMilestone(d => ({ ...d, title: e.target.value }))} />
+   518→   567→   567→                      </div>
+   519→   568→   568→                      <div className="space-y-2">
+   520→   569→   569→                        <Label className="text-sm font-semibold">Due Date *</Label>
+   521→   570→   570→                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newMilestone.dueDate} onChange={e => setNewMilestone(d => ({ ...d, dueDate: e.target.value }))} />
+   522→   571→   571→                      </div>
+   523→   572→   572→                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddMilestone}>Add Milestone</Button>
+   524→   573→   573→                    </div>
+   525→   574→   574→                  </DialogContent>
+   526→   575→   575→                </Dialog>
+   527→   576→   576→              )}
+   528→   577→   577→            </div>
+   529→   578→   578→
+   530→   579→   579→            {milestones.length === 0 ? (
+   531→   580→   580→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   532→   581→   581→                <CardContent className="p-12 text-center">
+   533→   582→   582→                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-teal flex items-center justify-center">
+   534→   583→   583→                    <Flag className="h-8 w-8 text-white" />
+   535→   584→   584→                  </div>
+   536→   585→   585→                  <h4 className="text-base font-bold text-foreground mb-1">No milestones defined</h4>
+   537→   586→   586→                  <p className="text-sm text-muted-foreground">Add milestones to track key project deliverables.</p>
+   538→   587→   587→                </CardContent>
+   539→   588→   588→              </Card>
+   540→   589→   589→            ) : (
+   541→   590→   590→              <div className="relative pl-8">
+   542→   591→   591→                {/* Vertical connecting line */}
+   543→   592→   592→                <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-border rounded-full" />
+   544→   593→   593→
+   545→   594→   594→                <AnimatePresence>
+   546→   595→   595→                  <div className="space-y-4">
+   547→   596→   596→                    {milestones.map((ms, idx) => {
+   548→   597→   597→                      const isMsOverdue = !ms.completed && isOverdue(ms.dueDate);
+   549→   598→   598→                      const isSoon = !ms.completed && !isMsOverdue && daysUntil(ms.dueDate) <= 7;
+   550→   599→   599→                      const dotColor = ms.completed
+   551→   600→   600→                        ? 'bg-emerald-500 shadow-md shadow-emerald-200'
+   552→   601→   601→                        : isMsOverdue
+   553→   602→   602→                          ? 'bg-rose-500 shadow-md shadow-rose-200'
+   554→   603→   603→                          : isSoon
+   555→   604→   604→                            ? 'bg-amber-500 shadow-md shadow-amber-200'
+   556→   605→   605→                            : 'bg-muted';
+   557→   606→   606→                      const borderColor = ms.completed
+   558→   607→   607→                        ? 'border-emerald-200 bg-emerald-50/50'
+   559→   608→   608→                        : isMsOverdue
+   560→   609→   609→                          ? 'border-rose-200 bg-rose-50/50'
+   561→   610→   610→                          : isSoon
+   562→   611→   611→                            ? 'border-amber-200 bg-amber-50/50'
+   563→   612→   612→                            : 'border-border/60 bg-card';
+   564→   613→   613→
+   565→   614→   614→                      return (
+   566→   615→   615→                        <motion.div
+   567→   616→   616→                          key={ms.id}
+   568→   617→   617→                          initial={{ opacity: 0, x: -12 }}
+   569→   618→   618→                          animate={{ opacity: 1, x: 0 }}
+   570→   619→   619→                          transition={{ delay: idx * 0.06, duration: 0.3 }}
+   571→   620→   620→                        >
+   572→   621→   621→                          <Card className="premium-shadow rounded-xl border-0 overflow-hidden">
+   573→   622→   622→                            <CardContent className={`p-4 border-l-4 ${borderColor} flex items-center justify-between`}>
+   574→   623→   623→                              <div className="flex items-center gap-4">
+   575→   624→   624→                                {/* Timeline dot */}
+   576→   625→   625→                                <div className="absolute left-[8px]">
+   577→   626→   626→                                  <div className={`w-[15px] h-[15px] rounded-full border-2 border-white ${dotColor} z-10`} />
+   578→   627→   627→                                </div>
+   579→   628→   628→                                <button onClick={() => handleToggleMilestone(ms.id, ms.completed)}
+   580→   629→   629→                                  className="w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer hover:border-emerald-400 transition-colors bg-card">
+   581→   630→   630→                                  {ms.completed ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
+   582→   631→   631→                                </button>
+   583→   632→   632→                                <div>
+   584→   633→   633→                                  <p className={`text-sm font-semibold ${ms.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{ms.title}</p>
+   585→   634→   634→                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+   586→   635→   635→                                    <Calendar className="h-3 w-3" /> {new Date(ms.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   587→   636→   636→                                  </p>
+   588→   637→   637→                                </div>
+   589→   638→   638→                              </div>
+   590→   639→   639→                              <div className="flex items-center gap-2">
+   591→   640→   640→                                {isMsOverdue && <Badge className="bg-rose-100 text-rose-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Overdue</Badge>}
+   592→   641→   641→                                {isSoon && <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Due Soon</Badge>}
+   593→   642→   642→                                {ms.completed && <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Complete</Badge>}
+   594→   643→   643→                              </div>
+   595→   644→   644→                            </CardContent>
+   596→   645→   645→                          </Card>
+   597→   646→   646→                        </motion.div>
+   598→   647→   647→                      );
+   599→   648→   648→                    })}
+   600→   649→   649→                  </div>
+   601→   650→   650→                </AnimatePresence>
+   602→   651→   651→              </div>
+   603→   652→   652→            )}
+   604→   653→   653→          </TabsContent>
+   605→   654→   654→
+   606→   655→   655→          {/* ─── Payments Tab ────────────────────────────────────── */}
+   607→   656→   656→          <TabsContent value="payments" className="mt-4">
+   608→   657→   657→            {/* Finance stat cards */}
+   609→   658→   658→            <div className="grid grid-cols-3 gap-4 mb-6">
+   610→   659→   659→              <motion.div whileHover={cardHover}>
+   611→   660→   660→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   612→   661→   661→                  <CardContent className="p-5 flex items-center gap-3">
+   613→   662→   662→                    <div className="p-2.5 rounded-xl gradient-emerald flex-shrink-0 shadow-sm">
+   614→   663→   663→                      <DollarSign className="h-5 w-5 text-white" />
+   615→   664→   664→                    </div>
+   616→   665→   665→                    <div>
+   617→   666→   666→                      <p className="text-2xl font-bold tracking-tight">ETB {totalPaid.toLocaleString()}</p>
+   618→   667→   667→                      <p className="text-xs text-muted-foreground font-medium">Total Paid</p>
+   619→   668→   668→                    </div>
+   620→   669→   669→                  </CardContent>
+   621→   670→   670→                </Card>
+   622→   671→   671→              </motion.div>
+   623→   672→   672→              <motion.div whileHover={cardHover}>
+   624→   673→   673→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   625→   674→   674→                  <CardContent className="p-5 flex items-center gap-3">
+   626→   675→   675→                    <div className="p-2.5 rounded-xl gradient-amber flex-shrink-0 shadow-sm">
+   627→   676→   676→                      <TrendingUp className="h-5 w-5 text-white" />
+   628→   677→   677→                    </div>
+   629→   678→   678→                    <div>
+   630→   679→   679→                      <p className="text-2xl font-bold tracking-tight">ETB {(project.contractValue - totalPaid).toLocaleString()}</p>
+   631→   680→   680→                      <p className="text-xs text-muted-foreground font-medium">Remaining</p>
+   632→   681→   681→                    </div>
+   633→   682→   682→                  </CardContent>
+   634→   683→   683→                </Card>
+   635→   684→   684→              </motion.div>
+   636→   685→   685→              <motion.div whileHover={cardHover}>
+   637→   686→   686→                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   638→   687→   687→                  <CardContent className="p-5 flex items-center gap-3">
+   639→   688→   688→                    <div className="p-2.5 rounded-xl gradient-teal flex-shrink-0 shadow-sm">
+   640→   689→   689→                      <CheckCircle2 className="h-5 w-5 text-white" />
+   641→   690→   690→                    </div>
+   642→   691→   691→                    <div>
+   643→   692→   692→                      <p className="text-2xl font-bold tracking-tight">{paymentProgress.toFixed(0)}%</p>
+   644→   693→   693→                      <p className="text-xs text-muted-foreground font-medium">Progress</p>
+   645→   694→   694→                    </div>
+   646→   695→   695→                  </CardContent>
+   647→   696→   696→                </Card>
+   648→   697→   697→              </motion.div>
+   649→   698→   698→            </div>
+   650→   699→   699→
+   651→   700→   700→            {/* Payment Log */}
+   652→   701→   701→            <div className="flex items-center justify-between mb-4">
+   653→   702→   702→              <h3 className="text-lg font-bold text-foreground">Payment Log</h3>
+   654→   703→   703→              {(isAdmin || isTenderOwner) && (
+   655→   704→   704→                <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
+   656→   705→   705→                  <DialogTrigger asChild>
+   657→   706→   706→                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
+   658→   707→   707→                      <Plus className="h-4 w-4 mr-1" /> Log Payment
+   659→   708→   708→                    </Button>
+   660→   709→   709→                  </DialogTrigger>
+   661→   710→   710→                  <DialogContent className="rounded-xl">
+   662→   711→   711→                    <DialogHeader><DialogTitle className="text-lg font-bold">Log Payment</DialogTitle></DialogHeader>
+   663→   712→   712→                    <div className="space-y-4">
+   664→   713→   713→                      <div className="space-y-2">
+   665→   714→   714→                        <Label className="text-sm font-semibold">Amount (ETB) *</Label>
+   666→   715→   715→                        <Input type="number" className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.amount} onChange={e => setNewPayment(d => ({ ...d, amount: e.target.value }))} />
+   667→   716→   716→                      </div>
+   668→   717→   717→                      <div className="space-y-2">
+   669→   718→   718→                        <Label className="text-sm font-semibold">Payment Method</Label>
+   670→   719→   719→                        <Select value={newPayment.paymentMethod} onValueChange={v => setNewPayment(d => ({ ...d, paymentMethod: v }))}>
+   671→   720→   720→                          <SelectTrigger className="rounded-lg"><SelectValue /></SelectTrigger>
+   672→   721→   721→                          <SelectContent>
+   673→   722→   722→                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+   674→   723→   723→                            <SelectItem value="cbe_birr">CBE Birr</SelectItem>
+   675→   724→   724→                            <SelectItem value="cash">Cash</SelectItem>
+   676→   725→   725→                            <SelectItem value="check">Check</SelectItem>
+   677→   726→   726→                          </SelectContent>
+   678→   727→   727→                        </Select>
+   679→   728→   728→                      </div>
+   680→   729→   729→                      <div className="space-y-2">
+   681→   730→   730→                        <Label className="text-sm font-semibold">Reference Number</Label>
+   682→   731→   731→                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.referenceNumber} onChange={e => setNewPayment(d => ({ ...d, referenceNumber: e.target.value }))} />
+   683→   732→   732→                      </div>
+   684→   733→   733→                      <div className="space-y-2">
+   685→   734→   734→                        <Label className="text-sm font-semibold">Payment Date *</Label>
+   686→   735→   735→                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.paymentDate} onChange={e => setNewPayment(d => ({ ...d, paymentDate: e.target.value }))} />
+   687→   736→   736→                      </div>
+   688→   737→   737→                      <div className="space-y-2">
+   689→   738→   738→                        <Label className="text-sm font-semibold">Notes</Label>
+   690→   739→   739→                        <Textarea className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.notes} onChange={e => setNewPayment(d => ({ ...d, notes: e.target.value }))} />
+   691→   740→   740→                      </div>
+   692→   741→   741→                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddPayment}>Log Payment</Button>
+   693→   742→   742→                    </div>
+   694→   743→   743→                  </DialogContent>
+   695→   744→   744→                </Dialog>
+   696→   745→   745→              )}
+   697→   746→   746→            </div>
+   698→   747→   747→
+   699→   748→   748→            {(project.payments || []).length === 0 ? (
+   700→   749→   749→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   701→
+   702→[showing lines 50-749 of 890; use offset=750 with limit to continue reading]
