@@ -125,3 +125,71 @@ Stage Summary:
 - Projects module redesigned with GoodDay.work-style Board (Kanban), List, and Timeline views
 - Project detail redesigned with Kanban task board, Gantt timeline, and GoodDay-style layout
 - All lint checks pass, dev server compiles successfully
+
+---
+Task ID: 2-Expand
+Agent: Main Agent
+Task: Expand external tender API integration with 4 new data sources and massive sector-specific curated data
+
+Work Log:
+
+### 1. Added 4 New Data Sources to DATA_SOURCES and external-tenders.ts
+- **JICA** (Japan International Cooperation Agency) — accent: 'red', live: true — Covers Asian/African development projects (Vietnam metro, Kenya bridge, Bangladesh water, Philippines disaster risk, Tanzania agriculture)
+- **ADB** (Asian Development Bank) — accent: 'cyan', live: true — Covers Asian infrastructure, energy, transport (Uzbekistan railway, Philippines airport, South Asia energy study, Indonesia solar, Myanmar water)
+- **UK Contracts Finder** — accent: 'rose', live: true — UK public sector procurement (NHS imaging, MoD cybersecurity, DfT smart motorway, HMRC cloud migration, Environment Agency flood defence)
+- **DgMarket** (Development Gateway Market) — accent: 'lime', live: true — Global development tenders (West Africa power pool, Latin America health, EBRD waste-to-energy, Sahel irrigation, Central Asia education)
+- Each source has: DATA_SOURCES entry, 5-item curated fallback function, async fetch function with live attempt + fallback
+- All 4 new sources wired into fetchLiveTenders() aggregator
+
+### 2. Added Massive Sector-Specific Curated Data
+- Created `fetchSectorTenders(sector, search?)` exported function returning LiveTender[]
+- Created `SECTOR_IDS`, `SECTOR_META`, `SectorId` type exports
+- Created `getSectorCounts()` helper for meta responses
+- 10 sectors with 10–15 realistic tenders each (120+ total tenders):
+  - **Medical/Healthcare** (15 tenders): MRI/CT scanners, vaccines, telemedicine, hospital construction, lab equipment, health insurance, ambulances, blood bank, radiology, surgical instruments, mental health, dental, EMR, pharma supply chain, surgical robots
+  - **Construction** (15 tenders): expressways, bridge rail links, affordable housing, NEOM towers, schools, hospitals, dams, airports, ports, stadiums, water treatment, sewers, metro tunnels, high-speed rail, industrial parks
+  - **Retail & Consumer** (10 tenders): office supplies, school furniture, uniforms, catering, IT equipment, vending, retail leasing, POS systems, warehouse/logistics, packaging testing
+  - **IT & Technology** (10 tenders): cloud migration, cybersecurity, ERP, e-government, data centers, network upgrades, software licensing, AI/ML, blockchain, IoT
+  - **Energy** (10 tenders): solar PV, wind farms, power transmission, smart grid, smart meters, battery storage, hydroelectric, geothermal, nuclear decommissioning, bioenergy
+  - **Agriculture** (10 tenders): irrigation, fertilizer, farm machinery, cold chain, grain storage, livestock vaccination, agricultural research, canal rehabilitation, seed procurement, pest control
+  - **Education** (10 tenders): school construction, textbooks, e-learning, lab equipment, university ICT, vocational centers, library systems, student management, research equipment, campus security
+  - **Transport** (10 tenders): road maintenance, railway signaling, airport equipment, port cranes, bus fleet, traffic management, bridge inspection, ferry services, metro systems, logistics hubs
+  - **Finance & Banking** (10 tenders): core banking, payment platforms, ATM procurement, cybersecurity audit, fintech sandbox, insurance platform, KYC/AML, mobile banking, trade finance, regulatory reporting
+  - **Telecommunications** (10 tenders): fiber optic, 5G infrastructure, rural broadband, satellite comms, network security, tower construction, submarine cables, emergency comms, spectrum management, edge data centers
+- Each tender has unique id (sector-xxx-NNN), realistic title, detailed scope, budget range, future deadline, worldwide locations, categoryTags, source: 'sector_feed'
+
+### 3. Updated API Route
+- Updated `/api/tenders/live/route.ts` to support `sector` query parameter
+- `GET /api/tenders/live?sector=medical` → returns tenders from sector feed
+- `GET /api/tenders/live?sector=all` → returns all sectors combined (120+ tenders)
+- `GET /api/tenders/live?search=construction` → keyword search across all tenders
+- Sector parameter works alongside existing `source` and `search` params
+- Added `sectors` array to meta response listing available sectors with counts
+- Updated allowedSources to include 4 new sources (jica, adb, uk_contracts, dgmarket)
+
+### 4. Updated LiveTendersView Component
+- Added 4 new sources + sector_feed to `SOURCE_LABELS` constant
+- Added 4 new source accents + sector_feed to `SOURCE_ACCENT` constant (with appropriate colors and icons)
+- Added red, cyan, lime to `ACCENT_DOT` mapping
+- Created `SECTOR_PILLS` array with 10 sector definitions (id, label, icon, color)
+- Added `sectorFilter` state and `sectorCounts` state to component
+- Added sector quick-filter section with pill buttons for each sector
+- Each sector pill shows emoji icon, label, and tender count
+- Active sector pill highlighted with primary ring and color
+- "All" button to clear sector filter
+- Added sector badge on tender cards for sector_feed items
+- Updated subtitle to show sector filter when active
+- Increased rows from 20 to 50 to accommodate sector data
+- Pass sector param to API call
+- Store sector counts from API meta response
+
+### Modified Files:
+1. `/home/z/my-project/src/lib/external-tenders.ts` — 4 new adapters, sector data (120+ tenders), fetchSectorTenders(), getSectorCounts(), SECTOR_IDS, SECTOR_META
+2. `/home/z/my-project/src/app/api/tenders/live/route.ts` — sector param support, sectors in meta
+3. `/home/z/my-project/src/components/modules/live-tenders.tsx` — new sources, sector pills, sector badge
+
+Stage Summary:
+- 10 live data sources now available (6 original + 4 new: JICA, ADB, UK Contracts Finder, DgMarket)
+- 120+ sector-specific tenders across 10 sectors with search/filter capability
+- Sector quick-filter pills in UI with counts
+- Lint passes cleanly
