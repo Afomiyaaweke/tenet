@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TenetsLogo } from '@/components/logo';
+import { CommentSection } from '@/components/comment-section';
 import {
   ShieldCheck,
   BrainCircuit,
@@ -25,9 +26,9 @@ function HeroBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {/* Gradient orbs */}
-      <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-emerald-500/10 blur-[100px] animate-[float1_20s_ease-in-out_infinite]" />
-      <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-teal-500/10 blur-[100px] animate-[float2_25s_ease-in-out_infinite]" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-emerald-400/5 blur-[80px] animate-[float1_18s_ease-in-out_infinite_3s]" />
+      <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-slate-500/10 blur-[100px] animate-[float1_20s_ease-in-out_infinite]" />
+      <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-orange-500/8 blur-[100px] animate-[float2_25s_ease-in-out_infinite]" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-slate-400/5 blur-[80px] animate-[float1_18s_ease-in-out_infinite_3s]" />
 
       {/* Grid pattern */}
       <div
@@ -42,7 +43,7 @@ function HeroBackground() {
       {Array.from({ length: 12 }).map((_, i) => (
         <div
           key={i}
-          className="absolute w-1.5 h-1.5 rounded-full bg-emerald-500/20"
+          className="absolute w-1.5 h-1.5 rounded-full bg-slate-500/20"
           style={{
             top: `${15 + (i * 41) % 70}%`,
             left: `${10 + (i * 59) % 80}%`,
@@ -68,12 +69,12 @@ function FeatureCard({
 }) {
   return (
     <div
-      className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-xl hover:shadow-emerald-500/5 hover:border-emerald-200/60 transition-all duration-500 animate-[fadeUp_0.6s_ease-out_both]"
+      className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-xl hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-500 animate-[fadeUp_0.6s_ease-out_both]"
       style={{ animationDelay: delay }}
     >
-      <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-0 group-hover:opacity-[0.02] transition-opacity duration-500" />
+      <div className="absolute inset-0 rounded-2xl bg-slate-900 opacity-0 group-hover:opacity-[0.02] transition-opacity duration-500" />
       <div className="relative">
-        <div className="w-12 h-12 rounded-xl gradient-emerald flex items-center justify-center mb-4 shadow-lg shadow-emerald-200/50 group-hover:scale-110 transition-transform duration-300">
+        <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center mb-4 shadow-lg shadow-slate-300/50 group-hover:scale-110 transition-transform duration-300">
           {icon}
         </div>
         <h3 className="text-lg font-bold text-foreground mb-2">{title}</h3>
@@ -100,7 +101,7 @@ function StepCard({
       className="flex items-start gap-4 animate-[fadeUp_0.6s_ease-out_both]"
       style={{ animationDelay: delay }}
     >
-      <div className="flex-shrink-0 w-10 h-10 rounded-full gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-200/40">
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-300/40">
         <span className="text-white font-bold text-sm">{number}</span>
       </div>
       <div>
@@ -118,7 +119,7 @@ function StatCard({ value, label, delay }: { value: string; label: string; delay
       className="text-center animate-[fadeUp_0.5s_ease-out_both]"
       style={{ animationDelay: delay }}
     >
-      <p className="text-3xl sm:text-4xl font-extrabold gradient-emerald bg-clip-text text-transparent">{value}</p>
+      <p className="text-3xl sm:text-4xl font-extrabold text-slate-900">{value}</p>
       <p className="text-sm text-muted-foreground mt-1 font-medium">{label}</p>
     </div>
   );
@@ -138,7 +139,7 @@ function TestimonialCard({
 }) {
   return (
     <div
-      className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 animate-[fadeUp_0.6s_ease-out_both]"
+      className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 transition-all duration-300 animate-[fadeUp_0.6s_ease-out_both]"
       style={{ animationDelay: delay }}
     >
       <div className="flex items-center gap-1 mb-3">
@@ -148,7 +149,7 @@ function TestimonialCard({
       </div>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">&ldquo;{quote}&rdquo;</p>
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full gradient-emerald flex items-center justify-center">
+        <div className="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center">
           <span className="text-white text-xs font-bold">{name[0]}</span>
         </div>
         <div>
@@ -177,7 +178,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <nav className="hidden md:flex items-center gap-8">
               <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</a>
               <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
-              <a href="#testimonials" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
+              <a href="#community" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Community</a>
             </nav>
 
             {/* CTA */}
@@ -190,7 +191,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
                 Sign In
               </Button>
               <Button
-                className="gradient-emerald text-white font-semibold border-0 shadow-lg shadow-emerald-200/40 hover:shadow-emerald-200/60 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                className="bg-slate-900 text-white font-semibold border-0 shadow-lg shadow-slate-300/40 hover:shadow-slate-400/60 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                 onClick={onGetStarted}
               >
                 Get Started
@@ -207,16 +208,16 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-36">
           <div className="max-w-3xl mx-auto text-center">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200/60 rounded-full px-4 py-1.5 mb-8 animate-[fadeUp_0.5s_ease-out_both]">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-xs font-semibold text-emerald-700">AI-Powered Tender Management</span>
+            <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200/60 rounded-full px-4 py-1.5 mb-8 animate-[fadeUp_0.5s_ease-out_both]">
+              <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+              <span className="text-xs font-semibold text-orange-700">AI-Powered Tender Management</span>
             </div>
 
             <h1
               className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-foreground leading-[1.1] mb-6 animate-[fadeUp_0.6s_ease-out_0.1s_both]"
             >
               Transform Your{' '}
-              <span className="gradient-emerald bg-clip-text text-transparent">Procurement</span>{' '}
+              <span className="text-orange-500">Procurement</span>{' '}
               Workflow
             </h1>
 
@@ -236,11 +237,11 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
                   placeholder="Enter your email to get started"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 px-5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200"
+                  className="w-full h-12 px-5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 transition-all duration-200"
                 />
               </div>
               <Button
-                className="w-full sm:w-auto h-12 px-8 gradient-emerald text-white font-semibold border-0 shadow-lg shadow-emerald-200/40 hover:shadow-emerald-200/60 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl"
+                className="w-full sm:w-auto h-12 px-8 bg-slate-900 text-white font-semibold border-0 shadow-lg shadow-slate-300/40 hover:shadow-slate-400/60 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl"
                 onClick={onGetStarted}
               >
                 Start Free
@@ -251,15 +252,15 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             {/* Trust indicators */}
             <div className="flex items-center justify-center gap-6 mt-8 animate-[fadeUp_0.6s_ease-out_0.4s_both]">
               <div className="flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <CheckCircle className="w-4 h-4 text-orange-500" />
                 <span className="text-xs text-muted-foreground font-medium">Free to start</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <CheckCircle className="w-4 h-4 text-orange-500" />
                 <span className="text-xs text-muted-foreground font-medium">No credit card required</span>
               </div>
               <div className="hidden sm:flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <CheckCircle className="w-4 h-4 text-orange-500" />
                 <span className="text-xs text-muted-foreground font-medium">AI-powered</span>
               </div>
             </div>
@@ -283,9 +284,9 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
       <section id="features" className="py-20 sm:py-28">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200/60 rounded-full px-4 py-1.5 mb-4">
-              <Zap className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-xs font-semibold text-emerald-700">Powerful Features</span>
+            <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200/60 rounded-full px-4 py-1.5 mb-4">
+              <Zap className="w-3.5 h-3.5 text-orange-600" />
+              <span className="text-xs font-semibold text-orange-700">Powerful Features</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
               Everything You Need to Win Tenders
@@ -371,44 +372,12 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
         </div>
       </section>
 
-      {/* ═══════════ TESTIMONIALS ═══════════ */}
-      <section id="testimonials" className="py-20 sm:py-28">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
-              Trusted by Industry Leaders
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              See how organizations are transforming their procurement process with Tenets.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <TestimonialCard
-              name="Abel Tadesse"
-              role="Construction Contractor"
-              quote="Tenets' AI document studio saved me hours of work. I just input the details and it generates professional proposals instantly."
-              delay="0s"
-            />
-            <TestimonialCard
-              name="Selamawit Bekele"
-              role="IT Solutions Provider"
-              quote="The smart matching is incredible. I get notified about tenders that perfectly match my expertise before they even hit the public boards."
-              delay="0.1s"
-            />
-            <TestimonialCard
-              name="Dawit Haile"
-              role="Government Procurement Officer"
-              quote="The AI applicant analyzer makes award decisions transparent and data-driven. It evaluates every bid fairly and consistently."
-              delay="0.2s"
-            />
-          </div>
-        </div>
-      </section>
+      {/* ═══════════ COMMUNITY / COMMENT SECTION ═══════════ */}
+      <CommentSection />
 
       {/* ═══════════ CTA SECTION ═══════════ */}
       <section className="relative overflow-hidden">
-        <div className="gradient-emerald py-20 sm:py-28">
+        <div className="bg-slate-900 py-20 sm:py-28">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-white/5 blur-[60px]" />
             <div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-white/5 blur-[60px]" />
@@ -417,13 +386,13 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
               Ready to Transform Your Tender Workflow?
             </h2>
-            <p className="text-emerald-100/80 text-lg mb-10 max-w-xl mx-auto">
+            <p className="text-slate-300/80 text-lg mb-10 max-w-xl mx-auto">
               Join hundreds of organizations already using Tenets to discover, prepare, and win tenders with AI-powered tools.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
                 size="lg"
-                className="bg-white text-emerald-700 font-bold shadow-xl shadow-emerald-900/20 hover:bg-emerald-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 h-13 px-8 rounded-xl"
+                className="bg-white text-slate-900 font-bold shadow-xl shadow-slate-900/20 hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 h-13 px-8 rounded-xl"
                 onClick={onGetStarted}
               >
                 Get Started for Free

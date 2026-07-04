@@ -1,0 +1,1234 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useCallback } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api } from '@/lib/api';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Textarea } from '@/components/ui/textarea';
+     9→import { Label } from '@/components/ui/label';
+    10→import { Badge } from '@/components/ui/badge';
+    11→import { Separator } from '@/components/ui/separator';
+    12→import { ScrollArea } from '@/components/ui/scroll-area';
+    13→import { Skeleton } from '@/components/ui/skeleton';
+    14→import {
+    15→  Select,
+    16→  SelectContent,
+    17→  SelectItem,
+    18→  SelectTrigger,
+    19→  SelectValue,
+    20→} from '@/components/ui/select';
+    21→import {
+    22→  Dialog,
+    23→  DialogContent,
+    24→  DialogHeader,
+    25→  DialogTitle,
+    26→} from '@/components/ui/dialog';
+    27→import {
+    28→  Popover,
+    29→  PopoverContent,
+    30→  PopoverTrigger,
+    31→} from '@/components/ui/popover';
+    32→import { toast } from 'sonner';
+    33→import {
+    34→  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+    35→  List, ListOrdered, Type, Image as ImageIcon, Table, Minus, Pen, Stamp, FileSignature,
+    36→  Eraser, Undo2, Redo2, Save, Download, Printer, ZoomIn, ZoomOut,
+    37→  Sparkles, FileText, PenTool, Search, Users, X, Plus, ChevronDown,
+    38→  Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
+    39→  Award, Zap, AlertTriangle, CheckCircle2, XCircle,
+    40→} from 'lucide-react';
+    41→import { motion, AnimatePresence } from 'framer-motion';
+    42→
+    43→/* ══════════════════════════════════════════════════════════════
+    44→   TYPES
+    45→   ══════════════════════════════════════════════════════════════ */
+    46→
+    47→type RibbonTab = 'home' | 'insert' | 'review' | 'ai-tools' | 'sign';
+    48→type AITool = 'tender-builder' | 'bid-builder' | 'requirement-analyzer' | 'applicant-analyzer';
+    49→
+    50→interface TenderOption {
+    51→  id: string;
+    52→  title: string;
+    53→  scope?: string;
+    54→  budgetMin?: number;
+    55→  budgetMax?: number;
+    56→  categoryTags?: string;
+    57→  requiredDocs?: string;
+    58→  deadline?: string;
+    59→  _count?: { bids: number };
+    60→}
+    61→
+    62→interface SavedSignature {
+    63→  id: string;
+    64→  dataUrl: string;
+    65→  label: string;
+    66→  type: 'signature' | 'stamp';
+    67→}
+    68→
+    69→/* ══════════════════════════════════════════════════════════════
+    70→   CONSTANTS
+    71→   ══════════════════════════════════════════════════════════════ */
+    72→
+    73→const CATEGORIES = [
+    74→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    75→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics',
+    76→  'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications',
+    77→];
+    78→
+    79→const COMMON_SKILLS = [
+    80→  'Project Management', 'Construction', 'Engineering', 'IT Solutions',
+    81→  'Consulting', 'Architecture', 'Electrical Work', 'Plumbing',
+    82→  'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance',
+    83→  'Agriculture', 'Telecommunications', 'Web Development', 'Software',
+    84→  'Design', 'Research', 'Training', 'Maintenance', 'Procurement',
+    85→  'Supply Chain', 'Quality Assurance', 'Safety Management',
+    86→];
+    87→
+    88→const FONT_FAMILIES = ['Arial', 'Times New Roman', 'Courier New', 'Calibri', 'Georgia', 'Verdana'];
+    89→const FONT_SIZES = ['10', '11', '12', '14', '16', '18', '20', '24', '28', '36'];
+    90→const TEXT_COLORS = ['#000000', '#dc2626', '#2563eb', '#16a34a', '#9333ea', '#ea580c'];
+    91→const HIGHLIGHT_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fecaca', '#e9d5ff', '#fed7aa'];
+    92→const ZOOM_LEVELS = [75, 100, 125, 150];
+    93→
+    94→const AI_TOOLS: { id: AITool; label: string; icon: React.ElementType }[] = [
+    95→  { id: 'tender-builder', label: 'Tender Builder', icon: FileText },
+    96→  { id: 'bid-builder', label: 'Bid Proposal', icon: PenTool },
+    97→  { id: 'requirement-analyzer', label: 'Req Analyzer', icon: Search },
+    98→  { id: 'applicant-analyzer', label: 'Applicant Rank', icon: Users },
+    99→];
+   100→
+   101→const STAMP_TEMPLATES = [
+   102→  { text: 'APPROVED', label: 'Approved' },
+   103→  { text: 'VERIFIED', label: 'Verified' },
+   104→  { text: 'CONFIDENTIAL', label: 'Confidential' },
+   105→];
+   106→
+   107→/* ══════════════════════════════════════════════════════════════
+   108→   HELPERS
+   109→   ══════════════════════════════════════════════════════════════ */
+   110→
+   111→function generateSeal(text: string, date: string): string {
+   112→  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+   113→    <circle cx="60" cy="60" r="55" fill="none" stroke="#dc2626" stroke-width="3"/>
+   114→    <circle cx="60" cy="60" r="48" fill="none" stroke="#dc2626" stroke-width="1.5"/>
+   115→    <path id="topArc" d="M 15,60 A 45,45 0 0,1 105,60" fill="none"/>
+   116→    <text font-size="10" fill="#dc2626" font-weight="bold" letter-spacing="3">
+   117→      <textPath href="#topArc" startOffset="50%" text-anchor="middle">${text}</textPath>
+   118→    </text>
+   119→    <text x="60" y="68" text-anchor="middle" font-size="9" fill="#dc2626">${date}</text>
+   120→    <text x="60" y="80" text-anchor="middle" font-size="7" fill="#dc2626">TENETS</text>
+   121→  </svg>`;
+   122→  return 'data:image/svg+xml;base64,' + btoa(svg);
+   123→}
+   124→
+   125→function formatAIResultToHTML(data: Record<string, unknown>): string {
+   126→  let html = '';
+   127→  for (const [key, value] of Object.entries(data)) {
+   128→    const title = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+   129→    const content = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+   130→    const formattedContent = content
+   131→      .replace(/&/g, '&amp;')
+   132→      .replace(/</g, '&lt;')
+   133→      .replace(/>/g, '&gt;')
+   134→      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+   135→      .replace(/^[-*•]\s+(.*)/gm, '<li>$1</li>')
+   136→      .replace(/^(\d+)[.)]\s+(.*)/gm, '<li>$2</li>')
+   137→      .replace(/^#{1,3}\s+(.*)/gm, '<strong>$1</strong>')
+   138→      .replace(/\n\n/g, '</p><p>')
+   139→      .replace(/\n/g, '<br/>');
+   140→    html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">${title}</h2>`;
+   141→    html += `<p>${formattedContent}</p>`;
+   142→  }
+   143→  return html;
+   144→}
+   145→
+   146→function loadSignatures(): SavedSignature[] {
+   147→  if (typeof window === 'undefined') return [];
+   148→  try {
+   149→    const raw = localStorage.getItem('tenets_signatures');
+   150→    return raw ? JSON.parse(raw) : [];
+   151→  } catch { return []; }
+   152→}
+   153→
+   154→function saveSignaturesToStorage(sigs: SavedSignature[]) {
+   155→  if (typeof window === 'undefined') return;
+   156→  localStorage.setItem('tenets_signatures', JSON.stringify(sigs));
+   157→}
+   158→
+   159→/* ══════════════════════════════════════════════════════════════
+   160→   SKILL TAG SELECTOR
+   161→   ══════════════════════════════════════════════════════════════ */
+   162→
+   163→function SkillTagSelector({ selected, onChange }: { selected: string[]; onChange: (s: string[]) => void }) {
+   164→  const toggle = (skill: string) => {
+   165→    if (selected.includes(skill)) onChange(selected.filter(s => s !== skill));
+   166→    else onChange([...selected, skill]);
+   167→  };
+   168→  return (
+   169→    <div className="flex flex-wrap gap-1">
+   170→      {COMMON_SKILLS.map(skill => (
+   171→        <button key={skill} type="button" onClick={() => toggle(skill)}
+   172→          className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all border ${
+   173→            selected.includes(skill)
+   174→              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+   175→              : 'bg-muted/50 text-muted-foreground border-border hover:border-emerald-300'
+   176→          }`}>
+   177→          {skill}
+   178→        </button>
+   179→      ))}
+   180→    </div>
+   181→  );
+   182→}
+   183→
+   184→/* ══════════════════════════════════════════════════════════════
+   185→   MAIN COMPONENT
+   186→   ══════════════════════════════════════════════════════════════ */
+   187→
+   188→export function AIDocStudio() {
+   189→  /* ── State ── */
+   190→  const editorRef = useRef<HTMLDivElement>(null);
+   191→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   192→
+   193→  const [ribbonTab, setRibbonTab] = useState<RibbonTab>('home');
+   194→  const [docTitle, setDocTitle] = useState('Untitled Document');
+   195→  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+   196→  const [zoom, setZoom] = useState(100);
+   197→  const [wordCount, setWordCount] = useState(0);
+   198→  const [charCount, setCharCount] = useState(0);
+   199→
+   200→  // AI Tools panel
+   201→  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+   202→  const [activeAITool, setActiveAITool] = useState<AITool>('tender-builder');
+   203→  const [aiLoading, setAiLoading] = useState(false);
+   204→
+   205→  // Sign panel
+   206→  const [drawDialogOpen, setDrawDialogOpen] = useState(false);
+   207→  const [isDrawing, setIsDrawing] = useState(false);
+   208→  const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>(loadSignatures());
+   209→  const [placementMode, setPlacementMode] = useState(false);
+   210→  const [placementDataUrl, setPlacementDataUrl] = useState('');
+   211→
+   212→  // Tender list for some tools
+   213→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   214→
+   215→  const { user } = useAuthStore();
+   216→
+   217→  /* ── Load tenders ── */
+   218→  useEffect(() => {
+   219→    api.get('/tenders', { status: 'open', limit: '50' }).then(res => {
+   220→      if (res.success) setTenders(res.data || []);
+   221→    }).catch(() => {});
+   222→  }, []);
+   223→
+   224→  /* ── Word count ── */
+   225→  const updateCounts = useCallback(() => {
+   226→    const el = editorRef.current;
+   227→    if (!el) return;
+   228→    const text = el.innerText || '';
+   229→    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+   230→    setWordCount(words.length);
+   231→    setCharCount(text.length);
+   232→  }, []);
+   233→
+   234→  useEffect(() => {
+   235→    const el = editorRef.current;
+   236→    if (!el) return;
+   237→    const observer = new MutationObserver(updateCounts);
+   238→    observer.observe(el, { childList: true, subtree: true, characterData: true });
+   239→    return () => observer.disconnect();
+   240→  }, [updateCounts]);
+   241→
+   242→  /* ── Format commands ── */
+   243→  const handleFormat = (command: string, value?: string) => {
+   244→    document.execCommand(command, false, value || undefined);
+   245→    editorRef.current?.focus();
+   246→    setSaveStatus('unsaved');
+   247→    updateCounts();
+   248→  };
+   249→
+   250→  const handleDocChange = () => {
+   251→    setSaveStatus('unsaved');
+   252→    updateCounts();
+   253→  };
+   254→
+   255→  /* ── Save ── */
+   256→  const handleSave = () => {
+   257→    setSaveStatus('saving');
+   258→    setTimeout(() => {
+   259→      setSaveStatus('saved');
+   260→      toast.success('Document saved');
+   261→    }, 600);
+   262→  };
+   263→
+   264→  /* ── Insert helpers ── */
+   265→  const insertTable = (rows: number, cols: number) => {
+   266→    let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0;">';
+   267→    for (let r = 0; r < rows; r++) {
+   268→      html += '<tr>';
+   269→      for (let c = 0; c < cols; c++) {
+   270→        html += '<td style="border:1px solid #d1d5db;padding:6px 8px;min-width:60px;">&nbsp;</td>';
+   271→      }
+   272→      html += '</tr>';
+   273→    }
+   274→    html += '</table>';
+   275→    document.execCommand('insertHTML', false, html);
+   276→    editorRef.current?.focus();
+   277→    setSaveStatus('unsaved');
+   278→  };
+   279→
+   280→  const insertImageFromFile = () => {
+   281→    const input = document.createElement('input');
+   282→    input.type = 'file';
+   283→    input.accept = 'image/*';
+   284→    input.onchange = (e) => {
+   285→      const file = (e.target as HTMLInputElement).files?.[0];
+   286→      if (!file) return;
+   287→      const reader = new FileReader();
+   288→      reader.onload = (ev) => {
+   289→        const dataUrl = ev.target?.result as string;
+   290→        document.execCommand('insertHTML', false, `<img src="${dataUrl}" style="max-width:100%;height:auto;margin:8px 0;" />`);
+   291→        editorRef.current?.focus();
+   292→        setSaveStatus('unsaved');
+   293→      };
+   294→      reader.readAsDataURL(file);
+   295→    };
+   296→    input.click();
+   297→  };
+   298→
+   299→  const insertDateTime = () => {
+   300→    const now = new Date();
+   301→    const str = now.toLocaleString();
+   302→    document.execCommand('insertText', false, str);
+   303→    editorRef.current?.focus();
+   304→    setSaveStatus('unsaved');
+   305→  };
+   306→
+   307→  const insertPageBreak = () => {
+   308→    document.execCommand('insertHTML', false, '<div style="page-break-after:always;border-top:2px dashed #d1d5db;margin:16px 0;padding-top:4px;text-align:center;color:#9ca3af;font-size:10px;">--- Page Break ---</div>');
+   309→    editorRef.current?.focus();
+   310→    setSaveStatus('unsaved');
+   311→  };
+   312→
+   313→  const insertPageNumber = () => {
+   314→    document.execCommand('insertHTML', false, '<span style="color:#6b7280;font-size:11px;">[Page 1]</span>');
+   315→    editorRef.current?.focus();
+   316→    setSaveStatus('unsaved');
+   317→  };
+   318→
+   319→  /* ── Signature Drawing ── */
+   320→  const startDraw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+   321→    const ctx = canvasRef.current?.getContext('2d');
+   322→    if (!ctx) return;
+   323→    ctx.beginPath();
+   324→    ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+   325→    setIsDrawing(true);
+   326→  };
+   327→
+   328→  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+   329→    if (!isDrawing) return;
+   330→    const ctx = canvasRef.current?.getContext('2d');
+   331→    if (!ctx) return;
+   332→    ctx.lineWidth = 2;
+   333→    ctx.lineCap = 'round';
+   334→    ctx.strokeStyle = '#1a1a1a';
+   335→    ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+   336→    ctx.stroke();
+   337→  };
+   338→
+   339→  const endDraw = () => { setIsDrawing(false); };
+   340→
+   341→  const clearCanvas = () => {
+   342→    const ctx = canvasRef.current?.getContext('2d');
+   343→    if (ctx && canvasRef.current) {
+   344→      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+   345→    }
+   346→  };
+   347→
+   348→  const saveDrawnSignature = () => {
+   349→    const dataUrl = canvasRef.current?.toDataURL('image/png');
+   350→    if (dataUrl) {
+   351→      const newSig: SavedSignature = {
+   352→        id: Date.now().toString(),
+   353→        dataUrl,
+   354→        label: `Signature ${savedSignatures.filter(s => s.type === 'signature').length + 1}`,
+   355→        type: 'signature',
+   356→      };
+   357→      const updated = [...savedSignatures, newSig];
+   358→      setSavedSignatures(updated);
+   359→      saveSignaturesToStorage(updated);
+   360→      toast.success('Signature saved');
+   361→      setDrawDialogOpen(false);
+   362→      clearCanvas();
+   363→    }
+   364→  };
+   365→
+   366→  const uploadSignature = () => {
+   367→    const input = document.createElement('input');
+   368→    input.type = 'file';
+   369→    input.accept = 'image/*';
+   370→    input.onchange = (e) => {
+   371→      const file = (e.target as HTMLInputElement).files?.[0];
+   372→      if (!file) return;
+   373→      const reader = new FileReader();
+   374→      reader.onload = (ev) => {
+   375→        const dataUrl = ev.target?.result as string;
+   376→        const newSig: SavedSignature = {
+   377→          id: Date.now().toString(),
+   378→          dataUrl,
+   379→          label: `Uploaded Sig ${savedSignatures.filter(s => s.type === 'signature').length + 1}`,
+   380→          type: 'signature',
+   381→        };
+   382→        const updated = [...savedSignatures, newSig];
+   383→        setSavedSignatures(updated);
+   384→        saveSignaturesToStorage(updated);
+   385→        toast.success('Signature uploaded');
+   386→      };
+   387→      reader.readAsDataURL(file);
+   388→    };
+   389→    input.click();
+   390→  };
+   391→
+   392→  const addStamp = (text: string) => {
+   393→    const dateStr = new Date().toLocaleDateString();
+   394→    const dataUrl = generateSeal(text, dateStr);
+   395→    const newSig: SavedSignature = {
+   396→      id: Date.now().toString(),
+   397→      dataUrl,
+   398→      label: `${text} Stamp`,
+   399→      type: 'stamp',
+   400→    };
+   401→    const updated = [...savedSignatures, newSig];
+   402→    setSavedSignatures(updated);
+   403→    saveSignaturesToStorage(updated);
+   404→    toast.success(`${text} stamp created`);
+   405→  };
+   406→
+   407→  const startPlacement = (dataUrl: string) => {
+   408→    setPlacementDataUrl(dataUrl);
+   409→    setPlacementMode(true);
+   410→    toast.info('Click on the document to place the signature/stamp');
+   411→  };
+   412→
+   413→  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+   414→    if (!placementMode || !placementDataUrl) return;
+   415→    e.preventDefault();
+   416→    const sel = window.getSelection();
+   417→    if (sel && sel.rangeCount > 0) {
+   418→      const range = sel.getRangeAt(0);
+   419→      range.collapse(false);
+   420→      const img = document.createElement('img');
+   421→      img.src = placementDataUrl;
+   422→      img.setAttribute('data-signature', 'true');
+   423→      img.style.maxHeight = '80px';
+   424→      img.style.margin = '4px';
+   425→      img.style.cursor = 'pointer';
+   426→      img.onclick = () => {
+   427→        if (confirm('Remove this signature/stamp?')) {
+   428→          img.remove();
+   429→          setSaveStatus('unsaved');
+   430→          updateCounts();
+   431→        }
+   432→      };
+   433→      range.insertNode(img);
+   434→      range.collapse(false);
+   435→    } else {
+   436→      document.execCommand('insertHTML', false,
+   437→        `<img src="${placementDataUrl}" data-signature="true" style="max-height:80px;margin:4px;cursor:pointer;" onclick="if(confirm('Remove?'))this.remove()" />`
+   438→      );
+   439→    }
+   440→    setPlacementMode(false);
+   441→    setPlacementDataUrl('');
+   442→    setSaveStatus('unsaved');
+   443→    updateCounts();
+   444→  };
+   445→
+   446→  const deleteSignature = (id: string) => {
+   447→    const updated = savedSignatures.filter(s => s.id !== id);
+   448→    setSavedSignatures(updated);
+   449→    saveSignaturesToStorage(updated);
+   450→    toast.success('Signature/stamp removed');
+   451→  };
+   452→
+   453→  /* ── AI Generation ── */
+   454→  const setDocumentContent = (html: string) => {
+   455→    if (editorRef.current) {
+   456→      editorRef.current.innerHTML = html;
+   457→      setSaveStatus('unsaved');
+   458→      updateCounts();
+   459→    }
+   460→  };
+   461→
+   462→  /* ════════════════════════════════════════════════════════════
+   463→     RIBBON: HOME TAB
+   464→     ════════════════════════════════════════════════════════════ */
+   465→  const HomeRibbon = () => (
+   466→    <div className="flex items-center gap-1 flex-wrap px-2 py-1.5">
+   467→      {/* Undo / Redo */}
+   468→      <RibbonBtn icon={Undo2} title="Undo" onClick={() => handleFormat('undo')} />
+   469→      <RibbonBtn icon={Redo2} title="Redo" onClick={() => handleFormat('redo')} />
+   470→      <Separator orientation="vertical" className="h-6 mx-1" />
+   471→
+   472→      {/* Heading */}
+   473→      <Popover>
+   474→        <PopoverTrigger asChild>
+   475→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   476→            <Type className="h-3.5 w-3.5" />
+   477→            Heading
+   478→            <ChevronDown className="h-3 w-3" />
+   479→          </button>
+   480→        </PopoverTrigger>
+   481→        <PopoverContent className="w-40 p-1" align="start">
+   482→          {['Normal', 'H1', 'H2', 'H3'].map(h => (
+   483→            <button key={h} onClick={() => handleFormat('formatBlock', h === 'Normal' ? '<p>' : `<${h.toLowerCase()}>`)}
+   484→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+   485→              style={h !== 'Normal' ? { fontSize: h === 'H1' ? 18 : h === 'H2' ? 16 : 14, fontWeight: 700 } : {}}>
+   486→              {h}
+   487→            </button>
+   488→          ))}
+   489→        </PopoverContent>
+   490→      </Popover>
+   491→
+   492→      {/* Font Family */}
+   493→      <Popover>
+   494→        <PopoverTrigger asChild>
+   495→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors max-w-[110px]">
+   496→            <span className="truncate">Font</span>
+   497→            <ChevronDown className="h-3 w-3 flex-shrink-0" />
+   498→          </button>
+   499→        </PopoverTrigger>
+   500→        <PopoverContent className="w-44 p-1" align="start">
+   501→          {FONT_FAMILIES.map(f => (
+   502→            <button key={f} onClick={() => handleFormat('fontName', f)}
+   503→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+   504→              style={{ fontFamily: f }}>
+   505→              {f}
+   506→            </button>
+   507→          ))}
+   508→        </PopoverContent>
+   509→      </Popover>
+   510→
+   511→      {/* Font Size */}
+   512→      <Popover>
+   513→        <PopoverTrigger asChild>
+   514→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   515→            <span>Size</span>
+   516→            <ChevronDown className="h-3 w-3" />
+   517→          </button>
+   518→        </PopoverTrigger>
+   519→        <PopoverContent className="w-32 p-1" align="start">
+   520→          {FONT_SIZES.map(s => (
+   521→            <button key={s} onClick={() => handleFormat('fontSize', s)}
+   522→              className="w-full text-left px-3 py-1 text-xs rounded hover:bg-muted transition-colors">
+   523→              {s}pt
+   524→            </button>
+   525→          ))}
+   526→        </PopoverContent>
+   527→      </Popover>
+   528→
+   529→      <Separator orientation="vertical" className="h-6 mx-1" />
+   530→
+   531→      {/* Bold / Italic / Underline */}
+   532→      <RibbonBtn icon={Bold} title="Bold (Ctrl+B)" onClick={() => handleFormat('bold')} />
+   533→      <RibbonBtn icon={Italic} title="Italic (Ctrl+I)" onClick={() => handleFormat('italic')} />
+   534→      <RibbonBtn icon={Underline} title="Underline (Ctrl+U)" onClick={() => handleFormat('underline')} />
+   535→
+   536→      <Separator orientation="vertical" className="h-6 mx-1" />
+   537→
+   538→      {/* Text Color */}
+   539→      <Popover>
+   540→        <PopoverTrigger asChild>
+   541→          <button className="h-7 w-7 rounded border border-border hover:bg-muted transition-colors flex items-center justify-center" title="Text Color">
+   542→            <div className="flex flex-col items-center">
+   543→              <span className="text-[10px] font-bold leading-none">A</span>
+   544→              <div className="w-4 h-1 rounded-sm mt-0.5" style={{ backgroundColor: '#000000' }} />
+   545→            </div>
+   546→          </button>
+   547→        </PopoverTrigger>
+   548→        <PopoverContent className="w-auto p-2" align="start">
+   549→          <div className="flex gap-1">
+   550→            {TEXT_COLORS.map(c => (
+   551→              <button key={c} onClick={() => handleFormat('foreColor', c)}
+   552→                className="w-6 h-6 rounded border border-border hover:scale-110 transition-transform" style={{ backgroundColor: c }} />
+   553→            ))}
+   554→          </div>
+   555→        </PopoverContent>
+   556→      </Popover>
+   557→
+   558→      {/* Highlight */}
+   559→      <Popover>
+   560→        <PopoverTrigger asChild>
+   561→          <button className="h-7 w-7 rounded border border-border hover:bg-muted transition-colors flex items-center justify-center" title="Highlight">
+   562→            <div className="flex flex-col items-center">
+   563→              <span className="text-[10px] font-bold leading-none bg-yellow-200 px-0.5">A</span>
+   564→            </div>
+   565→          </button>
+   566→        </PopoverTrigger>
+   567→        <PopoverContent className="w-auto p-2" align="start">
+   568→          <div className="flex gap-1">
+   569→            {HIGHLIGHT_COLORS.map(c => (
+   570→              <button key={c} onClick={() => handleFormat('hiliteColor', c)}
+   571→                className="w-6 h-6 rounded border border-border hover:scale-110 transition-transform" style={{ backgroundColor: c }} />
+   572→            ))}
+   573→          </div>
+   574→        </PopoverContent>
+   575→      </Popover>
+   576→
+   577→      <Separator orientation="vertical" className="h-6 mx-1" />
+   578→
+   579→      {/* Alignment */}
+   580→      <RibbonBtn icon={AlignLeft} title="Align Left" onClick={() => handleFormat('justifyLeft')} />
+   581→      <RibbonBtn icon={AlignCenter} title="Align Center" onClick={() => handleFormat('justifyCenter')} />
+   582→      <RibbonBtn icon={AlignRight} title="Align Right" onClick={() => handleFormat('justifyRight')} />
+   583→      <RibbonBtn icon={AlignJustify} title="Justify" onClick={() => handleFormat('justifyFull')} />
+   584→
+   585→      <Separator orientation="vertical" className="h-6 mx-1" />
+   586→
+   587→      {/* Lists */}
+   588→      <RibbonBtn icon={List} title="Bullet List" onClick={() => handleFormat('insertUnorderedList')} />
+   589→      <RibbonBtn icon={ListOrdered} title="Numbered List" onClick={() => handleFormat('insertOrderedList')} />
+   590→    </div>
+   591→  );
+   592→
+   593→  /* ════════════════════════════════════════════════════════════
+   594→     RIBBON: INSERT TAB
+   595→     ════════════════════════════════════════════════════════════ */
+   596→  const InsertRibbon = () => (
+   597→    <div className="flex items-center gap-1 flex-wrap px-2 py-1.5">
+   598→      <Popover>
+   599→        <PopoverTrigger asChild>
+   600→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   601→            <Table className="h-3.5 w-3.5" /> Table <ChevronDown className="h-3 w-3" />
+   602→          </button>
+   603→        </PopoverTrigger>
+   604→        <PopoverContent className="w-36 p-1" align="start">
+   605→          <button onClick={() => insertTable(2, 2)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">2 x 2</button>
+   606→          <button onClick={() => insertTable(3, 3)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">3 x 3</button>
+   607→          <button onClick={() => insertTable(4, 4)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">4 x 4</button>
+   608→        </PopoverContent>
+   609→      </Popover>
+   610→      <RibbonBtn icon={Minus} title="Horizontal Rule" onClick={() => handleFormat('insertHorizontalRule')} />
+   611→      <RibbonBtn icon={ImageIcon} title="Insert Image" onClick={insertImageFromFile} />
+   612→      <RibbonBtn icon={Clock} title="Insert Date/Time" onClick={insertDateTime} />
+   613→      <RibbonBtn icon={FileText} title="Page Break" onClick={insertPageBreak} />
+   614→      <RibbonBtn icon={Type} title="Page Number" onClick={insertPageNumber} />
+   615→    </div>
+   616→  );
+   617→
+   618→  /* ════════════════════════════════════════════════════════════
+   619→     RIBBON: REVIEW TAB
+   620→     ════════════════════════════════════════════════════════════ */
+   621→  const ReviewRibbon = () => (
+   622→    <div className="flex items-center gap-3 px-2 py-1.5 text-xs text-muted-foreground">
+   623→      <div className="flex items-center gap-1.5">
+   624→        <FileText className="h-3.5 w-3.5" />
+   625→        <span>Words: <strong className="text-foreground">{wordCount}</strong></span>
+   626→      </div>
+   627→      <div className="flex items-center gap-1.5">
+   628→        <Type className="h-3.5 w-3.5" />
+   629→        <span>Chars: <strong className="text-foreground">{charCount}</strong></span>
+   630→      </div>
+   631→      <Separator orientation="vertical" className="h-6" />
+   632→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.info('Spell check coming soon')}>
+   633→        <Check className="h-3.5 w-3.5 mr-1" /> Spell Check
+   634→      </Button>
+   635→      <Separator orientation="vertical" className="h-6" />
+   636→      <div className="text-[11px]">
+   637→        <span className="text-muted-foreground">Author: </span>
+   638→        <strong className="text-foreground">{user?.profile?.fullName || 'Unknown'}</strong>
+   639→      </div>
+   640→      <div className="text-[11px]">
+   641→        <span className="text-muted-foreground">Created: </span>
+   642→        <strong className="text-foreground">{new Date().toLocaleDateString()}</strong>
+   643→      </div>
+   644→    </div>
+   645→  );
+   646→
+   647→  /* ════════════════════════════════════════════════════════════
+   648→     RIBBON: AI TOOLS TAB
+   649→     ════════════════════════════════════════════════════════════ */
+   650→  const AIToolsRibbon = () => (
+   651→    <div className="flex items-center gap-2 px-2 py-1.5">
+   652→      {AI_TOOLS.map(tool => {
+   653→        const Icon = tool.icon;
+   654→        const isActive = aiPanelOpen && activeAITool === tool.id;
+   655→        return (
+   656→          <button key={tool.id} onClick={() => { setActiveAITool(tool.id); setAiPanelOpen(true); }}
+   657→            className={`flex items-center gap-1.5 h-7 px-3 text-xs rounded border transition-colors ${
+   658→              isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border hover:bg-muted text-foreground'
+   659→            }`}>
+   660→            <Icon className="h-3.5 w-3.5" />
+   661→            {tool.label}
+   662→          </button>
+   663→        );
+   664→      })}
+   665→    </div>
+   666→  );
+   667→
+   668→  /* ════════════════════════════════════════════════════════════
+   669→     RIBBON: SIGN TAB
+   670→     ════════════════════════════════════════════════════════════ */
+   671→  const SignRibbon = () => (
+   672→    <div className="flex items-center gap-2 px-2 py-1.5">
+   673→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDrawDialogOpen(true)}>
+   674→        <Pen className="h-3.5 w-3.5 mr-1" /> Draw Signature
+   675→      </Button>
+   676→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={uploadSignature}>
+   677→        <ImageIcon className="h-3.5 w-3.5 mr-1" /> Upload Signature
+   678→      </Button>
+   679→      <Separator orientation="vertical" className="h-6" />
+   680→      <Popover>
+   681→        <PopoverTrigger asChild>
+   682→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   683→            <Stamp className="h-3.5 w-3.5" /> Add Stamp <ChevronDown className="h-3 w-3" />
+   684→          </button>
+   685→        </PopoverTrigger>
+   686→        <PopoverContent className="w-40 p-1" align="start">
+   687→          {STAMP_TEMPLATES.map(st => (
+   688→            <button key={st.text} onClick={() => addStamp(st.text)}
+   689→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors">
+   690→              {st.label}
+   691→            </button>
+   692→          ))}
+   693→        </PopoverContent>
+   694→      </Popover>
+   695→      <Separator orientation="vertical" className="h-6" />
+   696→      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   697→        <FileSignature className="h-3.5 w-3.5" />
+   698→        Saved: {savedSignatures.length}
+   699→      </div>
+   700→    </div>
+   701→  );
+   702→
+   703→  const RIBBON_MAP: Record<RibbonTab, () => React.JSX.Element> = {
+   704→    home: HomeRibbon,
+   705→    insert: InsertRibbon,
+   706→    review: ReviewRibbon,
+   707→    'ai-tools': AIToolsRibbon,
+   708→    sign: SignRibbon,
+   709→  };
+   710→
+   711→  /* ════════════════════════════════════════════════════════════
+   712→     AI TOOL FORMS (for right panel)
+   713→     ════════════════════════════════════════════════════════════ */
+   714→
+   715→  /* -- Tender Builder Form -- */
+   716→  const [tenderForm, setTenderForm] = useState({
+   717→    title: '', category: '', location: '', budgetMin: '', budgetMax: '',
+   718→    deadline: '', description: '', notes: '',
+   719→  });
+   720→  const updateTenderField = (f: string, v: string) => setTenderForm(prev => ({ ...prev, [f]: v }));
+   721→
+   722→  const generateTender = async () => {
+   723→    if (!tenderForm.title || !tenderForm.category || !tenderForm.description) {
+   724→      toast.error('Please fill in Title, Category, and Description');
+   725→      return;
+   726→    }
+   727→    setAiLoading(true);
+   728→    try {
+   729→      const res = await api.post('/ai/tender-prep', {
+   730→        title: tenderForm.title, category: tenderForm.category, location: tenderForm.location,
+   731→        budgetMin: tenderForm.budgetMin, budgetMax: tenderForm.budgetMax, deadline: tenderForm.deadline,
+   732→        description: tenderForm.description, notes: tenderForm.notes,
+   733→        skills: user?.profile?.skillTags || '', userName: user?.profile?.fullName || '',
+   734→      });
+   735→      if (res.success && res.data) {
+   736→        setDocumentContent(formatAIResultToHTML(res.data));
+   737→        toast.success('Tender document generated!');
+   738→      } else { toast.error(res.error || 'Failed to generate'); }
+   739→    } catch { toast.error('AI generation failed'); }
+   740→    finally { setAiLoading(false); }
+   741→  };
+   742→
+   743→  /* -- Bid Builder Form -- */
+   744→  const [bidForm, setBidForm] = useState({
+   745→    tenderTitle: '', scope: '', budgetRange: '', category: '',
+   746→    companyName: '', experience: '', proposedBudget: '', proposedTimeline: '', notes: '',
+   747→  });
+   748→  const [bidSelectedTender, setBidSelectedTender] = useState('');
+   749→  const [bidSkills, setBidSkills] = useState<string[]>([]);
+   750→  const updateBidField = (f: string, v: string) => setBidForm(prev => ({ ...prev, [f]: v }));
+   751→
+   752→  const selectBidTender = (tenderId: string) => {
+   753→    setBidSelectedTender(tenderId);
+   754→    const t = tenders.find(t => t.id === tenderId);
+   755→    if (t) {
+   756→      setBidForm(prev => ({
+   757→        ...prev, tenderTitle: t.title, scope: t.scope || '',
+   758→        budgetRange: t.budgetMin && t.budgetMax ? `${t.budgetMin} - ${t.budgetMax} ETB` : '',
+   759→        category: t.categoryTags || '',
+   760→      }));
+   761→    }
+   762→  };
+   763→
+   764→  const generateBid = async () => {
+   765→    if (!bidForm.tenderTitle && !bidSelectedTender) {
+   766→      toast.error('Please select a tender or enter details'); return;
+   767→    }
+   768→    setAiLoading(true);
+   769→    try {
+   770→      const res = await api.post('/ai/bid-prep', {
+   771→        tenderId: bidSelectedTender || undefined, tenderTitle: bidForm.tenderTitle,
+   772→        scope: bidForm.scope, budgetRange: bidForm.budgetRange, category: bidForm.category,
+   773→        skills: bidSkills.join(', '), companyName: bidForm.companyName, experience: bidForm.experience,
+   774→        proposedBudget: bidForm.proposedBudget, proposedTimeline: bidForm.proposedTimeline,
+   775→        notes: bidForm.notes, userName: user?.profile?.fullName || '', userSkills: user?.profile?.skillTags || '',
+   776→      });
+   777→      if (res.success && res.data) {
+   778→        setDocumentContent(formatAIResultToHTML(res.data));
+   779→        toast.success('Bid proposal generated!');
+   780→      } else { toast.error(res.error || 'Failed to generate'); }
+   781→    } catch { toast.error('AI generation failed'); }
+   782→    finally { setAiLoading(false); }
+   783→  };
+   784→
+   785→  /* -- Requirement Analyzer Form -- */
+   786→  const [reqForm, setReqForm] = useState({
+   787→    tenderTitle: '', scope: '', budget: '', category: '', requiredDocs: '', deadline: '',
+   788→  });
+   789→  const [reqSelectedTender, setReqSelectedTender] = useState('');
+   790→  const [reqSkills, setReqSkills] = useState<string[]>([]);
+   791→  const updateReqField = (f: string, v: string) => setReqForm(prev => ({ ...prev, [f]: v }));
+   792→
+   793→  const selectReqTender = (tenderId: string) => {
+   794→    setReqSelectedTender(tenderId);
+   795→    const t = tenders.find(t => t.id === tenderId);
+   796→    if (t) {
+   797→      setReqForm({
+   798→        tenderTitle: t.title, scope: t.scope || '',
+   799→        budget: t.budgetMin && t.budgetMax ? `${t.budgetMin} - ${t.budgetMax} ETB` : '',
+   800→        category: t.categoryTags || '', requiredDocs: t.requiredDocs || '',
+   801→        deadline: t.deadline ? new Date(t.deadline).toISOString().split('T')[0] : '',
+   802→      });
+   803→    }
+   804→  };
+   805→
+   806→  const generateReq = async () => {
+   807→    if (!reqForm.tenderTitle && !reqSelectedTender) {
+   808→      toast.error('Please select a tender or enter details'); return;
+   809→    }
+   810→    setAiLoading(true);
+   811→    try {
+   812→      const res = await api.post('/ai/analyze-requirements', {
+   813→        tenderId: reqSelectedTender || undefined, tenderTitle: reqForm.tenderTitle,
+   814→        scope: reqForm.scope, budget: reqForm.budget, category: reqForm.category,
+   815→        requiredDocs: reqForm.requiredDocs, deadline: reqForm.deadline,
+   816→        skills: reqSkills.join(', '), userName: user?.profile?.fullName || '',
+   817→        userSkills: user?.profile?.skillTags || '',
+   818→      });
+   819→      if (res.success && res.data) {
+   820→        setDocumentContent(formatAIResultToHTML(res.data as Record<string, unknown>));
+   821→        toast.success('Requirements analyzed!');
+   822→      } else { toast.error(res.error || 'Failed to analyze'); }
+   823→    } catch { toast.error('AI analysis failed'); }
+   824→    finally { setAiLoading(false); }
+   825→  };
+   826→
+   827→  /* -- Applicant Analyzer Form -- */
+   828→  const [appSelectedTender, setAppSelectedTender] = useState('');
+   829→
+   830→  const generateApplicant = async () => {
+   831→    if (!appSelectedTender) { toast.error('Please select a tender'); return; }
+   832→    setAiLoading(true);
+   833→    try {
+   834→      const res = await api.post('/ai/analyze-applicants', { tenderId: appSelectedTender });
+   835→      if (res.success && res.data) {
+   836→        const d = res.data as Record<string, unknown>;
+   837→        let html = '';
+   838→        if (d.summary) {
+   839→          const s = d.summary as Record<string, unknown>;
+   840→          html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">Summary</h2>`;
+   841→          html += `<p>Total Bids: <strong>${s.totalBids ?? 0}</strong> | Average Score: <strong>${s.averageScore ?? 0}</strong></p>`;
+   842→        }
+   843→        if (d.applicants && Array.isArray(d.applicants)) {
+   844→          html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">Ranked Applicants</h2>`;
+   845→          for (const a of d.applicants as Record<string, unknown>[]) {
+   846→            html += `<div style="margin:8px 0;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+   847→              <strong>#${a.rank} ${a.name}</strong> (${a.company}) — Score: <strong>${a.overallScore}</strong>
+   848→              <br/>Technical: ${a.technicalScore}% | Financial: ${a.financialScore}%
+   849→              <br/>Risk: ${a.riskLevel} | Recommendation: ${a.recommendation}
+   850→            </div>`;
+   851→          }
+   852→        }
+   853→        if (d.budgetAnalysis) html += formatAIResultToHTML({ budgetAnalysis: d.budgetAnalysis });
+   854→        if (d.riskSummary) html += formatAIResultToHTML({ riskSummary: d.riskSummary });
+   855→        if (d.finalRecommendation) html += formatAIResultToHTML({ finalRecommendation: d.finalRecommendation });
+   856→        setDocumentContent(html || '<p>No results</p>');
+   857→        toast.success('Applicants analyzed!');
+   858→      } else { toast.error(res.error || 'Failed to analyze'); }
+   859→    } catch { toast.error('AI analysis failed'); }
+   860→    finally { setAiLoading(false); }
+   861→  };
+   862→
+   863→  /* ── AI Panel Content ── */
+   864→  const AIPanelContent = () => {
+   865→    const formClass = "h-8 text-xs bg-muted/50 border-border/50";
+   866→    return (
+   867→      <ScrollArea className="h-full">
+   868→        <div className="p-3 space-y-3">
+   869→          {/* Close button */}
+   870→          <div className="flex items-center justify-between">
+   871→            <div className="flex items-center gap-2">
+   872→              <Sparkles className="h-4 w-4 text-emerald-600" />
+   873→              <span className="text-sm font-semibold">AI Assistant</span>
+   874→            </div>
+   875→            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setAiPanelOpen(false)}>
+   876→              <X className="h-3.5 w-3.5" />
+   877→            </Button>
+   878→          </div>
+   879→
+   880→          {/* Tool selector */}
+   881→          <div className="flex flex-wrap gap-1">
+   882→            {AI_TOOLS.map(tool => {
+   883→              const Icon = tool.icon;
+   884→              const isActive = activeAITool === tool.id;
+   885→              return (
+   886→                <button key={tool.id} onClick={() => setActiveAITool(tool.id)}
+   887→                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border transition-colors ${
+   888→                    isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border text-muted-foreground hover:bg-muted'
+   889→                  }`}>
+   890→                  <Icon className="h-3 w-3" /> {tool.label}
+   891→                </button>
+   892→              );
+   893→            })}
+   894→          </div>
+   895→
+   896→          <Separator />
+   897→
+   898→          {/* Tender Builder Form */}
+   899→          {activeAITool === 'tender-builder' && (
+   900→            <div className="space-y-2">
+   901→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tender Builder</Label>
+   902→              <div><Label className="text-[10px]">Title *</Label><Input placeholder="Tender title" value={tenderForm.title} onChange={e => updateTenderField('title', e.target.value)} className={formClass} /></div>
+   903→              <div><Label className="text-[10px]">Category *</Label>
+   904→                <Select value={tenderForm.category} onValueChange={v => updateTenderField('category', v)}>
+   905→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+   906→                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+   907→                </Select>
+   908→              </div>
+   909→              <div><Label className="text-[10px]">Location</Label><Input placeholder="e.g., Addis Ababa" value={tenderForm.location} onChange={e => updateTenderField('location', e.target.value)} className={formClass} /></div>
+   910→              <div className="grid grid-cols-2 gap-2">
+   911→                <div><Label className="text-[10px]">Budget Min</Label><Input type="number" placeholder="0" value={tenderForm.budgetMin} onChange={e => updateTenderField('budgetMin', e.target.value)} className={formClass} /></div>
+   912→                <div><Label className="text-[10px]">Budget Max</Label><Input type="number" placeholder="0" value={tenderForm.budgetMax} onChange={e => updateTenderField('budgetMax', e.target.value)} className={formClass} /></div>
+   913→              </div>
+   914→              <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={tenderForm.deadline} onChange={e => updateTenderField('deadline', e.target.value)} className={formClass} /></div>
+   915→              <div><Label className="text-[10px]">Description *</Label><Textarea placeholder="Scope and requirements..." value={tenderForm.description} onChange={e => updateTenderField('description', e.target.value)} className="min-h-[60px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+   916→              <div><Label className="text-[10px]">Notes</Label><Textarea placeholder="Optional notes..." value={tenderForm.notes} onChange={e => updateTenderField('notes', e.target.value)} className="min-h-[40px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+   917→              <GenerateButton onClick={generateTender} loading={aiLoading} />
+   918→            </div>
+   919→          )}
+   920→
+   921→          {/* Bid Builder Form */}
+   922→          {activeAITool === 'bid-builder' && (
+   923→            <div className="space-y-2">
+   924→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Bid Proposal</Label>
+   925→              <div><Label className="text-[10px]">Select Tender</Label>
+   926→                <Select value={bidSelectedTender} onValueChange={selectBidTender}>
+   927→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+   928→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+   929→                </Select>
+   930→              </div>
+   931→              <Separator />
+   932→              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+   933→              <div><Label className="text-[10px]">Tender Title</Label><Input value={bidForm.tenderTitle} onChange={e => updateBidField('tenderTitle', e.target.value)} className={formClass} /></div>
+   934→              <div><Label className="text-[10px]">Scope</Label><Textarea value={bidForm.scope} onChange={e => updateBidField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+   935→              <div className="grid grid-cols-2 gap-2">
+   936→                <div><Label className="text-[10px]">Budget Range</Label><Input value={bidForm.budgetRange} onChange={e => updateBidField('budgetRange', e.target.value)} className={formClass} /></div>
+   937→                <div><Label className="text-[10px]">Category</Label>
+   938→                  <Select value={bidForm.category} onValueChange={v => updateBidField('category', v)}>
+   939→                    <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+   940→                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+   941→                  </Select>
+   942→                </div>
+   943→              </div>
+   944→              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={bidSkills} onChange={setBidSkills} /></div>
+   945→              <div><Label className="text-[10px]">Company</Label><Input value={bidForm.companyName} onChange={e => updateBidField('companyName', e.target.value)} className={formClass} /></div>
+   946→              <div><Label className="text-[10px]">Experience</Label><Textarea value={bidForm.experience} onChange={e => updateBidField('experience', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+   947→              <div className="grid grid-cols-2 gap-2">
+   948→                <div><Label className="text-[10px]">Proposed Budget</Label><Input type="number" value={bidForm.proposedBudget} onChange={e => updateBidField('proposedBudget', e.target.value)} className={formClass} /></div>
+   949→                <div><Label className="text-[10px]">Timeline</Label><Input value={bidForm.proposedTimeline} onChange={e => updateBidField('proposedTimeline', e.target.value)} className={formClass} /></div>
+   950→              </div>
+   951→              <GenerateButton onClick={generateBid} loading={aiLoading} />
+   952→            </div>
+   953→          )}
+   954→
+   955→          {/* Requirement Analyzer Form */}
+   956→          {activeAITool === 'requirement-analyzer' && (
+   957→            <div className="space-y-2">
+   958→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Requirement Analyzer</Label>
+   959→              <div><Label className="text-[10px]">Select Tender</Label>
+   960→                <Select value={reqSelectedTender} onValueChange={selectReqTender}>
+   961→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+   962→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+   963→                </Select>
+   964→              </div>
+   965→              <Separator />
+   966→              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+   967→              <div><Label className="text-[10px]">Tender Title</Label><Input value={reqForm.tenderTitle} onChange={e => updateReqField('tenderTitle', e.target.value)} className={formClass} /></div>
+   968→              <div><Label className="text-[10px]">Scope</Label><Textarea value={reqForm.scope} onChange={e => updateReqField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+   969→              <div className="grid grid-cols-2 gap-2">
+   970→                <div><Label className="text-[10px]">Budget</Label><Input value={reqForm.budget} onChange={e => updateReqField('budget', e.target.value)} className={formClass} /></div>
+   971→                <div><Label className="text-[10px]">Category</Label><Input value={reqForm.category} onChange={e => updateReqField('category', e.target.value)} className={formClass} /></div>
+   972→              </div>
+   973→              <div className="grid grid-cols-2 gap-2">
+   974→                <div><Label className="text-[10px]">Required Docs</Label><Input value={reqForm.requiredDocs} onChange={e => updateReqField('requiredDocs', e.target.value)} className={formClass} /></div>
+   975→                <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={reqForm.deadline} onChange={e => updateReqField('deadline', e.target.value)} className={formClass} /></div>
+   976→              </div>
+   977→              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={reqSkills} onChange={setReqSkills} /></div>
+   978→              <GenerateButton onClick={generateReq} loading={aiLoading} />
+   979→            </div>
+   980→          )}
+   981→
+   982→          {/* Applicant Analyzer Form */}
+   983→          {activeAITool === 'applicant-analyzer' && (
+   984→            <div className="space-y-2">
+   985→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Applicant Analyzer</Label>
+   986→              <div><Label className="text-[10px]">Select Your Tender</Label>
+   987→                <Select value={appSelectedTender} onValueChange={setAppSelectedTender}>
+   988→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+   989→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+   990→                </Select>
+   991→              </div>
+   992→              <GenerateButton onClick={generateApplicant} loading={aiLoading} disabled={!appSelectedTender} />
+   993→            </div>
+   994→          )}
+   995→        </div>
+   996→      </ScrollArea>
+   997→    );
+   998→  };
+   999→
+  1000→  /* ════════════════════════════════════════════════════════════
+  1001→     RENDER
+  1002→     ════════════════════════════════════════════════════════════ */
+  1003→  const ActiveRibbon = RIBBON_MAP[ribbonTab];
+  1004→
+  1005→  return (
+  1006→    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/30 view-enter">
+  1007→      {/* ── Title Bar ── */}
+  1008→      <div className="flex items-center h-10 px-3 bg-card border-b border-border/60 flex-shrink-0 gap-2">
+  1009→        {/* Left: Logo + Doc Title */}
+  1010→        <div className="flex items-center gap-2 flex-1 min-w-0">
+  1011→          <div className="w-6 h-6 rounded gradient-emerald flex items-center justify-center flex-shrink-0">
+  1012→            <Sparkles className="h-3.5 w-3.5 text-white" />
+  1013→          </div>
+  1014→          <Input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }}
+  1015→            className="h-7 text-sm font-medium border-0 bg-transparent focus:bg-muted/50 px-1 max-w-[240px]" />
+  1016→        </div>
+  1017→        {/* Center: Save status */}
+  1018→        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+  1019→          {saveStatus === 'saved' && <><Check className="h-3 w-3 text-emerald-600" /> Saved</>}
+  1020→          {saveStatus === 'saving' && <><span className="animate-pulse">Saving...</span></>}
+  1021→          {saveStatus === 'unsaved' && <><span className="text-amber-600">Unsaved</span></>}
+  1022→        </div>
+  1023→        {/* Right: Actions */}
+  1024→        <div className="flex items-center gap-1 flex-1 justify-end">
+  1025→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleSave}>
+  1026→            <Save className="h-3.5 w-3.5 mr-1" /> Save
+  1027→          </Button>
+  1028→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.info('PDF export coming soon')}>
+  1029→            <Download className="h-3.5 w-3.5 mr-1" /> Export
+  1030→          </Button>
+  1031→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => window.print()}>
+  1032→            <Printer className="h-3.5 w-3.5 mr-1" /> Print
+  1033→          </Button>
+  1034→        </div>
+  1035→      </div>
+  1036→
+  1037→      {/* ── Ribbon Tabs ── */}
+  1038→      <div className="flex items-center h-8 bg-card border-b border-border/40 px-2 flex-shrink-0 gap-0.5">
+  1039→        {(['home', 'insert', 'review', 'ai-tools', 'sign'] as RibbonTab[]).map(tab => (
+  1040→          <button key={tab} onClick={() => setRibbonTab(tab)}
+  1041→            className={`px-3 py-1 text-xs font-medium rounded-t transition-colors ${
+  1042→              ribbonTab === tab
+  1043→                ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500'
+  1044→                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+  1045→            }`}>
+  1046→            {tab === 'ai-tools' ? 'AI Tools' : tab === 'sign' ? 'Sign' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+  1047→          </button>
+  1048→        ))}
+  1049→      </div>
+  1050→
+  1051→      {/* ── Ribbon Controls ── */}
+  1052→      <div className="bg-card border-b border-border/40 flex-shrink-0 min-h-[40px]">
+  1053→        <ActiveRibbon />
+  1054→      </div>
+  1055→
+  1056→      {/* ── Main Area ── */}
+  1057→      <div className="flex-1 flex overflow-hidden">
+  1058→        {/* Document Canvas Area */}
+  1059→        <div className="flex-1 overflow-auto bg-muted/60 p-6" onClick={() => { if (placementMode) { /* handled by editor click */ } }}>
+  1060→          <div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+  1061→            <div
+  1062→              className="bg-white shadow-lg relative"
+  1063→              style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}
+  1064→            >
+  1065→              {/* Document Header */}
+  1066→              <div className="border-b-2 border-emerald-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
+  1067→                <div className="text-center">
+  1068→                  <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">Tenets Tender Ecosystem</p>
+  1069→                  <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
+  1070→                </div>
+  1071→              </div>
+  1072→
+  1073→              {/* Editable Area */}
+  1074→              <div
+  1075→                ref={editorRef}
+  1076→                contentEditable
+  1077→                suppressContentEditableWarning
+  1078→                onInput={handleDocChange}
+  1079→                onClick={handleCanvasClick}
+  1080→                className="outline-none min-h-[800px] text-[13px] leading-[1.6] text-gray-800"
+  1081→                style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }}
+  1082→                data-placeholder="Start typing or use AI tools to generate content..."
+  1083→              />
+  1084→
+  1085→              {/* Document Footer */}
+  1086→              <div className="absolute bottom-8 left-0 right-0 text-center">
+  1087→                <div className="border-t border-gray-200 pt-2">
+  1088→                  <p className="text-[10px] text-gray-400">Page 1 of 1</p>
+  1089→                </div>
+  1090→              </div>
+  1091→            </div>
+  1092→          </div>
+  1093→        </div>
+  1094→
+  1095→        {/* Right Panel: AI Assistant */}
+  1096→        <AnimatePresence>
+  1097→          {aiPanelOpen && (
+  1098→            <motion.div
+  1099→              initial={{ width: 0, opacity: 0 }}
+  1100→              animate={{ width: 350, opacity: 1 }}
+  1101→              exit={{ width: 0, opacity: 0 }}
+  1102→              transition={{ duration: 0.2 }}
+  1103→              className="border-l border-border/60 bg-card flex-shrink-0 overflow-hidden"
+  1104→            >
+  1105→              <AIPanelContent />
+  1106→            </motion.div>
+  1107→          )}
+  1108→        </AnimatePresence>
+  1109→      </div>
+  1110→
+  1111→      {/* ── Status Bar ── */}
+  1112→      <div className="flex items-center h-6 px-3 bg-card border-t border-border/40 text-[10px] text-muted-foreground flex-shrink-0">
+  1113→        <div className="flex-1">Page 1 of 1</div>
+  1114→        <div className="flex items-center gap-3">
+  1115→          <span>{wordCount} words</span>
+  1116→          <span>{charCount} chars</span>
+  1117→        </div>
+  1118→        <div className="flex-1 flex items-center justify-end gap-1">
+  1119→          <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.max(75, zoom - 25))}>
+  1120→            <ZoomOut className="h-3 w-3" />
+  1121→          </Button>
+  1122→          <Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}>
+  1123→            <SelectTrigger className="h-4 w-14 text-[10px] border-0 p-0 bg-transparent">
+  1124→              <SelectValue />
+  1125→            </SelectTrigger>
+  1126→            <SelectContent>
+  1127→              {ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}
+  1128→            </SelectContent>
+  1129→          </Select>
+  1130→          <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.min(150, zoom + 25))}>
+  1131→            <ZoomIn className="h-3 w-3" />
+  1132→          </Button>
+  1133→        </div>
+  1134→      </div>
+  1135→
+  1136→      {/* ── Signature Drawing Dialog ── */}
+  1137→      <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}>
+  1138→        <DialogContent className="sm:max-w-[500px]">
+  1139→          <DialogHeader>
+  1140→            <DialogTitle className="flex items-center gap-2">
+  1141→              <Pen className="h-4 w-4 text-emerald-600" /> Draw Your Signature
+  1142→            </DialogTitle>
+  1143→          </DialogHeader>
+  1144→          <div className="space-y-3">
+  1145→            <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
+  1146→              <canvas
+  1147→                ref={canvasRef}
+  1148→                width={460}
+  1149→                height={200}
+  1150→                onMouseDown={startDraw}
+  1151→                onMouseMove={draw}
+  1152→                onMouseUp={endDraw}
+  1153→                onMouseLeave={endDraw}
+  1154→                className="w-full cursor-crosshair touch-none"
+  1155→              />
+  1156→            </div>
+  1157→            <div className="flex items-center justify-between">
+  1158→              <Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs">
+  1159→                <Eraser className="h-3.5 w-3.5 mr-1" /> Clear
+  1160→              </Button>
+  1161→              <div className="flex gap-2">
+  1162→                <Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button>
+  1163→                <Button size="sm" onClick={saveDrawnSignature}
+  1164→                  className="text-xs gradient-emerald text-white border-0 premium-shadow hover:opacity-90">
+  1165→                  <Check className="h-3.5 w-3.5 mr-1" /> Save Signature
+  1166→                </Button>
+  1167→              </div>
+  1168→            </div>
+  1169→          </div>
+  1170→        </DialogContent>
+  1171→      </Dialog>
+  1172→
+  1173→      {/* ── Signature Gallery (shows when Sign tab is active) ── */}
+  1174→      <AnimatePresence>
+  1175→        {ribbonTab === 'sign' && savedSignatures.length > 0 && (
+  1176→          <motion.div
+  1177→            initial={{ y: 100, opacity: 0 }}
+  1178→            animate={{ y: 0, opacity: 1 }}
+  1179→            exit={{ y: 100, opacity: 0 }}
+  1180→            className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-xl p-3 z-50 max-w-[600px]"
+  1181→          >
+  1182→            <div className="flex items-center justify-between mb-2">
+  1183→              <span className="text-xs font-semibold">Saved Signatures &amp; Stamps</span>
+  1184→              <span className="text-[10px] text-muted-foreground">Click to place on document</span>
+  1185→            </div>
+  1186→            <div className="flex gap-3 overflow-x-auto pb-1">
+  1187→              {savedSignatures.map(sig => (
+  1188→                <div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative">
+  1189→                  <button onClick={() => startPlacement(sig.dataUrl)}
+  1190→                    className="w-20 h-16 border border-border rounded hover:border-emerald-400 transition-colors overflow-hidden bg-white p-1">
+  1191→                    <img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" />
+  1192→                  </button>
+  1193→                  <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{sig.label}</span>
+  1194→                  <button onClick={() => deleteSignature(sig.id)}
+  1195→                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+  1196→                    <X className="h-2.5 w-2.5" />
+  1197→                  </button>
+  1198→                </div>
+  1199→              ))}
+  1200→            </div>
+  1201→          </motion.div>
+  1202→        )}
+  1203→      </AnimatePresence>
+  1204→    </div>
+  1205→  );
+  1206→}
+  1207→
+  1208→/* ══════════════════════════════════════════════════════════════
+  1209→   SMALL UTILITY COMPONENTS
+  1210→   ══════════════════════════════════════════════════════════════ */
+  1211→
+  1212→function RibbonBtn({ icon: Icon, title, onClick }: { icon: React.ElementType; title: string; onClick: () => void }) {
+  1213→  return (
+  1214→    <button onClick={onClick} title={title}
+  1215→      className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted transition-colors text-foreground">
+  1216→      <Icon className="h-4 w-4" />
+  1217→    </button>
+  1218→  );
+  1219→}
+  1220→
+  1221→function GenerateButton({ onClick, loading, disabled }: { onClick: () => void; loading: boolean; disabled?: boolean }) {
+  1222→  return (
+  1223→    <Button onClick={onClick} disabled={loading || disabled}
+  1224→      className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-9 text-xs">
+  1225→      {loading ? (
+  1226→        <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+  1227→          className="inline-block"><Sparkles className="h-3.5 w-3.5 mr-1.5" /></motion.span>Generating...</>
+  1228→      ) : (
+  1229→        <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Generate with AI</>
+  1230→      )}
+  1231→    </Button>
+  1232→  );
+  1233→}
+  1234→

@@ -5,11 +5,11 @@ import type { LiveTender, DataSource } from '@/lib/api';
 
 /**
  * GET /api/tenders/live
- * Fetches tenders from external public procurement APIs (World Bank, EU TED).
+ * Fetches tenders from external public procurement APIs.
  * Requires authentication. Returns normalized LiveTender[] + source metadata.
  *
  * Query params:
- *  - source: 'all' | 'worldbank' | 'eu_ted'  (default 'all')
+ *  - source: 'all' | 'worldbank' | 'eu_ted' | 'ungm' | 'sam_gov' | 'afdb' | 'eu_opentenders'
  *  - search: free-text search term
  *  - rows:   number of records per source (default 20, max 50)
  */
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const rowsRaw = Number(searchParams.get('rows'));
     const rows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.min(rowsRaw, 50) : 20;
 
-    const allowedSources = ['all', 'worldbank', 'eu_ted'];
+    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders'];
     if (!allowedSources.includes(source)) {
       return NextResponse.json(
         { success: false, error: `Invalid source. Allowed: ${allowedSources.join(', ')}` },

@@ -34,27 +34,27 @@ export function TenetsLogo({ size = 'md', iconOnly = false, className = '' }: Te
         className="flex-shrink-0"
       >
         {/* Central hexagon */}
-        <path d="M20 8L28 13V23L20 28L12 23V13L20 8Z" fill="#2ECC71" opacity="0.15" />
-        <path d="M20 8L28 13V23L20 28L12 23V13L20 8Z" stroke="#2ECC71" strokeWidth="1.5" fill="none" />
+        <path d="M20 8L28 13V23L20 28L12 23V13L20 8Z" fill="#334155" opacity="0.15" />
+        <path d="M20 8L28 13V23L20 28L12 23V13L20 8Z" stroke="#475569" strokeWidth="1.5" fill="none" />
 
         {/* Checkmark inside */}
-        <path d="M16 18L19 21L25 15" stroke="#2ECC71" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M16 18L19 21L25 15" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
         {/* Satellite nodes */}
-        <circle cx="20" cy="5" r="2.5" fill="#2ECC71" />
-        <circle cx="30" cy="11" r="2" fill="#2ECC71" opacity="0.7" />
-        <circle cx="30" cy="25" r="2" fill="#2ECC71" opacity="0.7" />
-        <circle cx="20" cy="31" r="2.5" fill="#2ECC71" />
-        <circle cx="10" cy="25" r="2" fill="#2ECC71" opacity="0.7" />
-        <circle cx="10" cy="11" r="2" fill="#2ECC71" opacity="0.7" />
+        <circle cx="20" cy="5" r="2.5" fill="#475569" />
+        <circle cx="30" cy="11" r="2" fill="#64748B" opacity="0.7" />
+        <circle cx="30" cy="25" r="2" fill="#64748B" opacity="0.7" />
+        <circle cx="20" cy="31" r="2.5" fill="#475569" />
+        <circle cx="10" cy="25" r="2" fill="#64748B" opacity="0.7" />
+        <circle cx="10" cy="11" r="2" fill="#64748B" opacity="0.7" />
 
         {/* Connection lines */}
-        <line x1="20" y1="7.5" x2="20" y2="13" stroke="#2ECC71" strokeWidth="1" opacity="0.4" />
-        <line x1="28.5" y1="11.5" x2="25" y2="13.5" stroke="#2ECC71" strokeWidth="1" opacity="0.4" />
-        <line x1="28.5" y1="24.5" x2="25" y2="22.5" stroke="#2ECC71" strokeWidth="1" opacity="0.4" />
-        <line x1="20" y1="28.5" x2="20" y2="23" stroke="#2ECC71" strokeWidth="1" opacity="0.4" />
-        <line x1="11.5" y1="24.5" x2="15" y2="22.5" stroke="#2ECC71" strokeWidth="1" opacity="0.4" />
-        <line x1="11.5" y1="11.5" x2="15" y2="13.5" stroke="#2ECC71" strokeWidth="1" opacity="0.4" />
+        <line x1="20" y1="7.5" x2="20" y2="13" stroke="#94A3B8" strokeWidth="1" opacity="0.4" />
+        <line x1="28.5" y1="11.5" x2="25" y2="13.5" stroke="#94A3B8" strokeWidth="1" opacity="0.4" />
+        <line x1="28.5" y1="24.5" x2="25" y2="22.5" stroke="#94A3B8" strokeWidth="1" opacity="0.4" />
+        <line x1="20" y1="28.5" x2="20" y2="23" stroke="#94A3B8" strokeWidth="1" opacity="0.4" />
+        <line x1="11.5" y1="24.5" x2="15" y2="22.5" stroke="#94A3B8" strokeWidth="1" opacity="0.4" />
+        <line x1="11.5" y1="11.5" x2="15" y2="13.5" stroke="#94A3B8" strokeWidth="1" opacity="0.4" />
       </svg>
 
       {/* Text - only show if not iconOnly */}

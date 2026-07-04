@@ -1,24 +1,29 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuthStore, useNavStore } from '@/store';
 import { api, Project, Task, Milestone, Payment } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, FolderKanban, Plus, Clock, CheckCircle2,
-  Circle, DollarSign, TrendingUp, AlertTriangle, Calendar, MessageSquare,
-  ChevronRight, Sparkles, CreditCard, Flag, ListChecks,
-  BarChart3, Target, Users, Zap, ArrowRight,
+  Circle, DollarSign, AlertTriangle, Calendar, MessageSquare,
+  CreditCard, Flag, GripVertical, Trash2, Edit3,
+  LayoutGrid, GanttChart, Receipt, MessageCircle,
+  ChevronRight, X, Save,
 } from 'lucide-react';
 
 // ─── Animation Variants ─────────────────────────────────────────────
@@ -35,11 +40,6 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
 };
 
-const cardHover = {
-  y: -3,
-  transition: { duration: 0.2, ease: 'easeOut' },
-};
-
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatETB(amount: number): string {
   if (amount >= 1_000_000) return `ETB ${(amount / 1_000_000).toFixed(1)}M`;
@@ -47,26 +47,164 @@ function formatETB(amount: number): string {
   return `ETB ${amount.toLocaleString()}`;
 }
 
-function daysUntil(dateStr: string): number {
-  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+function statusColorMap(status: string) {
+  switch (status) {
+    case 'active': return { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', bar: '#10b981', label: 'Active' };
+    case 'completed': return { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300', dot: 'bg-teal-500', bar: '#14b8a6', label: 'Completed' };
+    case 'on_hold': return { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', dot: 'bg-amber-500', bar: '#f59e0b', label: 'On Hold' };
+    case 'cancelled': return { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', dot: 'bg-rose-500', bar: '#f43f5e', label: 'Cancelled' };
+    default: return { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-muted-foreground/50', bar: '#94a3b8', label: status };
+  }
 }
 
-function isOverdue(dateStr: string): boolean {
-  return new Date(dateStr).getTime() < Date.now();
+// ─── Timeline (Gantt) helpers ────────────────────────────────────────
+function getTimelineRange(project: Project) {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 8, 0);
+  return { start, end };
 }
 
+function monthRange(start: Date, end: Date): Date[] {
+  const months: Date[] = [];
+  const d = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (d <= end) {
+    months.push(new Date(d));
+    d.setMonth(d.getMonth() + 1);
+  }
+  return months;
+}
+
+function dateToX(date: Date, start: Date, end: Date, width: number): number {
+  const total = end.getTime() - start.getTime();
+  if (total === 0) return 0;
+  return ((date.getTime() - start.getTime()) / total) * width;
+}
+
+// ─── Task Column Config ─────────────────────────────────────────────
+const TASK_COLUMNS = [
+  { key: 'todo' as const, label: 'To Do', icon: Circle, color: 'slate' },
+  { key: 'in_progress' as const, label: 'In Progress', icon: Clock, color: 'amber' },
+  { key: 'done' as const, label: 'Done', icon: CheckCircle2, color: 'emerald' },
+];
+
+// ─── Task Card Component ─────────────────────────────────────────────
+function TaskCard({
+  task,
+  onStatusChange,
+  onDelete,
+  onEdit,
+}: {
+  task: Task;
+  onStatusChange: (taskId: string, status: string) => void;
+  onDelete: (taskId: string) => void;
+  onEdit: (task: Task) => void;
+}) {
+  const isOverdue = task.dueDate && new Date(task.dueDate).getTime() < Date.now() && task.status !== 'done';
+  const col = TASK_COLUMNS.find(c => c.key === task.status);
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+      className="group"
+    >
+      <Card className="rounded-lg border border-border/50 bg-card shadow-sm hover:shadow-md hover:border-border transition-all">
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 mt-0.5 flex-shrink-0 cursor-grab" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium leading-tight">{task.title}</p>
+              {task.description && (
+                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+              )}
+            </div>
+          </div>
+
+          {task.dueDate && (
+            <div className={`flex items-center gap-1.5 text-[10px] ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
+              <Calendar className="h-3 w-3" />
+              {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {isOverdue && <span className="font-semibold ml-1">Overdue</span>}
+            </div>
+          )}
+
+          {/* Action buttons on hover */}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {task.status !== 'todo' && (
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, task.status === 'in_progress' ? 'todo' : 'in_progress')}>
+                ← Move
+              </Button>
+            )}
+            {task.status !== 'in_progress' && task.status !== 'done' && (
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, 'in_progress')}>
+                Start →
+              </Button>
+            )}
+            {task.status !== 'done' && (
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-emerald-600" onClick={() => onStatusChange(task.id, 'done')}>
+                ✓ Done
+              </Button>
+            )}
+            {task.status === 'done' && (
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, 'in_progress')}>
+                Reopen
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] ml-auto" onClick={() => onEdit(task)}>
+              <Edit3 className="h-3 w-3" />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-rose-500 hover:text-rose-600">
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete &quot;{task.title}&quot;? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => onDelete(task.id)}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────
 export function ProjectDetailView({ projectId }: { projectId?: string }) {
   const { user } = useAuthStore();
   const { setView } = useNavStore();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('board');
 
-  // Form states
+  // Dialogs
   const [showAddTask, setShowAddTask] = useState(false);
+  const [addTaskColumn, setAddTaskColumn] = useState<string>('todo');
   const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '', status: 'todo' });
+
+  const [showEditTask, setShowEditTask] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editTaskForm, setEditTaskForm] = useState({ title: '', description: '', dueDate: '', status: 'todo' });
+
   const [showAddMilestone, setShowAddMilestone] = useState(false);
   const [newMilestone, setNewMilestone] = useState({ title: '', dueDate: '' });
+
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [newPayment, setNewPayment] = useState({ amount: '', paymentMethod: 'bank_transfer', referenceNumber: '', notes: '', paymentDate: '' });
 
@@ -83,8 +221,10 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
   }, [projectId, loadProject]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // ── Task Handlers ──
   const handleAddTask = async () => {
-    const res = await api.post(`/projects/${projectId}/tasks`, newTask);
+    if (!newTask.title.trim()) { toast.error('Task title is required'); return; }
+    const res = await api.post(`/projects/${projectId}/tasks`, { ...newTask, status: addTaskColumn });
     if (res.success) {
       toast.success('Task added');
       setShowAddTask(false);
@@ -93,7 +233,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
     } else toast.error(res.error || 'Failed to add task');
   };
 
-  const handleUpdateTaskStatus = async (taskId: string, status: string) => {
+  const handleStatusChange = async (taskId: string, status: string) => {
     const res = await api.patch(`/projects/${projectId}/tasks/${taskId}/status`, { status });
     if (res.success) {
       toast.success('Task updated');
@@ -101,7 +241,34 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
     } else toast.error(res.error || 'Failed to update task');
   };
 
+  const handleDeleteTask = async (taskId: string) => {
+    const res = await api.delete(`/projects/${projectId}/tasks/${taskId}`);
+    if (res.success) {
+      toast.success('Task deleted');
+      loadProject();
+    } else toast.error(res.error || 'Failed to delete task');
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditTaskForm({ title: task.title, description: task.description || '', dueDate: task.dueDate || '', status: task.status });
+    setShowEditTask(true);
+  };
+
+  const handleSaveEditTask = async () => {
+    if (!editingTask || !editTaskForm.title.trim()) return;
+    const res = await api.patch(`/projects/${projectId}/tasks/${editingTask.id}`, editTaskForm);
+    if (res.success) {
+      toast.success('Task updated');
+      setShowEditTask(false);
+      setEditingTask(null);
+      loadProject();
+    } else toast.error(res.error || 'Failed to update task');
+  };
+
+  // ── Milestone Handlers ──
   const handleAddMilestone = async () => {
+    if (!newMilestone.title.trim()) { toast.error('Milestone title is required'); return; }
     const res = await api.post(`/projects/${projectId}/milestones`, newMilestone);
     if (res.success) {
       toast.success('Milestone added');
@@ -119,10 +286,10 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
     }
   };
 
+  // ── Payment Handlers ──
   const handleAddPayment = async () => {
     const res = await api.post(`/projects/${projectId}/payments`, {
-      ...newPayment,
-      amount: parseFloat(newPayment.amount),
+      ...newPayment, amount: parseFloat(newPayment.amount),
     });
     if (res.success) {
       toast.success('Payment logged');
@@ -132,41 +299,31 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
     } else toast.error(res.error || 'Failed to log payment');
   };
 
+  // ── Computed ──
   const totalPaid = project?.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
   const paymentProgress = project?.contractValue ? Math.min((totalPaid / project.contractValue) * 100, 100) : 0;
+  const sc = project ? statusColorMap(project.status) : statusColorMap('active');
 
-  const statusConfig = (status: string) => {
-    switch (status) {
-      case 'active': return { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500', gradient: 'gradient-emerald', label: 'Active' };
-      case 'completed': return { bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500', gradient: 'gradient-teal', label: 'Completed' };
-      case 'on_hold': return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500', gradient: 'gradient-amber', label: 'On Hold' };
-      case 'cancelled': return { bg: 'bg-rose-100', text: 'text-rose-700', dot: 'bg-rose-500', gradient: 'gradient-rose', label: 'Cancelled' };
-      default: return { bg: 'bg-muted', text: 'text-foreground', dot: 'bg-muted/500', gradient: 'gradient-emerald', label: status };
-    }
-  };
-
+  // ── Loading ──
   if (loading) {
     return (
-      <div className="p-6 space-y-4 max-w-6xl mx-auto">
-        <div className="h-8 bg-muted rounded-xl w-1/3 animate-pulse" />
-        <div className="h-40 bg-muted rounded-xl animate-pulse premium-shadow" />
-        <div className="h-64 bg-muted rounded-xl animate-pulse premium-shadow" />
+      <div className="space-y-4 max-w-6xl mx-auto p-4 md:p-6">
+        <div className="h-32 sm:h-40 bg-muted rounded-xl animate-pulse -mx-4 md:-mx-6 -mt-4 md:-mt-6" />
+        <div className="h-8 bg-muted rounded w-1/3 animate-pulse" />
+        <div className="h-64 bg-muted rounded-xl animate-pulse" />
       </div>
     );
   }
 
   if (!project) {
     return (
-      <div className="p-6 text-center view-enter">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-rose flex items-center justify-center">
-          <AlertTriangle className="h-8 w-8 text-white" />
+      <div className="p-6 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center">
+          <AlertTriangle className="h-8 w-8 text-rose-500" />
         </div>
         <h3 className="text-lg font-bold text-foreground mb-2">Project not found</h3>
-        <p className="text-muted-foreground text-sm mb-4">The project you are looking for does not exist or you do not have access.</p>
-        <Button
-          className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow"
-          onClick={() => setView('projects')}
-        >
+        <p className="text-muted-foreground text-sm mb-4">This project does not exist or you do not have access.</p>
+        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5" onClick={() => setView('projects')}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
         </Button>
       </div>
@@ -174,716 +331,694 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
   }
 
   const tasks = project.tasks || [];
-  const todoTasks = tasks.filter(t => t.status === 'todo');
-  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+  const milestones = project.milestones || [];
+  const payments = project.payments || [];
   const doneTasks = tasks.filter(t => t.status === 'done');
   const taskProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
-  const milestones = project.milestones || [];
-  const completedMilestones = milestones.filter(m => m.completed).length;
-  const milestoneProgress = milestones.length > 0 ? Math.round((completedMilestones / milestones.length) * 100) : 0;
-  const nextMilestone = milestones.filter(m => !m.completed).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
-
-  const sc = statusConfig(project.status);
-  const isAdmin = user?.role === 'admin';
-  const isTenderOwner = user?.role === 'tender_owner';
 
   return (
     <motion.div
-      className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto"
+      className="space-y-0 max-w-6xl mx-auto"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      {/* Back button */}
-      <motion.div variants={itemVariants}>
-        <Button
-          variant="ghost"
-          onClick={() => setView('projects')}
-          className="text-muted-foreground hover:text-emerald-700 hover:bg-primary/10 -ml-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back to Projects
-        </Button>
+      {/* Cover Gradient */}
+      <motion.div variants={itemVariants} className="relative h-28 sm:h-36 -mx-4 md:-mx-6 -mt-4 md:-mt-6 overflow-hidden">
+        <div className={`absolute inset-0 ${project.status === 'active' ? 'bg-gradient-to-br from-emerald-600 via-teal-500 to-emerald-700' : project.status === 'completed' ? 'bg-gradient-to-br from-teal-600 via-teal-400 to-teal-600' : project.status === 'on_hold' ? 'bg-gradient-to-br from-amber-500 via-amber-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 via-rose-400 to-rose-600'}`} />
+        <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.2) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.15) 0%, transparent 40%)',
+        }} />
       </motion.div>
 
-      {/* Project Header Card */}
-      <motion.div variants={itemVariants}>
-        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
-          {/* Gradient top bar */}
-          <div className={`h-1.5 ${sc.gradient}`} />
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className={`w-14 h-14 rounded-2xl ${sc.gradient} flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-200/30`}>
-                  <FolderKanban className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight">{project.tender?.title || 'Project'}</h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Contractor: {project.bid?.user?.profile?.fullName || 'Assigned'} &middot; Timeline: {project.bid?.timeline || 'N/A'}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <Badge className={`text-xs px-2.5 py-0.5 border-0 font-semibold ${sc.bg} ${sc.text}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} mr-1.5 inline-block`} />
-                      {sc.label}
-                    </Badge>
-                    <Badge className="text-xs px-2.5 py-0.5 border-0 font-semibold bg-emerald-50 text-emerald-700">
-                      <DollarSign className="h-3 w-3 mr-1" /> ETB {project.contractValue.toLocaleString()}
-                    </Badge>
-                    {project.tender?.categoryTags && project.tender.categoryTags.split(',').filter(Boolean).map((tag: string) => (
-                      <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-medium">
-                        {tag.trim()}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <Button
-                className="gradient-emerald hover:opacity-90 text-white rounded-xl px-4 premium-shadow transition-all hover:-translate-y-0.5 flex-shrink-0"
-                onClick={() => setView('chat', { id: project.chat?.id || '' })}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" /> Chat
-              </Button>
-            </div>
+      {/* Header */}
+      <motion.div variants={itemVariants} className="px-4 md:px-6 -mt-6 relative z-10">
+        <div className="flex items-end gap-4">
+          {/* Back button overlaying cover */}
+          <Button
+            variant="ghost"
+            onClick={() => setView('projects')}
+            className="absolute top-2 left-4 md:left-6 text-white/80 hover:text-white hover:bg-white/10 -mt-20 z-20"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+          </Button>
 
-            {/* Payment Progress */}
-            <div className="mt-6 pt-5 border-t border-border/50">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-foreground">Payment Progress</p>
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-bold text-emerald-600">ETB {totalPaid.toLocaleString()}</span>
-                  {' / '}ETB {project.contractValue.toLocaleString()} ({paymentProgress.toFixed(0)}%)
-                </p>
-              </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700"
-                  style={{ width: `${paymentProgress}%` }}
-                />
-              </div>
+          <div className="w-14 h-14 rounded-2xl bg-white dark:bg-card shadow-lg flex items-center justify-center border-4 border-white dark:border-card">
+            <FolderKanban className="h-7 w-7 text-emerald-600" />
+          </div>
+          <div className="pb-2 flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
+                {project.tender?.title || 'Project'}
+              </h1>
+              <Badge className={`text-[10px] px-2 py-0 border-0 font-semibold ${sc.bg} ${sc.text}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} mr-1 inline-block`} />
+                {sc.label}
+              </Badge>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* Properties row */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <Flag className="h-3 w-3" /> {project.tender?.title || 'Tender'}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <FolderKanban className="h-3 w-3" /> {project.bid?.user?.profile?.fullName || 'Assigned Contractor'}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <DollarSign className="h-3 w-3" /> {formatETB(project.contractValue)}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Calendar className="h-3 w-3" /> Created {new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-4 mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-medium text-muted-foreground">Overall Progress</span>
+            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{taskProgress}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-emerald-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${taskProgress}%` }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+            />
+          </div>
+        </div>
       </motion.div>
 
-      {/* Tabs */}
-      <motion.div variants={itemVariants}>
+      {/* Main Tabs */}
+      <motion.div variants={itemVariants} className="px-4 md:px-6 mt-5">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-card premium-shadow rounded-xl border-0 h-11 p-1 gap-1">
-            <TabsTrigger
-              value="overview"
-              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
-            >
-              <BarChart3 className="h-3.5 w-3.5 mr-1.5" /> Overview
+          <TabsList className="bg-muted/50 h-9 p-0.5 mb-5">
+            <TabsTrigger value="board" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+              <LayoutGrid className="h-3.5 w-3.5 mr-1.5" /> Board
             </TabsTrigger>
-            <TabsTrigger
-              value="tasks"
-              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
-            >
-              <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Tasks
+            <TabsTrigger value="timeline" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+              <GanttChart className="h-3.5 w-3.5 mr-1.5" /> Timeline
             </TabsTrigger>
-            <TabsTrigger
-              value="milestones"
-              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
-            >
-              <Flag className="h-3.5 w-3.5 mr-1.5" /> Milestones
+            <TabsTrigger value="payments" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+              <Receipt className="h-3.5 w-3.5 mr-1.5" /> Payments
             </TabsTrigger>
-            <TabsTrigger
-              value="payments"
-              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow text-xs font-semibold px-4"
-            >
-              <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Payments
+            <TabsTrigger value="chat" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+              <MessageCircle className="h-3.5 w-3.5 mr-1.5" /> Chat
             </TabsTrigger>
           </TabsList>
 
-          {/* ─── Overview Tab ─────────────────────────────────────────── */}
-          <TabsContent value="overview" className="mt-4">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="p-2.5 rounded-xl gradient-emerald shadow-sm">
-                        <DollarSign className="h-5 w-5 text-white" />
-                      </div>
+          {/* ═══ BOARD TAB ═══ */}
+          <TabsContent value="board" className="mt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {TASK_COLUMNS.map(col => {
+                const ColIcon = col.icon;
+                const columnTasks = tasks.filter(t => t.status === col.key);
+                return (
+                  <div key={col.key} className="flex flex-col">
+                    {/* Column header */}
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                      <ColIcon className={`h-4 w-4 ${col.color === 'emerald' ? 'text-emerald-500' : col.color === 'amber' ? 'text-amber-500' : 'text-slate-400'}`} />
+                      <h3 className="text-sm font-semibold text-foreground">{col.label}</h3>
+                      <span className="ml-auto text-xs font-medium text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                        {columnTasks.length}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 ml-1"
+                        onClick={() => { setAddTaskColumn(col.key); setNewTask(prev => ({ ...prev, status: col.key })); setShowAddTask(true); }}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <p className="text-2xl font-bold tracking-tight">ETB {project.contractValue.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Contract Value</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
 
-              <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="p-2.5 rounded-xl gradient-teal shadow-sm">
-                        <Target className="h-5 w-5 text-white" />
-                      </div>
-                      <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-semibold">
-                        {taskProgress}%
-                      </Badge>
-                    </div>
-                    <p className="text-2xl font-bold tracking-tight">{doneTasks.length}<span className="text-muted-foreground/40 text-lg font-normal">/{tasks.length}</span></p>
-                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Tasks Completed</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="p-2.5 rounded-xl gradient-amber shadow-sm">
-                        <Flag className="h-5 w-5 text-white" />
-                      </div>
-                      <Badge className="text-[10px] px-1.5 py-0 border-0 bg-amber-50 text-amber-700 font-semibold">
-                        {milestoneProgress}%
-                      </Badge>
-                    </div>
-                    <p className="text-2xl font-bold tracking-tight">{completedMilestones}<span className="text-muted-foreground/40 text-lg font-normal">/{milestones.length}</span></p>
-                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Milestones Done</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="p-2.5 rounded-xl gradient-rose shadow-sm">
-                        <Users className="h-5 w-5 text-white" />
-                      </div>
-                    </div>
-                    <p className="text-sm font-bold tracking-tight">{project.bid?.user?.profile?.fullName || 'Assigned'}</p>
-                    <p className="text-xs text-muted-foreground font-medium mt-0.5">{project.bid?.user?.profile?.companyName || 'Contractor'}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{project.bid?.timeline || 'N/A'} timeline</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-
-            {/* Task & Milestone Progress Row */}
-            <div className="grid md:grid-cols-2 gap-4 mb-6">
-              <Card className="premium-shadow rounded-xl border-0 bg-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg gradient-emerald">
-                      <ListChecks className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    Task Breakdown
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm bg-muted" />
-                        <span className="text-sm">To Do</span>
-                      </div>
-                      <span className="text-sm font-bold">{todoTasks.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm bg-amber-400" />
-                        <span className="text-sm">In Progress</span>
-                      </div>
-                      <span className="text-sm font-bold">{inProgressTasks.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm bg-emerald-500" />
-                        <span className="text-sm">Done</span>
-                      </div>
-                      <span className="text-sm font-bold">{doneTasks.length}</span>
-                    </div>
-                    {/* Visual bar */}
-                    <div className="flex h-3 rounded-full overflow-hidden bg-muted mt-2">
-                      {tasks.length > 0 && (
-                        <>
-                          <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${(doneTasks.length / tasks.length) * 100}%` }} />
-                          <div className="bg-amber-400 transition-all duration-500" style={{ width: `${(inProgressTasks.length / tasks.length) * 100}%` }} />
-                          <div className="bg-muted transition-all duration-500" style={{ width: `${(todoTasks.length / tasks.length) * 100}%` }} />
-                        </>
+                    {/* Task cards */}
+                    <div className="flex flex-col gap-2 min-h-[100px] p-1 rounded-lg bg-muted/20">
+                      <AnimatePresence mode="popLayout">
+                        {columnTasks.map(task => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            onStatusChange={handleStatusChange}
+                            onDelete={handleDeleteTask}
+                            onEdit={handleEditTask}
+                          />
+                        ))}
+                      </AnimatePresence>
+                      {columnTasks.length === 0 && (
+                        <div className="flex-1 flex items-center justify-center py-6">
+                          <p className="text-xs text-muted-foreground/50">No tasks</p>
+                        </div>
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="premium-shadow rounded-xl border-0 bg-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg gradient-amber">
-                      <Flag className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    Next Up
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {nextMilestone ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100">
-                        <div className="p-2 rounded-lg gradient-amber shadow-sm">
-                          <Flag className="h-4 w-4 text-white" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold">{nextMilestone.title}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(nextMilestone.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </p>
-                        </div>
-                        <Badge className={`text-[10px] px-1.5 py-0 border-0 font-semibold ${
-                          isOverdue(nextMilestone.dueDate) ? 'bg-rose-100 text-rose-700' :
-                          daysUntil(nextMilestone.dueDate) <= 7 ? 'bg-amber-100 text-amber-700' :
-                          'bg-emerald-100 text-emerald-700'
-                        }`}>
-                          {isOverdue(nextMilestone.dueDate) ? 'Overdue' : `${daysUntil(nextMilestone.dueDate)}d left`}
-                        </Badge>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <div className="w-10 h-10 mx-auto mb-2 rounded-xl gradient-teal flex items-center justify-center">
-                        <CheckCircle2 className="h-5 w-5 text-white" />
-                      </div>
-                      <p className="text-sm font-medium text-muted-foreground">All milestones completed!</p>
-                    </div>
-                  )}
-
-                  {/* Overdue tasks warning */}
-                  {tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length > 0 && (
-                    <div className="mt-3 p-2.5 rounded-lg bg-rose-50 border border-rose-100 flex items-center gap-2">
-                      <AlertTriangle className="h-3.5 w-3.5 text-rose-500 flex-shrink-0" />
-                      <p className="text-[11px] text-rose-700 font-medium">
-                        {tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length} overdue task{tasks.filter(t => t.dueDate && t.status !== 'done' && isOverdue(t.dueDate)).length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                );
+              })}
             </div>
+          </TabsContent>
 
-            {/* Payment Summary */}
-            <Card className="premium-shadow rounded-xl border-0 bg-card">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg gradient-rose">
-                    <CreditCard className="h-3.5 w-3.5 text-white" />
-                  </div>
-                  Payment Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="p-3 rounded-xl bg-emerald-50/50 text-center">
-                    <p className="text-lg font-bold text-emerald-700">{formatETB(totalPaid)}</p>
-                    <p className="text-[11px] text-muted-foreground font-medium">Paid</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-amber-50/50 text-center">
-                    <p className="text-lg font-bold text-amber-700">{formatETB(project.contractValue - totalPaid)}</p>
-                    <p className="text-[11px] text-muted-foreground font-medium">Remaining</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-teal-50/50 text-center">
-                    <p className="text-lg font-bold text-teal-700">{project.payments?.length || 0}</p>
-                    <p className="text-[11px] text-muted-foreground font-medium">Payments</p>
-                  </div>
-                </div>
-                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700"
-                    style={{ width: `${paymentProgress}%` }}
+          {/* ═══ TIMELINE TAB ═══ */}
+          <TabsContent value="timeline" className="mt-0">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Project Timeline</h3>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAddMilestone(true)}>
+                  <Plus className="h-3 w-3 mr-1" /> Add Milestone
+                </Button>
+              </div>
+              <ProjectTimeline
+                project={project}
+                onToggleMilestone={handleToggleMilestone}
+              />
+            </div>
+          </TabsContent>
+
+          {/* ═══ PAYMENTS TAB ═══ */}
+          <TabsContent value="payments" className="mt-0">
+            <div className="space-y-4">
+              {/* Payment summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Card className="rounded-xl border border-border/60 bg-card">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
+                      <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold">{formatETB(project.contractValue)}</p>
+                      <p className="text-[10px] text-muted-foreground">Contract Value</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-xl border border-border/60 bg-card">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-900/30">
+                      <CreditCard className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold">{formatETB(totalPaid)}</p>
+                      <p className="text-[10px] text-muted-foreground">Paid</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-xl border border-border/60 bg-card">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30">
+                      <Receipt className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold">{formatETB(project.contractValue - totalPaid)}</p>
+                      <p className="text-[10px] text-muted-foreground">Remaining</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Payment progress bar */}
+              <div className="flex items-center gap-3 px-1">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Payment Progress</span>
+                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-teal-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${paymentProgress}%` }}
+                    transition={{ duration: 0.6 }}
                   />
                 </div>
+                <span className="text-xs font-bold text-teal-600 dark:text-teal-400">{paymentProgress.toFixed(0)}%</span>
+              </div>
+
+              {/* Add payment button */}
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAddPayment(true)}>
+                  <Plus className="h-3 w-3 mr-1" /> Log Payment
+                </Button>
+              </div>
+
+              {/* Payments table */}
+              <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+                {payments.length === 0 ? (
+                  <CardContent className="p-8 text-center">
+                    <CreditCard className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No payments recorded yet</p>
+                  </CardContent>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Amount</TableHead>
+                        <TableHead className="text-xs hidden sm:table-cell">Method</TableHead>
+                        <TableHead className="text-xs hidden md:table-cell">Reference</TableHead>
+                        <TableHead className="text-xs hidden lg:table-cell">Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map(p => (
+                        <TableRow key={p.id} className="hover:bg-muted/30">
+                          <TableCell className="text-xs">
+                            {new Date(p.paymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </TableCell>
+                          <TableCell className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatETB(p.amount)}</TableCell>
+                          <TableCell className="text-xs hidden sm:table-cell text-muted-foreground">
+                            {p.paymentMethod.replace(/_/g, ' ')}
+                          </TableCell>
+                          <TableCell className="text-xs hidden md:table-cell text-muted-foreground">
+                            {p.referenceNumber || '-'}
+                          </TableCell>
+                          <TableCell className="text-xs hidden lg:table-cell text-muted-foreground max-w-[200px] truncate">
+                            {p.notes || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ═══ CHAT TAB ═══ */}
+          <TabsContent value="chat" className="mt-0">
+            <Card className="rounded-xl border border-border/60 bg-card">
+              <CardContent className="p-8 text-center">
+                <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                <h3 className="text-sm font-semibold text-foreground mb-1">Project Chat</h3>
+                <p className="text-xs text-muted-foreground mb-4">Communicate with the project team in real-time</p>
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5"
+                  onClick={() => {
+                    if (project.chat?.id) {
+                      setView('chat', { id: project.chat.id });
+                    } else {
+                      setView('chat');
+                    }
+                  }}
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" /> Open Chat
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* ─── Tasks Tab (Kanban) ──────────────────────────────── */}
-          <TabsContent value="tasks" className="mt-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <h3 className="text-lg font-bold text-foreground">Task Board</h3>
-                <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-emerald-200 text-emerald-700 bg-emerald-50/50">
-                  {taskProgress}% complete
-                </Badge>
-              </div>
-              {isAdmin && (
-                <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
-                      <Plus className="h-4 w-4 mr-1" /> Add Task
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="rounded-xl">
-                    <DialogHeader><DialogTitle className="text-lg font-bold">Add New Task</DialogTitle></DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Title *</Label>
-                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.title} onChange={e => setNewTask(d => ({ ...d, title: e.target.value }))} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Description</Label>
-                        <Textarea className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.description} onChange={e => setNewTask(d => ({ ...d, description: e.target.value }))} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Due Date</Label>
-                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newTask.dueDate} onChange={e => setNewTask(d => ({ ...d, dueDate: e.target.value }))} />
-                      </div>
-                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddTask}>Add Task</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-4">
-              <KanbanColumn title="To Do" icon={<Circle className="h-4 w-4" />} tasks={todoTasks}
-                colorTheme="slate" onMoveTask={(id) => handleUpdateTaskStatus(id, 'in_progress')} moveLabel="Start" moveIcon={<ChevronRight className="h-3 w-3" />} />
-              <KanbanColumn title="In Progress" icon={<Clock className="h-4 w-4" />} tasks={inProgressTasks}
-                colorTheme="amber" onMoveTask={(id) => handleUpdateTaskStatus(id, 'done')} moveLabel="Complete" moveIcon={<CheckCircle2 className="h-3 w-3" />} />
-              <KanbanColumn title="Done" icon={<CheckCircle2 className="h-4 w-4" />} tasks={doneTasks}
-                colorTheme="emerald" onMoveTask={(id) => handleUpdateTaskStatus(id, 'todo')} moveLabel="Reopen" moveIcon={<Circle className="h-3 w-3" />} />
-            </div>
-          </TabsContent>
-
-          {/* ─── Milestones Tab (Timeline) ───────────────────────── */}
-          <TabsContent value="milestones" className="mt-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-foreground">Milestones</h3>
-              {isAdmin && (
-                <Dialog open={showAddMilestone} onOpenChange={setShowAddMilestone}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
-                      <Plus className="h-4 w-4 mr-1" /> Add Milestone
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="rounded-xl">
-                    <DialogHeader><DialogTitle className="text-lg font-bold">Add Milestone</DialogTitle></DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Title *</Label>
-                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newMilestone.title} onChange={e => setNewMilestone(d => ({ ...d, title: e.target.value }))} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Due Date *</Label>
-                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newMilestone.dueDate} onChange={e => setNewMilestone(d => ({ ...d, dueDate: e.target.value }))} />
-                      </div>
-                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddMilestone}>Add Milestone</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-
-            {milestones.length === 0 ? (
-              <Card className="premium-shadow rounded-xl border-0 bg-card">
-                <CardContent className="p-12 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-teal flex items-center justify-center">
-                    <Flag className="h-8 w-8 text-white" />
-                  </div>
-                  <h4 className="text-base font-bold text-foreground mb-1">No milestones defined</h4>
-                  <p className="text-sm text-muted-foreground">Add milestones to track key project deliverables.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="relative pl-8">
-                {/* Vertical connecting line */}
-                <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-border rounded-full" />
-
-                <AnimatePresence>
-                  <div className="space-y-4">
-                    {milestones.map((ms, idx) => {
-                      const isMsOverdue = !ms.completed && isOverdue(ms.dueDate);
-                      const isSoon = !ms.completed && !isMsOverdue && daysUntil(ms.dueDate) <= 7;
-                      const dotColor = ms.completed
-                        ? 'bg-emerald-500 shadow-md shadow-emerald-200'
-                        : isMsOverdue
-                          ? 'bg-rose-500 shadow-md shadow-rose-200'
-                          : isSoon
-                            ? 'bg-amber-500 shadow-md shadow-amber-200'
-                            : 'bg-muted';
-                      const borderColor = ms.completed
-                        ? 'border-emerald-200 bg-emerald-50/50'
-                        : isMsOverdue
-                          ? 'border-rose-200 bg-rose-50/50'
-                          : isSoon
-                            ? 'border-amber-200 bg-amber-50/50'
-                            : 'border-border/60 bg-card';
-
-                      return (
-                        <motion.div
-                          key={ms.id}
-                          initial={{ opacity: 0, x: -12 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.06, duration: 0.3 }}
-                        >
-                          <Card className="premium-shadow rounded-xl border-0 overflow-hidden">
-                            <CardContent className={`p-4 border-l-4 ${borderColor} flex items-center justify-between`}>
-                              <div className="flex items-center gap-4">
-                                {/* Timeline dot */}
-                                <div className="absolute left-[8px]">
-                                  <div className={`w-[15px] h-[15px] rounded-full border-2 border-white ${dotColor} z-10`} />
-                                </div>
-                                <button onClick={() => handleToggleMilestone(ms.id, ms.completed)}
-                                  className="w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer hover:border-emerald-400 transition-colors bg-card">
-                                  {ms.completed ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
-                                </button>
-                                <div>
-                                  <p className={`text-sm font-semibold ${ms.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{ms.title}</p>
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                    <Calendar className="h-3 w-3" /> {new Date(ms.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {isMsOverdue && <Badge className="bg-rose-100 text-rose-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Overdue</Badge>}
-                                {isSoon && <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Due Soon</Badge>}
-                                {ms.completed && <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 border-0 font-semibold">Complete</Badge>}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </AnimatePresence>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* ─── Payments Tab ────────────────────────────────────── */}
-          <TabsContent value="payments" className="mt-4">
-            {/* Finance stat cards */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
-                  <CardContent className="p-5 flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl gradient-emerald flex-shrink-0 shadow-sm">
-                      <DollarSign className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold tracking-tight">ETB {totalPaid.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground font-medium">Total Paid</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-              <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
-                  <CardContent className="p-5 flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl gradient-amber flex-shrink-0 shadow-sm">
-                      <TrendingUp className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold tracking-tight">ETB {(project.contractValue - totalPaid).toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground font-medium">Remaining</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-              <motion.div whileHover={cardHover}>
-                <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
-                  <CardContent className="p-5 flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl gradient-teal flex-shrink-0 shadow-sm">
-                      <CheckCircle2 className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold tracking-tight">{paymentProgress.toFixed(0)}%</p>
-                      <p className="text-xs text-muted-foreground font-medium">Progress</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-
-            {/* Payment Log */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-foreground">Payment Log</h3>
-              {(isAdmin || isTenderOwner) && (
-                <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5">
-                      <Plus className="h-4 w-4 mr-1" /> Log Payment
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="rounded-xl">
-                    <DialogHeader><DialogTitle className="text-lg font-bold">Log Payment</DialogTitle></DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Amount (ETB) *</Label>
-                        <Input type="number" className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.amount} onChange={e => setNewPayment(d => ({ ...d, amount: e.target.value }))} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Payment Method</Label>
-                        <Select value={newPayment.paymentMethod} onValueChange={v => setNewPayment(d => ({ ...d, paymentMethod: v }))}>
-                          <SelectTrigger className="rounded-lg"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                            <SelectItem value="cbe_birr">CBE Birr</SelectItem>
-                            <SelectItem value="cash">Cash</SelectItem>
-                            <SelectItem value="check">Check</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Reference Number</Label>
-                        <Input className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.referenceNumber} onChange={e => setNewPayment(d => ({ ...d, referenceNumber: e.target.value }))} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Payment Date *</Label>
-                        <Input type="date" className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.paymentDate} onChange={e => setNewPayment(d => ({ ...d, paymentDate: e.target.value }))} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Notes</Label>
-                        <Textarea className="rounded-lg focus:ring-primary focus:border-primary" value={newPayment.notes} onChange={e => setNewPayment(d => ({ ...d, notes: e.target.value }))} />
-                      </div>
-                      <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow" onClick={handleAddPayment}>Log Payment</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-
-            {(project.payments || []).length === 0 ? (
-              <Card className="premium-shadow rounded-xl border-0 bg-card">
-                <CardContent className="p-12 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-amber flex items-center justify-center">
-                    <CreditCard className="h-8 w-8 text-white" />
-                  </div>
-                  <h4 className="text-base font-bold text-foreground mb-1">No payments logged yet</h4>
-                  <p className="text-sm text-muted-foreground">Record payments as they are received.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                <AnimatePresence>
-                  {(project.payments ?? []).map((payment, idx) => {
-                    const methodGradient: Record<string, string> = {
-                      bank_transfer: 'gradient-teal',
-                      cbe_birr: 'gradient-emerald',
-                      cash: 'gradient-amber',
-                      check: 'gradient-rose',
-                    };
-                    const methodIcon: Record<string, React.ElementType> = {
-                      bank_transfer: DollarSign,
-                      cbe_birr: Zap,
-                      cash: CreditCard,
-                      check: ArrowRight,
-                    };
-                    const g = methodGradient[payment.paymentMethod] || 'gradient-emerald';
-                    const MIcon = methodIcon[payment.paymentMethod] || CreditCard;
-                    return (
-                      <motion.div
-                        key={payment.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05, duration: 0.3 }}
-                        whileHover={{ y: -2, transition: { duration: 0.15 } }}
-                      >
-                        <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200">
-                          <CardContent className="p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl ${g} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                                <MIcon className="h-5 w-5 text-white" />
-                              </div>
-                              <div>
-                                <p className="font-bold text-sm">ETB {payment.amount.toLocaleString()}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {payment.paymentMethod.replace('_', ' ')} &middot; {new Date(payment.paymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </p>
-                                {payment.referenceNumber && (
-                                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">Ref: {payment.referenceNumber}</p>
-                                )}
-                                {payment.notes && <p className="text-xs text-muted-foreground mt-1 italic">{payment.notes}</p>}
-                              </div>
-                            </div>
-                            <Badge className="text-[10px] px-1.5 py-0 border-0 font-semibold bg-emerald-50 text-emerald-700">
-                              {payment.paymentMethod.replace('_', ' ')}
-                            </Badge>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            )}
-          </TabsContent>
         </Tabs>
       </motion.div>
+
+      {/* ═══ ADD TASK DIALOG ═══ */}
+      <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-emerald-500" /> Add Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Title *</Label>
+              <Input
+                value={newTask.title}
+                onChange={e => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Task title"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Textarea
+                value={newTask.description}
+                onChange={e => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe the task..."
+                rows={2}
+                className="text-sm resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Due Date</Label>
+                <Input
+                  type="date"
+                  value={newTask.dueDate}
+                  onChange={e => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={addTaskColumn} onValueChange={v => setAddTaskColumn(v)}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To Do</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+            </DialogClose>
+            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAddTask}>
+              Add Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ EDIT TASK DIALOG ═══ */}
+      <Dialog open={showEditTask} onOpenChange={setShowEditTask}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit3 className="h-4 w-4 text-amber-500" /> Edit Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Title *</Label>
+              <Input
+                value={editTaskForm.title}
+                onChange={e => setEditTaskForm(prev => ({ ...prev, title: e.target.value }))}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Textarea
+                value={editTaskForm.description}
+                onChange={e => setEditTaskForm(prev => ({ ...prev, description: e.target.value }))}
+                rows={2}
+                className="text-sm resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Due Date</Label>
+                <Input
+                  type="date"
+                  value={editTaskForm.dueDate}
+                  onChange={e => setEditTaskForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={editTaskForm.status} onValueChange={v => setEditTaskForm(prev => ({ ...prev, status: v }))}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To Do</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+            </DialogClose>
+            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSaveEditTask}>
+              <Save className="h-3 w-3 mr-1" /> Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ ADD MILESTONE DIALOG ═══ */}
+      <Dialog open={showAddMilestone} onOpenChange={setShowAddMilestone}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flag className="h-4 w-4 text-amber-500" /> Add Milestone
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Title *</Label>
+              <Input
+                value={newMilestone.title}
+                onChange={e => setNewMilestone(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Milestone title"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Due Date</Label>
+              <Input
+                type="date"
+                value={newMilestone.dueDate}
+                onChange={e => setNewMilestone(prev => ({ ...prev, dueDate: e.target.value }))}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+            </DialogClose>
+            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAddMilestone}>
+              Add Milestone
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ ADD PAYMENT DIALOG ═══ */}
+      <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-teal-500" /> Log Payment
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Amount (ETB) *</Label>
+                <Input
+                  type="number"
+                  value={newPayment.amount}
+                  onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="0"
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Payment Date</Label>
+                <Input
+                  type="date"
+                  value={newPayment.paymentDate}
+                  onChange={e => setNewPayment(prev => ({ ...prev, paymentDate: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Payment Method</Label>
+              <Select value={newPayment.paymentMethod} onValueChange={v => setNewPayment(prev => ({ ...prev, paymentMethod: v }))}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Reference Number</Label>
+              <Input
+                value={newPayment.referenceNumber}
+                onChange={e => setNewPayment(prev => ({ ...prev, referenceNumber: e.target.value }))}
+                placeholder="Reference number"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Notes</Label>
+              <Textarea
+                value={newPayment.notes}
+                onChange={e => setNewPayment(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Payment notes..."
+                rows={2}
+                className="text-sm resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+            </DialogClose>
+            <Button size="sm" className="h-8 bg-teal-600 hover:bg-teal-700 text-white" onClick={handleAddPayment}>
+              Log Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
 
-function KanbanColumn({ title, icon, tasks, colorTheme, onMoveTask, moveLabel, moveIcon }: {
-  title: string; icon: React.ReactNode; tasks: Task[]; colorTheme: string;
-  onMoveTask: (id: string) => void; moveLabel: string; moveIcon?: React.ReactNode;
+// ─── Project Timeline Sub-Component ──────────────────────────────────
+function ProjectTimeline({
+  project,
+  onToggleMilestone,
+}: {
+  project: Project;
+  onToggleMilestone: (id: string, completed: boolean) => void;
 }) {
-  const themeStyles: Record<string, { headerBg: string; headerText: string; cardBg: string; dotColor: string }> = {
-    slate: { headerBg: 'bg-muted/50', headerText: 'text-foreground', cardBg: 'bg-card hover:bg-muted/50', dotColor: 'bg-muted-foreground/50' },
-    amber: { headerBg: 'bg-amber-50', headerText: 'text-amber-700', cardBg: 'bg-card hover:bg-amber-50/50', dotColor: 'bg-amber-500' },
-    emerald: { headerBg: 'bg-emerald-50', headerText: 'text-emerald-700', cardBg: 'bg-card hover:bg-primary/10', dotColor: 'bg-emerald-500' },
-  };
-  const theme = themeStyles[colorTheme] || themeStyles.slate;
+  const timelineWidth = 800;
+  const headerHeight = 36;
+  const milestones = project.milestones || [];
+  const rowHeight = 44;
+
+  const { start, end } = useMemo(() => getTimelineRange(project), [project]);
+  const months = useMemo(() => monthRange(start, end), [start, end]);
+
+  const createdAt = new Date(project.createdAt);
+  const lastMilestone = milestones.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())[0];
+  const projectEnd = lastMilestone ? new Date(lastMilestone.dueDate) : new Date(createdAt.getTime() + 90 * 86400000);
+
+  const sc = statusColorMap(project.status);
+  const taskProgress = (project.tasks || []).length > 0
+    ? Math.round((project.tasks!.filter(t => t.status === 'done').length / project.tasks!.length) * 100)
+    : 0;
+
+  const nowX = dateToX(new Date(), start, end, timelineWidth);
+
+  const milestoneData = milestones.map(m => ({
+    ...m,
+    x: dateToX(new Date(m.dueDate), start, end, timelineWidth),
+  }));
+
+  const svgHeight = headerHeight + rowHeight + 20;
 
   return (
-    <Card className="premium-shadow rounded-xl border-0 bg-card/80 overflow-hidden">
-      <div className={`px-4 py-3 ${theme.headerBg} border-b border-border/30`}>
-        <div className="flex items-center gap-2">
-          <span className={theme.headerText}>{icon}</span>
-          <CardTitle className={`text-sm font-semibold ${theme.headerText}`}>{title}</CardTitle>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto border-0 bg-card/60 font-semibold">
-            {tasks.length}
-          </Badge>
+    <div className="space-y-3">
+      <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <svg width={timelineWidth + 180} height={svgHeight} className="min-w-full">
+            {/* Month columns */}
+            {months.map((m, i) => {
+              const x = dateToX(m, start, end, timelineWidth) + 180;
+              const nextM = new Date(m);
+              nextM.setMonth(nextM.getMonth() + 1);
+              const x2 = dateToX(nextM, start, end, timelineWidth) + 180;
+              return (
+                <g key={i}>
+                  <rect x={x} y={0} width={x2 - x} height={svgHeight} fill={i % 2 === 0 ? 'transparent' : 'rgba(128,128,128,0.03)'} />
+                  <text x={x + (x2 - x) / 2} y={22} textAnchor="middle" className="text-[10px] fill-muted-foreground font-medium">
+                    {m.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                  </text>
+                  <line x1={x} y1={headerHeight} x2={x} y2={svgHeight} stroke="currentColor" strokeOpacity={0.06} />
+                </g>
+              );
+            })}
+
+            {/* Today line */}
+            <line x1={nowX + 180} y1={0} x2={nowX + 180} y2={svgHeight} stroke="#f43f5e" strokeWidth={1.5} strokeDasharray="4 3" />
+            <text x={nowX + 180} y={12} textAnchor="middle" className="text-[9px] fill-rose-500 font-semibold">TODAY</text>
+
+            {/* Project bar */}
+            {(() => {
+              const x1 = dateToX(createdAt, start, end, timelineWidth) + 180;
+              const x2 = dateToX(projectEnd, start, end, timelineWidth) + 180;
+              const y = headerHeight + 12;
+              const barH = 20;
+              const barW = Math.max(x2 - x1, 8);
+              return (
+                <g>
+                  <rect x={x1} y={y} width={barW} height={barH} rx={4} fill={sc.bar} fillOpacity={0.2} />
+                  <rect x={x1} y={y} width={barW * (taskProgress / 100)} height={barH} rx={4} fill={sc.bar} />
+                </g>
+              );
+            })()}
+
+            {/* Milestone diamonds */}
+            {milestoneData.map((m, i) => {
+              const y = headerHeight + rowHeight / 2;
+              return (
+                <g key={m.id} className="cursor-pointer" onClick={() => onToggleMilestone(m.id, m.completed)}>
+                  <polygon
+                    points={`${m.x + 180},${y - 6} ${m.x + 186},${y} ${m.x + 180},${y + 6} ${m.x + 174},${y}`}
+                    fill={m.completed ? '#10b981' : sc.bar}
+                    stroke="white"
+                    strokeWidth={1.5}
+                  />
+                  <text x={m.x + 180} y={y + 18} textAnchor="middle" className={`text-[9px] ${m.completed ? 'fill-emerald-500' : 'fill-muted-foreground'} font-medium`}>
+                    {m.title.slice(0, 12)}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
         </div>
-      </div>
-      <CardContent className="p-3 space-y-2.5 max-h-96 overflow-y-auto">
-        {tasks.length === 0 ? (
-          <div className="py-8 text-center">
-            <div className={`w-8 h-8 mx-auto mb-2 rounded-full ${theme.headerBg} flex items-center justify-center`}>
-              <span className={`w-2 h-2 rounded-full ${theme.dotColor}`} />
-            </div>
-            <p className="text-xs text-muted-foreground">No tasks</p>
-          </div>
-        ) : (
-          <AnimatePresence>
-            {tasks.map((task, idx) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05, duration: 0.25 }}
-                className={`${theme.cardBg} rounded-xl p-3.5 space-y-2.5 premium-shadow transition-all duration-200 border border-border/30`}
-              >
-                <div className="flex items-start gap-2">
-                  <span className={`w-2 h-2 rounded-full ${theme.dotColor} mt-1.5 flex-shrink-0`} />
-                  <p className="text-sm font-medium text-foreground">{task.title}</p>
-                </div>
-                {task.description && <p className="text-xs text-muted-foreground line-clamp-2 ml-4">{task.description}</p>}
-                {task.dueDate && (
-                  <div className="flex items-center justify-between ml-4">
-                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <Calendar className="h-3 w-3" /> {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </p>
-                    {task.status !== 'done' && isOverdue(task.dueDate) && (
-                      <Badge className="text-[10px] px-1 py-0 border-0 bg-rose-100 text-rose-700 font-semibold">Overdue</Badge>
-                    )}
-                  </div>
-                )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="w-full text-xs h-7 rounded-lg hover:bg-primary/10 hover:text-emerald-700 transition-colors font-medium"
-                  onClick={() => onMoveTask(task.id)}
-                >
-                  {moveIcon} <span className="ml-1">{moveLabel}</span>
-                </Button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        )}
-      </CardContent>
-    </Card>
+      </Card>
+
+      {/* Milestones list */}
+      <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="text-xs">Milestone</TableHead>
+              <TableHead className="text-xs">Due Date</TableHead>
+              <TableHead className="text-xs">Status</TableHead>
+              <TableHead className="text-xs w-10" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {milestones.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-8">
+                  <Flag className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">No milestones defined</p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              milestones
+                .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                .map(m => {
+                  const isOverdue = !m.completed && new Date(m.dueDate).getTime() < Date.now();
+                  return (
+                    <TableRow key={m.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => onToggleMilestone(m.id, m.completed)}>
+                      <TableCell className="text-sm font-medium">{m.title}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(m.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </TableCell>
+                      <TableCell>
+                        {m.completed ? (
+                          <Badge className="text-[10px] px-2 py-0 border-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                            <CheckCircle2 className="h-3 w-3 mr-1" /> Done
+                          </Badge>
+                        ) : isOverdue ? (
+                          <Badge className="text-[10px] px-2 py-0 border-0 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300">
+                            <AlertTriangle className="h-3 w-3 mr-1" /> Overdue
+                          </Badge>
+                        ) : (
+                          <Badge className="text-[10px] px-2 py-0 border-0 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                            <Clock className="h-3 w-3 mr-1" /> Pending
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
   );
 }
