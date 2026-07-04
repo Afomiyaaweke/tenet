@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import { fetchLiveTenders, DATA_SOURCES } from '@/lib/external-tenders';
+import { fetchLiveTenders, fetchSectorTenders, getSectorCounts, DATA_SOURCES, SECTOR_IDS } from '@/lib/external-tenders';
 import type { LiveTender, DataSource } from '@/lib/api';
 
 /**
  * GET /api/tenders/live
- * Fetches tenders from external public procurement APIs.
+ * Fetches tenders from external public procurement APIs or sector feeds.
  * Requires authentication. Returns normalized LiveTender[] + source metadata.
  *
  * Query params:
- *  - source: 'all' | 'worldbank' | 'eu_ted' | 'ungm' | 'sam_gov' | 'afdb' | 'eu_opentenders'
+ *  - source: 'all' | 'worldbank' | 'eu_ted' | 'ungm' | 'sam_gov' | 'afdb' | 'eu_opentenders' | 'jica' | 'adb' | 'uk_contracts' | 'dgmarket'
+ *  - sector: 'all' | 'medical' | 'construction' | 'retail' | 'it' | 'energy' | 'agriculture' | 'education' | 'transport' | 'finance' | 'telecom'
  *  - search: free-text search term
  *  - rows:   number of records per source (default 20, max 50)
  */
@@ -20,11 +21,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const source = (searchParams.get('source') || 'all').toLowerCase();
+    const sector = (searchParams.get('sector') || '').toLowerCase();
     const search = searchParams.get('search') || undefined;
     const rowsRaw = Number(searchParams.get('rows'));
     const rows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.min(rowsRaw, 50) : 20;
 
-    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders'];
+    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders', 'jica', 'adb', 'uk_contracts', 'dgmarket'];
     if (!allowedSources.includes(source)) {
       return NextResponse.json(
         { success: false, error: `Invalid source. Allowed: ${allowedSources.join(', ')}` },
@@ -32,10 +34,39 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const allowedSectors = ['all', ...SECTOR_IDS];
+    if (sector && !allowedSectors.includes(sector)) {
+      return NextResponse.json(
+        { success: false, error: `Invalid sector. Allowed: ${allowedSectors.join(', ')}` },
+        { status: 400 },
+      );
+    }
+
+    // If sector is specified, use sector feed
+    if (sector) {
+      const sectorTenders = fetchSectorTenders(sector, search);
+      const sectors = getSectorCounts();
+      return NextResponse.json({
+        success: true,
+        data: sectorTenders,
+        meta: {
+          total: sectorTenders.length,
+          source: 'sector_feed',
+          sector,
+          search: search || '',
+          rows,
+          sectors,
+          sources: [{ id: 'sector_feed', name: 'Sector Feed', live: true, ok: true, count: sectorTenders.length }],
+          dataSources: DATA_SOURCES,
+        },
+      });
+    }
+
     const result = await fetchLiveTenders({ source, search, rows });
 
     const tenders: LiveTender[] = result.tenders;
     const dataSources: DataSource[] = DATA_SOURCES;
+    const sectors = getSectorCounts();
 
     return NextResponse.json({
       success: true,
@@ -43,8 +74,10 @@ export async function GET(request: NextRequest) {
       meta: {
         ...result.meta,
         source,
+        sector: '',
         search: search || '',
         rows,
+        sectors,
         sources: result.meta.sources,
         dataSources,
       },

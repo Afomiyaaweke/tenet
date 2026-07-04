@@ -16,7 +16,7 @@ import {
   Database, ServerCrash, Sparkles, ArrowUpRight,
   ChevronDown, ChevronUp, BookOpen, Download, Copy,
   Loader2, Clock, Landmark, Plane, Flag, Cpu,
-  CheckCircle2, ExternalLink,
+  CheckCircle2, ExternalLink, TrendingUp,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -39,6 +39,11 @@ const SOURCE_LABELS: Record<string, string> = {
   sam_gov: 'SAM.gov',
   afdb: 'AfDB',
   eu_opentenders: 'OpenTenders EU',
+  jica: 'JICA',
+  adb: 'ADB',
+  uk_contracts: 'UK Contracts',
+  dgmarket: 'DgMarket',
+  sector_feed: 'Sector Feed',
 };
 
 const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -84,6 +89,41 @@ const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; 
     bg: 'from-violet-500/10 to-purple-500/5',
     icon: Cpu,
   },
+  jica: {
+    dot: 'bg-red-500',
+    badge: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+    ring: 'hover:border-red-400/60',
+    bg: 'from-red-500/10 to-rose-500/5',
+    icon: Flag,
+  },
+  adb: {
+    dot: 'bg-cyan-500',
+    badge: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300',
+    ring: 'hover:border-cyan-400/60',
+    bg: 'from-cyan-500/10 to-teal-500/5',
+    icon: Landmark,
+  },
+  uk_contracts: {
+    dot: 'bg-rose-500',
+    badge: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+    ring: 'hover:border-rose-400/60',
+    bg: 'from-rose-500/10 to-pink-500/5',
+    icon: Flag,
+  },
+  dgmarket: {
+    dot: 'bg-lime-500',
+    badge: 'bg-lime-50 text-lime-700 dark:bg-lime-950/40 dark:text-lime-300',
+    ring: 'hover:border-lime-400/60',
+    bg: 'from-lime-500/10 to-green-500/5',
+    icon: Globe2,
+  },
+  sector_feed: {
+    dot: 'bg-primary',
+    badge: 'bg-primary/10 text-primary',
+    ring: 'hover:border-primary/40',
+    bg: 'from-primary/10 to-primary/5',
+    icon: TrendingUp,
+  },
   default: {
     dot: 'bg-muted-foreground',
     badge: 'bg-muted text-muted-foreground',
@@ -102,7 +142,27 @@ const ACCENT_DOT: Record<string, string> = {
   violet: 'bg-violet-500',
   teal: 'bg-teal-500',
   rose: 'bg-rose-500',
+  red: 'bg-red-500',
+  cyan: 'bg-cyan-500',
+  lime: 'bg-lime-500',
 };
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Sector definitions for quick-filter
+ * ───────────────────────────────────────────────────────────────────── */
+
+const SECTOR_PILLS: { id: string; label: string; icon: string; color: string }[] = [
+  { id: 'medical', label: 'Medical', icon: '🏥', color: 'rose' },
+  { id: 'construction', label: 'Construction', icon: '🏗️', color: 'amber' },
+  { id: 'retail', label: 'Retail', icon: '🛒', color: 'pink' },
+  { id: 'it', label: 'IT', icon: '💻', color: 'violet' },
+  { id: 'energy', label: 'Energy', icon: '⚡', color: 'yellow' },
+  { id: 'agriculture', label: 'Agriculture', icon: '🌾', color: 'green' },
+  { id: 'education', label: 'Education', icon: '📚', color: 'blue' },
+  { id: 'transport', label: 'Transport', icon: '🚛', color: 'cyan' },
+  { id: 'finance', label: 'Finance', icon: '🏦', color: 'emerald' },
+  { id: 'telecom', label: 'Telecom', icon: '📡', color: 'sky' },
+];
 
 /* ─────────────────────────────────────────────────────────────────────
  * Inline document data type
@@ -280,6 +340,8 @@ export function LiveTendersView() {
   const [fallback, setFallback] = useState(false);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [sectorFilter, setSectorFilter] = useState('');
+  const [sectorCounts, setSectorCounts] = useState<{ id: string; label: string; count: number }[]>([]);
 
   // Inline document state
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -294,22 +356,24 @@ export function LiveTendersView() {
     async (isRefresh = false) => {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
-      const params: Record<string, string> = { rows: '20' };
+      const params: Record<string, string> = { rows: '50' };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
+      if (sectorFilter) params.sector = sectorFilter;
       const res = await api.get('/tenders/live', params);
       if (res.success) {
         setTenders(res.data as LiveTender[]);
         setSourceMeta(res.meta?.sources || []);
         setFallback(Boolean(res.meta?.fallback));
         if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
+        if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
       } else {
         toast.error(res.error || 'Failed to load live tenders');
       }
       setLoading(false);
       setRefreshing(false);
     },
-    [search, sourceFilter],
+    [search, sourceFilter, sectorFilter],
   );
 
   useEffect(() => {
@@ -425,7 +489,8 @@ export function LiveTendersView() {
               </Badge>
             </div>
             <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-              Real-time procurement from international public APIs — {tenders.length} opportunities from {sourceMeta.length || 6} sources
+              Real-time procurement from international public APIs — {tenders.length} opportunities from {sourceMeta.length || 10} sources
+              {sectorFilter && <span className="ml-1 text-primary font-medium">· filtered by {SECTOR_PILLS.find(s => s.id === sectorFilter)?.label || sectorFilter}</span>}
             </p>
           </div>
         </div>
@@ -526,8 +591,46 @@ export function LiveTendersView() {
                   <SelectItem value="sam_gov">🇺🇸 SAM.gov</SelectItem>
                   <SelectItem value="afdb">🌍 AfDB</SelectItem>
                   <SelectItem value="eu_opentenders">🔎 OpenTenders EU</SelectItem>
+                  <SelectItem value="jica">🇯🇵 JICA</SelectItem>
+                  <SelectItem value="adb">🌏 ADB</SelectItem>
+                  <SelectItem value="uk_contracts">🇬🇧 UK Contracts Finder</SelectItem>
+                  <SelectItem value="dgmarket">🌐 DgMarket</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Sector quick-filter pills */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2 md:mt-0">
+              <span className="text-xs font-medium text-muted-foreground mr-1">Sectors:</span>
+              <button
+                onClick={() => setSectorFilter('')}
+                className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+                  !sectorFilter
+                    ? 'ring-2 ring-primary/50 bg-primary/10 text-primary font-medium'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                All
+              </button>
+              {SECTOR_PILLS.map((s) => {
+                const count = sectorCounts.find(c => c.id === s.id)?.count || 0;
+                const isActive = sectorFilter === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSectorFilter(isActive ? '' : s.id)}
+                    className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+                      isActive
+                        ? 'ring-2 ring-primary/50 bg-primary/10 text-primary font-medium'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    <span>{s.icon}</span>
+                    {s.label}
+                    {count > 0 && <span className="opacity-70">· {count}</span>}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Source status pills */}
@@ -644,6 +747,16 @@ export function LiveTendersView() {
                           <h3 className="text-base md:text-lg font-semibold text-foreground leading-snug line-clamp-2">
                             {t.title}
                           </h3>
+
+                          {/* Sector badge for sector_feed items */}
+                          {t.source === 'sector_feed' && (
+                            <div className="mt-1.5">
+                              <Badge className="bg-primary/10 text-primary border-0 text-[10px] gap-1">
+                                <TrendingUp className="h-3 w-3" />
+                                Sector
+                              </Badge>
+                            </div>
+                          )}
 
                           {/* Scope preview */}
                           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
