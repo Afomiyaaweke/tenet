@@ -496,3 +496,21 @@ Stage Summary:
 - Role-based navigation (Super Admin sees ADMIN section, Team Admin sees TEAM section, User sees basic nav)
 - All APIs tested and working: registration, login, tender creation, bid submission, AI analysis
 - Lint passes cleanly, build succeeds
+---
+Task ID: 10
+Agent: main-agent
+Task: Separate AI features: Bid Analysis for creators, Requirements Analyzer for applicants
+
+Work Log:
+- Added AI Requirements Analyzer in the Overview tab for applicants (non-creators)
+- Applicants see orange "AI Requirements Analyzer" card when viewing open tenders
+- Shows: match score, competition level, requirements summary, mandatory requirements, preferred qualifications, risk factors, preparation tips, recommended actions, evaluation breakdown
+- Updated analyze-requirements API to pull user's company name, industry, job title, and skills from profile
+- Analysis tab remains admin-only for bid evaluation and ranking
+- Lint passes, build succeeds
+
+Stage Summary:
+- Two distinct AI features now properly separated:
+  1. Bid Analysis (Analysis tab) — for tender creators to evaluate submitted bids
+  2. Requirements Analyzer (Overview tab) — for applicants to understand tender requirements and their fit
+- Both use orange/amber accent colors to distinguish from the main tender UI
