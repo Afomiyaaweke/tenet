@@ -520,10 +520,10 @@ export async function fetchSamGovTenders(opts: {
 export async function fetchAfdbTenders(_opts: {
   search?: string;
   rows?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
-  // AfDB does not expose a public JSON API — return empty for now.
-  // Real data can be added when an API or scraping endpoint becomes available.
-  return { tenders: [], total: 0, ok: false };
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  // AfDB does not expose a public JSON API.
+  // Requires API credentials / scraping endpoint — Coming Soon.
+  return { tenders: [], total: 0, ok: false, error: 'Requires API credentials - Coming Soon' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -533,8 +533,8 @@ export async function fetchAfdbTenders(_opts: {
 export async function fetchEuOpenTenders(_opts: {
   search?: string;
   rows?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
-  return { tenders: [], total: 0, ok: false };
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  return { tenders: [], total: 0, ok: false, error: 'Requires API credentials - Coming Soon' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -544,8 +544,8 @@ export async function fetchEuOpenTenders(_opts: {
 export async function fetchJicaTenders(_opts: {
   search?: string;
   rows?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
-  return { tenders: [], total: 0, ok: false };
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  return { tenders: [], total: 0, ok: false, error: 'Requires API credentials - Coming Soon' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -555,8 +555,8 @@ export async function fetchJicaTenders(_opts: {
 export async function fetchAdbTenders(_opts: {
   search?: string;
   rows?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
-  return { tenders: [], total: 0, ok: false };
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  return { tenders: [], total: 0, ok: false, error: 'Requires API credentials - Coming Soon' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -566,8 +566,8 @@ export async function fetchAdbTenders(_opts: {
 export async function fetchUkContractsTenders(_opts: {
   search?: string;
   rows?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
-  return { tenders: [], total: 0, ok: false };
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  return { tenders: [], total: 0, ok: false, error: 'Requires API credentials - Coming Soon' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -577,8 +577,8 @@ export async function fetchUkContractsTenders(_opts: {
 export async function fetchDgMarketTenders(_opts: {
   search?: string;
   rows?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
-  return { tenders: [], total: 0, ok: false };
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  return { tenders: [], total: 0, ok: false, error: 'Requires API credentials - Coming Soon' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -606,19 +606,21 @@ export const SECTOR_META: Record<SectorId, { label: string; icon: string; color:
   telecom: { label: 'Telecommunications', icon: '📡', color: 'sky' },
 };
 
-export function fetchSectorTenders(sector: string, search?: string): LiveTender[] {
-  // Sector filtering is done client-side from live API data.
-  // No hardcoded fallback data — sectors rely on real API responses.
+export function fetchSectorTenders(sector: string, search?: string): { tenders: LiveTender[]; ok: boolean; error?: string } {
+  // Sector filtering relies on live API data from sources that require credentials.
+  // Not available until upstream adapters are connected.
   void search;
   void sector;
-  return [];
+  return { tenders: [], ok: false, error: 'Requires API credentials - Coming Soon' };
 }
 
-export function getSectorCounts(): { id: SectorId; label: string; count: number }[] {
+export function getSectorCounts(): { id: SectorId; label: string; count: number; available: boolean }[] {
+  // Sector counts rely on live API data from sources that require credentials.
   return SECTOR_IDS.map((id) => ({
     id,
     label: SECTOR_META[id].label,
     count: 0,
+    available: false,
   }));
 }
 
@@ -630,7 +632,7 @@ export interface FetchLiveTendersResult {
   tenders: LiveTender[];
   meta: {
     total: number;
-    sources: { id: string; name: string; live: boolean; ok: boolean; count: number }[];
+    sources: { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[];
     fallback: boolean;
     cachedAt: number;
   };
@@ -656,7 +658,7 @@ export async function fetchLiveTenders(opts: {
 
   const rows = opts.rows ?? 20;
   const wantSource = opts.source || 'all';
-  const tasks: { id: string; name: string; live: boolean; p: Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> }[] = [];
+  const tasks: { id: string; name: string; live: boolean; p: Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> }[] = [];
 
   if (wantSource === 'all' || wantSource === 'worldbank') {
     tasks.push({
@@ -747,6 +749,7 @@ export async function fetchLiveTenders(opts: {
     live: t.live,
     ok: t.res.ok,
     count: t.res.tenders.length,
+    error: t.res.error,
   }));
 
   const tenders = settled.flatMap((t) => t.res.tenders);

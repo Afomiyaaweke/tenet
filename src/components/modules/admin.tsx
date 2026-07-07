@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/store';
-import { api, User, Document } from '@/lib/api';
+import { api, Document } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,19 @@ import {
   UserX, AlertCircle, Briefcase, Award, Search, Activity,
   TrendingUp, Heart, Server, Eye, Mail, Building2, Zap,
 } from 'lucide-react';
+// ─── Profile type with nested user ────────────────────────────────
+interface ProfileWithUser {
+  id: string;
+  fullName: string;
+  verified: boolean;
+  location: string;
+  skillTags: string;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; email: string; role: string; status: string };
+  company: { id: string; name: string; industry: string; verified: boolean } | null;
+}
+
 // ─── Activity Feed Data ─────────────────────────────────────────────
 interface ActivityItem {
   id: string;
@@ -38,7 +51,7 @@ function timeAgo(dateStr: string): string {
 
 export function AdminView() {
   const { user } = useAuthStore();
-  const [users, setUsers] = useState<User[]>([]);
+  const [profiles, setProfiles] = useState<ProfileWithUser[]>([]);
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [userSearch, setUserSearch] = useState('');
@@ -51,7 +64,7 @@ export function AdminView() {
       api.get('/profiles'),
       api.get('/documents'),
     ]);
-    if (profilesRes.success) setUsers(profilesRes.data);
+    if (profilesRes.success) setProfiles(profilesRes.data);
     if (docsRes.success) setDocs(docsRes.data);
     setLoading(false);
   }, []);
@@ -85,21 +98,22 @@ export function AdminView() {
 
   // ── Computed Values (must be before any early return) ──
   const pendingDocs = docs.filter(d => d.status === 'pending');
-  const verifiedUsers = users.filter((u: any) => u.verified).length;
-  const unverifiedUsers = users.length - verifiedUsers;
+  const verifiedUsers = profiles.filter(p => p.verified).length;
+  const unverifiedUsers = profiles.length - verifiedUsers;
   const approvedDocs = docs.filter(d => d.status === 'approved').length;
   const rejectedDocs = docs.filter(d => d.status === 'rejected').length;
 
   // ── Filtered Users ──
   const filteredUsers = useMemo(() => {
-    return users.filter((u: any) => {
+    return profiles.filter(p => {
       const matchesSearch = !userSearch ||
-        (u.fullName || '').toLowerCase().includes(userSearch.toLowerCase()) ||
-        (u.location || '').toLowerCase().includes(userSearch.toLowerCase());
-      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+        (p.fullName || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+        (p.location || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+        (p.user?.email || '').toLowerCase().includes(userSearch.toLowerCase());
+      const matchesRole = roleFilter === 'all' || p.user?.role === roleFilter;
       return matchesSearch && matchesRole;
     });
-  }, [users, userSearch, roleFilter]);
+  }, [profiles, userSearch, roleFilter]);
 
   // ── Filtered Docs ──
   const filteredDocs = useMemo(() => {
@@ -113,15 +127,15 @@ export function AdminView() {
     const items: ActivityItem[] = [];
 
     // Recent user verifications
-    users.filter((u: any) => u.verified).slice(0, 2).forEach((u: any) => {
+    profiles.filter(p => p.verified).slice(0, 2).forEach(p => {
       items.push({
-        id: `verify-${u.id}`,
+        id: `verify-${p.id}`,
         icon: CheckCircle2,
         iconColor: 'text-emerald-500',
         iconBg: 'bg-emerald-50',
-        title: `${u.fullName || 'User'} verified`,
+        title: `${p.fullName || 'User'} verified`,
         description: 'Profile verification approved',
-        time: u.updatedAt || new Date().toISOString(),
+        time: p.updatedAt || new Date().toISOString(),
       });
     });
 
@@ -139,20 +153,20 @@ export function AdminView() {
     });
 
     // New users
-    users.slice(0, 2).forEach((u: any) => {
+    profiles.slice(0, 2).forEach(p => {
       items.push({
-        id: `user-${u.id}`,
+        id: `user-${p.id}`,
         icon: Users,
         iconColor: 'text-teal-500',
         iconBg: 'bg-teal-50',
         title: `New user registered`,
-        description: u.fullName || 'Unknown',
-        time: u.createdAt || new Date().toISOString(),
+        description: p.fullName || 'Unknown',
+        time: p.createdAt || new Date().toISOString(),
       });
     });
 
     return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
-  }, [users, pendingDocs]);
+  }, [profiles, pendingDocs]);
 
   if (user?.role !== 'super_admin' && user?.role !== 'team_admin') {
     return (
@@ -170,7 +184,7 @@ export function AdminView() {
   const healthMetrics = [
     { label: 'Server Status', value: 'Online', icon: Server, color: 'text-emerald-500', bg: 'bg-emerald-50', status: 'healthy' },
     { label: 'Verification Queue', value: `${pendingDocs.length} pending`, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', status: pendingDocs.length > 5 ? 'warning' : 'healthy' },
-    { label: 'User Verification', value: `${verifiedUsers}/${users.length}`, icon: UserCheck, color: 'text-teal-500', bg: 'bg-teal-50', status: verifiedUsers / Math.max(users.length, 1) > 0.8 ? 'healthy' : 'warning' },
+    { label: 'User Verification', value: `${verifiedUsers}/${profiles.length}`, icon: UserCheck, color: 'text-teal-500', bg: 'bg-teal-50', status: verifiedUsers / Math.max(profiles.length, 1) > 0.8 ? 'healthy' : 'warning' },
     { label: 'Doc Approval Rate', value: docs.length > 0 ? `${Math.round((approvedDocs / docs.length) * 100)}%` : 'N/A', icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50', status: 'healthy' },
   ];
 
@@ -194,7 +208,7 @@ export function AdminView() {
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: Users, value: users.length, label: 'Total Users', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
+          { icon: Users, value: profiles.length, label: 'Total Users', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
           { icon: Clock, value: pendingDocs.length, label: 'Pending Docs', bg: 'bg-amber-50', color: 'text-amber-600', gradient: 'gradient-amber' },
           { icon: UserCheck, value: verifiedUsers, label: 'Verified', bg: 'bg-teal-50', color: 'text-teal-600', gradient: 'gradient-teal' },
           { icon: FileCheck, value: approvedDocs, label: 'Docs Approved', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
@@ -323,7 +337,7 @@ export function AdminView() {
                     </div>
                     All Users
                     <Badge className="bg-emerald-50 text-emerald-700 border-0 rounded-lg text-[10px] ml-1 hover:bg-primary/10">
-                      {filteredUsers.length} of {users.length}
+                      {filteredUsers.length} of {profiles.length}
                     </Badge>
                   </CardTitle>
                   <div className="flex items-center gap-2">
@@ -365,19 +379,19 @@ export function AdminView() {
                     )}
                   </div>
                 ) : (
-                  filteredUsers.map((u: any, idx: number) => (
+                  filteredUsers.map((p: ProfileWithUser) => (
                       <div
- key={u.id}
+ key={p.id}
  className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
  >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0 shadow-sm">
-                            <span className="text-white font-semibold text-sm">{(u.fullName || 'U')[0].toUpperCase()}</span>
+                            <span className="text-white font-semibold text-sm">{(p.fullName || 'U')[0].toUpperCase()}</span>
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium truncate">{u.fullName || 'Unknown'}</p>
-                              {u.verified ? (
+                              <p className="text-sm font-medium truncate">{p.fullName || 'Unknown'}</p>
+                              {p.verified ? (
                                 <Badge className="bg-emerald-100 text-emerald-700 border-0 rounded-md text-[10px] px-1.5 py-0 hover:bg-emerald-100 flex-shrink-0">
                                   <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Verified
                                 </Badge>
@@ -389,29 +403,29 @@ export function AdminView() {
                             </div>
                             <div className="flex items-center gap-3 mt-0.5">
                               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                <Mail className="h-3 w-3" /> {u.email || 'N/A'}
+                                <Mail className="h-3 w-3" /> {p.user?.email || 'N/A'}
                               </p>
-                              {u.location && (
+                              {p.location && (
                                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Building2 className="h-3 w-3" /> {u.location}
+                                  <Building2 className="h-3 w-3" /> {p.location}
                                 </p>
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 mt-1">
                               <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-medium hover:bg-teal-50">
-                                {(u.role || 'user').replace('_', ' ')}
+                                {(p.user?.role || 'user').replace('_', ' ')}
                               </Badge>
-                              {u.skillTags && u.skillTags.split(',').filter(Boolean).slice(0, 2).map((tag: string) => (
+                              {p.skillTags && p.skillTags.split(',').filter(Boolean).slice(0, 2).map((tag: string) => (
                                 <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-md hover:bg-primary/10">{tag.trim()}</Badge>
                               ))}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                          {!u.verified && (
+                          {!p.verified && (
                             <Button size="sm"
                               className="text-xs h-8 gradient-emerald text-white rounded-xl premium-shadow hover:opacity-90 transition-all hover:-translate-y-0.5"
-                              onClick={() => handleVerifyProfile(u.id)}>
+                              onClick={() => handleVerifyProfile(p.id)}>
                               <UserCheck className="h-3 w-3 mr-1" /> Verify
                             </Button>
                           )}
