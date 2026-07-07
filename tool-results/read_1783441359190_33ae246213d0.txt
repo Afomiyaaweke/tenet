@@ -1,0 +1,562 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api, User, Document } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    11→import { toast } from 'sonner';
+    12→import { motion, AnimatePresence } from 'framer-motion';
+    13→import {
+    14→  Shield, Users, FileCheck, CheckCircle2, XCircle, Clock, UserCheck,
+    15→  UserX, AlertCircle, Briefcase, Award, Search, Activity,
+    16→  TrendingUp, Heart, Server, Eye, Mail, Building2, Zap,
+    17→} from 'lucide-react';
+    18→
+    19→// ─── Animation Variants ─────────────────────────────────────────────
+    20→const containerVariants = {
+    21→  hidden: { opacity: 0 },
+    22→  visible: {
+    23→    opacity: 1,
+    24→    transition: { staggerChildren: 0.06, delayChildren: 0.08 },
+    25→  },
+    26→};
+    27→
+    28→const itemVariants = {
+    29→  hidden: { opacity: 0, y: 12 },
+    30→  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
+    31→};
+    32→
+    33→const cardHover = {
+    34→  y: -3,
+    35→  transition: { duration: 0.2, ease: 'easeOut' },
+    36→};
+    37→
+    38→// ─── Activity Feed Data ─────────────────────────────────────────────
+    39→interface ActivityItem {
+    40→  id: string;
+    41→  icon: React.ElementType;
+    42→  iconColor: string;
+    43→  iconBg: string;
+    44→  title: string;
+    45→  description: string;
+    46→  time: string;
+    47→}
+    48→
+    49→function timeAgo(dateStr: string): string {
+    50→  const diff = Date.now() - new Date(dateStr).getTime();
+    51→  const mins = Math.floor(diff / 60000);
+    52→  if (mins < 1) return 'just now';
+    53→  if (mins < 60) return `${mins}m ago`;
+    54→  const hrs = Math.floor(mins / 60);
+    55→  if (hrs < 24) return `${hrs}h ago`;
+    56→  const days = Math.floor(hrs / 24);
+    57→  return `${days}d ago`;
+    58→}
+    59→
+    60→export function AdminView() {
+    61→  const { user } = useAuthStore();
+    62→  const [users, setUsers] = useState<User[]>([]);
+    63→  const [docs, setDocs] = useState<Document[]>([]);
+    64→  const [loading, setLoading] = useState(true);
+    65→  const [userSearch, setUserSearch] = useState('');
+    66→  const [docStatusFilter, setDocStatusFilter] = useState<string>('all');
+    67→  const [roleFilter, setRoleFilter] = useState<string>('all');
+    68→
+    69→  const loadData = useCallback(async () => {
+    70→    setLoading(true);
+    71→    const [profilesRes, docsRes] = await Promise.all([
+    72→      api.get('/profiles'),
+    73→      api.get('/documents'),
+    74→    ]);
+    75→    if (profilesRes.success) setUsers(profilesRes.data);
+    76→    if (docsRes.success) setDocs(docsRes.data);
+    77→    setLoading(false);
+    78→  }, []);
+    79→
+    80→  // eslint-disable-next-line react-hooks/set-state-in-effect
+    81→  useEffect(() => { loadData(); }, [loadData]);
+    82→
+    83→  const handleVerifyProfile = async (profileId: string) => {
+    84→    const res = await api.patch(`/profiles/${profileId}/verify`, {});
+    85→    if (res.success) {
+    86→      toast.success('Profile verified');
+    87→      loadData();
+    88→    } else toast.error(res.error || 'Failed to verify');
+    89→  };
+    90→
+    91→  const handleApproveDoc = async (docId: string) => {
+    92→    const res = await api.patch(`/documents/${docId}`, { status: 'approved', reviewNotes: 'Approved by admin' });
+    93→    if (res.success) {
+    94→      toast.success('Document approved');
+    95→      loadData();
+    96→    } else toast.error('Failed to approve');
+    97→  };
+    98→
+    99→  const handleRejectDoc = async (docId: string) => {
+   100→    const res = await api.patch(`/documents/${docId}`, { status: 'rejected', reviewNotes: 'Rejected - please resubmit' });
+   101→    if (res.success) {
+   102→      toast.success('Document rejected');
+   103→      loadData();
+   104→    } else toast.error('Failed to reject');
+   105→  };
+   106→
+   107→  // ── Computed Values (must be before any early return) ──
+   108→  const pendingDocs = docs.filter(d => d.status === 'pending');
+   109→  const verifiedUsers = users.filter((u: any) => u.verified).length;
+   110→  const unverifiedUsers = users.length - verifiedUsers;
+   111→  const approvedDocs = docs.filter(d => d.status === 'approved').length;
+   112→  const rejectedDocs = docs.filter(d => d.status === 'rejected').length;
+   113→
+   114→  // ── Filtered Users ──
+   115→  const filteredUsers = useMemo(() => {
+   116→    return users.filter((u: any) => {
+   117→      const matchesSearch = !userSearch ||
+   118→        (u.fullName || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+   119→        (u.location || '').toLowerCase().includes(userSearch.toLowerCase());
+   120→      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+   121→      return matchesSearch && matchesRole;
+   122→    });
+   123→  }, [users, userSearch, roleFilter]);
+   124→
+   125→  // ── Filtered Docs ──
+   126→  const filteredDocs = useMemo(() => {
+   127→    return docs.filter(d => {
+   128→      return docStatusFilter === 'all' || d.status === docStatusFilter;
+   129→    });
+   130→  }, [docs, docStatusFilter]);
+   131→
+   132→  // ── Activity Feed ──
+   133→  const activityFeed: ActivityItem[] = useMemo(() => {
+   134→    const items: ActivityItem[] = [];
+   135→
+   136→    // Recent user verifications
+   137→    users.filter((u: any) => u.verified).slice(0, 2).forEach((u: any) => {
+   138→      items.push({
+   139→        id: `verify-${u.id}`,
+   140→        icon: CheckCircle2,
+   141→        iconColor: 'text-emerald-500',
+   142→        iconBg: 'bg-emerald-50',
+   143→        title: `${u.fullName || 'User'} verified`,
+   144→        description: 'Profile verification approved',
+   145→        time: u.updatedAt || new Date().toISOString(),
+   146→      });
+   147→    });
+   148→
+   149→    // Pending documents
+   150→    pendingDocs.slice(0, 3).forEach(d => {
+   151→      items.push({
+   152→        id: `doc-${d.id}`,
+   153→        icon: FileCheck,
+   154→        iconColor: 'text-amber-500',
+   155→        iconBg: 'bg-amber-50',
+   156→        title: `Document pending review`,
+   157→        description: d.docType.replace('_', ' '),
+   158→        time: d.createdAt,
+   159→      });
+   160→    });
+   161→
+   162→    // New users
+   163→    users.slice(0, 2).forEach((u: any) => {
+   164→      items.push({
+   165→        id: `user-${u.id}`,
+   166→        icon: Users,
+   167→        iconColor: 'text-teal-500',
+   168→        iconBg: 'bg-teal-50',
+   169→        title: `New user registered`,
+   170→        description: u.fullName || 'Unknown',
+   171→        time: u.createdAt || new Date().toISOString(),
+   172→      });
+   173→    });
+   174→
+   175→    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
+   176→  }, [users, pendingDocs]);
+   177→
+   178→  if (user?.role !== 'admin') {
+   179→    return (
+   180→      <div className="p-6 text-center view-enter">
+   181→        <div className="p-3 rounded-2xl gradient-rose w-fit mx-auto mb-4">
+   182→          <Shield className="h-8 w-8 text-white" />
+   183→        </div>
+   184→        <h3 className="text-lg font-semibold">Admin Access Required</h3>
+   185→        <p className="text-muted-foreground text-sm mt-1">You need admin privileges to access this panel</p>
+   186→      </div>
+   187→    );
+   188→  }
+   189→
+   190→  // ── Platform Health ──
+   191→  const healthMetrics = [
+   192→    { label: 'Server Status', value: 'Online', icon: Server, color: 'text-emerald-500', bg: 'bg-emerald-50', status: 'healthy' },
+   193→    { label: 'Verification Queue', value: `${pendingDocs.length} pending`, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', status: pendingDocs.length > 5 ? 'warning' : 'healthy' },
+   194→    { label: 'User Verification', value: `${verifiedUsers}/${users.length}`, icon: UserCheck, color: 'text-teal-500', bg: 'bg-teal-50', status: verifiedUsers / Math.max(users.length, 1) > 0.8 ? 'healthy' : 'warning' },
+   195→    { label: 'Doc Approval Rate', value: docs.length > 0 ? `${Math.round((approvedDocs / docs.length) * 100)}%` : 'N/A', icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50', status: 'healthy' },
+   196→  ];
+   197→
+   198→  return (
+   199→    <motion.div
+   200→      className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto"
+   201→      variants={containerVariants}
+   202→      initial="hidden"
+   203→      animate="visible"
+   204→    >
+   205→      {/* Header */}
+   206→      <motion.div variants={itemVariants} className="flex items-center gap-4">
+   207→        <div className="p-3 rounded-2xl gradient-rose shadow-md flex-shrink-0 shadow-rose-200/40">
+   208→          <Shield className="h-6 w-6 text-white" />
+   209→        </div>
+   210→        <div>
+   211→          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   212→            <span className="text-gradient-emerald">Admin</span> Panel
+   213→          </h2>
+   214→          <p className="text-muted-foreground text-sm mt-0.5">Manage users, verify documents, and monitor platform activity</p>
+   215→        </div>
+   216→      </motion.div>
+   217→
+   218→      {/* Quick Stats */}
+   219→      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   220→        {[
+   221→          { icon: Users, value: users.length, label: 'Total Users', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
+   222→          { icon: Clock, value: pendingDocs.length, label: 'Pending Docs', bg: 'bg-amber-50', color: 'text-amber-600', gradient: 'gradient-amber' },
+   223→          { icon: UserCheck, value: verifiedUsers, label: 'Verified', bg: 'bg-teal-50', color: 'text-teal-600', gradient: 'gradient-teal' },
+   224→          { icon: FileCheck, value: approvedDocs, label: 'Docs Approved', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
+   225→        ].map((stat, idx) => (
+   226→          <motion.div key={stat.label} whileHover={cardHover}>
+   227→            <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200 h-full">
+   228→              <CardContent className="p-4 flex items-center gap-3">
+   229→                <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
+   230→                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+   231→                </div>
+   232→                <div>
+   233→                  <p className="text-2xl font-bold">{stat.value}</p>
+   234→                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+   235→                </div>
+   236→              </CardContent>
+   237→            </Card>
+   238→          </motion.div>
+   239→        ))}
+   240→      </motion.div>
+   241→
+   242→      {/* Activity Feed + Platform Health Row */}
+   243→      <motion.div variants={itemVariants} className="grid md:grid-cols-2 gap-4">
+   244→        {/* Recent Activity Feed */}
+   245→        <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   246→          <CardHeader className="pb-2">
+   247→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   248→              <div className="p-1.5 rounded-lg gradient-amber">
+   249→                <Activity className="h-3.5 w-3.5 text-white" />
+   250→              </div>
+   251→              Recent Activity
+   252→            </CardTitle>
+   253→          </CardHeader>
+   254→          <CardContent>
+   255→            {activityFeed.length === 0 ? (
+   256→              <div className="text-center py-8">
+   257→                <Activity className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+   258→                <p className="text-sm text-muted-foreground">No recent activity</p>
+   259→              </div>
+   260→            ) : (
+   261→              <div className="relative pl-7 max-h-[300px] overflow-y-auto">
+   262→                <div className="absolute left-[10px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-border rounded-full" />
+   263→                <div className="space-y-3">
+   264→                  {activityFeed.map((item) => {
+   265→                    const Icon = item.icon;
+   266→                    return (
+   267→                      <div key={item.id} className="relative flex items-start gap-3">
+   268→                        <div className="absolute -left-7 top-0.5 flex items-center justify-center">
+   269→                          <div className={`h-[20px] w-[20px] rounded-full ${item.iconBg} border-2 border-white shadow-sm flex items-center justify-center z-10`}>
+   270→                            <Icon className={`h-2.5 w-2.5 ${item.iconColor}`} />
+   271→                          </div>
+   272→                        </div>
+   273→                        <div className="min-w-0 flex-1 pb-1">
+   274→                          <p className="text-sm font-medium truncate">{item.title}</p>
+   275→                          <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+   276→                          <p className="text-[10px] text-muted-foreground/50 mt-0.5">{timeAgo(item.time)}</p>
+   277→                        </div>
+   278→                      </div>
+   279→                    );
+   280→                  })}
+   281→                </div>
+   282→              </div>
+   283→            )}
+   284→          </CardContent>
+   285→        </Card>
+   286→
+   287→        {/* Platform Health */}
+   288→        <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   289→          <CardHeader className="pb-2">
+   290→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   291→              <div className="p-1.5 rounded-lg gradient-teal">
+   292→                <Heart className="h-3.5 w-3.5 text-white" />
+   293→              </div>
+   294→              Platform Health
+   295→            </CardTitle>
+   296→          </CardHeader>
+   297→          <CardContent className="space-y-3">
+   298→            {healthMetrics.map((metric) => (
+   299→              <div key={metric.label} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+   300→                <div className="flex items-center gap-3">
+   301→                  <div className={`p-1.5 rounded-lg ${metric.bg}`}>
+   302→                    <metric.icon className={`h-4 w-4 ${metric.color}`} />
+   303→                  </div>
+   304→                  <p className="text-sm font-medium">{metric.label}</p>
+   305→                </div>
+   306→                <div className="flex items-center gap-2">
+   307→                  <span className="text-sm font-semibold">{metric.value}</span>
+   308→                  <div className={`w-2 h-2 rounded-full ${metric.status === 'healthy' ? 'bg-emerald-500 shadow-sm shadow-emerald-300' : 'bg-amber-500 shadow-sm shadow-amber-300'}`} />
+   309→                </div>
+   310→              </div>
+   311→            ))}
+   312→          </CardContent>
+   313→        </Card>
+   314→      </motion.div>
+   315→
+   316→      {/* Tabs */}
+   317→      <motion.div variants={itemVariants}>
+   318→        <Tabs defaultValue="users">
+   319→          <TabsList className="bg-card premium-shadow rounded-xl border-0 h-auto p-1">
+   320→            <TabsTrigger
+   321→              value="users"
+   322→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow px-4 py-2 transition-all">
+   323→              <Users className="h-4 w-4 mr-1.5" />
+   324→              User Management
+   325→            </TabsTrigger>
+   326→            <TabsTrigger
+   327→              value="documents"
+   328→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow px-4 py-2 transition-all">
+   329→              <FileCheck className="h-4 w-4 mr-1.5" />
+   330→              Document Review
+   331→              {pendingDocs.length > 0 && (
+   332→                <Badge className="ml-1.5 bg-amber-100 text-amber-700 border-0 rounded-md text-[10px] px-1.5 hover:bg-amber-100">
+   333→                  {pendingDocs.length}
+   334→                </Badge>
+   335→              )}
+   336→            </TabsTrigger>
+   337→          </TabsList>
+   338→
+   339→          {/* Users Tab */}
+   340→          <TabsContent value="users" className="mt-4">
+   341→            <Card className="premium-shadow rounded-xl border-0 bg-card">
+   342→              <CardHeader className="pb-3">
+   343→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   344→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   345→                    <div className="p-1.5 rounded-lg gradient-emerald">
+   346→                      <Users className="h-3.5 w-3.5 text-white" />
+   347→                    </div>
+   348→                    All Users
+   349→                    <Badge className="bg-emerald-50 text-emerald-700 border-0 rounded-lg text-[10px] ml-1 hover:bg-primary/10">
+   350→                      {filteredUsers.length} of {users.length}
+   351→                    </Badge>
+   352→                  </CardTitle>
+   353→                  <div className="flex items-center gap-2">
+   354→                    {/* Search */}
+   355→                    <div className="relative">
+   356→                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+   357→                      <Input
+   358→                        placeholder="Search users..."
+   359→                        value={userSearch}
+   360→                        onChange={e => setUserSearch(e.target.value)}
+   361→                        className="pl-8 h-8 text-xs rounded-lg bg-muted/50 border-border/60 focus:ring-primary w-48"
+   362→                      />
+   363→                    </div>
+   364→                    {/* Role Filter */}
+   365→                    <select
+   366→                      value={roleFilter}
+   367→                      onChange={e => setRoleFilter(e.target.value)}
+   368→                      className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
+   369→                    >
+   370→                      <option value="all">All Roles</option>
+   371→                      <option value="admin">Admin</option>
+   372→                      <option value="contractor">Contractor</option>
+   373→                      <option value="tender_owner">Tender Owner</option>
+   374→                    </select>
+   375→                  </div>
+   376→                </div>
+   377→              </CardHeader>
+   378→              <CardContent className="space-y-3">
+   379→                {filteredUsers.length === 0 ? (
+   380→                  <div className="text-center py-8">
+   381→                    <div className="p-3 rounded-2xl gradient-emerald w-fit mx-auto mb-4">
+   382→                      <Users className="h-8 w-8 text-white" />
+   383→                    </div>
+   384→                    <p className="text-sm font-medium">{userSearch || roleFilter !== 'all' ? 'No users match your filters' : 'No users found'}</p>
+   385→                    {(userSearch || roleFilter !== 'all') && (
+   386→                      <Button variant="ghost" size="sm" className="text-xs mt-2 text-emerald-600 hover:text-emerald-700" onClick={() => { setUserSearch(''); setRoleFilter('all'); }}>
+   387→                        Clear filters
+   388→                      </Button>
+   389→                    )}
+   390→                  </div>
+   391→                ) : (
+   392→                  <AnimatePresence>
+   393→                    {filteredUsers.map((u: any, idx: number) => (
+   394→                      <motion.div
+   395→                        key={u.id}
+   396→                        initial={{ opacity: 0, y: 8 }}
+   397→                        animate={{ opacity: 1, y: 0 }}
+   398→                        transition={{ delay: idx * 0.04, duration: 0.25 }}
+   399→                        className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors"
+   400→                      >
+   401→                        <div className="flex items-center gap-3 min-w-0 flex-1">
+   402→                          <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0 shadow-sm">
+   403→                            <span className="text-white font-semibold text-sm">{(u.fullName || 'U')[0].toUpperCase()}</span>
+   404→                          </div>
+   405→                          <div className="min-w-0">
+   406→                            <div className="flex items-center gap-2">
+   407→                              <p className="text-sm font-medium truncate">{u.fullName || 'Unknown'}</p>
+   408→                              {u.verified ? (
+   409→                                <Badge className="bg-emerald-100 text-emerald-700 border-0 rounded-md text-[10px] px-1.5 py-0 hover:bg-emerald-100 flex-shrink-0">
+   410→                                  <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Verified
+   411→                                </Badge>
+   412→                              ) : (
+   413→                                <Badge className="bg-amber-100 text-amber-700 border-0 rounded-md text-[10px] px-1.5 py-0 hover:bg-amber-100 flex-shrink-0">
+   414→                                  <AlertCircle className="h-2.5 w-2.5 mr-0.5" /> Unverified
+   415→                                </Badge>
+   416→                              )}
+   417→                            </div>
+   418→                            <div className="flex items-center gap-3 mt-0.5">
+   419→                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+   420→                                <Mail className="h-3 w-3" /> {u.email || 'N/A'}
+   421→                              </p>
+   422→                              {u.location && (
+   423→                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+   424→                                  <Building2 className="h-3 w-3" /> {u.location}
+   425→                                </p>
+   426→                              )}
+   427→                            </div>
+   428→                            <div className="flex items-center gap-1.5 mt-1">
+   429→                              <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-medium hover:bg-teal-50">
+   430→                                {(u.role || 'user').replace('_', ' ')}
+   431→                              </Badge>
+   432→                              {u.skillTags && u.skillTags.split(',').filter(Boolean).slice(0, 2).map((tag: string) => (
+   433→                                <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-md hover:bg-primary/10">{tag.trim()}</Badge>
+   434→                              ))}
+   435→                            </div>
+   436→                          </div>
+   437→                        </div>
+   438→                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+   439→                          {!u.verified && (
+   440→                            <Button size="sm"
+   441→                              className="text-xs h-8 gradient-emerald text-white rounded-xl premium-shadow hover:opacity-90 transition-all hover:-translate-y-0.5"
+   442→                              onClick={() => handleVerifyProfile(u.id)}>
+   443→                              <UserCheck className="h-3 w-3 mr-1" /> Verify
+   444→                            </Button>
+   445→                          )}
+   446→                        </div>
+   447→                      </motion.div>
+   448→                    ))}
+   449→                  </AnimatePresence>
+   450→                )}
+   451→              </CardContent>
+   452→            </Card>
+   453→          </TabsContent>
+   454→
+   455→          {/* Documents Tab */}
+   456→          <TabsContent value="documents" className="mt-4">
+   457→            <Card className="premium-shadow rounded-xl border-0 bg-card">
+   458→              <CardHeader className="pb-3">
+   459→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   460→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   461→                    <div className="p-1.5 rounded-lg gradient-amber">
+   462→                      <FileCheck className="h-3.5 w-3.5 text-white" />
+   463→                    </div>
+   464→                    Document Review Queue
+   465→                    {pendingDocs.length > 0 && (
+   466→                      <Badge className="bg-amber-100 text-amber-700 border-0 rounded-lg text-[10px] ml-1 hover:bg-amber-100">
+   467→                        {pendingDocs.length} pending
+   468→                      </Badge>
+   469→                    )}
+   470→                  </CardTitle>
+   471→                  {/* Status Filter */}
+   472→                  <div className="flex items-center gap-2">
+   473→                    <select
+   474→                      value={docStatusFilter}
+   475→                      onChange={e => setDocStatusFilter(e.target.value)}
+   476→                      className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
+   477→                    >
+   478→                      <option value="all">All Status</option>
+   479→                      <option value="pending">Pending</option>
+   480→                      <option value="approved">Approved</option>
+   481→                      <option value="rejected">Rejected</option>
+   482→                    </select>
+   483→                  </div>
+   484→                </div>
+   485→              </CardHeader>
+   486→              <CardContent className="space-y-3">
+   487→                {filteredDocs.length === 0 ? (
+   488→                  <div className="text-center py-8">
+   489→                    <div className="p-3 rounded-2xl gradient-amber w-fit mx-auto mb-4">
+   490→                      <FileCheck className="h-8 w-8 text-white" />
+   491→                    </div>
+   492→                    <p className="text-sm font-medium">{docStatusFilter !== 'all' ? 'No documents match this filter' : 'No documents submitted'}</p>
+   493→                    {docStatusFilter !== 'all' && (
+   494→                      <Button variant="ghost" size="sm" className="text-xs mt-2 text-emerald-600 hover:text-emerald-700" onClick={() => setDocStatusFilter('all')}>
+   495→                        Clear filter
+   496→                      </Button>
+   497→                    )}
+   498→                  </div>
+   499→                ) : (
+   500→                  <AnimatePresence>
+   501→                    {filteredDocs.map((doc, idx) => (
+   502→                      <motion.div
+   503→                        key={doc.id}
+   504→                        initial={{ opacity: 0, y: 8 }}
+   505→                        animate={{ opacity: 1, y: 0 }}
+   506→                        transition={{ delay: idx * 0.04, duration: 0.25 }}
+   507→                        className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors"
+   508→                      >
+   509→                        <div className="flex items-center gap-3 min-w-0 flex-1">
+   510→                          <div className={`p-2 rounded-lg flex-shrink-0 ${
+   511→                            doc.status === 'pending' ? 'bg-amber-50' :
+   512→                            doc.status === 'approved' ? 'bg-emerald-50' :
+   513→                            'bg-rose-50'
+   514→                          }`}>
+   515→                            {doc.status === 'pending' ? <Clock className="h-4 w-4 text-amber-600" /> :
+   516→                             doc.status === 'approved' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> :
+   517→                             <XCircle className="h-4 w-4 text-rose-600" />}
+   518→                          </div>
+   519→                          <div className="min-w-0">
+   520→                            <p className="text-sm font-medium">{doc.docType.replace('_', ' ')}</p>
+   521→                            <p className="text-xs text-muted-foreground">{doc.fileName} &middot; User: {doc.userId.slice(0, 8)}...</p>
+   522→                            {doc.reviewNotes && (
+   523→                              <p className="text-xs text-muted-foreground mt-0.5 italic flex items-center gap-1">
+   524→                                <Eye className="h-3 w-3" /> {doc.reviewNotes}
+   525→                              </p>
+   526→                            )}
+   527→                          </div>
+   528→                        </div>
+   529→                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+   530→                          <Badge className={`text-xs px-1.5 py-0 border-0 rounded-lg ${
+   531→                            doc.status === 'approved' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' :
+   532→                            doc.status === 'rejected' ? 'bg-rose-100 text-rose-700 hover:bg-rose-100' :
+   533→                            'bg-amber-100 text-amber-700 hover:bg-amber-100'
+   534→                          }`}>{doc.status}</Badge>
+   535→                          {doc.status === 'pending' && (
+   536→                            <>
+   537→                              <Button size="sm"
+   538→                                className="text-xs h-8 gradient-emerald text-white rounded-xl premium-shadow hover:opacity-90 transition-all hover:-translate-y-0.5"
+   539→                                onClick={() => handleApproveDoc(doc.id)}>
+   540→                                <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
+   541→                              </Button>
+   542→                              <Button size="sm" variant="outline"
+   543→                                className="text-xs h-8 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
+   544→                                onClick={() => handleRejectDoc(doc.id)}>
+   545→                                <XCircle className="h-3 w-3 mr-1" /> Reject
+   546→                              </Button>
+   547→                            </>
+   548→                          )}
+   549→                        </div>
+   550→                      </motion.div>
+   551→                    ))}
+   552→                  </AnimatePresence>
+   553→                )}
+   554→              </CardContent>
+   555→            </Card>
+   556→          </TabsContent>
+   557→        </Tabs>
+   558→      </motion.div>
+   559→    </motion.div>
+   560→  );
+   561→}
+   562→

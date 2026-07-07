@@ -38,8 +38,6 @@ import {
   Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
   Award, Zap, AlertTriangle, CheckCircle2, XCircle,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
 /* ══════════════════════════════════════════════════════════════
    TYPES
    ══════════════════════════════════════════════════════════════ */
@@ -1093,20 +1091,14 @@ export function AIDocStudio() {
         </div>
 
         {/* Right Panel: AI Assistant */}
-        <AnimatePresence>
-          {aiPanelOpen && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 350, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="border-l border-border/60 bg-card flex-shrink-0 overflow-hidden"
-            >
+        {aiPanelOpen && (
+            <div
+ className="border-l border-border/60 bg-card flex-shrink-0 overflow-hidden transition-[width] duration-700" style={{ width: 350 }}
+ >
               <AIPanelContent />
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
-      </div>
+</div>
 
       {/* ── Status Bar ── */}
       <div className="flex items-center h-6 px-3 bg-card border-t border-border/40 text-[10px] text-muted-foreground flex-shrink-0">
@@ -1171,14 +1163,10 @@ export function AIDocStudio() {
       </Dialog>
 
       {/* ── Signature Gallery (shows when Sign tab is active) ── */}
-      <AnimatePresence>
-        {ribbonTab === 'sign' && savedSignatures.length > 0 && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-xl p-3 z-50 max-w-[600px]"
-          >
+      {ribbonTab === 'sign' && savedSignatures.length > 0 && (
+          <div
+ className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]"
+ >
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold">Saved Signatures &amp; Stamps</span>
               <span className="text-[10px] text-muted-foreground">Click to place on document</span>
@@ -1198,10 +1186,9 @@ export function AIDocStudio() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+</div>
   );
 }
 
@@ -1223,8 +1210,8 @@ function GenerateButton({ onClick, loading, disabled }: { onClick: () => void; l
     <Button onClick={onClick} disabled={loading || disabled}
       className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-9 text-xs">
       {loading ? (
-        <><motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="inline-block"><Sparkles className="h-3.5 w-3.5 mr-1.5" /></motion.span>Generating...</>
+        <><span
+ className="inline-block"><Sparkles className="h-3.5 w-3.5 mr-1.5" /></span>Generating...</>
       ) : (
         <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Generate with AI</>
       )}

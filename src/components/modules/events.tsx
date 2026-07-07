@@ -16,8 +16,6 @@ import {
   Wrench, BookOpen, Mic, Sparkles, ArrowRight, Filter, X, Timer,
   ChevronDown,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
 function getDaysUntil(dateStr: string): number {
   const now = new Date();
   const date = new Date(dateStr);
@@ -47,26 +45,6 @@ function countdownBg(days: number): string {
   if (days <= 7) return 'bg-amber-50';
   return 'bg-emerald-50';
 }
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.97 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { delay: i * 0.06, duration: 0.35, ease: 'easeOut' },
-  }),
-  exit: { opacity: 0, y: -10, scale: 0.97, transition: { duration: 0.2 } },
-};
-
-const statVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.3 },
-  }),
-};
 
 export function EventsView() {
   const { user } = useAuthStore();
@@ -170,13 +148,11 @@ export function EventsView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0"
-          >
+          <div
+ className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0 animate-[fadeIn_0.3s_ease-out]"
+ >
             <GraduationCap className="h-6 w-6 text-white" />
-          </motion.div>
+          </div>
           <div>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
               <span className="text-gradient-emerald">Capacity</span> Building
@@ -262,14 +238,10 @@ export function EventsView() {
       </div>
 
       {/* Filters Panel */}
-      <AnimatePresence>
-        {showFilters && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
+      {showFilters && (
+          <div
+ className="overflow-hidden animate-[fadeIn_0.3s_ease-out]"
+ >
             <Card className="premium-shadow rounded-xl border-0 bg-card">
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -325,11 +297,9 @@ export function EventsView() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-
-      {/* Stats Summary */}
+{/* Stats Summary */}
       {!loading && events.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
@@ -340,7 +310,7 @@ export function EventsView() {
           ].map(stat => {
             const Icon = stat.icon;
             return (
-              <motion.div key={stat.label} custom={stat.idx} variants={statVariants} initial="hidden" animate="visible">
+              <div className="animate-[fadeIn_0.3s_ease-out]" key={stat.label}>
                 <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
@@ -352,7 +322,7 @@ export function EventsView() {
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
+              </div>
             );
           })}
         </div>
@@ -392,9 +362,8 @@ export function EventsView() {
           </CardContent>
         </Card>
       ) : (
-        <motion.div layout className="grid md:grid-cols-2 gap-4">
-          <AnimatePresence mode="popLayout">
-            {filteredEvents.map((event, i) => {
+        <div className="grid md:grid-cols-2 gap-4">
+          {filteredEvents.map((event, i) => {
               const regCount = event._count?.registrations || event.registrations?.length || 0;
               const isFull = regCount >= event.capacity;
               const isRegistered = event.registrations?.some(r => r.userId === user?.id) || event.isRegistered;
@@ -404,14 +373,8 @@ export function EventsView() {
               const daysUntil = getDaysUntil(event.eventDate);
 
               return (
-                <motion.div key={event.id}
-                  custom={i}
-                  variants={cardVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                  layout
-                >
+                <div className="animate-[fadeIn_0.3s_ease-out]" key={event.id}
+ >
                   <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200 h-full">
                     <CardContent className="p-5 space-y-4 flex flex-col">
                       {/* Header: Category Icon + Title + Countdown */}
@@ -479,16 +442,13 @@ export function EventsView() {
                           </span>
                         </div>
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${capacityPct}%` }}
-                            transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.06 }}
-                            className={`h-full rounded-full ${
-                              capacityPct >= 90 ? 'bg-gradient-to-r from-rose-400 to-rose-600' :
-                              capacityPct >= 70 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
-                              'bg-gradient-to-r from-emerald-400 to-emerald-600'
-                            }`}
-                          />
+                          <div
+ className={`h-full rounded-full ${
+ capacityPct >= 90 ? 'bg-gradient-to-r from-rose-400 to-rose-600' :
+ capacityPct >= 70 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
+ 'bg-gradient-to-r from-emerald-400 to-emerald-600'
+ } transition-[width] duration-700`} style={{ width: `${capacityPct}%` }}
+ />
                         </div>
                       </div>
 
@@ -501,23 +461,22 @@ export function EventsView() {
                               <CheckCircle2 className="h-3 w-3 mr-1" /> Registered
                             </Button>
                           ) : (
-                            <motion.div whileTap={{ scale: 0.97 }}>
+                            <div className="active:scale-[0.97] transition-transform">
                               <Button size="sm" className="text-xs h-8 gradient-emerald text-white rounded-xl premium-shadow hover:opacity-90 transition-all hover:-translate-y-0.5"
                                 disabled={isFull || event.status !== 'upcoming'}
                                 onClick={() => handleRegister(event.id)}>
                                 {isFull ? 'Full' : 'Register Now'}
                               </Button>
-                            </motion.div>
+                            </div>
                           )}
                         </div>
                       )}
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               );
             })}
-          </AnimatePresence>
-        </motion.div>
+</div>
       )}
     </div>
   );

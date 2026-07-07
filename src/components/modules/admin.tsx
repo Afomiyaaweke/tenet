@@ -9,32 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, Users, FileCheck, CheckCircle2, XCircle, Clock, UserCheck,
   UserX, AlertCircle, Briefcase, Award, Search, Activity,
   TrendingUp, Heart, Server, Eye, Mail, Building2, Zap,
 } from 'lucide-react';
-
-// ─── Animation Variants ─────────────────────────────────────────────
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.08 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
-};
-
-const cardHover = {
-  y: -3,
-  transition: { duration: 0.2, ease: 'easeOut' },
-};
-
 // ─── Activity Feed Data ─────────────────────────────────────────────
 interface ActivityItem {
   id: string;
@@ -196,14 +175,11 @@ export function AdminView() {
   ];
 
   return (
-    <motion.div
-      className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <div
+ className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto animate-[fadeIn_0.3s_ease-out]"
+ >
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center gap-4">
+      <div className="flex items-center gap-4">
         <div className="p-3 rounded-2xl gradient-rose shadow-md flex-shrink-0 shadow-rose-200/40">
           <Shield className="h-6 w-6 text-white" />
         </div>
@@ -213,17 +189,17 @@ export function AdminView() {
           </h2>
           <p className="text-muted-foreground text-sm mt-0.5">Manage users, verify documents, and monitor platform activity</p>
         </div>
-      </motion.div>
+      </div>
 
       {/* Quick Stats */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { icon: Users, value: users.length, label: 'Total Users', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
           { icon: Clock, value: pendingDocs.length, label: 'Pending Docs', bg: 'bg-amber-50', color: 'text-amber-600', gradient: 'gradient-amber' },
           { icon: UserCheck, value: verifiedUsers, label: 'Verified', bg: 'bg-teal-50', color: 'text-teal-600', gradient: 'gradient-teal' },
           { icon: FileCheck, value: approvedDocs, label: 'Docs Approved', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
         ].map((stat, idx) => (
-          <motion.div key={stat.label} whileHover={cardHover}>
+          <div className="hover:-translate-y-[3px] transition-all duration-200" key={stat.label}>
             <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200 h-full">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
@@ -235,12 +211,12 @@ export function AdminView() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         ))}
-      </motion.div>
+      </div>
 
       {/* Activity Feed + Platform Health Row */}
-      <motion.div variants={itemVariants} className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4">
         {/* Recent Activity Feed */}
         <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
           <CardHeader className="pb-2">
@@ -311,10 +287,10 @@ export function AdminView() {
             ))}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Tabs */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Tabs defaultValue="users">
           <TabsList className="bg-card premium-shadow rounded-xl border-0 h-auto p-1">
             <TabsTrigger
@@ -389,15 +365,11 @@ export function AdminView() {
                     )}
                   </div>
                 ) : (
-                  <AnimatePresence>
-                    {filteredUsers.map((u: any, idx: number) => (
-                      <motion.div
-                        key={u.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.04, duration: 0.25 }}
-                        className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors"
-                      >
+                  filteredUsers.map((u: any, idx: number) => (
+                      <div
+ key={u.id}
+ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
+ >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0 shadow-sm">
                             <span className="text-white font-semibold text-sm">{(u.fullName || 'U')[0].toUpperCase()}</span>
@@ -444,10 +416,9 @@ export function AdminView() {
                             </Button>
                           )}
                         </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                )}
+                      </div>
+                    ))
+)}
               </CardContent>
             </Card>
           </TabsContent>
@@ -497,15 +468,11 @@ export function AdminView() {
                     )}
                   </div>
                 ) : (
-                  <AnimatePresence>
-                    {filteredDocs.map((doc, idx) => (
-                      <motion.div
-                        key={doc.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.04, duration: 0.25 }}
-                        className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors"
-                      >
+                  filteredDocs.map((doc, idx) => (
+                      <div
+ key={doc.id}
+ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
+ >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className={`p-2 rounded-lg flex-shrink-0 ${
                             doc.status === 'pending' ? 'bg-amber-50' :
@@ -547,15 +514,14 @@ export function AdminView() {
                             </>
                           )}
                         </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                )}
+                      </div>
+                    ))
+)}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

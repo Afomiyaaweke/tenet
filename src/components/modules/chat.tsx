@@ -45,7 +45,6 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { io, type Socket } from 'socket.io-client';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
   MessageSquare,
   ArrowLeft,
@@ -319,12 +318,9 @@ function EmptyState({
   const dim = size === 'lg' ? 'w-20 h-20' : 'w-14 h-14';
   const iconCls = size === 'lg' ? 'h-10 w-10' : 'h-7 w-7';
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="flex flex-col items-center justify-center text-center gap-3 p-6"
-    >
+    <div
+ className="flex flex-col items-center justify-center text-center gap-3 p-6 animate-[fadeIn_0.3s_ease-out]"
+ >
       <div
         className={`${dim} rounded-2xl gradient-emerald flex items-center justify-center premium-shadow-lg`}
       >
@@ -336,7 +332,7 @@ function EmptyState({
           <p className="text-sm text-muted-foreground max-w-xs">{subtitle}</p>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -738,8 +734,7 @@ function ConversationList({
             />
           </div>
         ) : (
-          <AnimatePresence mode="popLayout">
-            {conversations.map((conv, i) => (
+          conversations.map((conv, i) => (
               <ConversationListItem
                 key={conv.id}
                 conv={conv}
@@ -750,9 +745,8 @@ function ConversationList({
                 currentUserId={currentUserId}
                 onSelect={onSelect}
               />
-            ))}
-          </AnimatePresence>
-        )}
+            ))
+)}
       </ScrollArea>
     </div>
   );
@@ -815,24 +809,17 @@ function ConversationListItem({
   const isOnline = otherUserId ? onlineUsers.has(otherUserId) : false;
 
   return (
-    <motion.button
-      custom={index}
-      variants={chatItemVariants}
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-      layout
-      onClick={() => onSelect(conv)}
-      className={`w-full p-3 text-left transition-colors duration-150 border-b border-border/20 group relative ${
-        active ? 'bg-primary/10' : 'hover:bg-muted/50'
-      }`}
-    >
+    <button
+ onClick={() => onSelect(conv)}
+ className={`w-full p-3 text-left transition-colors duration-150 border-b border-border/20 group relative ${
+ active ? 'bg-primary/10' : 'hover:bg-muted/50'
+ } animate-[fadeIn_0.3s_ease-out]`}
+ >
       {active && (
-        <motion.div
-          layoutId="activeConvBar"
-          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full gradient-emerald"
-          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-        />
+        <div
+ layoutId="activeConvBar"
+ className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full gradient-emerald"
+ />
       )}
       {pinned && !active && (
         <Pin className="absolute top-2 right-2 h-3 w-3 text-muted-foreground/60" />
@@ -878,13 +865,11 @@ function ConversationListItem({
             </p>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {unread > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="min-w-[18px] h-[18px] px-1 rounded-full gradient-emerald text-white text-[10px] font-bold flex items-center justify-center premium-shadow"
-                >
+                <span
+ className="min-w-[18px] h-[18px] px-1 rounded-full gradient-emerald text-white text-[10px] font-bold flex items-center justify-center premium-shadow animate-[fadeIn_0.3s_ease-out]"
+ >
                   {unread > 99 ? '99+' : unread}
-                </motion.span>
+                </span>
               )}
               <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">
                 {previewTime ? formatRelativeTime(previewTime) : ''}
@@ -902,7 +887,7 @@ function ConversationListItem({
           </p>
         </div>
       </div>
-    </motion.button>
+    </button>
   );
 }
 
@@ -934,15 +919,10 @@ function QuickReactButton({ onReact }: { onReact: (emoji: string) => void }) {
       >
         <Plus className="h-3 w-3" />
       </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.85, y: 5 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.85, y: 5 }}
-            transition={{ duration: 0.15 }}
-            className="absolute z-50 bottom-8 right-0 bg-card border border-border rounded-full shadow-lg p-1 flex items-center gap-0.5"
-          >
+      {open && (
+          <div
+ className="absolute z-50 bottom-8 right-0 bg-card border border-border rounded-full shadow-lg p-1 flex items-center gap-0.5 animate-[fadeIn_0.3s_ease-out]"
+ >
             {QUICK_REACT_EMOJIS.map((e) => (
               <button
                 key={e}
@@ -955,10 +935,9 @@ function QuickReactButton({ onReact }: { onReact: (emoji: string) => void }) {
                 {e}
               </button>
             ))}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+</div>
   );
 }
 
@@ -1047,15 +1026,11 @@ function MessageBubble({
   const handleReact = (emoji: string) => onReact(message, emoji);
 
   return (
-    <motion.div
-      custom={isOwn}
-      variants={msgVariants}
-      initial="hidden"
-      animate="visible"
-      className={`group relative flex ${
-        isOwn ? 'justify-end' : 'justify-start'
-      } ${isGrouped ? 'mt-0.5' : 'mt-3'}`}
-    >
+    <div
+ className={`group relative flex ${
+ isOwn ? 'justify-end' : 'justify-start'
+ } ${isGrouped ? 'mt-0.5' : 'mt-3'} animate-[fadeIn_0.3s_ease-out]`}
+ >
       <div
         className={`flex gap-2 max-w-[80%] md:max-w-[68%] ${
           isOwn ? 'flex-row-reverse' : ''
@@ -1323,7 +1298,7 @@ function MessageBubble({
           />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -1340,32 +1315,23 @@ function TypingIndicator({ names }: { names: string[] }) {
         ? `${names[0]} and ${names[1]} are typing…`
         : `${names[0]} and ${names.length - 1} others are typing…`;
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 5 }}
-      className="flex justify-start mt-2 px-9"
-    >
+    <div
+ className="flex justify-start mt-2 px-9 animate-[fadeIn_0.3s_ease-out]"
+ >
       <div className="bg-muted rounded-2xl rounded-bl-sm px-3 py-2.5">
         <div className="flex items-center gap-2">
           <div className="flex gap-0.5">
             {[0, 1, 2].map((i) => (
-              <motion.span
-                key={i}
-                className="w-1.5 h-1.5 bg-muted-foreground rounded-full"
-                animate={{ y: [0, -4, 0] }}
-                transition={{
-                  duration: 0.6,
-                  repeat: Infinity,
-                  delay: i * 0.15,
-                }}
-              />
+              <span
+ key={i}
+ className="w-1.5 h-1.5 bg-muted-foreground rounded-full"
+ />
             ))}
           </div>
           <span className="text-[10px] text-muted-foreground">{label}</span>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -1396,15 +1362,10 @@ function EmojiPickerButton({ onPick }: { onPick: (emoji: string) => void }) {
       >
         <Smile className="h-4 w-4" />
       </Button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 5, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 5, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
-            className="absolute bottom-10 left-0 z-50 bg-card border border-border rounded-xl shadow-lg p-2 grid grid-cols-8 gap-1 w-64"
-          >
+      {open && (
+          <div
+ className="absolute bottom-10 left-0 z-50 bg-card border border-border rounded-xl shadow-lg p-2 grid grid-cols-8 gap-1 w-64 animate-[fadeIn_0.3s_ease-out]"
+ >
             {EMOJI_PICKER_LIST.map((e) => (
               <button
                 key={e}
@@ -1417,10 +1378,9 @@ function EmojiPickerButton({ onPick }: { onPick: (emoji: string) => void }) {
                 {e}
               </button>
             ))}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+</div>
   );
 }
 
@@ -2746,14 +2706,10 @@ export function ChatView({ chatId }: { chatId?: string }) {
             </div>
 
             {/* In-chat search bar */}
-            <AnimatePresence>
-              {showConvSearch && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="border-b border-border/40 bg-card overflow-hidden"
-                >
+            {showConvSearch && (
+                <div
+ className="border-b border-border/40 bg-card overflow-hidden animate-[fadeIn_0.3s_ease-out]"
+ >
                   <div className="p-2 relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
                     <Input
@@ -2764,11 +2720,9 @@ export function ChatView({ chatId }: { chatId?: string }) {
                       autoFocus
                     />
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
-
-            {/* Messages area */}
+{/* Messages area */}
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-3 md:p-4 min-h-full">
                 {messages.length === 0 ? (
@@ -2800,15 +2754,13 @@ export function ChatView({ chatId }: { chatId?: string }) {
                       return (
                         <div key={msg.id}>
                           {effectiveShowDate && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              className="flex items-center justify-center my-4"
-                            >
+                            <div
+ className="flex items-center justify-center my-4 animate-[fadeIn_0.3s_ease-out]"
+ >
                               <div className="bg-muted/60 text-muted-foreground text-[10px] font-medium px-3 py-1 rounded-full">
                                 {formatDateSeparator(msg.createdAt)}
                               </div>
-                            </motion.div>
+                            </div>
                           )}
                           <MessageBubble
                             message={msg}
@@ -2828,26 +2780,20 @@ export function ChatView({ chatId }: { chatId?: string }) {
                       );
                     })}
                     {/* Typing indicator */}
-                    <AnimatePresence>
-                      {activeTypingNames.length > 0 && !showConvSearch && (
+                    {activeTypingNames.length > 0 && !showConvSearch && (
                         <TypingIndicator names={activeTypingNames} />
                       )}
-                    </AnimatePresence>
-                    <div ref={messagesEndRef} />
+<div ref={messagesEndRef} />
                   </div>
                 )}
               </div>
             </ScrollArea>
 
             {/* Reply / edit bar */}
-            <AnimatePresence>
-              {(replyTo || editingMsg) && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="border-t border-border/40 bg-card overflow-hidden"
-                >
+            {(replyTo || editingMsg) && (
+                <div
+ className="border-t border-border/40 bg-card overflow-hidden animate-[fadeIn_0.3s_ease-out]"
+ >
                   <div className="px-3 py-2 flex items-center gap-2 border-l-4 border-primary">
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-semibold text-primary">
@@ -2877,11 +2823,9 @@ export function ChatView({ chatId }: { chatId?: string }) {
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
-
-            {/* Input area */}
+{/* Input area */}
             <div className="p-2.5 border-t border-border/40 bg-card flex-shrink-0">
               <div className="flex items-end gap-1.5">
                 <Button
@@ -2927,7 +2871,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
                     >
                       <X className="h-4 w-4" />
                     </Button>
-                    <motion.div whileTap={{ scale: 0.92 }}>
+                    <div className="active:scale-[0.92] transition-transform">
                       <Button
                         className="gradient-emerald hover:opacity-90 h-9 w-9 rounded-lg premium-shadow transition-all disabled:opacity-50"
                         onClick={handleSaveEdit}
@@ -2936,10 +2880,10 @@ export function ChatView({ chatId }: { chatId?: string }) {
                       >
                         <Check className="h-4 w-4" />
                       </Button>
-                    </motion.div>
+                    </div>
                   </div>
                 ) : (
-                  <motion.div whileTap={{ scale: 0.92 }}>
+                  <div className="active:scale-[0.92] transition-transform">
                     <Button
                       className="gradient-emerald hover:opacity-90 h-9 w-9 rounded-lg premium-shadow transition-all disabled:opacity-50"
                       onClick={handleSend}
@@ -2948,7 +2892,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
                     >
                       <ArrowUp className="h-4 w-4" />
                     </Button>
-                  </motion.div>
+                  </div>
                 )}
               </div>
             </div>
@@ -2966,15 +2910,10 @@ export function ChatView({ chatId }: { chatId?: string }) {
 
       {/* Right pane — group info panel (desktop) */}
       {isGroup && activeConv && (
-        <AnimatePresence>
-          {showInfoPanel && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 'auto', opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="hidden md:flex w-80 lg:w-96 flex-shrink-0 border-l border-border/40 flex-col min-h-0 overflow-hidden"
-            >
+        showInfoPanel && (
+            <div
+ className="hidden md:flex w-80 lg:w-96 flex-shrink-0 border-l border-border/40 flex-col min-h-0 overflow-hidden transition-[width] duration-700" style={{ width: 'auto' }}
+ >
               <GroupInfoPanel
                 key={`panel-${activeConv.id}`}
                 conv={activeConv}
@@ -3002,9 +2941,8 @@ export function ChatView({ chatId }: { chatId?: string }) {
                 onTogglePin={handleTogglePin}
                 variant="panel"
               />
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          )
       )}
 
       {/* Mobile info panel as dialog */}

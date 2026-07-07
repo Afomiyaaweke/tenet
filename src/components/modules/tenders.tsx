@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, useNavStore } from '@/store';
 import { api, Tender } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,15 +20,6 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = ['Construction', 'IT', 'Supply', 'Consulting', 'Engineering', 'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications'];
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-};
 
 function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -152,12 +142,9 @@ export function TendersView() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
+      <div
+ className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]"
+ >
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
             <FileSearch className="h-6 w-6 text-white" />
@@ -244,14 +231,11 @@ export function TendersView() {
               </div>
             </DialogContent>
           </Dialog>
-      </motion.div>
+      </div>
 
       {/* Search / Filter Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-      >
+      <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
         <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardContent className="p-4 space-y-3">
             {/* Search row */}
@@ -300,23 +284,20 @@ export function TendersView() {
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Stats Summary */}
       {!loading && tenders.length > 0 && (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
-        >
+        <div
+ className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]"
+ >
           {[
             { label: 'Open', count: stats.open, icon: FileSearch, bg: 'bg-emerald-50', color: 'text-emerald-600' },
             { label: 'Closed', count: stats.closed, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
             { label: 'Awarded', count: stats.awarded, icon: TrendingUp, bg: 'bg-teal-50', color: 'text-teal-600' },
             { label: 'Total', count: stats.total, icon: Target, bg: 'bg-emerald-50', color: 'text-emerald-600' },
           ].map(stat => (
-            <motion.div key={stat.label} variants={itemVariants}>
+            <div key={stat.label}>
               <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
@@ -328,9 +309,9 @@ export function TendersView() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       )}
 
       {/* Tenders List */}
@@ -349,7 +330,7 @@ export function TendersView() {
           ))}
         </div>
       ) : tenders.length === 0 ? (
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+        <div className="animate-[fadeIn_0.3s_ease-out]">
           <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-16 text-center">
               <div className="relative w-20 h-20 mx-auto mb-6">
@@ -371,16 +352,12 @@ export function TendersView() {
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       ) : (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-4"
-        >
-          <AnimatePresence mode="popLayout">
-            {tenders.map(tender => {
+        <div
+ className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 animate-[fadeIn_0.3s_ease-out]"
+ >
+          {tenders.map(tender => {
               const days = daysUntil(tender.deadline);
               const dlColor = deadlineColor(days);
               const dlBg = deadlineBg(days);
@@ -388,14 +365,9 @@ export function TendersView() {
               const reqDocs = tender.requiredDocs ? tender.requiredDocs.split(',').filter(Boolean) : [];
 
               return (
-                <motion.div
-                  key={tender.id}
-                  variants={itemVariants}
-                  layout
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  whileHover={{ y: -4 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <div className="hover:-translate-y-[4px] transition-all duration-200"
+ key={tender.id}
+ >
                   <Card
                     className={`premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 ${
                       compareSelection.includes(tender.id) ? 'ring-2 ring-emerald-400 ring-offset-2' : ''
@@ -519,12 +491,9 @@ export function TendersView() {
                             </span>
                           </div>
                           <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                            <motion.div
-                              className={`h-full rounded-full bg-gradient-to-r ${matchBarColor(tender.matchScore)}`}
-                              initial={{ width: 0 }}
-                              animate={{ width: `${tender.matchScore}%` }}
-                              transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
-                            />
+                            <div
+ className={`h-full rounded-full bg-gradient-to-r ${matchBarColor(tender.matchScore)} transition-[width] duration-700`} style={{ width: `${tender.matchScore}%` }}
+ />
                           </div>
                         </div>
                       )}
@@ -537,23 +506,17 @@ export function TendersView() {
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               );
             })}
-          </AnimatePresence>
-        </motion.div>
+</div>
       )}
 
       {/* Floating Compare Bar */}
-      <AnimatePresence>
-        {compareSelection.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50"
-          >
+      {compareSelection.length > 0 && (
+          <div
+ className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-[fadeIn_0.3s_ease-out]"
+ >
             <div className="flex items-center gap-3 bg-card/95 backdrop-blur-md rounded-2xl px-5 py-3 premium-shadow-lg border border-primary/20">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg gradient-emerald">
@@ -589,9 +552,8 @@ export function TendersView() {
                 <XIcon className="h-3.5 w-3.5 mr-1" /> Clear
               </Button>
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+</div>
   );
 }

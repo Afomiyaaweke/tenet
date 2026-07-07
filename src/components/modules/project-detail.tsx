@@ -17,7 +17,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, FolderKanban, Plus, Clock, CheckCircle2,
   Circle, DollarSign, AlertTriangle, Calendar, MessageSquare,
@@ -25,21 +24,6 @@ import {
   LayoutGrid, GanttChart, Receipt, MessageCircle,
   ChevronRight, X, Save,
 } from 'lucide-react';
-
-// ─── Animation Variants ─────────────────────────────────────────────
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.08 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
-};
-
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatETB(amount: number): string {
   if (amount >= 1_000_000) return `ETB ${(amount / 1_000_000).toFixed(1)}M`;
@@ -104,14 +88,9 @@ function TaskCard({
   const col = TASK_COLUMNS.find(c => c.key === task.status);
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.2 }}
-      className="group"
-    >
+    <div
+ className="group animate-[fadeIn_0.3s_ease-out]"
+ >
       <Card className="rounded-lg border border-border/50 bg-card shadow-sm hover:shadow-md hover:border-border transition-all">
         <CardContent className="p-3 space-y-2">
           <div className="flex items-start gap-2">
@@ -181,7 +160,7 @@ function TaskCard({
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </div>
   );
 }
 
@@ -337,22 +316,19 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
   const taskProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
 
   return (
-    <motion.div
-      className="space-y-0 max-w-6xl mx-auto"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <div
+ className="space-y-0 max-w-6xl mx-auto animate-[fadeIn_0.3s_ease-out]"
+ >
       {/* Cover Gradient */}
-      <motion.div variants={itemVariants} className="relative h-28 sm:h-36 -mx-4 md:-mx-6 -mt-4 md:-mt-6 overflow-hidden">
+      <div className="relative h-28 sm:h-36 -mx-4 md:-mx-6 -mt-4 md:-mt-6 overflow-hidden">
         <div className={`absolute inset-0 ${project.status === 'active' ? 'bg-gradient-to-br from-emerald-600 via-teal-500 to-emerald-700' : project.status === 'completed' ? 'bg-gradient-to-br from-teal-600 via-teal-400 to-teal-600' : project.status === 'on_hold' ? 'bg-gradient-to-br from-amber-500 via-amber-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 via-rose-400 to-rose-600'}`} />
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.2) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.15) 0%, transparent 40%)',
         }} />
-      </motion.div>
+      </div>
 
       {/* Header */}
-      <motion.div variants={itemVariants} className="px-4 md:px-6 -mt-6 relative z-10">
+      <div className="px-4 md:px-6 -mt-6 relative z-10">
         <div className="flex items-end gap-4">
           {/* Back button overlaying cover */}
           <Button
@@ -402,18 +378,15 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{taskProgress}%</span>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-emerald-500"
-              initial={{ width: 0 }}
-              animate={{ width: `${taskProgress}%` }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
-            />
+            <div
+ className="h-full rounded-full bg-emerald-500 transition-[width] duration-700" style={{ width: `${taskProgress}%` }}
+ />
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Main Tabs */}
-      <motion.div variants={itemVariants} className="px-4 md:px-6 mt-5">
+      <div className="px-4 md:px-6 mt-5">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted/50 h-9 p-0.5 mb-5">
             <TabsTrigger value="board" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
@@ -457,8 +430,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
 
                     {/* Task cards */}
                     <div className="flex flex-col gap-2 min-h-[100px] p-1 rounded-lg bg-muted/20">
-                      <AnimatePresence mode="popLayout">
-                        {columnTasks.map(task => (
+                      {columnTasks.map(task => (
                           <TaskCard
                             key={task.id}
                             task={task}
@@ -467,8 +439,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
                             onEdit={handleEditTask}
                           />
                         ))}
-                      </AnimatePresence>
-                      {columnTasks.length === 0 && (
+{columnTasks.length === 0 && (
                         <div className="flex-1 flex items-center justify-center py-6">
                           <p className="text-xs text-muted-foreground/50">No tasks</p>
                         </div>
@@ -540,12 +511,9 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
               <div className="flex items-center gap-3 px-1">
                 <span className="text-xs text-muted-foreground whitespace-nowrap">Payment Progress</span>
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-teal-500"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${paymentProgress}%` }}
-                    transition={{ duration: 0.6 }}
-                  />
+                  <div
+ className="h-full rounded-full bg-teal-500 transition-[width] duration-700" style={{ width: `${paymentProgress}%` }}
+ />
                 </div>
                 <span className="text-xs font-bold text-teal-600 dark:text-teal-400">{paymentProgress.toFixed(0)}%</span>
               </div>
@@ -623,7 +591,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
             </Card>
           </TabsContent>
         </Tabs>
-      </motion.div>
+      </div>
 
       {/* ═══ ADD TASK DIALOG ═══ */}
       <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
@@ -864,7 +832,7 @@ export function ProjectDetailView({ projectId }: { projectId?: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </motion.div>
+    </div>
   );
 }
 

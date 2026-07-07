@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, useNavStore } from '@/store';
 import { api, Tender, Bid, BidAnalysis, BidAnalysisResult } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,19 +20,11 @@ import {
   Briefcase, TrendingUp, Timer, CircleDot, Eye, Building2,
   ListChecks, FileStack, CircleCheck, Target, Ban, GitCompareArrows,
   Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion,
-  TrendingDown, Loader2, BrainCircuit, AlertTriangle,
+  TrendingDown, Loader2, BrainCircuit, AlertTriangle, Lightbulb,
+  FileCheck, Wallet, Clock3, ClipboardCheck,
 } from 'lucide-react';
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
-};
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-};
-
-type DetailTab = 'overview' | 'bids' | 'documents' | 'analysis';
+type DetailTab = 'overview' | 'bids' | 'documents' | 'ai-overview' | 'analysis';
 
 function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -60,12 +51,9 @@ function ScoreBar({ score, label }: { score: number; label?: string }) {
     <div className="flex items-center gap-2 min-w-[120px]">
       {label && <span className="text-[10px] text-muted-foreground w-12 shrink-0">{label}</span>}
       <div className="flex-1 h-2 bg-muted/50 rounded-full overflow-hidden">
-        <motion.div
-          className={`h-full rounded-full ${colorClass}`}
-          initial={{ width: 0 }}
-          animate={{ width: `${Math.min(score, 100)}%` }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-        />
+        <div
+ className={`h-full rounded-full ${colorClass} transition-[width] duration-700`} style={{ width: `${Math.min(score, 100)}%` }}
+ />
       </div>
       <span className={`text-xs font-semibold ${textColor} w-8 text-right`}>{score}</span>
     </div>
@@ -111,8 +99,12 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
   const [reqAnalysis, setReqAnalysis] = useState<Record<string, unknown> | null>(null);
   const [reqAnalysisLoading, setReqAnalysisLoading] = useState(false);
 
+  // AI Overview state (for all users)
+  const [aiOverview, setAiOverview] = useState<Record<string, unknown> | null>(null);
+  const [aiOverviewLoading, setAiOverviewLoading] = useState(false);
+
   const isAdminOrCreator = user?.role === 'super_admin' || (user?.role === 'team_admin' && tender?.createdBy === user.id);
-  const isApplicant = !isAdminOrCreator;
+  const isCreatorOrSuperAdmin = user?.role === 'super_admin' || tender?.createdBy === user?.id;
 
   const loadTender = useCallback(async () => {
     setLoading(true);
@@ -193,6 +185,23 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
       toast.error('Failed to analyze requirements. Please try again.');
     }
     setReqAnalysisLoading(false);
+  };
+
+  const handleGetAIOverview = async () => {
+    if (!tenderId) return;
+    setAiOverviewLoading(true);
+    try {
+      const res = await api.get(`/tenders/${tenderId}/overview-ai`);
+      if (res.success) {
+        setAiOverview(res.data);
+        toast.success('AI Overview generated!');
+      } else {
+        toast.error(res.error || 'Failed to generate AI overview');
+      }
+    } catch {
+      toast.error('Failed to generate AI overview. Please try again.');
+    }
+    setAiOverviewLoading(false);
   };
 
   const handleSubmitBid = async () => {
@@ -307,25 +316,23 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
     { key: 'overview', label: 'Overview', icon: ListChecks },
     { key: 'bids', label: 'Bids', icon: Gavel, count: bids.length },
     { key: 'documents', label: 'Documents', icon: FileStack },
-    ...(isAdminOrCreator ? [{ key: 'analysis' as DetailTab, label: 'Analysis', icon: BrainCircuit, count: analyses.length || undefined }] : []),
+    { key: 'ai-overview', label: 'AI Overview', icon: Sparkles },
+    ...(isCreatorOrSuperAdmin ? [{ key: 'analysis' as DetailTab, label: 'Analysis', icon: BrainCircuit, count: analyses.length || undefined }] : []),
   ];
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto view-enter">
       {/* Back Button */}
-      <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Button variant="ghost" onClick={() => setView('tenders')}
           className="hover:text-emerald-700 hover:bg-primary/10 transition-colors rounded-xl">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
         </Button>
-      </motion.div>
+      </div>
 
       {/* Hero Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
-      >
+      <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
         <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
           {/* Accent strip */}
           <div className={`h-2 bg-gradient-to-r ${statusAccent(tender.status)}`} />
@@ -503,14 +510,11 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Tab Navigation */}
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.1 }}
-      >
+      <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
         <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardContent className="p-1.5">
             <div className="flex gap-1 overflow-x-auto">
@@ -539,19 +543,14 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Tab Content */}
-      <AnimatePresence mode="wait">
-        {activeTab === 'overview' && (
-          <motion.div
-            key="overview"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
+      {activeTab === 'overview' && (
+          <div
+ key="overview"
+ className="space-y-6 animate-[fadeIn_0.3s_ease-out]"
+ >
             {/* Scope of Work */}
             <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
@@ -591,12 +590,9 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                     <span className="text-sm font-semibold">ETB {tender.budgetMax.toLocaleString()}</span>
                   </div>
                   <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                      initial={{ width: 0 }}
-                      animate={{ width: '100%' }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                    />
+                    <div
+ className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-[width] duration-700" style={{ width: '100%' }}
+ />
                   </div>
                   <p className="text-xs text-muted-foreground text-center">Budget range from minimum to maximum</p>
                 </CardContent>
@@ -705,25 +701,20 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                       <p className="text-muted-foreground text-xs">AI is evaluating requirements, your skills match, and risk factors</p>
                       <div className="flex items-center justify-center gap-1.5 pt-2">
                         {[0, 1, 2].map(i => (
-                          <motion.div
-                            key={i}
-                            className="h-2 w-2 rounded-full bg-orange-500"
-                            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-                            transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                          />
+                          <div
+ key={i}
+ className="h-2 w-2 rounded-full bg-orange-500"
+ />
                         ))}
                       </div>
                     </div>
                   )}
                   {reqAnalysis && !reqAnalysisLoading && (
-                    <motion.div
-                      variants={containerVariants}
-                      initial="hidden"
-                      animate="show"
-                      className="space-y-4"
-                    >
+                    <div
+ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+ >
                       {/* Match Score + Competitiveness */}
-                      <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-3">
                         <div className="bg-orange-50/60 rounded-xl p-4 text-center">
                           <Target className="h-5 w-5 text-orange-600 mx-auto mb-1" />
                           <p className={`text-2xl font-bold ${
@@ -738,78 +729,78 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           }`}>{reqAnalysis.competitivenessAssessment as string}</p>
                           <p className="text-[10px] text-muted-foreground">Competition Level</p>
                         </div>
-                      </motion.div>
+                      </div>
 
                       {/* Requirements Summary */}
                       {reqAnalysis.requirementSummary && (
-                        <motion.div variants={itemVariants} className="bg-muted/30 rounded-xl p-4">
+                        <div className="bg-muted/30 rounded-xl p-4">
                           <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
                             <ListChecks className="h-3.5 w-3.5 text-orange-600" /> Requirements Summary
                           </p>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.requirementSummary as string}</p>
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Mandatory Requirements */}
                       {reqAnalysis.mandatoryRequirements && (
-                        <motion.div variants={itemVariants} className="bg-red-50/50 dark:bg-red-950/20 rounded-xl p-4">
+                        <div className="bg-red-50/50 dark:bg-red-950/20 rounded-xl p-4">
                           <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5 flex items-center gap-1.5">
                             <ShieldAlert className="h-3.5 w-3.5" /> Mandatory Requirements
                           </p>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.mandatoryRequirements as string}</p>
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Preferred Qualifications */}
                       {reqAnalysis.preferredQualifications && (
-                        <motion.div variants={itemVariants} className="bg-teal-50/50 dark:bg-teal-950/20 rounded-xl p-4">
+                        <div className="bg-teal-50/50 dark:bg-teal-950/20 rounded-xl p-4">
                           <p className="text-xs font-semibold text-teal-700 dark:text-teal-400 mb-1.5 flex items-center gap-1.5">
                             <Award className="h-3.5 w-3.5" /> Preferred Qualifications
                           </p>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preferredQualifications as string}</p>
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Risk Factors */}
                       {reqAnalysis.riskFactors && (
-                        <motion.div variants={itemVariants} className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl p-4">
+                        <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl p-4">
                           <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5 flex items-center gap-1.5">
                             <AlertTriangle className="h-3.5 w-3.5" /> Risk Factors
                           </p>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.riskFactors as string}</p>
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Preparation Tips */}
                       {reqAnalysis.preparationTips && (
-                        <motion.div variants={itemVariants} className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-4">
+                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-4">
                           <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5 flex items-center gap-1.5">
                             <CheckCircle className="h-3.5 w-3.5" /> Preparation Tips
                           </p>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preparationTips as string}</p>
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Recommended Actions */}
                       {reqAnalysis.recommendedActions && (
-                        <motion.div variants={itemVariants} className="bg-orange-50/50 dark:bg-orange-950/20 rounded-xl p-4">
+                        <div className="bg-orange-50/50 dark:bg-orange-950/20 rounded-xl p-4">
                           <p className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-1.5 flex items-center gap-1.5">
                             <Sparkles className="h-3.5 w-3.5" /> Recommended Actions
                           </p>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.recommendedActions as string}</p>
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Evaluation Breakdown */}
                       {reqAnalysis.evaluationBreakdown && (
-                        <motion.div variants={itemVariants} className="bg-muted/30 rounded-xl p-4">
+                        <div className="bg-muted/30 rounded-xl p-4">
                           <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
                             <BarChart3 className="h-3.5 w-3.5 text-orange-600" /> Evaluation Breakdown
                           </p>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.evaluationBreakdown as string}</p>
-                        </motion.div>
+                        </div>
                       )}
-                    </motion.div>
+                    </div>
                   )}
                   {!reqAnalysis && !reqAnalysisLoading && (
                     <div className="text-center py-6">
@@ -826,18 +817,14 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 </CardContent>
               </Card>
             )}
-          </motion.div>
+          </div>
         )}
 
         {activeTab === 'bids' && (
-          <motion.div
-            key="bids"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-4"
-          >
+          <div
+ key="bids"
+ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+ >
             {/* Bid Stats */}
             {bids.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -894,11 +881,11 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
+                  <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
                     {bids.map(bid => (
                       <BidCard key={bid.id} bid={bid} onUpdate={loadTender} />
                     ))}
-                  </motion.div>
+                  </div>
                 </CardContent>
               </Card>
             ) : bids.length > 0 ? (
@@ -929,17 +916,13 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 </CardContent>
               </Card>
             )}
-          </motion.div>
+          </div>
         )}
 
         {activeTab === 'documents' && (
-          <motion.div
-            key="documents"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-          >
+          <div className="animate-[fadeIn_0.3s_ease-out]"
+ key="documents"
+ >
             <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
               <CardHeader className="pb-3">
@@ -981,19 +964,270 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 )}
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
+        )}
+
+        {/* AI Overview Tab - visible to ALL users */}
+        {activeTab === 'ai-overview' && (
+          <div
+ key="ai-overview"
+ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+ >
+            {/* AI Overview Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0">
+                  <Lightbulb className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">AI Tender Overview</h3>
+                  <p className="text-xs text-muted-foreground">Powered by Tenets AI — understand requirements &amp; prepare a winning bid</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                className="bg-gradient-to-r from-violet-500 to-purple-600 hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+                onClick={handleGetAIOverview}
+                disabled={aiOverviewLoading}
+              >
+                {aiOverviewLoading ? (
+                  <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</>
+                ) : aiOverview ? (
+                  <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Regenerate</>
+                ) : (
+                  <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate AI Overview</>
+                )}
+              </Button>
+            </div>
+
+            {/* Loading State */}
+            {aiOverviewLoading && !aiOverview && (
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
+                <CardContent className="p-12 text-center space-y-4">
+                  <div className="relative w-16 h-16 mx-auto">
+                    <div className="absolute inset-0 rounded-2xl bg-violet-500 opacity-20 animate-pulse" />
+                    <div className="absolute inset-2 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                      <Sparkles className="h-6 w-6 text-white animate-pulse" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold">Generating AI overview...</h3>
+                  <p className="text-muted-foreground text-sm">Our AI is analyzing the tender details, requirements, and providing actionable insights for your bid.</p>
+                  <div className="flex items-center justify-center gap-1.5 pt-2">
+                    {[0, 1, 2].map(i => (
+                      <div
+ key={i}
+ className="h-2 w-2 rounded-full bg-violet-500 animate-bounce"
+                        style={{ animationDelay: `${i * 0.15}s` }}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* AI Overview Results */}
+            {aiOverview && !aiOverviewLoading && (
+              <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
+                {/* Summary */}
+                {(aiOverview.summary as string) && (
+                  <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                    <div className="h-1 bg-gradient-to-r from-violet-400 to-purple-500" />
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-900/50">
+                          <Lightbulb className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                        </div>
+                        Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-xl p-4">{aiOverview.summary as string}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Key Requirements & Eligibility Check - side by side */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Key Requirements */}
+                  {(aiOverview.keyRequirements as string[]) && (aiOverview.keyRequirements as string[]).length > 0 && (
+                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                      <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/50">
+                            <ListChecks className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          Key Requirements
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {(aiOverview.keyRequirements as string[]).map((req, idx) => (
+                            <div key={idx} className="flex items-start gap-2 p-2.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg">
+                              <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900/50 mt-0.5">
+                                <CircleCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed">{req}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Eligibility Check */}
+                  {(aiOverview.eligibilityCheck as string[]) && (aiOverview.eligibilityCheck as string[]).length > 0 && (
+                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                      <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-400" />
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/50">
+                            <ClipboardCheck className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          Eligibility Check
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {(aiOverview.eligibilityCheck as string[]).map((item, idx) => (
+                            <div key={idx} className="flex items-start gap-2 p-2.5 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg">
+                              <div className="p-1 rounded-md bg-amber-100 dark:bg-amber-900/50 mt-0.5">
+                                <ShieldCheck className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed">{item}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+
+                {/* Budget Analysis & Timeline - side by side */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Budget Analysis */}
+                  {(aiOverview.budgetAnalysis as string) && (
+                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                      <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/50">
+                            <Wallet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          Budget Analysis
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-emerald-50/30 dark:bg-emerald-950/20 rounded-xl p-4">{aiOverview.budgetAnalysis as string}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Timeline */}
+                  {(aiOverview.timeline as string) && (
+                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                      <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/50">
+                            <Clock3 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          Timeline
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-amber-50/30 dark:bg-amber-950/20 rounded-xl p-4">{aiOverview.timeline as string}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+
+                {/* Required Documents */}
+                {(aiOverview.requiredDocuments as string[]) && (aiOverview.requiredDocuments as string[]).length > 0 && (
+                  <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                    <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-900/50">
+                          <FileCheck className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                        </div>
+                        Required Documents
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {(aiOverview.requiredDocuments as string[]).map((doc, idx) => (
+                          <Badge key={idx} className="text-xs bg-teal-50 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300 border-0 rounded-lg hover:bg-teal-50 py-1 px-2.5">
+                            <FileStack className="h-3 w-3 mr-1.5" /> {doc}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Application Tips */}
+                {(aiOverview.applicationTips as string[]) && (aiOverview.applicationTips as string[]).length > 0 && (
+                  <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                    <div className="h-1 bg-gradient-to-r from-violet-400 to-purple-500" />
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-900/50">
+                          <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                        </div>
+                        Application Tips
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {(aiOverview.applicationTips as string[]).map((tip, idx) => (
+                          <div key={idx} className="flex items-start gap-2 p-3 bg-violet-50/50 dark:bg-violet-950/20 rounded-lg">
+                            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-200 text-[10px] font-bold shrink-0 mt-0.5">
+                              {idx + 1}
+                            </div>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{tip}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* Empty state - no overview yet */}
+            {!aiOverview && !aiOverviewLoading && (
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
+                <CardContent className="p-12 text-center">
+                  <div className="relative w-20 h-20 mx-auto mb-6">
+                    <div className="absolute inset-0 rounded-2xl bg-violet-500 opacity-20" />
+                    <div className="absolute inset-2 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                      <Lightbulb className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold">Get AI-powered insights</h3>
+                  <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+                    Let AI analyze this tender&apos;s requirements, budget, timeline, and give you actionable tips to craft a competitive bid.
+                  </p>
+                  <Button
+                    className="mt-4 bg-gradient-to-r from-violet-500 to-purple-600 hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+                    onClick={handleGetAIOverview}
+                    disabled={aiOverviewLoading}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" /> Generate AI Overview
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
 
         {/* Analysis Tab */}
         {activeTab === 'analysis' && (
-          <motion.div
-            key="analysis"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-4"
-          >
+          <div
+ key="analysis"
+ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+ >
             {/* Analysis Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1049,7 +1283,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
 
             {/* Analysis loading */}
             {analysisLoading && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div className="animate-[fadeIn_0.3s_ease-out]">
                 <Card className="premium-shadow rounded-xl border-0 bg-card">
                   <CardContent className="p-12 text-center space-y-4">
                     <div className="relative w-16 h-16 mx-auto">
@@ -1062,17 +1296,15 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                     <p className="text-muted-foreground text-sm">This may take a moment. Our AI is evaluating each bid&apos;s technical merit, financial competitiveness, and risk profile.</p>
                     <div className="flex items-center justify-center gap-1.5 pt-2">
                       {[0, 1, 2].map(i => (
-                        <motion.div
-                          key={i}
-                          className="h-2 w-2 rounded-full bg-emerald-500"
-                          animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                        />
+                        <div
+ key={i}
+ className="h-2 w-2 rounded-full bg-emerald-500"
+ />
                       ))}
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
+              </div>
             )}
 
             {/* Previous analyses selector */}
@@ -1105,14 +1337,11 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
 
             {/* Analysis Results */}
             {parsedAnalysis && !analysisLoading && (
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-                className="space-y-4"
-              >
+              <div
+ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+ >
                 {/* Summary Card */}
-                <motion.div variants={itemVariants}>
+                <div>
                   <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                     <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
                     <CardHeader className="pb-3">
@@ -1143,11 +1372,11 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
 
                 {/* Risk Summary */}
                 {parsedAnalysis.riskSummary && (
-                  <motion.div variants={itemVariants}>
+                  <div>
                     <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                       <div className="h-1 bg-gradient-to-r from-amber-400 to-rose-400" />
                       <CardHeader className="pb-3">
@@ -1164,12 +1393,12 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         </p>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Rankings Table */}
                 {parsedAnalysis.applicants.length > 0 && (
-                  <motion.div variants={itemVariants}>
+                  <div>
                     <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                       <div className="h-1 bg-gradient-to-r from-teal-400 to-emerald-400" />
                       <CardHeader className="pb-3">
@@ -1259,12 +1488,12 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Recommendation Card */}
                 {parsedAnalysis.finalRecommendation && (
-                  <motion.div variants={itemVariants}>
+                  <div>
                     <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                       <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
                       <CardHeader className="pb-3">
@@ -1281,12 +1510,12 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Analysis metadata */}
                 {selectedAnalysis && (
-                  <motion.div variants={itemVariants}>
+                  <div>
                     <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
                       <span>Analysis run on {new Date(selectedAnalysis.createdAt).toLocaleString()}</span>
                       {analyses.length > 1 && (
@@ -1298,14 +1527,14 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         </button>
                       )}
                     </div>
-                  </motion.div>
+                  </div>
                 )}
-              </motion.div>
+              </div>
             )}
 
             {/* No analysis yet */}
             {analyses.length === 0 && !analysisLoading && bids.length > 0 && (
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+              <div className="animate-[fadeIn_0.3s_ease-out]">
                 <Card className="premium-shadow rounded-xl border-0 bg-card">
                   <CardContent className="p-12 text-center">
                     <div className="relative w-20 h-20 mx-auto mb-6">
@@ -1327,12 +1556,11 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                     </Button>
                   </CardContent>
                 </Card>
-              </motion.div>
+              </div>
             )}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+</div>
   );
 }
 
@@ -1374,7 +1602,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
   const jobTitle = bid.user?.profile?.jobTitle;
 
   return (
-    <motion.div variants={itemVariants} className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors space-y-2">
+    <div className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors space-y-2">
       <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0">
@@ -1417,15 +1645,10 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
         </div>
       </div>
 
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-hidden"
-          >
+      {expanded && (
+          <div
+ className="overflow-hidden animate-[fadeIn_0.3s_ease-out]"
+ >
             <div className="mt-3 pt-3 border-t border-border/40 space-y-4">
               {/* Technical Proposal */}
               <div>
@@ -1468,9 +1691,8 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </motion.div>
+</div>
   );
 }

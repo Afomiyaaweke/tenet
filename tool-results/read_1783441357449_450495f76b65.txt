@@ -1,0 +1,1025 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api, Project, Task, Milestone, Payment } from '@/lib/api';
+     6→import { Card, CardContent } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Textarea } from '@/components/ui/textarea';
+    11→import { Label } from '@/components/ui/label';
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    13→import {
+    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→} from '@/components/ui/table';
+    16→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+    17→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    18→import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+    19→import { toast } from 'sonner';
+    20→import { motion, AnimatePresence } from 'framer-motion';
+    21→import {
+    22→  ArrowLeft, FolderKanban, Plus, Clock, CheckCircle2,
+    23→  Circle, DollarSign, AlertTriangle, Calendar, MessageSquare,
+    24→  CreditCard, Flag, GripVertical, Trash2, Edit3,
+    25→  LayoutGrid, GanttChart, Receipt, MessageCircle,
+    26→  ChevronRight, X, Save,
+    27→} from 'lucide-react';
+    28→
+    29→// ─── Animation Variants ─────────────────────────────────────────────
+    30→const containerVariants = {
+    31→  hidden: { opacity: 0 },
+    32→  visible: {
+    33→    opacity: 1,
+    34→    transition: { staggerChildren: 0.06, delayChildren: 0.08 },
+    35→  },
+    36→};
+    37→
+    38→const itemVariants = {
+    39→  hidden: { opacity: 0, y: 12 },
+    40→  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
+    41→};
+    42→
+    43→// ─── Helpers ────────────────────────────────────────────────────────
+    44→function formatETB(amount: number): string {
+    45→  if (amount >= 1_000_000) return `ETB ${(amount / 1_000_000).toFixed(1)}M`;
+    46→  if (amount >= 1_000) return `ETB ${(amount / 1_000).toFixed(0)}K`;
+    47→  return `ETB ${amount.toLocaleString()}`;
+    48→}
+    49→
+    50→function statusColorMap(status: string) {
+    51→  switch (status) {
+    52→    case 'active': return { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', bar: '#10b981', label: 'Active' };
+    53→    case 'completed': return { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300', dot: 'bg-teal-500', bar: '#14b8a6', label: 'Completed' };
+    54→    case 'on_hold': return { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', dot: 'bg-amber-500', bar: '#f59e0b', label: 'On Hold' };
+    55→    case 'cancelled': return { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', dot: 'bg-rose-500', bar: '#f43f5e', label: 'Cancelled' };
+    56→    default: return { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-muted-foreground/50', bar: '#94a3b8', label: status };
+    57→  }
+    58→}
+    59→
+    60→// ─── Timeline (Gantt) helpers ────────────────────────────────────────
+    61→function getTimelineRange(project: Project) {
+    62→  const now = new Date();
+    63→  const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    64→  const end = new Date(now.getFullYear(), now.getMonth() + 8, 0);
+    65→  return { start, end };
+    66→}
+    67→
+    68→function monthRange(start: Date, end: Date): Date[] {
+    69→  const months: Date[] = [];
+    70→  const d = new Date(start.getFullYear(), start.getMonth(), 1);
+    71→  while (d <= end) {
+    72→    months.push(new Date(d));
+    73→    d.setMonth(d.getMonth() + 1);
+    74→  }
+    75→  return months;
+    76→}
+    77→
+    78→function dateToX(date: Date, start: Date, end: Date, width: number): number {
+    79→  const total = end.getTime() - start.getTime();
+    80→  if (total === 0) return 0;
+    81→  return ((date.getTime() - start.getTime()) / total) * width;
+    82→}
+    83→
+    84→// ─── Task Column Config ─────────────────────────────────────────────
+    85→const TASK_COLUMNS = [
+    86→  { key: 'todo' as const, label: 'To Do', icon: Circle, color: 'slate' },
+    87→  { key: 'in_progress' as const, label: 'In Progress', icon: Clock, color: 'amber' },
+    88→  { key: 'done' as const, label: 'Done', icon: CheckCircle2, color: 'emerald' },
+    89→];
+    90→
+    91→// ─── Task Card Component ─────────────────────────────────────────────
+    92→function TaskCard({
+    93→  task,
+    94→  onStatusChange,
+    95→  onDelete,
+    96→  onEdit,
+    97→}: {
+    98→  task: Task;
+    99→  onStatusChange: (taskId: string, status: string) => void;
+   100→  onDelete: (taskId: string) => void;
+   101→  onEdit: (task: Task) => void;
+   102→}) {
+   103→  const isOverdue = task.dueDate && new Date(task.dueDate).getTime() < Date.now() && task.status !== 'done';
+   104→  const col = TASK_COLUMNS.find(c => c.key === task.status);
+   105→
+   106→  return (
+   107→    <motion.div
+   108→      layout
+   109→      initial={{ opacity: 0, scale: 0.95 }}
+   110→      animate={{ opacity: 1, scale: 1 }}
+   111→      exit={{ opacity: 0, scale: 0.95 }}
+   112→      transition={{ duration: 0.2 }}
+   113→      className="group"
+   114→    >
+   115→      <Card className="rounded-lg border border-border/50 bg-card shadow-sm hover:shadow-md hover:border-border transition-all">
+   116→        <CardContent className="p-3 space-y-2">
+   117→          <div className="flex items-start gap-2">
+   118→            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 mt-0.5 flex-shrink-0 cursor-grab" />
+   119→            <div className="min-w-0 flex-1">
+   120→              <p className="text-sm font-medium leading-tight">{task.title}</p>
+   121→              {task.description && (
+   122→                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+   123→              )}
+   124→            </div>
+   125→          </div>
+   126→
+   127→          {task.dueDate && (
+   128→            <div className={`flex items-center gap-1.5 text-[10px] ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
+   129→              <Calendar className="h-3 w-3" />
+   130→              {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+   131→              {isOverdue && <span className="font-semibold ml-1">Overdue</span>}
+   132→            </div>
+   133→          )}
+   134→
+   135→          {/* Action buttons on hover */}
+   136→          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+   137→            {task.status !== 'todo' && (
+   138→              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, task.status === 'in_progress' ? 'todo' : 'in_progress')}>
+   139→                ← Move
+   140→              </Button>
+   141→            )}
+   142→            {task.status !== 'in_progress' && task.status !== 'done' && (
+   143→              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, 'in_progress')}>
+   144→                Start →
+   145→              </Button>
+   146→            )}
+   147→            {task.status !== 'done' && (
+   148→              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-emerald-600" onClick={() => onStatusChange(task.id, 'done')}>
+   149→                ✓ Done
+   150→              </Button>
+   151→            )}
+   152→            {task.status === 'done' && (
+   153→              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, 'in_progress')}>
+   154→                Reopen
+   155→              </Button>
+   156→            )}
+   157→            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] ml-auto" onClick={() => onEdit(task)}>
+   158→              <Edit3 className="h-3 w-3" />
+   159→            </Button>
+   160→            <AlertDialog>
+   161→              <AlertDialogTrigger asChild>
+   162→                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-rose-500 hover:text-rose-600">
+   163→                  <Trash2 className="h-3 w-3" />
+   164→                </Button>
+   165→              </AlertDialogTrigger>
+   166→              <AlertDialogContent>
+   167→                <AlertDialogHeader>
+   168→                  <AlertDialogTitle>Delete Task</AlertDialogTitle>
+   169→                  <AlertDialogDescription>
+   170→                    Are you sure you want to delete &quot;{task.title}&quot;? This action cannot be undone.
+   171→                  </AlertDialogDescription>
+   172→                </AlertDialogHeader>
+   173→                <AlertDialogFooter>
+   174→                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+   175→                  <AlertDialogAction className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => onDelete(task.id)}>
+   176→                    Delete
+   177→                  </AlertDialogAction>
+   178→                </AlertDialogFooter>
+   179→              </AlertDialogContent>
+   180→            </AlertDialog>
+   181→          </div>
+   182→        </CardContent>
+   183→      </Card>
+   184→    </motion.div>
+   185→  );
+   186→}
+   187→
+   188→// ─── Main Component ──────────────────────────────────────────────────
+   189→export function ProjectDetailView({ projectId }: { projectId?: string }) {
+   190→  const { user } = useAuthStore();
+   191→  const { setView } = useNavStore();
+   192→  const [project, setProject] = useState<Project | null>(null);
+   193→  const [loading, setLoading] = useState(true);
+   194→  const [activeTab, setActiveTab] = useState('board');
+   195→
+   196→  // Dialogs
+   197→  const [showAddTask, setShowAddTask] = useState(false);
+   198→  const [addTaskColumn, setAddTaskColumn] = useState<string>('todo');
+   199→  const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '', status: 'todo' });
+   200→
+   201→  const [showEditTask, setShowEditTask] = useState(false);
+   202→  const [editingTask, setEditingTask] = useState<Task | null>(null);
+   203→  const [editTaskForm, setEditTaskForm] = useState({ title: '', description: '', dueDate: '', status: 'todo' });
+   204→
+   205→  const [showAddMilestone, setShowAddMilestone] = useState(false);
+   206→  const [newMilestone, setNewMilestone] = useState({ title: '', dueDate: '' });
+   207→
+   208→  const [showAddPayment, setShowAddPayment] = useState(false);
+   209→  const [newPayment, setNewPayment] = useState({ amount: '', paymentMethod: 'bank_transfer', referenceNumber: '', notes: '', paymentDate: '' });
+   210→
+   211→  const loadProject = useCallback(async () => {
+   212→    setLoading(true);
+   213→    const res = await api.get(`/projects/${projectId}`);
+   214→    if (res.success) setProject(res.data);
+   215→    setLoading(false);
+   216→  }, [projectId]);
+   217→
+   218→  /* eslint-disable react-hooks/set-state-in-effect */
+   219→  useEffect(() => {
+   220→    if (projectId) loadProject();
+   221→  }, [projectId, loadProject]);
+   222→  /* eslint-enable react-hooks/set-state-in-effect */
+   223→
+   224→  // ── Task Handlers ──
+   225→  const handleAddTask = async () => {
+   226→    if (!newTask.title.trim()) { toast.error('Task title is required'); return; }
+   227→    const res = await api.post(`/projects/${projectId}/tasks`, { ...newTask, status: addTaskColumn });
+   228→    if (res.success) {
+   229→      toast.success('Task added');
+   230→      setShowAddTask(false);
+   231→      setNewTask({ title: '', description: '', dueDate: '', status: 'todo' });
+   232→      loadProject();
+   233→    } else toast.error(res.error || 'Failed to add task');
+   234→  };
+   235→
+   236→  const handleStatusChange = async (taskId: string, status: string) => {
+   237→    const res = await api.patch(`/projects/${projectId}/tasks/${taskId}/status`, { status });
+   238→    if (res.success) {
+   239→      toast.success('Task updated');
+   240→      loadProject();
+   241→    } else toast.error(res.error || 'Failed to update task');
+   242→  };
+   243→
+   244→  const handleDeleteTask = async (taskId: string) => {
+   245→    const res = await api.delete(`/projects/${projectId}/tasks/${taskId}`);
+   246→    if (res.success) {
+   247→      toast.success('Task deleted');
+   248→      loadProject();
+   249→    } else toast.error(res.error || 'Failed to delete task');
+   250→  };
+   251→
+   252→  const handleEditTask = (task: Task) => {
+   253→    setEditingTask(task);
+   254→    setEditTaskForm({ title: task.title, description: task.description || '', dueDate: task.dueDate || '', status: task.status });
+   255→    setShowEditTask(true);
+   256→  };
+   257→
+   258→  const handleSaveEditTask = async () => {
+   259→    if (!editingTask || !editTaskForm.title.trim()) return;
+   260→    const res = await api.patch(`/projects/${projectId}/tasks/${editingTask.id}`, editTaskForm);
+   261→    if (res.success) {
+   262→      toast.success('Task updated');
+   263→      setShowEditTask(false);
+   264→      setEditingTask(null);
+   265→      loadProject();
+   266→    } else toast.error(res.error || 'Failed to update task');
+   267→  };
+   268→
+   269→  // ── Milestone Handlers ──
+   270→  const handleAddMilestone = async () => {
+   271→    if (!newMilestone.title.trim()) { toast.error('Milestone title is required'); return; }
+   272→    const res = await api.post(`/projects/${projectId}/milestones`, newMilestone);
+   273→    if (res.success) {
+   274→      toast.success('Milestone added');
+   275→      setShowAddMilestone(false);
+   276→      setNewMilestone({ title: '', dueDate: '' });
+   277→      loadProject();
+   278→    } else toast.error(res.error || 'Failed to add milestone');
+   279→  };
+   280→
+   281→  const handleToggleMilestone = async (milestoneId: string, completed: boolean) => {
+   282→    const res = await api.patch(`/projects/${projectId}/milestones/${milestoneId}`, { completed: !completed });
+   283→    if (res.success) {
+   284→      toast.success(completed ? 'Milestone reopened' : 'Milestone completed');
+   285→      loadProject();
+   286→    }
+   287→  };
+   288→
+   289→  // ── Payment Handlers ──
+   290→  const handleAddPayment = async () => {
+   291→    const res = await api.post(`/projects/${projectId}/payments`, {
+   292→      ...newPayment, amount: parseFloat(newPayment.amount),
+   293→    });
+   294→    if (res.success) {
+   295→      toast.success('Payment logged');
+   296→      setShowAddPayment(false);
+   297→      setNewPayment({ amount: '', paymentMethod: 'bank_transfer', referenceNumber: '', notes: '', paymentDate: '' });
+   298→      loadProject();
+   299→    } else toast.error(res.error || 'Failed to log payment');
+   300→  };
+   301→
+   302→  // ── Computed ──
+   303→  const totalPaid = project?.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+   304→  const paymentProgress = project?.contractValue ? Math.min((totalPaid / project.contractValue) * 100, 100) : 0;
+   305→  const sc = project ? statusColorMap(project.status) : statusColorMap('active');
+   306→
+   307→  // ── Loading ──
+   308→  if (loading) {
+   309→    return (
+   310→      <div className="space-y-4 max-w-6xl mx-auto p-4 md:p-6">
+   311→        <div className="h-32 sm:h-40 bg-muted rounded-xl animate-pulse -mx-4 md:-mx-6 -mt-4 md:-mt-6" />
+   312→        <div className="h-8 bg-muted rounded w-1/3 animate-pulse" />
+   313→        <div className="h-64 bg-muted rounded-xl animate-pulse" />
+   314→      </div>
+   315→    );
+   316→  }
+   317→
+   318→  if (!project) {
+   319→    return (
+   320→      <div className="p-6 text-center">
+   321→        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center">
+   322→          <AlertTriangle className="h-8 w-8 text-rose-500" />
+   323→        </div>
+   324→        <h3 className="text-lg font-bold text-foreground mb-2">Project not found</h3>
+   325→        <p className="text-muted-foreground text-sm mb-4">This project does not exist or you do not have access.</p>
+   326→        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5" onClick={() => setView('projects')}>
+   327→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
+   328→        </Button>
+   329→      </div>
+   330→    );
+   331→  }
+   332→
+   333→  const tasks = project.tasks || [];
+   334→  const milestones = project.milestones || [];
+   335→  const payments = project.payments || [];
+   336→  const doneTasks = tasks.filter(t => t.status === 'done');
+   337→  const taskProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
+   338→
+   339→  return (
+   340→    <motion.div
+   341→      className="space-y-0 max-w-6xl mx-auto"
+   342→      variants={containerVariants}
+   343→      initial="hidden"
+   344→      animate="visible"
+   345→    >
+   346→      {/* Cover Gradient */}
+   347→      <motion.div variants={itemVariants} className="relative h-28 sm:h-36 -mx-4 md:-mx-6 -mt-4 md:-mt-6 overflow-hidden">
+   348→        <div className={`absolute inset-0 ${project.status === 'active' ? 'bg-gradient-to-br from-emerald-600 via-teal-500 to-emerald-700' : project.status === 'completed' ? 'bg-gradient-to-br from-teal-600 via-teal-400 to-teal-600' : project.status === 'on_hold' ? 'bg-gradient-to-br from-amber-500 via-amber-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 via-rose-400 to-rose-600'}`} />
+   349→        <div className="absolute inset-0 opacity-10" style={{
+   350→          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.2) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.15) 0%, transparent 40%)',
+   351→        }} />
+   352→      </motion.div>
+   353→
+   354→      {/* Header */}
+   355→      <motion.div variants={itemVariants} className="px-4 md:px-6 -mt-6 relative z-10">
+   356→        <div className="flex items-end gap-4">
+   357→          {/* Back button overlaying cover */}
+   358→          <Button
+   359→            variant="ghost"
+   360→            onClick={() => setView('projects')}
+   361→            className="absolute top-2 left-4 md:left-6 text-white/80 hover:text-white hover:bg-white/10 -mt-20 z-20"
+   362→          >
+   363→            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+   364→          </Button>
+   365→
+   366→          <div className="w-14 h-14 rounded-2xl bg-white dark:bg-card shadow-lg flex items-center justify-center border-4 border-white dark:border-card">
+   367→            <FolderKanban className="h-7 w-7 text-emerald-600" />
+   368→          </div>
+   369→          <div className="pb-2 flex-1 min-w-0">
+   370→            <div className="flex items-center gap-2 flex-wrap">
+   371→              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
+   372→                {project.tender?.title || 'Project'}
+   373→              </h1>
+   374→              <Badge className={`text-[10px] px-2 py-0 border-0 font-semibold ${sc.bg} ${sc.text}`}>
+   375→                <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} mr-1 inline-block`} />
+   376→                {sc.label}
+   377→              </Badge>
+   378→            </div>
+   379→          </div>
+   380→        </div>
+   381→
+   382→        {/* Properties row */}
+   383→        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-3 text-xs text-muted-foreground">
+   384→          <span className="flex items-center gap-1.5">
+   385→            <Flag className="h-3 w-3" /> {project.tender?.title || 'Tender'}
+   386→          </span>
+   387→          <span className="flex items-center gap-1.5">
+   388→            <FolderKanban className="h-3 w-3" /> {project.bid?.user?.profile?.fullName || 'Assigned Contractor'}
+   389→          </span>
+   390→          <span className="flex items-center gap-1.5">
+   391→            <DollarSign className="h-3 w-3" /> {formatETB(project.contractValue)}
+   392→          </span>
+   393→          <span className="flex items-center gap-1.5">
+   394→            <Calendar className="h-3 w-3" /> Created {new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   395→          </span>
+   396→        </div>
+   397→
+   398→        {/* Progress bar */}
+   399→        <div className="mt-4 mb-2">
+   400→          <div className="flex items-center justify-between mb-1">
+   401→            <span className="text-[10px] font-medium text-muted-foreground">Overall Progress</span>
+   402→            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{taskProgress}%</span>
+   403→          </div>
+   404→          <div className="h-2 bg-muted rounded-full overflow-hidden">
+   405→            <motion.div
+   406→              className="h-full rounded-full bg-emerald-500"
+   407→              initial={{ width: 0 }}
+   408→              animate={{ width: `${taskProgress}%` }}
+   409→              transition={{ duration: 0.6, ease: 'easeOut' }}
+   410→            />
+   411→          </div>
+   412→        </div>
+   413→      </motion.div>
+   414→
+   415→      {/* Main Tabs */}
+   416→      <motion.div variants={itemVariants} className="px-4 md:px-6 mt-5">
+   417→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   418→          <TabsList className="bg-muted/50 h-9 p-0.5 mb-5">
+   419→            <TabsTrigger value="board" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+   420→              <LayoutGrid className="h-3.5 w-3.5 mr-1.5" /> Board
+   421→            </TabsTrigger>
+   422→            <TabsTrigger value="timeline" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+   423→              <GanttChart className="h-3.5 w-3.5 mr-1.5" /> Timeline
+   424→            </TabsTrigger>
+   425→            <TabsTrigger value="payments" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+   426→              <Receipt className="h-3.5 w-3.5 mr-1.5" /> Payments
+   427→            </TabsTrigger>
+   428→            <TabsTrigger value="chat" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+   429→              <MessageCircle className="h-3.5 w-3.5 mr-1.5" /> Chat
+   430→            </TabsTrigger>
+   431→          </TabsList>
+   432→
+   433→          {/* ═══ BOARD TAB ═══ */}
+   434→          <TabsContent value="board" className="mt-0">
+   435→            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   436→              {TASK_COLUMNS.map(col => {
+   437→                const ColIcon = col.icon;
+   438→                const columnTasks = tasks.filter(t => t.status === col.key);
+   439→                return (
+   440→                  <div key={col.key} className="flex flex-col">
+   441→                    {/* Column header */}
+   442→                    <div className="flex items-center gap-2 mb-3 px-1">
+   443→                      <ColIcon className={`h-4 w-4 ${col.color === 'emerald' ? 'text-emerald-500' : col.color === 'amber' ? 'text-amber-500' : 'text-slate-400'}`} />
+   444→                      <h3 className="text-sm font-semibold text-foreground">{col.label}</h3>
+   445→                      <span className="ml-auto text-xs font-medium text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+   446→                        {columnTasks.length}
+   447→                      </span>
+   448→                      <Button
+   449→                        variant="ghost"
+   450→                        size="sm"
+   451→                        className="h-6 w-6 p-0 ml-1"
+   452→                        onClick={() => { setAddTaskColumn(col.key); setNewTask(prev => ({ ...prev, status: col.key })); setShowAddTask(true); }}
+   453→                      >
+   454→                        <Plus className="h-3.5 w-3.5" />
+   455→                      </Button>
+   456→                    </div>
+   457→
+   458→                    {/* Task cards */}
+   459→                    <div className="flex flex-col gap-2 min-h-[100px] p-1 rounded-lg bg-muted/20">
+   460→                      <AnimatePresence mode="popLayout">
+   461→                        {columnTasks.map(task => (
+   462→                          <TaskCard
+   463→                            key={task.id}
+   464→                            task={task}
+   465→                            onStatusChange={handleStatusChange}
+   466→                            onDelete={handleDeleteTask}
+   467→                            onEdit={handleEditTask}
+   468→                          />
+   469→                        ))}
+   470→                      </AnimatePresence>
+   471→                      {columnTasks.length === 0 && (
+   472→                        <div className="flex-1 flex items-center justify-center py-6">
+   473→                          <p className="text-xs text-muted-foreground/50">No tasks</p>
+   474→                        </div>
+   475→                      )}
+   476→                    </div>
+   477→                  </div>
+   478→                );
+   479→              })}
+   480→            </div>
+   481→          </TabsContent>
+   482→
+   483→          {/* ═══ TIMELINE TAB ═══ */}
+   484→          <TabsContent value="timeline" className="mt-0">
+   485→            <div className="space-y-4">
+   486→              <div className="flex items-center justify-between">
+   487→                <h3 className="text-sm font-semibold text-foreground">Project Timeline</h3>
+   488→                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAddMilestone(true)}>
+   489→                  <Plus className="h-3 w-3 mr-1" /> Add Milestone
+   490→                </Button>
+   491→              </div>
+   492→              <ProjectTimeline
+   493→                project={project}
+   494→                onToggleMilestone={handleToggleMilestone}
+   495→              />
+   496→            </div>
+   497→          </TabsContent>
+   498→
+   499→          {/* ═══ PAYMENTS TAB ═══ */}
+   500→          <TabsContent value="payments" className="mt-0">
+   501→            <div className="space-y-4">
+   502→              {/* Payment summary */}
+   503→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   504→                <Card className="rounded-xl border border-border/60 bg-card">
+   505→                  <CardContent className="p-4 flex items-center gap-3">
+   506→                    <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
+   507→                      <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   508→                    </div>
+   509→                    <div>
+   510→                      <p className="text-sm font-bold">{formatETB(project.contractValue)}</p>
+   511→                      <p className="text-[10px] text-muted-foreground">Contract Value</p>
+   512→                    </div>
+   513→                  </CardContent>
+   514→                </Card>
+   515→                <Card className="rounded-xl border border-border/60 bg-card">
+   516→                  <CardContent className="p-4 flex items-center gap-3">
+   517→                    <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-900/30">
+   518→                      <CreditCard className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+   519→                    </div>
+   520→                    <div>
+   521→                      <p className="text-sm font-bold">{formatETB(totalPaid)}</p>
+   522→                      <p className="text-[10px] text-muted-foreground">Paid</p>
+   523→                    </div>
+   524→                  </CardContent>
+   525→                </Card>
+   526→                <Card className="rounded-xl border border-border/60 bg-card">
+   527→                  <CardContent className="p-4 flex items-center gap-3">
+   528→                    <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30">
+   529→                      <Receipt className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   530→                    </div>
+   531→                    <div>
+   532→                      <p className="text-sm font-bold">{formatETB(project.contractValue - totalPaid)}</p>
+   533→                      <p className="text-[10px] text-muted-foreground">Remaining</p>
+   534→                    </div>
+   535→                  </CardContent>
+   536→                </Card>
+   537→              </div>
+   538→
+   539→              {/* Payment progress bar */}
+   540→              <div className="flex items-center gap-3 px-1">
+   541→                <span className="text-xs text-muted-foreground whitespace-nowrap">Payment Progress</span>
+   542→                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+   543→                  <motion.div
+   544→                    className="h-full rounded-full bg-teal-500"
+   545→                    initial={{ width: 0 }}
+   546→                    animate={{ width: `${paymentProgress}%` }}
+   547→                    transition={{ duration: 0.6 }}
+   548→                  />
+   549→                </div>
+   550→                <span className="text-xs font-bold text-teal-600 dark:text-teal-400">{paymentProgress.toFixed(0)}%</span>
+   551→              </div>
+   552→
+   553→              {/* Add payment button */}
+   554→              <div className="flex justify-end">
+   555→                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAddPayment(true)}>
+   556→                  <Plus className="h-3 w-3 mr-1" /> Log Payment
+   557→                </Button>
+   558→              </div>
+   559→
+   560→              {/* Payments table */}
+   561→              <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+   562→                {payments.length === 0 ? (
+   563→                  <CardContent className="p-8 text-center">
+   564→                    <CreditCard className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+   565→                    <p className="text-sm text-muted-foreground">No payments recorded yet</p>
+   566→                  </CardContent>
+   567→                ) : (
+   568→                  <Table>
+   569→                    <TableHeader>
+   570→                      <TableRow className="hover:bg-transparent">
+   571→                        <TableHead className="text-xs">Date</TableHead>
+   572→                        <TableHead className="text-xs">Amount</TableHead>
+   573→                        <TableHead className="text-xs hidden sm:table-cell">Method</TableHead>
+   574→                        <TableHead className="text-xs hidden md:table-cell">Reference</TableHead>
+   575→                        <TableHead className="text-xs hidden lg:table-cell">Notes</TableHead>
+   576→                      </TableRow>
+   577→                    </TableHeader>
+   578→                    <TableBody>
+   579→                      {payments.map(p => (
+   580→                        <TableRow key={p.id} className="hover:bg-muted/30">
+   581→                          <TableCell className="text-xs">
+   582→                            {new Date(p.paymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   583→                          </TableCell>
+   584→                          <TableCell className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatETB(p.amount)}</TableCell>
+   585→                          <TableCell className="text-xs hidden sm:table-cell text-muted-foreground">
+   586→                            {p.paymentMethod.replace(/_/g, ' ')}
+   587→                          </TableCell>
+   588→                          <TableCell className="text-xs hidden md:table-cell text-muted-foreground">
+   589→                            {p.referenceNumber || '-'}
+   590→                          </TableCell>
+   591→                          <TableCell className="text-xs hidden lg:table-cell text-muted-foreground max-w-[200px] truncate">
+   592→                            {p.notes || '-'}
+   593→                          </TableCell>
+   594→                        </TableRow>
+   595→                      ))}
+   596→                    </TableBody>
+   597→                  </Table>
+   598→                )}
+   599→              </Card>
+   600→            </div>
+   601→          </TabsContent>
+   602→
+   603→          {/* ═══ CHAT TAB ═══ */}
+   604→          <TabsContent value="chat" className="mt-0">
+   605→            <Card className="rounded-xl border border-border/60 bg-card">
+   606→              <CardContent className="p-8 text-center">
+   607→                <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+   608→                <h3 className="text-sm font-semibold text-foreground mb-1">Project Chat</h3>
+   609→                <p className="text-xs text-muted-foreground mb-4">Communicate with the project team in real-time</p>
+   610→                <Button
+   611→                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5"
+   612→                  onClick={() => {
+   613→                    if (project.chat?.id) {
+   614→                      setView('chat', { id: project.chat.id });
+   615→                    } else {
+   616→                      setView('chat');
+   617→                    }
+   618→                  }}
+   619→                >
+   620→                  <MessageCircle className="h-4 w-4 mr-2" /> Open Chat
+   621→                </Button>
+   622→              </CardContent>
+   623→            </Card>
+   624→          </TabsContent>
+   625→        </Tabs>
+   626→      </motion.div>
+   627→
+   628→      {/* ═══ ADD TASK DIALOG ═══ */}
+   629→      <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
+   630→        <DialogContent className="sm:max-w-md">
+   631→          <DialogHeader>
+   632→            <DialogTitle className="flex items-center gap-2">
+   633→              <Plus className="h-4 w-4 text-emerald-500" /> Add Task
+   634→            </DialogTitle>
+   635→          </DialogHeader>
+   636→          <div className="space-y-3">
+   637→            <div>
+   638→              <Label className="text-xs">Title *</Label>
+   639→              <Input
+   640→                value={newTask.title}
+   641→                onChange={e => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+   642→                placeholder="Task title"
+   643→                className="h-9 text-sm"
+   644→              />
+   645→            </div>
+   646→            <div>
+   647→              <Label className="text-xs">Description</Label>
+   648→              <Textarea
+   649→                value={newTask.description}
+   650→                onChange={e => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+   651→                placeholder="Describe the task..."
+   652→                rows={2}
+   653→                className="text-sm resize-none"
+   654→              />
+   655→            </div>
+   656→            <div className="grid grid-cols-2 gap-3">
+   657→              <div>
+   658→                <Label className="text-xs">Due Date</Label>
+   659→                <Input
+   660→                  type="date"
+   661→                  value={newTask.dueDate}
+   662→                  onChange={e => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
+   663→                  className="h-9 text-sm"
+   664→                />
+   665→              </div>
+   666→              <div>
+   667→                <Label className="text-xs">Status</Label>
+   668→                <Select value={addTaskColumn} onValueChange={v => setAddTaskColumn(v)}>
+   669→                  <SelectTrigger className="h-9 text-sm">
+   670→                    <SelectValue />
+   671→                  </SelectTrigger>
+   672→                  <SelectContent>
+   673→                    <SelectItem value="todo">To Do</SelectItem>
+   674→                    <SelectItem value="in_progress">In Progress</SelectItem>
+   675→                    <SelectItem value="done">Done</SelectItem>
+   676→                  </SelectContent>
+   677→                </Select>
+   678→              </div>
+   679→            </div>
+   680→          </div>
+   681→          <DialogFooter className="gap-2">
+   682→            <DialogClose asChild>
+   683→              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+   684→            </DialogClose>
+   685→            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAddTask}>
+   686→              Add Task
+   687→            </Button>
+   688→          </DialogFooter>
+   689→        </DialogContent>
+   690→      </Dialog>
+   691→
+   692→      {/* ═══ EDIT TASK DIALOG ═══ */}
+   693→      <Dialog open={showEditTask} onOpenChange={setShowEditTask}>
+   694→        <DialogContent className="sm:max-w-md">
+   695→          <DialogHeader>
+   696→            <DialogTitle className="flex items-center gap-2">
+   697→              <Edit3 className="h-4 w-4 text-amber-500" /> Edit Task
+   698→            </DialogTitle>
+   699→          </DialogHeader>
+   700→          <div className="space-y-3">
+   701→            <div>
+   702→              <Label className="text-xs">Title *</Label>
+   703→              <Input
+   704→                value={editTaskForm.title}
+   705→                onChange={e => setEditTaskForm(prev => ({ ...prev, title: e.target.value }))}
+   706→                className="h-9 text-sm"
+   707→              />
+   708→            </div>
+   709→            <div>
+   710→              <Label className="text-xs">Description</Label>
+   711→              <Textarea
+   712→                value={editTaskForm.description}
+   713→                onChange={e => setEditTaskForm(prev => ({ ...prev, description: e.target.value }))}
+   714→                rows={2}
+   715→                className="text-sm resize-none"
+   716→              />
+   717→            </div>
+   718→            <div className="grid grid-cols-2 gap-3">
+   719→              <div>
+   720→                <Label className="text-xs">Due Date</Label>
+   721→                <Input
+   722→                  type="date"
+   723→                  value={editTaskForm.dueDate}
+   724→                  onChange={e => setEditTaskForm(prev => ({ ...prev, dueDate: e.target.value }))}
+   725→                  className="h-9 text-sm"
+   726→                />
+   727→              </div>
+   728→              <div>
+   729→                <Label className="text-xs">Status</Label>
+   730→                <Select value={editTaskForm.status} onValueChange={v => setEditTaskForm(prev => ({ ...prev, status: v }))}>
+   731→                  <SelectTrigger className="h-9 text-sm">
+   732→                    <SelectValue />
+   733→                  </SelectTrigger>
+   734→                  <SelectContent>
+   735→                    <SelectItem value="todo">To Do</SelectItem>
+   736→                    <SelectItem value="in_progress">In Progress</SelectItem>
+   737→                    <SelectItem value="done">Done</SelectItem>
+   738→                  </SelectContent>
+   739→                </Select>
+   740→              </div>
+   741→            </div>
+   742→          </div>
+   743→          <DialogFooter className="gap-2">
+   744→            <DialogClose asChild>
+   745→              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+   746→            </DialogClose>
+   747→            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSaveEditTask}>
+   748→              <Save className="h-3 w-3 mr-1" /> Save
+   749→            </Button>
+   750→          </DialogFooter>
+   751→        </DialogContent>
+   752→      </Dialog>
+   753→
+   754→      {/* ═══ ADD MILESTONE DIALOG ═══ */}
+   755→      <Dialog open={showAddMilestone} onOpenChange={setShowAddMilestone}>
+   756→        <DialogContent className="sm:max-w-md">
+   757→          <DialogHeader>
+   758→            <DialogTitle className="flex items-center gap-2">
+   759→              <Flag className="h-4 w-4 text-amber-500" /> Add Milestone
+   760→            </DialogTitle>
+   761→          </DialogHeader>
+   762→          <div className="space-y-3">
+   763→            <div>
+   764→              <Label className="text-xs">Title *</Label>
+   765→              <Input
+   766→                value={newMilestone.title}
+   767→                onChange={e => setNewMilestone(prev => ({ ...prev, title: e.target.value }))}
+   768→                placeholder="Milestone title"
+   769→                className="h-9 text-sm"
+   770→              />
+   771→            </div>
+   772→            <div>
+   773→              <Label className="text-xs">Due Date</Label>
+   774→              <Input
+   775→                type="date"
+   776→                value={newMilestone.dueDate}
+   777→                onChange={e => setNewMilestone(prev => ({ ...prev, dueDate: e.target.value }))}
+   778→                className="h-9 text-sm"
+   779→              />
+   780→            </div>
+   781→          </div>
+   782→          <DialogFooter className="gap-2">
+   783→            <DialogClose asChild>
+   784→              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+   785→            </DialogClose>
+   786→            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAddMilestone}>
+   787→              Add Milestone
+   788→            </Button>
+   789→          </DialogFooter>
+   790→        </DialogContent>
+   791→      </Dialog>
+   792→
+   793→      {/* ═══ ADD PAYMENT DIALOG ═══ */}
+   794→      <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
+   795→        <DialogContent className="sm:max-w-lg">
+   796→          <DialogHeader>
+   797→            <DialogTitle className="flex items-center gap-2">
+   798→              <CreditCard className="h-4 w-4 text-teal-500" /> Log Payment
+   799→            </DialogTitle>
+   800→          </DialogHeader>
+   801→          <div className="space-y-3">
+   802→            <div className="grid grid-cols-2 gap-3">
+   803→              <div>
+   804→                <Label className="text-xs">Amount (ETB) *</Label>
+   805→                <Input
+   806→                  type="number"
+   807→                  value={newPayment.amount}
+   808→                  onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+   809→                  placeholder="0"
+   810→                  className="h-9 text-sm"
+   811→                />
+   812→              </div>
+   813→              <div>
+   814→                <Label className="text-xs">Payment Date</Label>
+   815→                <Input
+   816→                  type="date"
+   817→                  value={newPayment.paymentDate}
+   818→                  onChange={e => setNewPayment(prev => ({ ...prev, paymentDate: e.target.value }))}
+   819→                  className="h-9 text-sm"
+   820→                />
+   821→              </div>
+   822→            </div>
+   823→            <div>
+   824→              <Label className="text-xs">Payment Method</Label>
+   825→              <Select value={newPayment.paymentMethod} onValueChange={v => setNewPayment(prev => ({ ...prev, paymentMethod: v }))}>
+   826→                <SelectTrigger className="h-9 text-sm">
+   827→                  <SelectValue />
+   828→                </SelectTrigger>
+   829→                <SelectContent>
+   830→                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+   831→                  <SelectItem value="check">Check</SelectItem>
+   832→                  <SelectItem value="cash">Cash</SelectItem>
+   833→                  <SelectItem value="other">Other</SelectItem>
+   834→                </SelectContent>
+   835→              </Select>
+   836→            </div>
+   837→            <div>
+   838→              <Label className="text-xs">Reference Number</Label>
+   839→              <Input
+   840→                value={newPayment.referenceNumber}
+   841→                onChange={e => setNewPayment(prev => ({ ...prev, referenceNumber: e.target.value }))}
+   842→                placeholder="Reference number"
+   843→                className="h-9 text-sm"
+   844→              />
+   845→            </div>
+   846→            <div>
+   847→              <Label className="text-xs">Notes</Label>
+   848→              <Textarea
+   849→                value={newPayment.notes}
+   850→                onChange={e => setNewPayment(prev => ({ ...prev, notes: e.target.value }))}
+   851→                placeholder="Payment notes..."
+   852→                rows={2}
+   853→                className="text-sm resize-none"
+   854→              />
+   855→            </div>
+   856→          </div>
+   857→          <DialogFooter className="gap-2">
+   858→            <DialogClose asChild>
+   859→              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+   860→            </DialogClose>
+   861→            <Button size="sm" className="h-8 bg-teal-600 hover:bg-teal-700 text-white" onClick={handleAddPayment}>
+   862→              Log Payment
+   863→            </Button>
+   864→          </DialogFooter>
+   865→        </DialogContent>
+   866→      </Dialog>
+   867→    </motion.div>
+   868→  );
+   869→}
+   870→
+   871→// ─── Project Timeline Sub-Component ──────────────────────────────────
+   872→function ProjectTimeline({
+   873→  project,
+   874→  onToggleMilestone,
+   875→}: {
+   876→  project: Project;
+   877→  onToggleMilestone: (id: string, completed: boolean) => void;
+   878→}) {
+   879→  const timelineWidth = 800;
+   880→  const headerHeight = 36;
+   881→  const milestones = project.milestones || [];
+   882→  const rowHeight = 44;
+   883→
+   884→  const { start, end } = useMemo(() => getTimelineRange(project), [project]);
+   885→  const months = useMemo(() => monthRange(start, end), [start, end]);
+   886→
+   887→  const createdAt = new Date(project.createdAt);
+   888→  const lastMilestone = milestones.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())[0];
+   889→  const projectEnd = lastMilestone ? new Date(lastMilestone.dueDate) : new Date(createdAt.getTime() + 90 * 86400000);
+   890→
+   891→  const sc = statusColorMap(project.status);
+   892→  const taskProgress = (project.tasks || []).length > 0
+   893→    ? Math.round((project.tasks!.filter(t => t.status === 'done').length / project.tasks!.length) * 100)
+   894→    : 0;
+   895→
+   896→  const nowX = dateToX(new Date(), start, end, timelineWidth);
+   897→
+   898→  const milestoneData = milestones.map(m => ({
+   899→    ...m,
+   900→    x: dateToX(new Date(m.dueDate), start, end, timelineWidth),
+   901→  }));
+   902→
+   903→  const svgHeight = headerHeight + rowHeight + 20;
+   904→
+   905→  return (
+   906→    <div className="space-y-3">
+   907→      <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+   908→        <div className="overflow-x-auto">
+   909→          <svg width={timelineWidth + 180} height={svgHeight} className="min-w-full">
+   910→            {/* Month columns */}
+   911→            {months.map((m, i) => {
+   912→              const x = dateToX(m, start, end, timelineWidth) + 180;
+   913→              const nextM = new Date(m);
+   914→              nextM.setMonth(nextM.getMonth() + 1);
+   915→              const x2 = dateToX(nextM, start, end, timelineWidth) + 180;
+   916→              return (
+   917→                <g key={i}>
+   918→                  <rect x={x} y={0} width={x2 - x} height={svgHeight} fill={i % 2 === 0 ? 'transparent' : 'rgba(128,128,128,0.03)'} />
+   919→                  <text x={x + (x2 - x) / 2} y={22} textAnchor="middle" className="text-[10px] fill-muted-foreground font-medium">
+   920→                    {m.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+   921→                  </text>
+   922→                  <line x1={x} y1={headerHeight} x2={x} y2={svgHeight} stroke="currentColor" strokeOpacity={0.06} />
+   923→                </g>
+   924→              );
+   925→            })}
+   926→
+   927→            {/* Today line */}
+   928→            <line x1={nowX + 180} y1={0} x2={nowX + 180} y2={svgHeight} stroke="#f43f5e" strokeWidth={1.5} strokeDasharray="4 3" />
+   929→            <text x={nowX + 180} y={12} textAnchor="middle" className="text-[9px] fill-rose-500 font-semibold">TODAY</text>
+   930→
+   931→            {/* Project bar */}
+   932→            {(() => {
+   933→              const x1 = dateToX(createdAt, start, end, timelineWidth) + 180;
+   934→              const x2 = dateToX(projectEnd, start, end, timelineWidth) + 180;
+   935→              const y = headerHeight + 12;
+   936→              const barH = 20;
+   937→              const barW = Math.max(x2 - x1, 8);
+   938→              return (
+   939→                <g>
+   940→                  <rect x={x1} y={y} width={barW} height={barH} rx={4} fill={sc.bar} fillOpacity={0.2} />
+   941→                  <rect x={x1} y={y} width={barW * (taskProgress / 100)} height={barH} rx={4} fill={sc.bar} />
+   942→                </g>
+   943→              );
+   944→            })()}
+   945→
+   946→            {/* Milestone diamonds */}
+   947→            {milestoneData.map((m, i) => {
+   948→              const y = headerHeight + rowHeight / 2;
+   949→              return (
+   950→                <g key={m.id} className="cursor-pointer" onClick={() => onToggleMilestone(m.id, m.completed)}>
+   951→                  <polygon
+   952→                    points={`${m.x + 180},${y - 6} ${m.x + 186},${y} ${m.x + 180},${y + 6} ${m.x + 174},${y}`}
+   953→                    fill={m.completed ? '#10b981' : sc.bar}
+   954→                    stroke="white"
+   955→                    strokeWidth={1.5}
+   956→                  />
+   957→                  <text x={m.x + 180} y={y + 18} textAnchor="middle" className={`text-[9px] ${m.completed ? 'fill-emerald-500' : 'fill-muted-foreground'} font-medium`}>
+   958→                    {m.title.slice(0, 12)}
+   959→                  </text>
+   960→                </g>
+   961→              );
+   962→            })}
+   963→          </svg>
+   964→        </div>
+   965→      </Card>
+   966→
+   967→      {/* Milestones list */}
+   968→      <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+   969→        <Table>
+   970→          <TableHeader>
+   971→            <TableRow className="hover:bg-transparent">
+   972→              <TableHead className="text-xs">Milestone</TableHead>
+   973→              <TableHead className="text-xs">Due Date</TableHead>
+   974→              <TableHead className="text-xs">Status</TableHead>
+   975→              <TableHead className="text-xs w-10" />
+   976→            </TableRow>
+   977→          </TableHeader>
+   978→          <TableBody>
+   979→            {milestones.length === 0 ? (
+   980→              <TableRow>
+   981→                <TableCell colSpan={4} className="text-center py-8">
+   982→                  <Flag className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+   983→                  <p className="text-xs text-muted-foreground">No milestones defined</p>
+   984→                </TableCell>
+   985→              </TableRow>
+   986→            ) : (
+   987→              milestones
+   988→                .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+   989→                .map(m => {
+   990→                  const isOverdue = !m.completed && new Date(m.dueDate).getTime() < Date.now();
+   991→                  return (
+   992→                    <TableRow key={m.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => onToggleMilestone(m.id, m.completed)}>
+   993→                      <TableCell className="text-sm font-medium">{m.title}</TableCell>
+   994→                      <TableCell className="text-xs text-muted-foreground">
+   995→                        {new Date(m.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   996→                      </TableCell>
+   997→                      <TableCell>
+   998→                        {m.completed ? (
+   999→                          <Badge className="text-[10px] px-2 py-0 border-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+  1000→                            <CheckCircle2 className="h-3 w-3 mr-1" /> Done
+  1001→                          </Badge>
+  1002→                        ) : isOverdue ? (
+  1003→                          <Badge className="text-[10px] px-2 py-0 border-0 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300">
+  1004→                            <AlertTriangle className="h-3 w-3 mr-1" /> Overdue
+  1005→                          </Badge>
+  1006→                        ) : (
+  1007→                          <Badge className="text-[10px] px-2 py-0 border-0 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+  1008→                            <Clock className="h-3 w-3 mr-1" /> Pending
+  1009→                          </Badge>
+  1010→                        )}
+  1011→                      </TableCell>
+  1012→                      <TableCell>
+  1013→                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+  1014→                      </TableCell>
+  1015→                    </TableRow>
+  1016→                  );
+  1017→                })
+  1018→            )}
+  1019→          </TableBody>
+  1020→        </Table>
+  1021→      </Card>
+  1022→    </div>
+  1023→  );
+  1024→}
+  1025→
