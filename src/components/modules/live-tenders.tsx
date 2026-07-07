@@ -319,7 +319,7 @@ export function LiveTendersView() {
   const [tenders, setTenders] = useState<LiveTender[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [sourceMeta, setSourceMeta] = useState<
-    { id: string; name: string; live: boolean; ok: boolean; count: number }[]
+    { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[]
   >([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -625,6 +625,7 @@ export function LiveTendersView() {
                 <span className="text-xs font-medium text-muted-foreground mr-1">Feed status:</span>
                 {sourceMeta.map((s) => {
                   const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
+                  const isComingSoon = !s.ok && s.error && (s.error.toLowerCase().includes('coming soon') || s.error.toLowerCase().includes('credentials'));
                   return (
                     <button
                       key={s.id}
@@ -634,11 +635,19 @@ export function LiveTendersView() {
                           ? 'ring-2 ring-primary/50 ' + accent.badge
                           : accent.badge
                       }`}
-                      title={s.ok ? 'Connected' : 'Unavailable — using fallback'}
+                      title={s.ok ? 'Connected' : isComingSoon ? 'Coming Soon — requires API credentials' : 'Unavailable — using fallback'}
                     >
                       <span className={`h-1.5 w-1.5 rounded-full ${s.ok ? accent.dot : 'bg-muted-foreground/40'}`} />
                       {s.name}
-                      <span className="opacity-70">· {s.count}</span>
+                      {s.ok ? (
+                        <span className="opacity-70">· {s.count}</span>
+                      ) : isComingSoon ? (
+                        <Badge variant="outline" className="text-[9px] leading-none px-1.5 py-0 border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                          Coming Soon
+                        </Badge>
+                      ) : (
+                        <span className="opacity-50">· 0</span>
+                      )}
                     </button>
                   );
                 })}

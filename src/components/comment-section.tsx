@@ -23,7 +23,7 @@ import {
   Loader2,
   Award,
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 /* ───────────────────── Types ───────────────────── */
 
@@ -188,7 +188,6 @@ function ReviewForm({
   onSubmit: (data: FormData) => Promise<{ success: boolean; error?: string }>;
   onSuccess: () => void;
 }) {
-  const { toast } = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
@@ -229,24 +228,13 @@ function ReviewForm({
 
       if (data.success) {
         setSubmitted(true);
-        toast({
-          title: 'Review submitted!',
-          description: 'Thank you for sharing your experience.',
-        });
+        toast.success('Review submitted! Thank you for sharing your experience.');
         onSuccess();
       } else {
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to submit review',
-          variant: 'destructive',
-        });
+        toast.error(data.error || 'Failed to submit review');
       }
     } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to submit review. Please try again.',
-        variant: 'destructive',
-      });
+      toast.error('Failed to submit review. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -390,7 +378,6 @@ function ReviewForm({
 /* ───────────────────── Main Component ───────────────────── */
 
 export function CommentSection() {
-  const { toast } = useToast();
   const [comments, setComments] = useState<Comment[]>([]);
   const [stats, setStats] = useState<CommentStats>({
     totalCount: 0,

@@ -1,0 +1,542 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api, Document } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    11→import { toast } from 'sonner';
+    12→import {
+    13→  Shield, Users, FileCheck, CheckCircle2, XCircle, Clock, UserCheck,
+    14→  UserX, AlertCircle, Briefcase, Award, Search, Activity,
+    15→  TrendingUp, Heart, Server, Eye, Mail, Building2, Zap,
+    16→} from 'lucide-react';
+    17→// ─── Profile type with nested user ────────────────────────────────
+    18→interface ProfileWithUser {
+    19→  id: string;
+    20→  fullName: string;
+    21→  verified: boolean;
+    22→  location: string;
+    23→  skillTags: string;
+    24→  createdAt: string;
+    25→  updatedAt: string;
+    26→  user: { id: string; email: string; role: string; status: string };
+    27→  company: { id: string; name: string; industry: string; verified: boolean } | null;
+    28→}
+    29→
+    30→// ─── Activity Feed Data ─────────────────────────────────────────────
+    31→interface ActivityItem {
+    32→  id: string;
+    33→  icon: React.ElementType;
+    34→  iconColor: string;
+    35→  iconBg: string;
+    36→  title: string;
+    37→  description: string;
+    38→  time: string;
+    39→}
+    40→
+    41→function timeAgo(dateStr: string): string {
+    42→  const diff = Date.now() - new Date(dateStr).getTime();
+    43→  const mins = Math.floor(diff / 60000);
+    44→  if (mins < 1) return 'just now';
+    45→  if (mins < 60) return `${mins}m ago`;
+    46→  const hrs = Math.floor(mins / 60);
+    47→  if (hrs < 24) return `${hrs}h ago`;
+    48→  const days = Math.floor(hrs / 24);
+    49→  return `${days}d ago`;
+    50→}
+    51→
+    52→export function AdminView() {
+    53→  const { user } = useAuthStore();
+    54→  const [profiles, setProfiles] = useState<ProfileWithUser[]>([]);
+    55→  const [docs, setDocs] = useState<Document[]>([]);
+    56→  const [loading, setLoading] = useState(true);
+    57→  const [userSearch, setUserSearch] = useState('');
+    58→  const [docStatusFilter, setDocStatusFilter] = useState<string>('all');
+    59→  const [roleFilter, setRoleFilter] = useState<string>('all');
+    60→
+    61→  const loadData = useCallback(async () => {
+    62→    setLoading(true);
+    63→    const [profilesRes, docsRes] = await Promise.all([
+    64→      api.get('/profiles'),
+    65→      api.get('/documents'),
+    66→    ]);
+    67→    if (profilesRes.success) setProfiles(profilesRes.data);
+    68→    if (docsRes.success) setDocs(docsRes.data);
+    69→    setLoading(false);
+    70→  }, []);
+    71→
+    72→  // eslint-disable-next-line react-hooks/set-state-in-effect
+    73→  useEffect(() => { loadData(); }, [loadData]);
+    74→
+    75→  const handleVerifyProfile = async (profileId: string) => {
+    76→    const res = await api.patch(`/profiles/${profileId}/verify`, {});
+    77→    if (res.success) {
+    78→      toast.success('Profile verified');
+    79→      loadData();
+    80→    } else toast.error(res.error || 'Failed to verify');
+    81→  };
+    82→
+    83→  const handleApproveDoc = async (docId: string) => {
+    84→    const res = await api.patch(`/documents/${docId}`, { status: 'approved', reviewNotes: 'Approved by admin' });
+    85→    if (res.success) {
+    86→      toast.success('Document approved');
+    87→      loadData();
+    88→    } else toast.error('Failed to approve');
+    89→  };
+    90→
+    91→  const handleRejectDoc = async (docId: string) => {
+    92→    const res = await api.patch(`/documents/${docId}`, { status: 'rejected', reviewNotes: 'Rejected - please resubmit' });
+    93→    if (res.success) {
+    94→      toast.success('Document rejected');
+    95→      loadData();
+    96→    } else toast.error('Failed to reject');
+    97→  };
+    98→
+    99→  // ── Computed Values (must be before any early return) ──
+   100→  const pendingDocs = docs.filter(d => d.status === 'pending');
+   101→  const verifiedUsers = profiles.filter(p => p.verified).length;
+   102→  const unverifiedUsers = profiles.length - verifiedUsers;
+   103→  const approvedDocs = docs.filter(d => d.status === 'approved').length;
+   104→  const rejectedDocs = docs.filter(d => d.status === 'rejected').length;
+   105→
+   106→  // ── Filtered Users ──
+   107→  const filteredUsers = useMemo(() => {
+   108→    return profiles.filter(p => {
+   109→      const matchesSearch = !userSearch ||
+   110→        (p.fullName || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+   111→        (p.location || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+   112→        (p.user?.email || '').toLowerCase().includes(userSearch.toLowerCase());
+   113→      const matchesRole = roleFilter === 'all' || p.user?.role === roleFilter;
+   114→      return matchesSearch && matchesRole;
+   115→    });
+   116→  }, [profiles, userSearch, roleFilter]);
+   117→
+   118→  // ── Filtered Docs ──
+   119→  const filteredDocs = useMemo(() => {
+   120→    return docs.filter(d => {
+   121→      return docStatusFilter === 'all' || d.status === docStatusFilter;
+   122→    });
+   123→  }, [docs, docStatusFilter]);
+   124→
+   125→  // ── Activity Feed ──
+   126→  const activityFeed: ActivityItem[] = useMemo(() => {
+   127→    const items: ActivityItem[] = [];
+   128→
+   129→    // Recent user verifications
+   130→    profiles.filter(p => p.verified).slice(0, 2).forEach(p => {
+   131→      items.push({
+   132→        id: `verify-${p.id}`,
+   133→        icon: CheckCircle2,
+   134→        iconColor: 'text-emerald-500',
+   135→        iconBg: 'bg-emerald-50',
+   136→        title: `${p.fullName || 'User'} verified`,
+   137→        description: 'Profile verification approved',
+   138→        time: p.updatedAt || new Date().toISOString(),
+   139→      });
+   140→    });
+   141→
+   142→    // Pending documents
+   143→    pendingDocs.slice(0, 3).forEach(d => {
+   144→      items.push({
+   145→        id: `doc-${d.id}`,
+   146→        icon: FileCheck,
+   147→        iconColor: 'text-amber-500',
+   148→        iconBg: 'bg-amber-50',
+   149→        title: `Document pending review`,
+   150→        description: d.docType.replace('_', ' '),
+   151→        time: d.createdAt,
+   152→      });
+   153→    });
+   154→
+   155→    // New users
+   156→    profiles.slice(0, 2).forEach(p => {
+   157→      items.push({
+   158→        id: `user-${p.id}`,
+   159→        icon: Users,
+   160→        iconColor: 'text-teal-500',
+   161→        iconBg: 'bg-teal-50',
+   162→        title: `New user registered`,
+   163→        description: p.fullName || 'Unknown',
+   164→        time: p.createdAt || new Date().toISOString(),
+   165→      });
+   166→    });
+   167→
+   168→    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
+   169→  }, [profiles, pendingDocs]);
+   170→
+   171→  if (user?.role !== 'super_admin' && user?.role !== 'team_admin') {
+   172→    return (
+   173→      <div className="p-6 text-center view-enter">
+   174→        <div className="p-3 rounded-2xl gradient-rose w-fit mx-auto mb-4">
+   175→          <Shield className="h-8 w-8 text-white" />
+   176→        </div>
+   177→        <h3 className="text-lg font-semibold">Admin Access Required</h3>
+   178→        <p className="text-muted-foreground text-sm mt-1">You need admin privileges to access this panel</p>
+   179→      </div>
+   180→    );
+   181→  }
+   182→
+   183→  // ── Platform Health ──
+   184→  const healthMetrics = [
+   185→    { label: 'Server Status', value: 'Online', icon: Server, color: 'text-emerald-500', bg: 'bg-emerald-50', status: 'healthy' },
+   186→    { label: 'Verification Queue', value: `${pendingDocs.length} pending`, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', status: pendingDocs.length > 5 ? 'warning' : 'healthy' },
+   187→    { label: 'User Verification', value: `${verifiedUsers}/${profiles.length}`, icon: UserCheck, color: 'text-teal-500', bg: 'bg-teal-50', status: verifiedUsers / Math.max(profiles.length, 1) > 0.8 ? 'healthy' : 'warning' },
+   188→    { label: 'Doc Approval Rate', value: docs.length > 0 ? `${Math.round((approvedDocs / docs.length) * 100)}%` : 'N/A', icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50', status: 'healthy' },
+   189→  ];
+   190→
+   191→  return (
+   192→    <div
+   193→ className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto animate-[fadeIn_0.3s_ease-out]"
+   194→ >
+   195→      {/* Header */}
+   196→      <div className="flex items-center gap-4">
+   197→        <div className="p-3 rounded-2xl gradient-rose shadow-md flex-shrink-0 shadow-rose-200/40">
+   198→          <Shield className="h-6 w-6 text-white" />
+   199→        </div>
+   200→        <div>
+   201→          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   202→            <span className="text-gradient-emerald">Admin</span> Panel
+   203→          </h2>
+   204→          <p className="text-muted-foreground text-sm mt-0.5">Manage users, verify documents, and monitor platform activity</p>
+   205→        </div>
+   206→      </div>
+   207→
+   208→      {/* Quick Stats */}
+   209→      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   210→        {[
+   211→          { icon: Users, value: profiles.length, label: 'Total Users', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
+   212→          { icon: Clock, value: pendingDocs.length, label: 'Pending Docs', bg: 'bg-amber-50', color: 'text-amber-600', gradient: 'gradient-amber' },
+   213→          { icon: UserCheck, value: verifiedUsers, label: 'Verified', bg: 'bg-teal-50', color: 'text-teal-600', gradient: 'gradient-teal' },
+   214→          { icon: FileCheck, value: approvedDocs, label: 'Docs Approved', bg: 'bg-emerald-50', color: 'text-emerald-600', gradient: 'gradient-emerald' },
+   215→        ].map((stat, idx) => (
+   216→          <div className="hover:-translate-y-[3px] transition-all duration-200" key={stat.label}>
+   217→            <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200 h-full">
+   218→              <CardContent className="p-4 flex items-center gap-3">
+   219→                <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
+   220→                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+   221→                </div>
+   222→                <div>
+   223→                  <p className="text-2xl font-bold">{stat.value}</p>
+   224→                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+   225→                </div>
+   226→              </CardContent>
+   227→            </Card>
+   228→          </div>
+   229→        ))}
+   230→      </div>
+   231→
+   232→      {/* Activity Feed + Platform Health Row */}
+   233→      <div className="grid md:grid-cols-2 gap-4">
+   234→        {/* Recent Activity Feed */}
+   235→        <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   236→          <CardHeader className="pb-2">
+   237→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   238→              <div className="p-1.5 rounded-lg gradient-amber">
+   239→                <Activity className="h-3.5 w-3.5 text-white" />
+   240→              </div>
+   241→              Recent Activity
+   242→            </CardTitle>
+   243→          </CardHeader>
+   244→          <CardContent>
+   245→            {activityFeed.length === 0 ? (
+   246→              <div className="text-center py-8">
+   247→                <Activity className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+   248→                <p className="text-sm text-muted-foreground">No recent activity</p>
+   249→              </div>
+   250→            ) : (
+   251→              <div className="relative pl-7 max-h-[300px] overflow-y-auto">
+   252→                <div className="absolute left-[10px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-border rounded-full" />
+   253→                <div className="space-y-3">
+   254→                  {activityFeed.map((item) => {
+   255→                    const Icon = item.icon;
+   256→                    return (
+   257→                      <div key={item.id} className="relative flex items-start gap-3">
+   258→                        <div className="absolute -left-7 top-0.5 flex items-center justify-center">
+   259→                          <div className={`h-[20px] w-[20px] rounded-full ${item.iconBg} border-2 border-white shadow-sm flex items-center justify-center z-10`}>
+   260→                            <Icon className={`h-2.5 w-2.5 ${item.iconColor}`} />
+   261→                          </div>
+   262→                        </div>
+   263→                        <div className="min-w-0 flex-1 pb-1">
+   264→                          <p className="text-sm font-medium truncate">{item.title}</p>
+   265→                          <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+   266→                          <p className="text-[10px] text-muted-foreground/50 mt-0.5">{timeAgo(item.time)}</p>
+   267→                        </div>
+   268→                      </div>
+   269→                    );
+   270→                  })}
+   271→                </div>
+   272→              </div>
+   273→            )}
+   274→          </CardContent>
+   275→        </Card>
+   276→
+   277→        {/* Platform Health */}
+   278→        <Card className="premium-shadow rounded-xl border-0 bg-card h-full">
+   279→          <CardHeader className="pb-2">
+   280→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   281→              <div className="p-1.5 rounded-lg gradient-teal">
+   282→                <Heart className="h-3.5 w-3.5 text-white" />
+   283→              </div>
+   284→              Platform Health
+   285→            </CardTitle>
+   286→          </CardHeader>
+   287→          <CardContent className="space-y-3">
+   288→            {healthMetrics.map((metric) => (
+   289→              <div key={metric.label} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+   290→                <div className="flex items-center gap-3">
+   291→                  <div className={`p-1.5 rounded-lg ${metric.bg}`}>
+   292→                    <metric.icon className={`h-4 w-4 ${metric.color}`} />
+   293→                  </div>
+   294→                  <p className="text-sm font-medium">{metric.label}</p>
+   295→                </div>
+   296→                <div className="flex items-center gap-2">
+   297→                  <span className="text-sm font-semibold">{metric.value}</span>
+   298→                  <div className={`w-2 h-2 rounded-full ${metric.status === 'healthy' ? 'bg-emerald-500 shadow-sm shadow-emerald-300' : 'bg-amber-500 shadow-sm shadow-amber-300'}`} />
+   299→                </div>
+   300→              </div>
+   301→            ))}
+   302→          </CardContent>
+   303→        </Card>
+   304→      </div>
+   305→
+   306→      {/* Tabs */}
+   307→      <div>
+   308→        <Tabs defaultValue="users">
+   309→          <TabsList className="bg-card premium-shadow rounded-xl border-0 h-auto p-1">
+   310→            <TabsTrigger
+   311→              value="users"
+   312→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow px-4 py-2 transition-all">
+   313→              <Users className="h-4 w-4 mr-1.5" />
+   314→              User Management
+   315→            </TabsTrigger>
+   316→            <TabsTrigger
+   317→              value="documents"
+   318→              className="rounded-lg data-[state=active]:gradient-emerald data-[state=active]:text-white data-[state=active]:premium-shadow px-4 py-2 transition-all">
+   319→              <FileCheck className="h-4 w-4 mr-1.5" />
+   320→              Document Review
+   321→              {pendingDocs.length > 0 && (
+   322→                <Badge className="ml-1.5 bg-amber-100 text-amber-700 border-0 rounded-md text-[10px] px-1.5 hover:bg-amber-100">
+   323→                  {pendingDocs.length}
+   324→                </Badge>
+   325→              )}
+   326→            </TabsTrigger>
+   327→          </TabsList>
+   328→
+   329→          {/* Users Tab */}
+   330→          <TabsContent value="users" className="mt-4">
+   331→            <Card className="premium-shadow rounded-xl border-0 bg-card">
+   332→              <CardHeader className="pb-3">
+   333→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   334→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   335→                    <div className="p-1.5 rounded-lg gradient-emerald">
+   336→                      <Users className="h-3.5 w-3.5 text-white" />
+   337→                    </div>
+   338→                    All Users
+   339→                    <Badge className="bg-emerald-50 text-emerald-700 border-0 rounded-lg text-[10px] ml-1 hover:bg-primary/10">
+   340→                      {filteredUsers.length} of {profiles.length}
+   341→                    </Badge>
+   342→                  </CardTitle>
+   343→                  <div className="flex items-center gap-2">
+   344→                    {/* Search */}
+   345→                    <div className="relative">
+   346→                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+   347→                      <Input
+   348→                        placeholder="Search users..."
+   349→                        value={userSearch}
+   350→                        onChange={e => setUserSearch(e.target.value)}
+   351→                        className="pl-8 h-8 text-xs rounded-lg bg-muted/50 border-border/60 focus:ring-primary w-48"
+   352→                      />
+   353→                    </div>
+   354→                    {/* Role Filter */}
+   355→                    <select
+   356→                      value={roleFilter}
+   357→                      onChange={e => setRoleFilter(e.target.value)}
+   358→                      className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
+   359→                    >
+   360→                      <option value="all">All Roles</option>
+   361→                      <option value="super_admin">Super Admin</option>
+   362→                      <option value="team_admin">Team Admin</option>
+   363→                      <option value="user">User</option>
+   364→                    </select>
+   365→                  </div>
+   366→                </div>
+   367→              </CardHeader>
+   368→              <CardContent className="space-y-3">
+   369→                {filteredUsers.length === 0 ? (
+   370→                  <div className="text-center py-8">
+   371→                    <div className="p-3 rounded-2xl gradient-emerald w-fit mx-auto mb-4">
+   372→                      <Users className="h-8 w-8 text-white" />
+   373→                    </div>
+   374→                    <p className="text-sm font-medium">{userSearch || roleFilter !== 'all' ? 'No users match your filters' : 'No users found'}</p>
+   375→                    {(userSearch || roleFilter !== 'all') && (
+   376→                      <Button variant="ghost" size="sm" className="text-xs mt-2 text-emerald-600 hover:text-emerald-700" onClick={() => { setUserSearch(''); setRoleFilter('all'); }}>
+   377→                        Clear filters
+   378→                      </Button>
+   379→                    )}
+   380→                  </div>
+   381→                ) : (
+   382→                  filteredUsers.map((p: ProfileWithUser) => (
+   383→                      <div
+   384→ key={p.id}
+   385→ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
+   386→ >
+   387→                        <div className="flex items-center gap-3 min-w-0 flex-1">
+   388→                          <div className="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0 shadow-sm">
+   389→                            <span className="text-white font-semibold text-sm">{(p.fullName || 'U')[0].toUpperCase()}</span>
+   390→                          </div>
+   391→                          <div className="min-w-0">
+   392→                            <div className="flex items-center gap-2">
+   393→                              <p className="text-sm font-medium truncate">{p.fullName || 'Unknown'}</p>
+   394→                              {p.verified ? (
+   395→                                <Badge className="bg-emerald-100 text-emerald-700 border-0 rounded-md text-[10px] px-1.5 py-0 hover:bg-emerald-100 flex-shrink-0">
+   396→                                  <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Verified
+   397→                                </Badge>
+   398→                              ) : (
+   399→                                <Badge className="bg-amber-100 text-amber-700 border-0 rounded-md text-[10px] px-1.5 py-0 hover:bg-amber-100 flex-shrink-0">
+   400→                                  <AlertCircle className="h-2.5 w-2.5 mr-0.5" /> Unverified
+   401→                                </Badge>
+   402→                              )}
+   403→                            </div>
+   404→                            <div className="flex items-center gap-3 mt-0.5">
+   405→                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+   406→                                <Mail className="h-3 w-3" /> {p.user?.email || 'N/A'}
+   407→                              </p>
+   408→                              {p.location && (
+   409→                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+   410→                                  <Building2 className="h-3 w-3" /> {p.location}
+   411→                                </p>
+   412→                              )}
+   413→                            </div>
+   414→                            <div className="flex items-center gap-1.5 mt-1">
+   415→                              <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-medium hover:bg-teal-50">
+   416→                                {(p.user?.role || 'user').replace('_', ' ')}
+   417→                              </Badge>
+   418→                              {p.skillTags && p.skillTags.split(',').filter(Boolean).slice(0, 2).map((tag: string) => (
+   419→                                <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-md hover:bg-primary/10">{tag.trim()}</Badge>
+   420→                              ))}
+   421→                            </div>
+   422→                          </div>
+   423→                        </div>
+   424→                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+   425→                          {!p.verified && (
+   426→                            <Button size="sm"
+   427→                              className="text-xs h-8 gradient-emerald text-white rounded-xl premium-shadow hover:opacity-90 transition-all hover:-translate-y-0.5"
+   428→                              onClick={() => handleVerifyProfile(p.id)}>
+   429→                              <UserCheck className="h-3 w-3 mr-1" /> Verify
+   430→                            </Button>
+   431→                          )}
+   432→                        </div>
+   433→                      </div>
+   434→                    ))
+   435→)}
+   436→              </CardContent>
+   437→            </Card>
+   438→          </TabsContent>
+   439→
+   440→          {/* Documents Tab */}
+   441→          <TabsContent value="documents" className="mt-4">
+   442→            <Card className="premium-shadow rounded-xl border-0 bg-card">
+   443→              <CardHeader className="pb-3">
+   444→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   445→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   446→                    <div className="p-1.5 rounded-lg gradient-amber">
+   447→                      <FileCheck className="h-3.5 w-3.5 text-white" />
+   448→                    </div>
+   449→                    Document Review Queue
+   450→                    {pendingDocs.length > 0 && (
+   451→                      <Badge className="bg-amber-100 text-amber-700 border-0 rounded-lg text-[10px] ml-1 hover:bg-amber-100">
+   452→                        {pendingDocs.length} pending
+   453→                      </Badge>
+   454→                    )}
+   455→                  </CardTitle>
+   456→                  {/* Status Filter */}
+   457→                  <div className="flex items-center gap-2">
+   458→                    <select
+   459→                      value={docStatusFilter}
+   460→                      onChange={e => setDocStatusFilter(e.target.value)}
+   461→                      className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
+   462→                    >
+   463→                      <option value="all">All Status</option>
+   464→                      <option value="pending">Pending</option>
+   465→                      <option value="approved">Approved</option>
+   466→                      <option value="rejected">Rejected</option>
+   467→                    </select>
+   468→                  </div>
+   469→                </div>
+   470→              </CardHeader>
+   471→              <CardContent className="space-y-3">
+   472→                {filteredDocs.length === 0 ? (
+   473→                  <div className="text-center py-8">
+   474→                    <div className="p-3 rounded-2xl gradient-amber w-fit mx-auto mb-4">
+   475→                      <FileCheck className="h-8 w-8 text-white" />
+   476→                    </div>
+   477→                    <p className="text-sm font-medium">{docStatusFilter !== 'all' ? 'No documents match this filter' : 'No documents submitted'}</p>
+   478→                    {docStatusFilter !== 'all' && (
+   479→                      <Button variant="ghost" size="sm" className="text-xs mt-2 text-emerald-600 hover:text-emerald-700" onClick={() => setDocStatusFilter('all')}>
+   480→                        Clear filter
+   481→                      </Button>
+   482→                    )}
+   483→                  </div>
+   484→                ) : (
+   485→                  filteredDocs.map((doc, idx) => (
+   486→                      <div
+   487→ key={doc.id}
+   488→ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
+   489→ >
+   490→                        <div className="flex items-center gap-3 min-w-0 flex-1">
+   491→                          <div className={`p-2 rounded-lg flex-shrink-0 ${
+   492→                            doc.status === 'pending' ? 'bg-amber-50' :
+   493→                            doc.status === 'approved' ? 'bg-emerald-50' :
+   494→                            'bg-rose-50'
+   495→                          }`}>
+   496→                            {doc.status === 'pending' ? <Clock className="h-4 w-4 text-amber-600" /> :
+   497→                             doc.status === 'approved' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> :
+   498→                             <XCircle className="h-4 w-4 text-rose-600" />}
+   499→                          </div>
+   500→                          <div className="min-w-0">
+   501→                            <p className="text-sm font-medium">{doc.docType.replace('_', ' ')}</p>
+   502→                            <p className="text-xs text-muted-foreground">{doc.fileName} &middot; User: {doc.userId.slice(0, 8)}...</p>
+   503→                            {doc.reviewNotes && (
+   504→                              <p className="text-xs text-muted-foreground mt-0.5 italic flex items-center gap-1">
+   505→                                <Eye className="h-3 w-3" /> {doc.reviewNotes}
+   506→                              </p>
+   507→                            )}
+   508→                          </div>
+   509→                        </div>
+   510→                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+   511→                          <Badge className={`text-xs px-1.5 py-0 border-0 rounded-lg ${
+   512→                            doc.status === 'approved' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' :
+   513→                            doc.status === 'rejected' ? 'bg-rose-100 text-rose-700 hover:bg-rose-100' :
+   514→                            'bg-amber-100 text-amber-700 hover:bg-amber-100'
+   515→                          }`}>{doc.status}</Badge>
+   516→                          {doc.status === 'pending' && (
+   517→                            <>
+   518→                              <Button size="sm"
+   519→                                className="text-xs h-8 gradient-emerald text-white rounded-xl premium-shadow hover:opacity-90 transition-all hover:-translate-y-0.5"
+   520→                                onClick={() => handleApproveDoc(doc.id)}>
+   521→                                <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
+   522→                              </Button>
+   523→                              <Button size="sm" variant="outline"
+   524→                                className="text-xs h-8 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
+   525→                                onClick={() => handleRejectDoc(doc.id)}>
+   526→                                <XCircle className="h-3 w-3 mr-1" /> Reject
+   527→                              </Button>
+   528→                            </>
+   529→                          )}
+   530→                        </div>
+   531→                      </div>
+   532→                    ))
+   533→)}
+   534→              </CardContent>
+   535→            </Card>
+   536→          </TabsContent>
+   537→        </Tabs>
+   538→      </div>
+   539→    </div>
+   540→  );
+   541→}
+   542→

@@ -44,19 +44,19 @@ export async function GET(request: NextRequest) {
 
     // If sector is specified, use sector feed
     if (sector) {
-      const sectorTenders = fetchSectorTenders(sector, search);
+      const sectorResult = fetchSectorTenders(sector, search);
       const sectors = getSectorCounts();
       return NextResponse.json({
         success: true,
-        data: sectorTenders,
+        data: sectorResult.tenders,
         meta: {
-          total: sectorTenders.length,
+          total: sectorResult.tenders.length,
           source: 'sector_feed',
           sector,
           search: search || '',
           rows,
           sectors,
-          sources: [{ id: 'sector_feed', name: 'Sector Feed', live: true, ok: true, count: sectorTenders.length }],
+          sources: [{ id: 'sector_feed', name: 'Sector Feed', live: true, ok: sectorResult.ok, count: sectorResult.tenders.length, error: sectorResult.error }],
           dataSources: DATA_SOURCES,
         },
       });
