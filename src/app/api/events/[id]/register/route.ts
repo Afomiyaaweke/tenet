@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/auth';
 
 /**
  * POST /api/events/[id]/register
- * Register for event (contractor only, check capacity)
+ * Register for event (standard users, check capacity)
  */
 export async function POST(
   request: NextRequest,
@@ -14,10 +14,10 @@ export async function POST(
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
-    // Only contractors can register
-    if (user!.role !== 'contractor') {
+    // Only standard users can register
+    if (user!.role !== 'user') {
       return NextResponse.json(
-        { success: false, error: 'Only contractors can register for events' },
+        { success: false, error: 'Only standard users can register for events' },
         { status: 403 }
       );
     }

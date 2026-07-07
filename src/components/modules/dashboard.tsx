@@ -38,15 +38,8 @@ const CHART_COLORS = {
   purple: '#8b5cf6',
 };
 
-// ─── Mock Monthly Data ──────────────────────────────────────────────
-const MONTHLY_ACTIVITY = [
-  { month: 'Oct', tenders: 3, bids: 8 },
-  { month: 'Nov', tenders: 5, bids: 12 },
-  { month: 'Dec', tenders: 2, bids: 6 },
-  { month: 'Jan', tenders: 7, bids: 15 },
-  { month: 'Feb', tenders: 4, bids: 10 },
-  { month: 'Mar', tenders: 6, bids: 14 },
-];
+// Monthly activity will be computed from real data
+const MONTHLY_ACTIVITY: { month: string; tenders: number; bids: number }[] = [];
 
 // ─── Chart Configs ──────────────────────────────────────────────────
 const bidStatusChartConfig: ChartConfig = {
@@ -251,7 +244,7 @@ export function DashboardView() {
   const [bids, setBids] = useState<Bid[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
 
-  const role = user?.role || 'contractor';
+  const role = user?.role || 'user';
   const greeting = getGreeting();
   const userName = user?.profile?.fullName || user?.email?.split('@')[0] || 'User';
 
@@ -405,8 +398,8 @@ export function DashboardView() {
   // ── Sparkline data for stat cards ──
   const tenderSparkData = useMemo(() => MONTHLY_ACTIVITY.map(m => m.tenders), []);
   const bidSparkData = useMemo(() => MONTHLY_ACTIVITY.map(m => m.bids), []);
-  const projectSparkData = useMemo(() => [2, 3, 1, 4, 3, 5], []);
-  const valueSparkData = useMemo(() => [40, 65, 30, 80, 55, 90], []);
+  const projectSparkData = useMemo(() => [] as number[], []);
+  const valueSparkData = useMemo(() => [] as number[], []);
 
   // ── Unified CTA ──
   const cta = { label: 'Publish Tender', view: 'tenders', icon: Plus };
@@ -637,26 +630,32 @@ export function DashboardView() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={monthlyChartConfig} className="aspect-[4/3] max-h-[280px]">
-                <BarChart data={MONTHLY_ACTIVITY} barGap={4} barCategoryGap="20%">
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: 'oklch(0.5 0.01 265)' }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: 'oklch(0.5 0.01 265)' }}
-                    width={28}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="tenders" fill={CHART_COLORS.emerald} radius={[4, 4, 0, 0]} maxBarSize={32} />
-                  <Bar dataKey="bids" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} maxBarSize={32} />
-                  <ChartLegend content={<ChartLegendContent />} className="mt-2" />
-                </BarChart>
-              </ChartContainer>
+              {MONTHLY_ACTIVITY.length > 0 ? (
+                <ChartContainer config={monthlyChartConfig} className="aspect-[4/3] max-h-[280px]">
+                  <BarChart data={MONTHLY_ACTIVITY} barGap={4} barCategoryGap="20%">
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: 'oklch(0.5 0.01 265)' }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'oklch(0.5 0.01 265)' }}
+                      width={28}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="tenders" fill={CHART_COLORS.emerald} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="bids" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <ChartLegend content={<ChartLegendContent />} className="mt-2" />
+                  </BarChart>
+                </ChartContainer>
+              ) : (
+                <div className="aspect-[4/3] max-h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+                  No activity data yet
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

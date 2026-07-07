@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TenetsLogo } from '@/components/logo';
 import { CommentSection } from '@/components/comment-section';
@@ -163,8 +162,6 @@ function TestimonialCard({
 
 /* ───────────────────────── Main Component ───────────────────────── */
 export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
-  const [email, setEmail] = useState('');
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* ═══════════ NAVBAR ═══════════ */}
@@ -227,24 +224,15 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Discover tenders, prepare documents with AI, submit winning bids, and manage projects — all in one intelligent platform.
             </p>
 
-            {/* Email CTA */}
+            {/* CTA Button */}
             <div
-              className="flex flex-col sm:flex-row items-center gap-3 max-w-lg mx-auto animate-[fadeUp_0.6s_ease-out_0.3s_both]"
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto animate-[fadeUp_0.6s_ease-out_0.3s_both]"
             >
-              <div className="relative flex-1 w-full">
-                <input
-                  type="email"
-                  placeholder="Enter your email to get started"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 px-5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20 transition-all duration-200"
-                />
-              </div>
               <Button
                 className="w-full sm:w-auto h-12 px-8 bg-slate-900 text-white font-semibold border-0 shadow-lg shadow-slate-300/40 hover:shadow-slate-400/60 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl"
                 onClick={onGetStarted}
               >
-                Start Free
+                Get Started Free
                 <ArrowRight className="w-4 h-4 ml-1.5" />
               </Button>
             </div>
@@ -272,10 +260,10 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
       <section className="border-y border-border bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <StatCard value="500+" label="Organizations" delay="0s" />
-            <StatCard value="2,400+" label="Active Tenders" delay="0.1s" />
-            <StatCard value="98%" label="Satisfaction Rate" delay="0.2s" />
-            <StatCard value="ETB 2B+" label="Tender Value" delay="0.3s" />
+            <StatCard value="New" label="Platform" delay="0s" />
+            <StatCard value="AI" label="Powered" delay="0.1s" />
+            <StatCard value="Smart" label="Matching" delay="0.2s" />
+            <StatCard value="Secure" label="Platform" delay="0.3s" />
           </div>
         </div>
       </section>
@@ -442,7 +430,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               <ul className="space-y-2.5">
                 {['About Us', 'Careers', 'Blog', 'Contact'].map((item) => (
                   <li key={item}>
-                    <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">{item}</a>
+                    <span className="text-sm text-gray-400">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -454,7 +442,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               <ul className="space-y-2.5">
                 {['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'GDPR'].map((item) => (
                   <li key={item}>
-                    <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">{item}</a>
+                    <span className="text-sm text-gray-400">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -466,7 +454,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Users className="w-4 h-4" />
-                <span className="text-xs font-medium">500+ organizations</span>
+                <span className="text-xs font-medium">Growing community</span>
               </div>
               <div className="flex items-center gap-1.5 text-gray-500">
                 <ShieldCheck className="w-4 h-4" />

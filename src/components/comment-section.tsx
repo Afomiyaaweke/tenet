@@ -116,14 +116,14 @@ function RatingBar({
 
 function TestimonialCard({ comment }: { comment: Comment }) {
   const roleLabel: Record<string, string> = {
-    contractor: 'Contractor',
-    tender_owner: 'Tender Owner',
+    user: 'User',
+    team_admin: 'Team Admin',
     other: 'Other',
   };
 
   const roleColor: Record<string, string> = {
-    contractor: 'bg-orange-100 text-orange-700',
-    tender_owner: 'bg-slate-100 text-slate-700',
+    user: 'bg-orange-100 text-orange-700',
+    team_admin: 'bg-slate-100 text-slate-700',
     other: 'bg-gray-100 text-gray-700',
   };
 
@@ -192,7 +192,7 @@ function ReviewForm({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
-  const [role, setRole] = useState('contractor');
+  const [role, setRole] = useState('user');
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -270,7 +270,7 @@ function ReviewForm({
             setName('');
             setEmail('');
             setCompany('');
-            setRole('contractor');
+            setRole('user');
             setRating(5);
             setContent('');
           }}
@@ -333,8 +333,8 @@ function ReviewForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="contractor">Contractor</SelectItem>
-              <SelectItem value="tender_owner">Tender Owner</SelectItem>
+              <SelectItem value="user">User</SelectItem>
+              <SelectItem value="team_admin">Team Admin</SelectItem>
               <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
@@ -434,7 +434,7 @@ export function CommentSection() {
             💬 What Our Community Says
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Hear from contractors and tender owners who are transforming their procurement workflow with Tenets.
+            Hear from users and team admins who are transforming their procurement workflow with Tenets.
           </p>
         </div>
 

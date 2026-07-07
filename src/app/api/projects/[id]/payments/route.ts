@@ -14,10 +14,10 @@ export async function POST(
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
-    // Only admin or tender_owner can log payments
-    if (user!.role !== 'admin' && user!.role !== 'tender_owner') {
+    // Only team_admin or super_admin can log payments
+    if (user!.role !== 'super_admin' && user!.role !== 'team_admin') {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Only admins or tender owners can log payments' },
+        { success: false, error: 'Forbidden: Only admins can log payments' },
         { status: 403 }
       );
     }
@@ -100,8 +100,8 @@ export async function GET(
       );
     }
 
-    // Contractor can only view payments for their own projects
-    if (user!.role === 'contractor' && project.bid.userId !== user!.id) {
+    // Standard users can only view payments for their own projects
+    if (user!.role === 'user' && project.bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view payments for your own projects' },
         { status: 403 }

@@ -302,7 +302,7 @@ function SecurityCodeInput({ value, onChange, disabled }: { value: string; onCha
 function StepIndicator({ currentStep, totalSteps = 5 }: { currentStep: RegStep; totalSteps?: number }) {
   return (
     <div className="flex items-center justify-center gap-1 mb-6">
-      {(Array.from({ length: totalSteps }) as RegStep[]).map((step, i) => {
+      {Array.from({ length: totalSteps }, (_, i) => (i + 1) as RegStep).map((step, i) => {
         const meta = REG_STEP_META[step];
         const isCompleted = currentStep > step;
         const isCurrent = currentStep === step;
@@ -478,7 +478,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
               <p
                 className="text-orange-100/70 text-base leading-relaxed mb-10 animate-[slideInLeft_0.7s_ease-out_0.1s_both]"
               >
-                Connect with verified contractors, discover tenders, and manage projects — all in one intelligent platform built for Ethiopia&apos;s future.
+                Connect with verified users, discover tenders, and manage projects — all in one intelligent platform built for Ethiopia&apos;s future.
               </p>
 
               {/* Feature highlights */}
@@ -773,22 +773,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         </button>
                       </div>
 
-                      {/* Demo security code (simulated 2FA) */}
-                      <div className="mt-5 p-3 rounded-xl bg-primary/10 border border-primary/20">
-                        <div className="flex items-start gap-2.5">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center mt-0.5">
-                            <ShieldCheck className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="text-sm flex-1">
-                            <p className="font-semibold text-primary mb-1">Demo Verification Code</p>
-                            <p className="text-primary/70 text-xs leading-relaxed mb-1.5">
-                              In production this code is delivered via SMS/email. For this demo, use:
-                            </p>
-                            <p className="text-primary font-mono text-lg font-bold tracking-[0.3em]">{sentCode}</p>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                         <Lock className="w-3.5 h-3.5" />
                         <span>Account locks after 5 failed attempts for your protection</span>
@@ -796,22 +780,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     </div>
                   )}
 
-                  {/* Demo credentials box — only on credentials step */}
-                  {loginStep === 'credentials' && (
-                    <div className="mt-6 p-4 rounded-xl bg-primary/10 border border-primary/20">
-                      <div className="flex items-start gap-2.5">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center mt-0.5">
-                          <ShieldCheck className="w-4 h-4 text-primary" />
-                        </div>
-                        <div className="text-sm">
-                          <p className="font-semibold text-primary mb-1">Demo Credentials</p>
-                          <p className="text-primary/70 font-mono text-xs leading-relaxed">
-                            admin@tenet.com / Admin@123
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+
                 </div>
               )}
 

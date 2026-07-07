@@ -5,7 +5,8 @@ import { requireAuth } from '@/lib/auth';
 /**
  * GET /api/projects
  * Admin: all projects
- * Contractor: projects where their bid was awarded (check bid.userId)
+ * User: projects where their bid was awarded (check bid.userId)
+ * Team admin: projects for tenders they created
  * Include tender title, bid info
  */
 export async function GET(request: NextRequest) {
@@ -25,11 +26,11 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
-    // Contractors only see projects where their bid was awarded
-    if (user!.role === 'contractor') {
+    // Standard users only see projects where their bid was awarded
+    if (user!.role === 'user') {
       where.bid = { userId: user!.id };
-    } else if (user!.role === 'tender_owner') {
-      // Tender owners see projects for tenders they created
+    } else if (user!.role === 'team_admin') {
+      // Team admins see projects for tenders they created
       where.tender = { createdBy: user!.id };
     }
 

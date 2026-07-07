@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!email || !password || !fullName || !phone || !location) {
+    if (!email || !password || !fullName) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: email, password, fullName, phone, location' },
+        { success: false, error: 'Missing required fields: email, password, fullName' },
         { status: 400 }
       );
     }
@@ -109,12 +109,12 @@ export async function POST(request: NextRequest) {
       // Create Profile linked to both User and Company
       const profile = await tx.profile.create({
         data: {
-          userId: user.id,
-          companyId: company?.id || null,
+          user: { connect: { id: user.id } },
+          company: company ? { connect: { id: company.id } } : undefined,
           fullName,
-          jobTitle: null,
-          phone,
-          location,
+          jobTitle: body.jobTitle || null,
+          phone: phone || null,
+          location: location || null,
           tinNumber: companyTinNumber || null,
           skillTags: '',
           bio: null,

@@ -682,7 +682,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
                   <Gavel className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <h3 className="text-sm font-semibold">No bids submitted yet</h3>
-                <p className="text-muted-foreground text-xs mt-1">Bids will appear here once contractors submit proposals</p>
+                <p className="text-muted-foreground text-xs mt-1">Bids will appear here once users submit proposals</p>
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">

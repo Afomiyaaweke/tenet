@@ -154,7 +154,7 @@ export function AdminView() {
     return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
   }, [users, pendingDocs]);
 
-  if (user?.role !== 'admin') {
+  if (user?.role !== 'super_admin' && user?.role !== 'team_admin') {
     return (
       <div className="p-6 text-center view-enter">
         <div className="p-3 rounded-2xl gradient-rose w-fit mx-auto mb-4">
@@ -344,9 +344,9 @@ export function AdminView() {
                       className="h-8 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
                     >
                       <option value="all">All Roles</option>
-                      <option value="admin">Admin</option>
-                      <option value="contractor">Contractor</option>
-                      <option value="tender_owner">Tender Owner</option>
+                      <option value="super_admin">Super Admin</option>
+                      <option value="team_admin">Team Admin</option>
+                      <option value="user">User</option>
                     </select>
                   </div>
                 </div>

@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 
 /**
  * POST /api/tenders/[id]/share
- * Share a tender with another user (contractor) by creating a notification.
+ * Share a tender with another user by creating a notification.
  * Body: { userId: string, message?: string }
  */
 export async function POST(

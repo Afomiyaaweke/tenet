@@ -409,7 +409,7 @@ export function BidsView() {
                                   </Button>
                                 )}
 
-                                {/* Status tracking for contractor */}
+                                {/* Status tracking for user */}
                                 {user?.role === 'user' && (
                                   <div className="flex items-center gap-2 ml-auto">
                                     <div className="flex items-center gap-1.5">

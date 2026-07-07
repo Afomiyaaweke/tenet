@@ -88,9 +88,9 @@ export async function POST(request: NextRequest) {
       );
     }
     const validRating = Math.min(Math.max(Math.round(rating || 5), 1), 5);
-    const validRole = ['contractor', 'tender_owner', 'other'].includes(role)
+    const validRole = ['user', 'team_admin', 'other'].includes(role)
       ? role
-      : 'contractor';
+      : 'user';
 
     const comment = await db.comment.create({
       data: {

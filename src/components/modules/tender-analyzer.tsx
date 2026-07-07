@@ -404,7 +404,7 @@ export function TenderAnalyzerView() {
     try {
       const token = localStorage.getItem('tenet_token');
       const params = new URLSearchParams();
-      if (user?.role === 'tender_owner') params.set('ownerOnly', 'true');
+      if (user?.role === 'team_admin' || user?.role === 'super_admin') params.set('ownerOnly', 'true');
       const res = await fetch(`/api/tenders/export?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });

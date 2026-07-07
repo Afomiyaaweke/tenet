@@ -29,8 +29,8 @@ export async function GET(
       );
     }
 
-    // Contractor can only access chats for their own projects
-    if (user!.role === 'contractor' && chat.project?.bid.userId !== user!.id) {
+    // Standard users can only access chats for their own projects
+    if (user!.role === 'user' && chat.project?.bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only access chats for your own projects' },
         { status: 403 }
@@ -101,8 +101,8 @@ export async function POST(
       );
     }
 
-    // Contractor can only send to chats for their own projects
-    if (user!.role === 'contractor' && chat.project?.bid.userId !== user!.id) {
+    // Standard users can only send to chats for their own projects
+    if (user!.role === 'user' && chat.project?.bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only send messages in chats for your own projects' },
         { status: 403 }

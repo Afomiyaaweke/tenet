@@ -1,0 +1,993 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api, Project, Task, Milestone, Payment } from '@/lib/api';
+     6→import { Card, CardContent } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Textarea } from '@/components/ui/textarea';
+    11→import { Label } from '@/components/ui/label';
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    13→import {
+    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→} from '@/components/ui/table';
+    16→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+    17→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    18→import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+    19→import { toast } from 'sonner';
+    20→import {
+    21→  ArrowLeft, FolderKanban, Plus, Clock, CheckCircle2,
+    22→  Circle, DollarSign, AlertTriangle, Calendar, MessageSquare,
+    23→  CreditCard, Flag, GripVertical, Trash2, Edit3,
+    24→  LayoutGrid, GanttChart, Receipt, MessageCircle,
+    25→  ChevronRight, X, Save,
+    26→} from 'lucide-react';
+    27→// ─── Helpers ────────────────────────────────────────────────────────
+    28→function formatETB(amount: number): string {
+    29→  if (amount >= 1_000_000) return `ETB ${(amount / 1_000_000).toFixed(1)}M`;
+    30→  if (amount >= 1_000) return `ETB ${(amount / 1_000).toFixed(0)}K`;
+    31→  return `ETB ${amount.toLocaleString()}`;
+    32→}
+    33→
+    34→function statusColorMap(status: string) {
+    35→  switch (status) {
+    36→    case 'active': return { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', bar: '#10b981', label: 'Active' };
+    37→    case 'completed': return { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300', dot: 'bg-teal-500', bar: '#14b8a6', label: 'Completed' };
+    38→    case 'on_hold': return { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', dot: 'bg-amber-500', bar: '#f59e0b', label: 'On Hold' };
+    39→    case 'cancelled': return { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', dot: 'bg-rose-500', bar: '#f43f5e', label: 'Cancelled' };
+    40→    default: return { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-muted-foreground/50', bar: '#94a3b8', label: status };
+    41→  }
+    42→}
+    43→
+    44→// ─── Timeline (Gantt) helpers ────────────────────────────────────────
+    45→function getTimelineRange(project: Project) {
+    46→  const now = new Date();
+    47→  const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    48→  const end = new Date(now.getFullYear(), now.getMonth() + 8, 0);
+    49→  return { start, end };
+    50→}
+    51→
+    52→function monthRange(start: Date, end: Date): Date[] {
+    53→  const months: Date[] = [];
+    54→  const d = new Date(start.getFullYear(), start.getMonth(), 1);
+    55→  while (d <= end) {
+    56→    months.push(new Date(d));
+    57→    d.setMonth(d.getMonth() + 1);
+    58→  }
+    59→  return months;
+    60→}
+    61→
+    62→function dateToX(date: Date, start: Date, end: Date, width: number): number {
+    63→  const total = end.getTime() - start.getTime();
+    64→  if (total === 0) return 0;
+    65→  return ((date.getTime() - start.getTime()) / total) * width;
+    66→}
+    67→
+    68→// ─── Task Column Config ─────────────────────────────────────────────
+    69→const TASK_COLUMNS = [
+    70→  { key: 'todo' as const, label: 'To Do', icon: Circle, color: 'slate' },
+    71→  { key: 'in_progress' as const, label: 'In Progress', icon: Clock, color: 'amber' },
+    72→  { key: 'done' as const, label: 'Done', icon: CheckCircle2, color: 'emerald' },
+    73→];
+    74→
+    75→// ─── Task Card Component ─────────────────────────────────────────────
+    76→function TaskCard({
+    77→  task,
+    78→  onStatusChange,
+    79→  onDelete,
+    80→  onEdit,
+    81→}: {
+    82→  task: Task;
+    83→  onStatusChange: (taskId: string, status: string) => void;
+    84→  onDelete: (taskId: string) => void;
+    85→  onEdit: (task: Task) => void;
+    86→}) {
+    87→  const isOverdue = task.dueDate && new Date(task.dueDate).getTime() < Date.now() && task.status !== 'done';
+    88→  const col = TASK_COLUMNS.find(c => c.key === task.status);
+    89→
+    90→  return (
+    91→    <div
+    92→ className="group animate-[fadeIn_0.3s_ease-out]"
+    93→ >
+    94→      <Card className="rounded-lg border border-border/50 bg-card shadow-sm hover:shadow-md hover:border-border transition-all">
+    95→        <CardContent className="p-3 space-y-2">
+    96→          <div className="flex items-start gap-2">
+    97→            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 mt-0.5 flex-shrink-0 cursor-grab" />
+    98→            <div className="min-w-0 flex-1">
+    99→              <p className="text-sm font-medium leading-tight">{task.title}</p>
+   100→              {task.description && (
+   101→                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+   102→              )}
+   103→            </div>
+   104→          </div>
+   105→
+   106→          {task.dueDate && (
+   107→            <div className={`flex items-center gap-1.5 text-[10px] ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
+   108→              <Calendar className="h-3 w-3" />
+   109→              {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+   110→              {isOverdue && <span className="font-semibold ml-1">Overdue</span>}
+   111→            </div>
+   112→          )}
+   113→
+   114→          {/* Action buttons on hover */}
+   115→          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+   116→            {task.status !== 'todo' && (
+   117→              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, task.status === 'in_progress' ? 'todo' : 'in_progress')}>
+   118→                ← Move
+   119→              </Button>
+   120→            )}
+   121→            {task.status !== 'in_progress' && task.status !== 'done' && (
+   122→              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, 'in_progress')}>
+   123→                Start →
+   124→              </Button>
+   125→            )}
+   126→            {task.status !== 'done' && (
+   127→              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-emerald-600" onClick={() => onStatusChange(task.id, 'done')}>
+   128→                ✓ Done
+   129→              </Button>
+   130→            )}
+   131→            {task.status === 'done' && (
+   132→              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]" onClick={() => onStatusChange(task.id, 'in_progress')}>
+   133→                Reopen
+   134→              </Button>
+   135→            )}
+   136→            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] ml-auto" onClick={() => onEdit(task)}>
+   137→              <Edit3 className="h-3 w-3" />
+   138→            </Button>
+   139→            <AlertDialog>
+   140→              <AlertDialogTrigger asChild>
+   141→                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-rose-500 hover:text-rose-600">
+   142→                  <Trash2 className="h-3 w-3" />
+   143→                </Button>
+   144→              </AlertDialogTrigger>
+   145→              <AlertDialogContent>
+   146→                <AlertDialogHeader>
+   147→                  <AlertDialogTitle>Delete Task</AlertDialogTitle>
+   148→                  <AlertDialogDescription>
+   149→                    Are you sure you want to delete &quot;{task.title}&quot;? This action cannot be undone.
+   150→                  </AlertDialogDescription>
+   151→                </AlertDialogHeader>
+   152→                <AlertDialogFooter>
+   153→                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+   154→                  <AlertDialogAction className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => onDelete(task.id)}>
+   155→                    Delete
+   156→                  </AlertDialogAction>
+   157→                </AlertDialogFooter>
+   158→              </AlertDialogContent>
+   159→            </AlertDialog>
+   160→          </div>
+   161→        </CardContent>
+   162→      </Card>
+   163→    </div>
+   164→  );
+   165→}
+   166→
+   167→// ─── Main Component ──────────────────────────────────────────────────
+   168→export function ProjectDetailView({ projectId }: { projectId?: string }) {
+   169→  const { user } = useAuthStore();
+   170→  const { setView } = useNavStore();
+   171→  const [project, setProject] = useState<Project | null>(null);
+   172→  const [loading, setLoading] = useState(true);
+   173→  const [activeTab, setActiveTab] = useState('board');
+   174→
+   175→  // Dialogs
+   176→  const [showAddTask, setShowAddTask] = useState(false);
+   177→  const [addTaskColumn, setAddTaskColumn] = useState<string>('todo');
+   178→  const [newTask, setNewTask] = useState({ title: '', description: '', dueDate: '', status: 'todo' });
+   179→
+   180→  const [showEditTask, setShowEditTask] = useState(false);
+   181→  const [editingTask, setEditingTask] = useState<Task | null>(null);
+   182→  const [editTaskForm, setEditTaskForm] = useState({ title: '', description: '', dueDate: '', status: 'todo' });
+   183→
+   184→  const [showAddMilestone, setShowAddMilestone] = useState(false);
+   185→  const [newMilestone, setNewMilestone] = useState({ title: '', dueDate: '' });
+   186→
+   187→  const [showAddPayment, setShowAddPayment] = useState(false);
+   188→  const [newPayment, setNewPayment] = useState({ amount: '', paymentMethod: 'bank_transfer', referenceNumber: '', notes: '', paymentDate: '' });
+   189→
+   190→  const loadProject = useCallback(async () => {
+   191→    setLoading(true);
+   192→    const res = await api.get(`/projects/${projectId}`);
+   193→    if (res.success) setProject(res.data);
+   194→    setLoading(false);
+   195→  }, [projectId]);
+   196→
+   197→  /* eslint-disable react-hooks/set-state-in-effect */
+   198→  useEffect(() => {
+   199→    if (projectId) loadProject();
+   200→  }, [projectId, loadProject]);
+   201→  /* eslint-enable react-hooks/set-state-in-effect */
+   202→
+   203→  // ── Task Handlers ──
+   204→  const handleAddTask = async () => {
+   205→    if (!newTask.title.trim()) { toast.error('Task title is required'); return; }
+   206→    const res = await api.post(`/projects/${projectId}/tasks`, { ...newTask, status: addTaskColumn });
+   207→    if (res.success) {
+   208→      toast.success('Task added');
+   209→      setShowAddTask(false);
+   210→      setNewTask({ title: '', description: '', dueDate: '', status: 'todo' });
+   211→      loadProject();
+   212→    } else toast.error(res.error || 'Failed to add task');
+   213→  };
+   214→
+   215→  const handleStatusChange = async (taskId: string, status: string) => {
+   216→    const res = await api.patch(`/projects/${projectId}/tasks/${taskId}/status`, { status });
+   217→    if (res.success) {
+   218→      toast.success('Task updated');
+   219→      loadProject();
+   220→    } else toast.error(res.error || 'Failed to update task');
+   221→  };
+   222→
+   223→  const handleDeleteTask = async (taskId: string) => {
+   224→    const res = await api.delete(`/projects/${projectId}/tasks/${taskId}`);
+   225→    if (res.success) {
+   226→      toast.success('Task deleted');
+   227→      loadProject();
+   228→    } else toast.error(res.error || 'Failed to delete task');
+   229→  };
+   230→
+   231→  const handleEditTask = (task: Task) => {
+   232→    setEditingTask(task);
+   233→    setEditTaskForm({ title: task.title, description: task.description || '', dueDate: task.dueDate || '', status: task.status });
+   234→    setShowEditTask(true);
+   235→  };
+   236→
+   237→  const handleSaveEditTask = async () => {
+   238→    if (!editingTask || !editTaskForm.title.trim()) return;
+   239→    const res = await api.patch(`/projects/${projectId}/tasks/${editingTask.id}`, editTaskForm);
+   240→    if (res.success) {
+   241→      toast.success('Task updated');
+   242→      setShowEditTask(false);
+   243→      setEditingTask(null);
+   244→      loadProject();
+   245→    } else toast.error(res.error || 'Failed to update task');
+   246→  };
+   247→
+   248→  // ── Milestone Handlers ──
+   249→  const handleAddMilestone = async () => {
+   250→    if (!newMilestone.title.trim()) { toast.error('Milestone title is required'); return; }
+   251→    const res = await api.post(`/projects/${projectId}/milestones`, newMilestone);
+   252→    if (res.success) {
+   253→      toast.success('Milestone added');
+   254→      setShowAddMilestone(false);
+   255→      setNewMilestone({ title: '', dueDate: '' });
+   256→      loadProject();
+   257→    } else toast.error(res.error || 'Failed to add milestone');
+   258→  };
+   259→
+   260→  const handleToggleMilestone = async (milestoneId: string, completed: boolean) => {
+   261→    const res = await api.patch(`/projects/${projectId}/milestones/${milestoneId}`, { completed: !completed });
+   262→    if (res.success) {
+   263→      toast.success(completed ? 'Milestone reopened' : 'Milestone completed');
+   264→      loadProject();
+   265→    }
+   266→  };
+   267→
+   268→  // ── Payment Handlers ──
+   269→  const handleAddPayment = async () => {
+   270→    const res = await api.post(`/projects/${projectId}/payments`, {
+   271→      ...newPayment, amount: parseFloat(newPayment.amount),
+   272→    });
+   273→    if (res.success) {
+   274→      toast.success('Payment logged');
+   275→      setShowAddPayment(false);
+   276→      setNewPayment({ amount: '', paymentMethod: 'bank_transfer', referenceNumber: '', notes: '', paymentDate: '' });
+   277→      loadProject();
+   278→    } else toast.error(res.error || 'Failed to log payment');
+   279→  };
+   280→
+   281→  // ── Computed ──
+   282→  const totalPaid = project?.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+   283→  const paymentProgress = project?.contractValue ? Math.min((totalPaid / project.contractValue) * 100, 100) : 0;
+   284→  const sc = project ? statusColorMap(project.status) : statusColorMap('active');
+   285→
+   286→  // ── Loading ──
+   287→  if (loading) {
+   288→    return (
+   289→      <div className="space-y-4 max-w-6xl mx-auto p-4 md:p-6">
+   290→        <div className="h-32 sm:h-40 bg-muted rounded-xl animate-pulse -mx-4 md:-mx-6 -mt-4 md:-mt-6" />
+   291→        <div className="h-8 bg-muted rounded w-1/3 animate-pulse" />
+   292→        <div className="h-64 bg-muted rounded-xl animate-pulse" />
+   293→      </div>
+   294→    );
+   295→  }
+   296→
+   297→  if (!project) {
+   298→    return (
+   299→      <div className="p-6 text-center">
+   300→        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center">
+   301→          <AlertTriangle className="h-8 w-8 text-rose-500" />
+   302→        </div>
+   303→        <h3 className="text-lg font-bold text-foreground mb-2">Project not found</h3>
+   304→        <p className="text-muted-foreground text-sm mb-4">This project does not exist or you do not have access.</p>
+   305→        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5" onClick={() => setView('projects')}>
+   306→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
+   307→        </Button>
+   308→      </div>
+   309→    );
+   310→  }
+   311→
+   312→  const tasks = project.tasks || [];
+   313→  const milestones = project.milestones || [];
+   314→  const payments = project.payments || [];
+   315→  const doneTasks = tasks.filter(t => t.status === 'done');
+   316→  const taskProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
+   317→
+   318→  return (
+   319→    <div
+   320→ className="space-y-0 max-w-6xl mx-auto animate-[fadeIn_0.3s_ease-out]"
+   321→ >
+   322→      {/* Cover Gradient */}
+   323→      <div className="relative h-28 sm:h-36 -mx-4 md:-mx-6 -mt-4 md:-mt-6 overflow-hidden">
+   324→        <div className={`absolute inset-0 ${project.status === 'active' ? 'bg-gradient-to-br from-emerald-600 via-teal-500 to-emerald-700' : project.status === 'completed' ? 'bg-gradient-to-br from-teal-600 via-teal-400 to-teal-600' : project.status === 'on_hold' ? 'bg-gradient-to-br from-amber-500 via-amber-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 via-rose-400 to-rose-600'}`} />
+   325→        <div className="absolute inset-0 opacity-10" style={{
+   326→          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.2) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.15) 0%, transparent 40%)',
+   327→        }} />
+   328→      </div>
+   329→
+   330→      {/* Header */}
+   331→      <div className="px-4 md:px-6 -mt-6 relative z-10">
+   332→        <div className="flex items-end gap-4">
+   333→          {/* Back button overlaying cover */}
+   334→          <Button
+   335→            variant="ghost"
+   336→            onClick={() => setView('projects')}
+   337→            className="absolute top-2 left-4 md:left-6 text-white/80 hover:text-white hover:bg-white/10 -mt-20 z-20"
+   338→          >
+   339→            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+   340→          </Button>
+   341→
+   342→          <div className="w-14 h-14 rounded-2xl bg-white dark:bg-card shadow-lg flex items-center justify-center border-4 border-white dark:border-card">
+   343→            <FolderKanban className="h-7 w-7 text-emerald-600" />
+   344→          </div>
+   345→          <div className="pb-2 flex-1 min-w-0">
+   346→            <div className="flex items-center gap-2 flex-wrap">
+   347→              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
+   348→                {project.tender?.title || 'Project'}
+   349→              </h1>
+   350→              <Badge className={`text-[10px] px-2 py-0 border-0 font-semibold ${sc.bg} ${sc.text}`}>
+   351→                <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} mr-1 inline-block`} />
+   352→                {sc.label}
+   353→              </Badge>
+   354→            </div>
+   355→          </div>
+   356→        </div>
+   357→
+   358→        {/* Properties row */}
+   359→        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-3 text-xs text-muted-foreground">
+   360→          <span className="flex items-center gap-1.5">
+   361→            <Flag className="h-3 w-3" /> {project.tender?.title || 'Tender'}
+   362→          </span>
+   363→          <span className="flex items-center gap-1.5">
+   364→            <FolderKanban className="h-3 w-3" /> {project.bid?.user?.profile?.fullName || 'Assigned Contractor'}
+   365→          </span>
+   366→          <span className="flex items-center gap-1.5">
+   367→            <DollarSign className="h-3 w-3" /> {formatETB(project.contractValue)}
+   368→          </span>
+   369→          <span className="flex items-center gap-1.5">
+   370→            <Calendar className="h-3 w-3" /> Created {new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   371→          </span>
+   372→        </div>
+   373→
+   374→        {/* Progress bar */}
+   375→        <div className="mt-4 mb-2">
+   376→          <div className="flex items-center justify-between mb-1">
+   377→            <span className="text-[10px] font-medium text-muted-foreground">Overall Progress</span>
+   378→            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{taskProgress}%</span>
+   379→          </div>
+   380→          <div className="h-2 bg-muted rounded-full overflow-hidden">
+   381→            <div
+   382→ className="h-full rounded-full bg-emerald-500 transition-[width] duration-700" style={{ width: `${taskProgress}%` }}
+   383→ />
+   384→          </div>
+   385→        </div>
+   386→      </div>
+   387→
+   388→      {/* Main Tabs */}
+   389→      <div className="px-4 md:px-6 mt-5">
+   390→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   391→          <TabsList className="bg-muted/50 h-9 p-0.5 mb-5">
+   392→            <TabsTrigger value="board" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+   393→              <LayoutGrid className="h-3.5 w-3.5 mr-1.5" /> Board
+   394→            </TabsTrigger>
+   395→            <TabsTrigger value="timeline" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+   396→              <GanttChart className="h-3.5 w-3.5 mr-1.5" /> Timeline
+   397→            </TabsTrigger>
+   398→            <TabsTrigger value="payments" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+   399→              <Receipt className="h-3.5 w-3.5 mr-1.5" /> Payments
+   400→            </TabsTrigger>
+   401→            <TabsTrigger value="chat" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
+   402→              <MessageCircle className="h-3.5 w-3.5 mr-1.5" /> Chat
+   403→            </TabsTrigger>
+   404→          </TabsList>
+   405→
+   406→          {/* ═══ BOARD TAB ═══ */}
+   407→          <TabsContent value="board" className="mt-0">
+   408→            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   409→              {TASK_COLUMNS.map(col => {
+   410→                const ColIcon = col.icon;
+   411→                const columnTasks = tasks.filter(t => t.status === col.key);
+   412→                return (
+   413→                  <div key={col.key} className="flex flex-col">
+   414→                    {/* Column header */}
+   415→                    <div className="flex items-center gap-2 mb-3 px-1">
+   416→                      <ColIcon className={`h-4 w-4 ${col.color === 'emerald' ? 'text-emerald-500' : col.color === 'amber' ? 'text-amber-500' : 'text-slate-400'}`} />
+   417→                      <h3 className="text-sm font-semibold text-foreground">{col.label}</h3>
+   418→                      <span className="ml-auto text-xs font-medium text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+   419→                        {columnTasks.length}
+   420→                      </span>
+   421→                      <Button
+   422→                        variant="ghost"
+   423→                        size="sm"
+   424→                        className="h-6 w-6 p-0 ml-1"
+   425→                        onClick={() => { setAddTaskColumn(col.key); setNewTask(prev => ({ ...prev, status: col.key })); setShowAddTask(true); }}
+   426→                      >
+   427→                        <Plus className="h-3.5 w-3.5" />
+   428→                      </Button>
+   429→                    </div>
+   430→
+   431→                    {/* Task cards */}
+   432→                    <div className="flex flex-col gap-2 min-h-[100px] p-1 rounded-lg bg-muted/20">
+   433→                      {columnTasks.map(task => (
+   434→                          <TaskCard
+   435→                            key={task.id}
+   436→                            task={task}
+   437→                            onStatusChange={handleStatusChange}
+   438→                            onDelete={handleDeleteTask}
+   439→                            onEdit={handleEditTask}
+   440→                          />
+   441→                        ))}
+   442→{columnTasks.length === 0 && (
+   443→                        <div className="flex-1 flex items-center justify-center py-6">
+   444→                          <p className="text-xs text-muted-foreground/50">No tasks</p>
+   445→                        </div>
+   446→                      )}
+   447→                    </div>
+   448→                  </div>
+   449→                );
+   450→              })}
+   451→            </div>
+   452→          </TabsContent>
+   453→
+   454→          {/* ═══ TIMELINE TAB ═══ */}
+   455→          <TabsContent value="timeline" className="mt-0">
+   456→            <div className="space-y-4">
+   457→              <div className="flex items-center justify-between">
+   458→                <h3 className="text-sm font-semibold text-foreground">Project Timeline</h3>
+   459→                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAddMilestone(true)}>
+   460→                  <Plus className="h-3 w-3 mr-1" /> Add Milestone
+   461→                </Button>
+   462→              </div>
+   463→              <ProjectTimeline
+   464→                project={project}
+   465→                onToggleMilestone={handleToggleMilestone}
+   466→              />
+   467→            </div>
+   468→          </TabsContent>
+   469→
+   470→          {/* ═══ PAYMENTS TAB ═══ */}
+   471→          <TabsContent value="payments" className="mt-0">
+   472→            <div className="space-y-4">
+   473→              {/* Payment summary */}
+   474→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   475→                <Card className="rounded-xl border border-border/60 bg-card">
+   476→                  <CardContent className="p-4 flex items-center gap-3">
+   477→                    <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
+   478→                      <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   479→                    </div>
+   480→                    <div>
+   481→                      <p className="text-sm font-bold">{formatETB(project.contractValue)}</p>
+   482→                      <p className="text-[10px] text-muted-foreground">Contract Value</p>
+   483→                    </div>
+   484→                  </CardContent>
+   485→                </Card>
+   486→                <Card className="rounded-xl border border-border/60 bg-card">
+   487→                  <CardContent className="p-4 flex items-center gap-3">
+   488→                    <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-900/30">
+   489→                      <CreditCard className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+   490→                    </div>
+   491→                    <div>
+   492→                      <p className="text-sm font-bold">{formatETB(totalPaid)}</p>
+   493→                      <p className="text-[10px] text-muted-foreground">Paid</p>
+   494→                    </div>
+   495→                  </CardContent>
+   496→                </Card>
+   497→                <Card className="rounded-xl border border-border/60 bg-card">
+   498→                  <CardContent className="p-4 flex items-center gap-3">
+   499→                    <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30">
+   500→                      <Receipt className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   501→                    </div>
+   502→                    <div>
+   503→                      <p className="text-sm font-bold">{formatETB(project.contractValue - totalPaid)}</p>
+   504→                      <p className="text-[10px] text-muted-foreground">Remaining</p>
+   505→                    </div>
+   506→                  </CardContent>
+   507→                </Card>
+   508→              </div>
+   509→
+   510→              {/* Payment progress bar */}
+   511→              <div className="flex items-center gap-3 px-1">
+   512→                <span className="text-xs text-muted-foreground whitespace-nowrap">Payment Progress</span>
+   513→                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+   514→                  <div
+   515→ className="h-full rounded-full bg-teal-500 transition-[width] duration-700" style={{ width: `${paymentProgress}%` }}
+   516→ />
+   517→                </div>
+   518→                <span className="text-xs font-bold text-teal-600 dark:text-teal-400">{paymentProgress.toFixed(0)}%</span>
+   519→              </div>
+   520→
+   521→              {/* Add payment button */}
+   522→              <div className="flex justify-end">
+   523→                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAddPayment(true)}>
+   524→                  <Plus className="h-3 w-3 mr-1" /> Log Payment
+   525→                </Button>
+   526→              </div>
+   527→
+   528→              {/* Payments table */}
+   529→              <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+   530→                {payments.length === 0 ? (
+   531→                  <CardContent className="p-8 text-center">
+   532→                    <CreditCard className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+   533→                    <p className="text-sm text-muted-foreground">No payments recorded yet</p>
+   534→                  </CardContent>
+   535→                ) : (
+   536→                  <Table>
+   537→                    <TableHeader>
+   538→                      <TableRow className="hover:bg-transparent">
+   539→                        <TableHead className="text-xs">Date</TableHead>
+   540→                        <TableHead className="text-xs">Amount</TableHead>
+   541→                        <TableHead className="text-xs hidden sm:table-cell">Method</TableHead>
+   542→                        <TableHead className="text-xs hidden md:table-cell">Reference</TableHead>
+   543→                        <TableHead className="text-xs hidden lg:table-cell">Notes</TableHead>
+   544→                      </TableRow>
+   545→                    </TableHeader>
+   546→                    <TableBody>
+   547→                      {payments.map(p => (
+   548→                        <TableRow key={p.id} className="hover:bg-muted/30">
+   549→                          <TableCell className="text-xs">
+   550→                            {new Date(p.paymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   551→                          </TableCell>
+   552→                          <TableCell className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{formatETB(p.amount)}</TableCell>
+   553→                          <TableCell className="text-xs hidden sm:table-cell text-muted-foreground">
+   554→                            {p.paymentMethod.replace(/_/g, ' ')}
+   555→                          </TableCell>
+   556→                          <TableCell className="text-xs hidden md:table-cell text-muted-foreground">
+   557→                            {p.referenceNumber || '-'}
+   558→                          </TableCell>
+   559→                          <TableCell className="text-xs hidden lg:table-cell text-muted-foreground max-w-[200px] truncate">
+   560→                            {p.notes || '-'}
+   561→                          </TableCell>
+   562→                        </TableRow>
+   563→                      ))}
+   564→                    </TableBody>
+   565→                  </Table>
+   566→                )}
+   567→              </Card>
+   568→            </div>
+   569→          </TabsContent>
+   570→
+   571→          {/* ═══ CHAT TAB ═══ */}
+   572→          <TabsContent value="chat" className="mt-0">
+   573→            <Card className="rounded-xl border border-border/60 bg-card">
+   574→              <CardContent className="p-8 text-center">
+   575→                <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+   576→                <h3 className="text-sm font-semibold text-foreground mb-1">Project Chat</h3>
+   577→                <p className="text-xs text-muted-foreground mb-4">Communicate with the project team in real-time</p>
+   578→                <Button
+   579→                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5"
+   580→                  onClick={() => {
+   581→                    if (project.chat?.id) {
+   582→                      setView('chat', { id: project.chat.id });
+   583→                    } else {
+   584→                      setView('chat');
+   585→                    }
+   586→                  }}
+   587→                >
+   588→                  <MessageCircle className="h-4 w-4 mr-2" /> Open Chat
+   589→                </Button>
+   590→              </CardContent>
+   591→            </Card>
+   592→          </TabsContent>
+   593→        </Tabs>
+   594→      </div>
+   595→
+   596→      {/* ═══ ADD TASK DIALOG ═══ */}
+   597→      <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
+   598→        <DialogContent className="sm:max-w-md">
+   599→          <DialogHeader>
+   600→            <DialogTitle className="flex items-center gap-2">
+   601→              <Plus className="h-4 w-4 text-emerald-500" /> Add Task
+   602→            </DialogTitle>
+   603→          </DialogHeader>
+   604→          <div className="space-y-3">
+   605→            <div>
+   606→              <Label className="text-xs">Title *</Label>
+   607→              <Input
+   608→                value={newTask.title}
+   609→                onChange={e => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+   610→                placeholder="Task title"
+   611→                className="h-9 text-sm"
+   612→              />
+   613→            </div>
+   614→            <div>
+   615→              <Label className="text-xs">Description</Label>
+   616→              <Textarea
+   617→                value={newTask.description}
+   618→                onChange={e => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+   619→                placeholder="Describe the task..."
+   620→                rows={2}
+   621→                className="text-sm resize-none"
+   622→              />
+   623→            </div>
+   624→            <div className="grid grid-cols-2 gap-3">
+   625→              <div>
+   626→                <Label className="text-xs">Due Date</Label>
+   627→                <Input
+   628→                  type="date"
+   629→                  value={newTask.dueDate}
+   630→                  onChange={e => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
+   631→                  className="h-9 text-sm"
+   632→                />
+   633→              </div>
+   634→              <div>
+   635→                <Label className="text-xs">Status</Label>
+   636→                <Select value={addTaskColumn} onValueChange={v => setAddTaskColumn(v)}>
+   637→                  <SelectTrigger className="h-9 text-sm">
+   638→                    <SelectValue />
+   639→                  </SelectTrigger>
+   640→                  <SelectContent>
+   641→                    <SelectItem value="todo">To Do</SelectItem>
+   642→                    <SelectItem value="in_progress">In Progress</SelectItem>
+   643→                    <SelectItem value="done">Done</SelectItem>
+   644→                  </SelectContent>
+   645→                </Select>
+   646→              </div>
+   647→            </div>
+   648→          </div>
+   649→          <DialogFooter className="gap-2">
+   650→            <DialogClose asChild>
+   651→              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+   652→            </DialogClose>
+   653→            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAddTask}>
+   654→              Add Task
+   655→            </Button>
+   656→          </DialogFooter>
+   657→        </DialogContent>
+   658→      </Dialog>
+   659→
+   660→      {/* ═══ EDIT TASK DIALOG ═══ */}
+   661→      <Dialog open={showEditTask} onOpenChange={setShowEditTask}>
+   662→        <DialogContent className="sm:max-w-md">
+   663→          <DialogHeader>
+   664→            <DialogTitle className="flex items-center gap-2">
+   665→              <Edit3 className="h-4 w-4 text-amber-500" /> Edit Task
+   666→            </DialogTitle>
+   667→          </DialogHeader>
+   668→          <div className="space-y-3">
+   669→            <div>
+   670→              <Label className="text-xs">Title *</Label>
+   671→              <Input
+   672→                value={editTaskForm.title}
+   673→                onChange={e => setEditTaskForm(prev => ({ ...prev, title: e.target.value }))}
+   674→                className="h-9 text-sm"
+   675→              />
+   676→            </div>
+   677→            <div>
+   678→              <Label className="text-xs">Description</Label>
+   679→              <Textarea
+   680→                value={editTaskForm.description}
+   681→                onChange={e => setEditTaskForm(prev => ({ ...prev, description: e.target.value }))}
+   682→                rows={2}
+   683→                className="text-sm resize-none"
+   684→              />
+   685→            </div>
+   686→            <div className="grid grid-cols-2 gap-3">
+   687→              <div>
+   688→                <Label className="text-xs">Due Date</Label>
+   689→                <Input
+   690→                  type="date"
+   691→                  value={editTaskForm.dueDate}
+   692→                  onChange={e => setEditTaskForm(prev => ({ ...prev, dueDate: e.target.value }))}
+   693→                  className="h-9 text-sm"
+   694→                />
+   695→              </div>
+   696→              <div>
+   697→                <Label className="text-xs">Status</Label>
+   698→                <Select value={editTaskForm.status} onValueChange={v => setEditTaskForm(prev => ({ ...prev, status: v }))}>
+   699→                  <SelectTrigger className="h-9 text-sm">
+   700→                    <SelectValue />
+   701→                  </SelectTrigger>
+   702→                  <SelectContent>
+   703→                    <SelectItem value="todo">To Do</SelectItem>
+   704→                    <SelectItem value="in_progress">In Progress</SelectItem>
+   705→                    <SelectItem value="done">Done</SelectItem>
+   706→                  </SelectContent>
+   707→                </Select>
+   708→              </div>
+   709→            </div>
+   710→          </div>
+   711→          <DialogFooter className="gap-2">
+   712→            <DialogClose asChild>
+   713→              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+   714→            </DialogClose>
+   715→            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSaveEditTask}>
+   716→              <Save className="h-3 w-3 mr-1" /> Save
+   717→            </Button>
+   718→          </DialogFooter>
+   719→        </DialogContent>
+   720→      </Dialog>
+   721→
+   722→      {/* ═══ ADD MILESTONE DIALOG ═══ */}
+   723→      <Dialog open={showAddMilestone} onOpenChange={setShowAddMilestone}>
+   724→        <DialogContent className="sm:max-w-md">
+   725→          <DialogHeader>
+   726→            <DialogTitle className="flex items-center gap-2">
+   727→              <Flag className="h-4 w-4 text-amber-500" /> Add Milestone
+   728→            </DialogTitle>
+   729→          </DialogHeader>
+   730→          <div className="space-y-3">
+   731→            <div>
+   732→              <Label className="text-xs">Title *</Label>
+   733→              <Input
+   734→                value={newMilestone.title}
+   735→                onChange={e => setNewMilestone(prev => ({ ...prev, title: e.target.value }))}
+   736→                placeholder="Milestone title"
+   737→                className="h-9 text-sm"
+   738→              />
+   739→            </div>
+   740→            <div>
+   741→              <Label className="text-xs">Due Date</Label>
+   742→              <Input
+   743→                type="date"
+   744→                value={newMilestone.dueDate}
+   745→                onChange={e => setNewMilestone(prev => ({ ...prev, dueDate: e.target.value }))}
+   746→                className="h-9 text-sm"
+   747→              />
+   748→            </div>
+   749→          </div>
+   750→          <DialogFooter className="gap-2">
+   751→            <DialogClose asChild>
+   752→              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+   753→            </DialogClose>
+   754→            <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAddMilestone}>
+   755→              Add Milestone
+   756→            </Button>
+   757→          </DialogFooter>
+   758→        </DialogContent>
+   759→      </Dialog>
+   760→
+   761→      {/* ═══ ADD PAYMENT DIALOG ═══ */}
+   762→      <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
+   763→        <DialogContent className="sm:max-w-lg">
+   764→          <DialogHeader>
+   765→            <DialogTitle className="flex items-center gap-2">
+   766→              <CreditCard className="h-4 w-4 text-teal-500" /> Log Payment
+   767→            </DialogTitle>
+   768→          </DialogHeader>
+   769→          <div className="space-y-3">
+   770→            <div className="grid grid-cols-2 gap-3">
+   771→              <div>
+   772→                <Label className="text-xs">Amount (ETB) *</Label>
+   773→                <Input
+   774→                  type="number"
+   775→                  value={newPayment.amount}
+   776→                  onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+   777→                  placeholder="0"
+   778→                  className="h-9 text-sm"
+   779→                />
+   780→              </div>
+   781→              <div>
+   782→                <Label className="text-xs">Payment Date</Label>
+   783→                <Input
+   784→                  type="date"
+   785→                  value={newPayment.paymentDate}
+   786→                  onChange={e => setNewPayment(prev => ({ ...prev, paymentDate: e.target.value }))}
+   787→                  className="h-9 text-sm"
+   788→                />
+   789→              </div>
+   790→            </div>
+   791→            <div>
+   792→              <Label className="text-xs">Payment Method</Label>
+   793→              <Select value={newPayment.paymentMethod} onValueChange={v => setNewPayment(prev => ({ ...prev, paymentMethod: v }))}>
+   794→                <SelectTrigger className="h-9 text-sm">
+   795→                  <SelectValue />
+   796→                </SelectTrigger>
+   797→                <SelectContent>
+   798→                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+   799→                  <SelectItem value="check">Check</SelectItem>
+   800→                  <SelectItem value="cash">Cash</SelectItem>
+   801→                  <SelectItem value="other">Other</SelectItem>
+   802→                </SelectContent>
+   803→              </Select>
+   804→            </div>
+   805→            <div>
+   806→              <Label className="text-xs">Reference Number</Label>
+   807→              <Input
+   808→                value={newPayment.referenceNumber}
+   809→                onChange={e => setNewPayment(prev => ({ ...prev, referenceNumber: e.target.value }))}
+   810→                placeholder="Reference number"
+   811→                className="h-9 text-sm"
+   812→              />
+   813→            </div>
+   814→            <div>
+   815→              <Label className="text-xs">Notes</Label>
+   816→              <Textarea
+   817→                value={newPayment.notes}
+   818→                onChange={e => setNewPayment(prev => ({ ...prev, notes: e.target.value }))}
+   819→                placeholder="Payment notes..."
+   820→                rows={2}
+   821→                className="text-sm resize-none"
+   822→              />
+   823→            </div>
+   824→          </div>
+   825→          <DialogFooter className="gap-2">
+   826→            <DialogClose asChild>
+   827→              <Button variant="outline" size="sm" className="h-8">Cancel</Button>
+   828→            </DialogClose>
+   829→            <Button size="sm" className="h-8 bg-teal-600 hover:bg-teal-700 text-white" onClick={handleAddPayment}>
+   830→              Log Payment
+   831→            </Button>
+   832→          </DialogFooter>
+   833→        </DialogContent>
+   834→      </Dialog>
+   835→    </div>
+   836→  );
+   837→}
+   838→
+   839→// ─── Project Timeline Sub-Component ──────────────────────────────────
+   840→function ProjectTimeline({
+   841→  project,
+   842→  onToggleMilestone,
+   843→}: {
+   844→  project: Project;
+   845→  onToggleMilestone: (id: string, completed: boolean) => void;
+   846→}) {
+   847→  const timelineWidth = 800;
+   848→  const headerHeight = 36;
+   849→  const milestones = project.milestones || [];
+   850→  const rowHeight = 44;
+   851→
+   852→  const { start, end } = useMemo(() => getTimelineRange(project), [project]);
+   853→  const months = useMemo(() => monthRange(start, end), [start, end]);
+   854→
+   855→  const createdAt = new Date(project.createdAt);
+   856→  const lastMilestone = milestones.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())[0];
+   857→  const projectEnd = lastMilestone ? new Date(lastMilestone.dueDate) : new Date(createdAt.getTime() + 90 * 86400000);
+   858→
+   859→  const sc = statusColorMap(project.status);
+   860→  const taskProgress = (project.tasks || []).length > 0
+   861→    ? Math.round((project.tasks!.filter(t => t.status === 'done').length / project.tasks!.length) * 100)
+   862→    : 0;
+   863→
+   864→  const nowX = dateToX(new Date(), start, end, timelineWidth);
+   865→
+   866→  const milestoneData = milestones.map(m => ({
+   867→    ...m,
+   868→    x: dateToX(new Date(m.dueDate), start, end, timelineWidth),
+   869→  }));
+   870→
+   871→  const svgHeight = headerHeight + rowHeight + 20;
+   872→
+   873→  return (
+   874→    <div className="space-y-3">
+   875→      <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+   876→        <div className="overflow-x-auto">
+   877→          <svg width={timelineWidth + 180} height={svgHeight} className="min-w-full">
+   878→            {/* Month columns */}
+   879→            {months.map((m, i) => {
+   880→              const x = dateToX(m, start, end, timelineWidth) + 180;
+   881→              const nextM = new Date(m);
+   882→              nextM.setMonth(nextM.getMonth() + 1);
+   883→              const x2 = dateToX(nextM, start, end, timelineWidth) + 180;
+   884→              return (
+   885→                <g key={i}>
+   886→                  <rect x={x} y={0} width={x2 - x} height={svgHeight} fill={i % 2 === 0 ? 'transparent' : 'rgba(128,128,128,0.03)'} />
+   887→                  <text x={x + (x2 - x) / 2} y={22} textAnchor="middle" className="text-[10px] fill-muted-foreground font-medium">
+   888→                    {m.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+   889→                  </text>
+   890→                  <line x1={x} y1={headerHeight} x2={x} y2={svgHeight} stroke="currentColor" strokeOpacity={0.06} />
+   891→                </g>
+   892→              );
+   893→            })}
+   894→
+   895→            {/* Today line */}
+   896→            <line x1={nowX + 180} y1={0} x2={nowX + 180} y2={svgHeight} stroke="#f43f5e" strokeWidth={1.5} strokeDasharray="4 3" />
+   897→            <text x={nowX + 180} y={12} textAnchor="middle" className="text-[9px] fill-rose-500 font-semibold">TODAY</text>
+   898→
+   899→            {/* Project bar */}
+   900→            {(() => {
+   901→              const x1 = dateToX(createdAt, start, end, timelineWidth) + 180;
+   902→              const x2 = dateToX(projectEnd, start, end, timelineWidth) + 180;
+   903→              const y = headerHeight + 12;
+   904→              const barH = 20;
+   905→              const barW = Math.max(x2 - x1, 8);
+   906→              return (
+   907→                <g>
+   908→                  <rect x={x1} y={y} width={barW} height={barH} rx={4} fill={sc.bar} fillOpacity={0.2} />
+   909→                  <rect x={x1} y={y} width={barW * (taskProgress / 100)} height={barH} rx={4} fill={sc.bar} />
+   910→                </g>
+   911→              );
+   912→            })()}
+   913→
+   914→            {/* Milestone diamonds */}
+   915→            {milestoneData.map((m, i) => {
+   916→              const y = headerHeight + rowHeight / 2;
+   917→              return (
+   918→                <g key={m.id} className="cursor-pointer" onClick={() => onToggleMilestone(m.id, m.completed)}>
+   919→                  <polygon
+   920→                    points={`${m.x + 180},${y - 6} ${m.x + 186},${y} ${m.x + 180},${y + 6} ${m.x + 174},${y}`}
+   921→                    fill={m.completed ? '#10b981' : sc.bar}
+   922→                    stroke="white"
+   923→                    strokeWidth={1.5}
+   924→                  />
+   925→                  <text x={m.x + 180} y={y + 18} textAnchor="middle" className={`text-[9px] ${m.completed ? 'fill-emerald-500' : 'fill-muted-foreground'} font-medium`}>
+   926→                    {m.title.slice(0, 12)}
+   927→                  </text>
+   928→                </g>
+   929→              );
+   930→            })}
+   931→          </svg>
+   932→        </div>
+   933→      </Card>
+   934→
+   935→      {/* Milestones list */}
+   936→      <Card className="rounded-xl border border-border/60 bg-card overflow-hidden">
+   937→        <Table>
+   938→          <TableHeader>
+   939→            <TableRow className="hover:bg-transparent">
+   940→              <TableHead className="text-xs">Milestone</TableHead>
+   941→              <TableHead className="text-xs">Due Date</TableHead>
+   942→              <TableHead className="text-xs">Status</TableHead>
+   943→              <TableHead className="text-xs w-10" />
+   944→            </TableRow>
+   945→          </TableHeader>
+   946→          <TableBody>
+   947→            {milestones.length === 0 ? (
+   948→              <TableRow>
+   949→                <TableCell colSpan={4} className="text-center py-8">
+   950→                  <Flag className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+   951→                  <p className="text-xs text-muted-foreground">No milestones defined</p>
+   952→                </TableCell>
+   953→              </TableRow>
+   954→            ) : (
+   955→              milestones
+   956→                .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+   957→                .map(m => {
+   958→                  const isOverdue = !m.completed && new Date(m.dueDate).getTime() < Date.now();
+   959→                  return (
+   960→                    <TableRow key={m.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => onToggleMilestone(m.id, m.completed)}>
+   961→                      <TableCell className="text-sm font-medium">{m.title}</TableCell>
+   962→                      <TableCell className="text-xs text-muted-foreground">
+   963→                        {new Date(m.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   964→                      </TableCell>
+   965→                      <TableCell>
+   966→                        {m.completed ? (
+   967→                          <Badge className="text-[10px] px-2 py-0 border-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+   968→                            <CheckCircle2 className="h-3 w-3 mr-1" /> Done
+   969→                          </Badge>
+   970→                        ) : isOverdue ? (
+   971→                          <Badge className="text-[10px] px-2 py-0 border-0 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300">
+   972→                            <AlertTriangle className="h-3 w-3 mr-1" /> Overdue
+   973→                          </Badge>
+   974→                        ) : (
+   975→                          <Badge className="text-[10px] px-2 py-0 border-0 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+   976→                            <Clock className="h-3 w-3 mr-1" /> Pending
+   977→                          </Badge>
+   978→                        )}
+   979→                      </TableCell>
+   980→                      <TableCell>
+   981→                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+   982→                      </TableCell>
+   983→                    </TableRow>
+   984→                  );
+   985→                })
+   986→            )}
+   987→          </TableBody>
+   988→        </Table>
+   989→      </Card>
+   990→    </div>
+   991→  );
+   992→}
+   993→

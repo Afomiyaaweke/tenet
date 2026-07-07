@@ -25,7 +25,7 @@ export async function PUT(
     }
 
     // Check ownership or admin role
-    if (profile.userId !== user!.id && user!.role !== 'admin') {
+    if (profile.userId !== user!.id && user!.role !== 'super_admin' && user!.role !== 'team_admin') {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only update your own profile' },
         { status: 403 }

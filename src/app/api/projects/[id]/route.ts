@@ -44,16 +44,16 @@ export async function GET(
       );
     }
 
-    // Contractor can only see their own projects
-    if (user!.role === 'contractor' && project.bid.userId !== user!.id) {
+    // Standard users can only see their own projects
+    if (user!.role === 'user' && project.bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view your own projects' },
         { status: 403 }
       );
     }
 
-    // Tender owner can only see projects for tenders they created
-    if (user!.role === 'tender_owner' && project.tender.createdBy !== user!.id) {
+    // Team admins can only see projects for tenders they created
+    if (user!.role === 'team_admin' && project.tender.createdBy !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view projects for tenders you created' },
         { status: 403 }
