@@ -27,7 +27,7 @@ export async function GET(
             financialProposal: true,
             timeline: true,
             status: true,
-            user: { select: { id: true, email: true, profile: { select: { fullName: true, companyName: true } } } },
+            user: { select: { id: true, email: true, profile: { select: { fullName: true, jobTitle: true } }, company: { select: { id: true, name: true } } } },
           },
         },
         tasks: { orderBy: { order: 'asc' } },

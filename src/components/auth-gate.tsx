@@ -5,7 +5,6 @@ import { useAuthStore } from '@/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { TenetsLogo } from '@/components/logo';
 import {
@@ -25,19 +24,61 @@ import {
   FileText,
   Fingerprint,
   Puzzle,
-  RefreshCw,
   CheckCircle2,
   XCircle,
   Smartphone,
   KeyRound,
   AlertTriangle,
+  Shield,
+  Users,
+  UserCircle,
+  Building2,
+  Globe,
+  Hash,
+  CreditCard,
 } from 'lucide-react';
 
-const SKILL_OPTIONS = [
-  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
-  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Landscaping',
-  'Interior Design', 'Project Management', 'Logistics', 'Manufacturing',
-  'Healthcare', 'Education', 'Finance', 'Legal', 'Agriculture', 'Telecommunications'
+const INDUSTRIES = [
+  'Construction', 'IT & Technology', 'Healthcare', 'Supply & Logistics', 'Consulting',
+  'Engineering', 'Architecture', 'Education', 'Finance', 'Agriculture',
+  'Telecommunications', 'Manufacturing', 'Energy', 'Legal', 'General',
+];
+
+type RegStep = 1 | 2 | 3 | 4 | 5;
+
+const REG_STEP_META: Record<RegStep, { label: string; icon: React.ElementType }> = {
+  1: { label: 'Account', icon: Lock },
+  2: { label: 'Company', icon: Building2 },
+  3: { label: 'Personal', icon: User },
+  4: { label: 'Role', icon: Shield },
+  5: { label: 'Review', icon: CheckCircle2 },
+};
+
+const ROLE_OPTIONS = [
+  {
+    value: 'super_admin' as const,
+    label: 'Super Admin',
+    icon: Shield,
+    description: 'Full system control, manage all companies, verify organizations, manage users',
+    color: 'orange',
+    warning: 'Requires existing Super Admin authorization',
+  },
+  {
+    value: 'team_admin' as const,
+    label: 'Team Admin',
+    icon: Users,
+    description: 'Manage company profile, create tenders, review bids, manage team members',
+    color: 'slate',
+    warning: null,
+  },
+  {
+    value: 'user' as const,
+    label: 'User',
+    icon: UserCircle,
+    description: 'Submit bids, view tenders, manage own profile',
+    color: 'zinc',
+    warning: null,
+  },
 ];
 
 /* ───────────────────────── Animated Background Dots ───────────────────────── */
@@ -77,7 +118,7 @@ function FeatureHighlight({ icon, title, delay }: { icon: React.ReactNode; title
       className="flex items-center gap-3 animate-[slideInLeft_0.5s_ease-out_both]"
       style={{ animationDelay: delay }}
     >
-      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-emerald-200">
+      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-orange-200">
         {icon}
       </div>
       <span className="text-white/90 text-sm font-medium">{title}</span>
@@ -85,7 +126,6 @@ function FeatureHighlight({ icon, title, delay }: { icon: React.ReactNode; title
   );
 }
 
-/* ───────────────────────── Main Component ───────────────────────── */
 /* ───────────────────────── Password Strength Meter ───────────────────────── */
 function scorePassword(pw: string): { score: number; label: string; color: string } {
   let score = 0;
@@ -95,7 +135,7 @@ function scorePassword(pw: string): { score: number; label: string; color: strin
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong'];
-  const colors = ['bg-rose-500', 'bg-rose-500', 'bg-amber-500', 'bg-yellow-500', 'bg-emerald-500', 'bg-emerald-600'];
+  const colors = ['bg-rose-500', 'bg-rose-500', 'bg-amber-500', 'bg-yellow-500', 'bg-orange-500', 'bg-orange-600'];
   return { score, label: labels[score], color: colors[score] };
 }
 
@@ -103,7 +143,7 @@ function scorePassword(pw: string): { score: number; label: string; color: strin
 function SlideCaptcha({ onVerified }: { onVerified: () => void }) {
   const [offset, setOffset] = useState(0);
   const [status, setStatus] = useState<'idle' | 'dragging' | 'success' | 'fail'>('idle');
-  const [target] = useState(() => 180 + Math.floor(Math.random() * 80)); // target px 180–260
+  const [target] = useState(() => 180 + Math.floor(Math.random() * 80));
   const trackWidth = 320;
   const handleWidth = 44;
   const tolerance = 8;
@@ -138,8 +178,8 @@ function SlideCaptcha({ onVerified }: { onVerified: () => void }) {
     }
   };
 
-  const pieceColor = status === 'success' ? 'bg-emerald-500' : status === 'fail' ? 'bg-rose-500' : 'bg-primary';
-  const ringColor = status === 'success' ? 'ring-emerald-300' : status === 'fail' ? 'ring-rose-300' : 'ring-primary/40';
+  const pieceColor = status === 'success' ? 'bg-orange-500' : status === 'fail' ? 'bg-rose-500' : 'bg-primary';
+  const ringColor = status === 'success' ? 'ring-orange-300' : status === 'fail' ? 'ring-rose-300' : 'ring-primary/40';
 
   return (
     <div className="space-y-3">
@@ -175,7 +215,7 @@ function SlideCaptcha({ onVerified }: { onVerified: () => void }) {
           </span>
         )}
         {status === 'success' && (
-          <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-emerald-600 bg-emerald-50/60 pointer-events-none">
+          <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-orange-600 bg-orange-50/60 pointer-events-none">
             Verified
           </span>
         )}
@@ -183,7 +223,7 @@ function SlideCaptcha({ onVerified }: { onVerified: () => void }) {
       {/* Slider track */}
       <div className="relative h-11 rounded-xl bg-muted border border-border overflow-hidden">
         <div
-          className={`absolute inset-y-0 left-0 ${status === 'success' ? 'bg-emerald-100 dark:bg-emerald-950/40' : status === 'fail' ? 'bg-rose-100 dark:bg-rose-950/40' : 'bg-primary/10'} transition-all`}
+          className={`absolute inset-y-0 left-0 ${status === 'success' ? 'bg-orange-100 dark:bg-orange-950/40' : status === 'fail' ? 'bg-rose-100 dark:bg-rose-950/40' : 'bg-primary/10'} transition-all`}
           style={{ width: offset + handleWidth }}
         />
         <div
@@ -217,7 +257,6 @@ function SecurityCodeInput({ value, onChange, disabled }: { value: string; onCha
     const arr = value.split('');
     arr[i] = sanitized || ' ';
     const next = arr.join('').replace(/ /g, '');
-    // pad to length i+1 so typing works
     const padded = (next + '      ').slice(0, 6).replace(/\s/g, '');
     onChange(padded);
     if (sanitized && i < 5) inputsRef.current[i + 1]?.focus();
@@ -259,6 +298,41 @@ function SecurityCodeInput({ value, onChange, disabled }: { value: string; onCha
   );
 }
 
+/* ───────────────────────── Step Indicator ───────────────────────── */
+function StepIndicator({ currentStep, totalSteps = 5 }: { currentStep: RegStep; totalSteps?: number }) {
+  return (
+    <div className="flex items-center justify-center gap-1 mb-6">
+      {(Array.from({ length: totalSteps }) as RegStep[]).map((step, i) => {
+        const meta = REG_STEP_META[step];
+        const isCompleted = currentStep > step;
+        const isCurrent = currentStep === step;
+        const Icon = meta.icon;
+        return (
+          <React.Fragment key={step}>
+            <div className="flex items-center gap-1.5">
+              <div
+                className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                  isCompleted || isCurrent
+                    ? 'gradient-orange text-white shadow-md shadow-orange-500/30'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-3.5 h-3.5" />}
+              </div>
+              <span className={`text-xs font-medium hidden sm:inline ${isCompleted || isCurrent ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {meta.label}
+              </span>
+            </div>
+            {i < totalSteps - 1 && (
+              <div className={`h-0.5 w-4 sm:w-8 rounded-full ${currentStep > step ? 'bg-orange-500' : 'bg-muted'}`} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ───────────────────────── Main Component ───────────────────────── */
 type LoginStep = 'credentials' | 'captcha' | 'code';
 
@@ -266,13 +340,20 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const { login, register } = useAuthStore();
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [regData, setRegData] = useState({
-    email: '', password: '', fullName: '', phone: '',
-    location: '', skillTags: '', bio: '',
+    email: '', password: '',
+    // Personal
+    fullName: '', jobTitle: '', phone: '', location: '',
+    // Company
+    companyName: '', companyIndustry: '', companyTinNumber: '',
+    companyRegistrationNo: '', companyPhone: '', companyCity: '',
+    companyCountry: '', companyEmail: '', companyWebsite: '',
+    // Role
+    role: '' as string,
   });
   const [loading, setLoading] = useState(false);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [regStep, setRegStep] = useState<RegStep>(1);
 
   // Binance-style multi-step login state
   const [loginStep, setLoginStep] = useState<LoginStep>('credentials');
@@ -303,7 +384,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       const next = attempts + 1;
       setAttempts(next);
       if (next >= 5) {
- toast.error('Too many failed attempts. Please start over.');
+        toast.error('Too many failed attempts. Please start over.');
         resetLogin();
         return;
       }
@@ -329,21 +410,37 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     setAttempts(0);
   };
 
-  const toggleSkill = (skill: string) => {
-    setSelectedSkills(prev =>
-      prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
-    );
+  /* ─── Registration step navigation ─── */
+  const canGoNext = (): boolean => {
+    switch (regStep) {
+      case 1:
+        return !!regData.email && !!regData.password && regData.password.length >= 8;
+      case 2:
+        return !!regData.companyName;
+      case 3:
+        return !!regData.fullName;
+      case 4:
+        return !!regData.role;
+      case 5:
+        return true;
+      default:
+        return false;
+    }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const goNext = () => {
+    if (!canGoNext()) return;
+    if (regStep < 5) setRegStep((regStep + 1) as RegStep);
+  };
+
+  const goBack = () => {
+    if (regStep > 1) setRegStep((regStep - 1) as RegStep);
+  };
+
+  const handleRegister = async () => {
     setLoading(true);
-    const data = {
-      ...regData,
-      skillTags: selectedSkills.join(','),
-    };
-    const ok = await register(data);
-    if (!ok) toast.error('Registration failed. Email may already exist.');
+    const ok = await register(regData);
+    if (!ok) toast.error('Registration failed. Email may already exist or Super Admin authorization required.');
     else toast.success('Welcome to Tenets!');
     setLoading(false);
   };
@@ -357,7 +454,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       <div className="flex-1 flex flex-col lg:flex-row">
 
         {/* ═══════════ LEFT PANEL (Desktop) ═══════════ */}
-        <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden gradient-emerald flex-col">
+        <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden gradient-slate flex-col">
           <FloatingDots />
 
           <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
@@ -366,7 +463,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
               <img src="/logo.png" alt="Tenets" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
               <div>
                 <h1 className="text-2xl font-bold text-white tracking-tight">Tenets</h1>
-                <p className="text-emerald-200/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
+                <p className="text-orange-300/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
               </div>
             </div>
 
@@ -376,10 +473,10 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                 className="text-4xl xl:text-5xl font-extrabold text-white leading-[1.1] mb-4 animate-[slideInLeft_0.7s_ease-out_both]"
               >
                 Transforming<br />
-                <span className="text-emerald-200">Procurement</span>
+                <span className="text-orange-300">Procurement</span>
               </h2>
               <p
-                className="text-emerald-100/70 text-base leading-relaxed mb-10 animate-[slideInLeft_0.7s_ease-out_0.1s_both]"
+                className="text-orange-100/70 text-base leading-relaxed mb-10 animate-[slideInLeft_0.7s_ease-out_0.1s_both]"
               >
                 Connect with verified contractors, discover tenders, and manage projects — all in one intelligent platform built for Ethiopia&apos;s future.
               </p>
@@ -410,7 +507,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
             >
               <div className="flex items-center gap-3 pt-8 border-t border-white/10">
                 <div className="flex -space-x-2">
-                  {['bg-amber-400', 'bg-teal-400', 'bg-emerald-300', 'bg-rose-400'].map((bg, i) => (
+                  {['bg-amber-400', 'bg-orange-400', 'bg-orange-300', 'bg-rose-400'].map((bg, i) => (
                     <div
                       key={i}
                       className={`w-8 h-8 rounded-full ${bg} border-2 border-white/20 flex items-center justify-center`}
@@ -421,7 +518,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     </div>
                   ))}
                 </div>
-                <p className="text-emerald-200/60 text-sm">
+                <p className="text-orange-200/60 text-sm">
                   Trusted by <span className="text-white font-semibold">500+</span> organizations across Ethiopia
                 </p>
               </div>
@@ -433,7 +530,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
         <div className="flex-1 flex flex-col min-h-screen lg:min-h-0 bg-background">
           {/* Mobile header with gradient bar */}
           <div className="lg:hidden">
-            <div className="h-1.5 gradient-emerald" />
+            <div className="h-1.5 gradient-slate" />
             <div className="px-6 pt-6 pb-4 flex items-center gap-3">
               <TenetsLogo size="sm" />
             </div>
@@ -495,7 +592,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           <div
                             className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                               i <= stepIndex
-                                ? 'gradient-emerald text-white shadow-md shadow-emerald-500/30'
+                                ? 'gradient-orange text-white shadow-md shadow-orange-500/30'
                                 : 'bg-muted text-muted-foreground'
                             }`}
                           >
@@ -505,7 +602,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                             {label}
                           </span>
                         </div>
-                        {i < 2 && <div className={`h-0.5 w-6 sm:w-10 rounded-full ${i < stepIndex ? 'bg-emerald-500' : 'bg-muted'}`} />}
+                        {i < 2 && <div className={`h-0.5 w-6 sm:w-10 rounded-full ${i < stepIndex ? 'bg-orange-500' : 'bg-muted'}`} />}
                       </React.Fragment>
                     ))}
                   </div>
@@ -566,7 +663,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
                         <Button
                           type="submit"
-                          className="w-full h-11 gradient-emerald text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
+                          className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
                         >
                           <span className="flex items-center gap-2">
                             Continue
@@ -606,7 +703,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       <div className="p-5 rounded-xl border border-border bg-card/50 space-y-4">
                         <SlideCaptcha onVerified={handleCaptchaVerified} />
                         {captchaVerified && (
-                          <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium animate-[viewEnter_0.3s_ease-out]">
+                          <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400 font-medium animate-[viewEnter_0.3s_ease-out]">
                             <CheckCircle2 className="w-4 h-4" /> Verification complete — proceeding…
                           </div>
                         )}
@@ -652,7 +749,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           type="button"
                           onClick={handleFinalLogin}
                           disabled={loading || securityCode.length !== 6}
-                          className="w-full h-11 gradient-emerald text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+                          className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
                         >
                           {loading ? (
                             <span className="flex items-center gap-2">
@@ -718,50 +815,43 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                 </div>
               )}
 
-              {/* ─── REGISTER FORM ─── */}
+              {/* ─── REGISTER FORM (Multi-Step Wizard) ─── */}
               {activeTab === 'register' && (
                 <div className="animate-[viewEnter_0.3s_ease-out]">
-                  <div className="mb-6">
+                  <div className="mb-4">
                     <h2 className="text-2xl font-bold text-foreground">Create Account</h2>
                     <p className="text-muted-foreground text-sm mt-1">Join the Tenets Tender Ecosystem</p>
                   </div>
 
-                  <form onSubmit={handleRegister} className="space-y-6">
-                    {/* ── Section 1: Personal Info ── */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
-                          <span className="text-white text-[10px] font-bold">1</span>
+                  {/* Step indicator */}
+                  <StepIndicator currentStep={regStep} />
+
+                  {/* ─── STEP 1: Email & Password ─── */}
+                  {regStep === 1 && (
+                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+                      <div className="mb-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+                            <Lock className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-foreground">Account Credentials</h3>
                         </div>
-                        <h3 className="text-sm font-semibold text-foreground">Personal Information</h3>
+                        <p className="text-xs text-muted-foreground ml-8">Set up your email and password</p>
                       </div>
+
                       <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                              <User className="w-3 h-3" /> Full Name *
-                            </Label>
-                            <Input
-                              placeholder="Your full name"
-                              required
-                              value={regData.fullName}
-                              onChange={e => setRegData(d => ({ ...d, fullName: e.target.value }))}
-                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                              <Mail className="w-3 h-3" /> Email *
-                            </Label>
-                            <Input
-                              type="email"
-                              placeholder="you@example.com"
-                              required
-                              value={regData.email}
-                              onChange={e => setRegData(d => ({ ...d, email: e.target.value }))}
-                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
-                            />
-                          </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Mail className="w-3 h-3" /> Email Address *
+                          </Label>
+                          <Input
+                            type="email"
+                            placeholder="you@example.com"
+                            required
+                            value={regData.email}
+                            onChange={e => setRegData(d => ({ ...d, email: e.target.value }))}
+                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                          />
                         </div>
 
                         <div className="space-y-1.5">
@@ -795,21 +885,235 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                                   />
                                 ))}
                               </div>
-                              <p className={`text-[10px] font-medium ${pwScore.score >= 4 ? 'text-emerald-600' : pwScore.score >= 2 ? 'text-amber-600' : 'text-rose-600'}`}>
+                              <p className={`text-[10px] font-medium ${pwScore.score >= 4 ? 'text-orange-600' : pwScore.score >= 2 ? 'text-amber-600' : 'text-rose-600'}`}>
                                 {pwScore.label}
                               </p>
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        onClick={goNext}
+                        disabled={!canGoNext()}
+                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+                      >
+                        <span className="flex items-center gap-2">
+                          Continue
+                          <ArrowRight className="w-4 h-4" />
+                        </span>
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* ─── STEP 2: Company Information ─── */}
+                  {regStep === 2 && (
+                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+                      <div className="mb-2">
+                        <button
+                          type="button"
+                          onClick={goBack}
+                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+                        >
+                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                          Back
+                        </button>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+                            <Building2 className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-foreground">Company Information</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground ml-8">Company name is required. Other details are optional.</p>
+                      </div>
+
+                      <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Building2 className="w-3 h-3" /> Company Name *
+                          </Label>
+                          <Input
+                            placeholder="Acme Corp"
+                            required
+                            value={regData.companyName}
+                            onChange={e => setRegData(d => ({ ...d, companyName: e.target.value }))}
+                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Briefcase className="w-3 h-3" /> Industry
+                          </Label>
+                          <select
+                            value={regData.companyIndustry}
+                            onChange={e => setRegData(d => ({ ...d, companyIndustry: e.target.value }))}
+                            className="h-10 w-full rounded-md border border-border bg-muted/50 px-3 text-sm text-foreground focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+                          >
+                            <option value="">Select industry...</option>
+                            {INDUSTRIES.map(ind => (
+                              <option key={ind} value={ind}>{ind}</option>
+                            ))}
+                          </select>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                              <Phone className="w-3 h-3" /> Phone *
+                              <Hash className="w-3 h-3" /> TIN Number
+                            </Label>
+                            <Input
+                              placeholder="TIN..."
+                              value={regData.companyTinNumber}
+                              onChange={e => setRegData(d => ({ ...d, companyTinNumber: e.target.value }))}
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                              <CreditCard className="w-3 h-3" /> Registration No
+                            </Label>
+                            <Input
+                              placeholder="REG..."
+                              value={regData.companyRegistrationNo}
+                              onChange={e => setRegData(d => ({ ...d, companyRegistrationNo: e.target.value }))}
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Phone className="w-3 h-3" /> Company Phone
+                          </Label>
+                          <Input
+                            placeholder="+251..."
+                            value={regData.companyPhone}
+                            onChange={e => setRegData(d => ({ ...d, companyPhone: e.target.value }))}
+                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                              <MapPin className="w-3 h-3" /> City
+                            </Label>
+                            <Input
+                              placeholder="Addis Ababa"
+                              value={regData.companyCity}
+                              onChange={e => setRegData(d => ({ ...d, companyCity: e.target.value }))}
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                              <Globe className="w-3 h-3" /> Country
+                            </Label>
+                            <Input
+                              placeholder="Ethiopia"
+                              value={regData.companyCountry}
+                              onChange={e => setRegData(d => ({ ...d, companyCountry: e.target.value }))}
+                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Mail className="w-3 h-3" /> Company Email
+                          </Label>
+                          <Input
+                            type="email"
+                            placeholder="info@company.com"
+                            value={regData.companyEmail}
+                            onChange={e => setRegData(d => ({ ...d, companyEmail: e.target.value }))}
+                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Globe className="w-3 h-3" /> Website
+                          </Label>
+                          <Input
+                            placeholder="https://company.com"
+                            value={regData.companyWebsite}
+                            onChange={e => setRegData(d => ({ ...d, companyWebsite: e.target.value }))}
+                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        onClick={goNext}
+                        disabled={!canGoNext()}
+                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+                      >
+                        <span className="flex items-center gap-2">
+                          Continue
+                          <ArrowRight className="w-4 h-4" />
+                        </span>
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* ─── STEP 3: Personal Information ─── */}
+                  {regStep === 3 && (
+                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+                      <div className="mb-2">
+                        <button
+                          type="button"
+                          onClick={goBack}
+                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+                        >
+                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                          Back
+                        </button>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+                            <User className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-foreground">Personal Information</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground ml-8">Tell us about yourself</p>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <User className="w-3 h-3" /> Full Name *
+                          </Label>
+                          <Input
+                            placeholder="Your full name"
+                            required
+                            value={regData.fullName}
+                            onChange={e => setRegData(d => ({ ...d, fullName: e.target.value }))}
+                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Briefcase className="w-3 h-3" /> Job Title
+                          </Label>
+                          <Input
+                            placeholder="Project Manager, CEO, etc."
+                            value={regData.jobTitle}
+                            onChange={e => setRegData(d => ({ ...d, jobTitle: e.target.value }))}
+                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                              <Phone className="w-3 h-3" /> Phone
                             </Label>
                             <Input
                               placeholder="+251..."
-                              required
                               value={regData.phone}
                               onChange={e => setRegData(d => ({ ...d, phone: e.target.value }))}
                               className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
@@ -817,11 +1121,10 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                              <MapPin className="w-3 h-3" /> Location *
+                              <MapPin className="w-3 h-3" /> Location
                             </Label>
                             <Input
                               placeholder="City, Region"
-                              required
                               value={regData.location}
                               onChange={e => setRegData(d => ({ ...d, location: e.target.value }))}
                               className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
@@ -829,80 +1132,292 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* ── Section 2: Professional Details (Optional) ── */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-6 rounded-md gradient-emerald flex items-center justify-center">
-                          <span className="text-white text-[10px] font-bold">2</span>
+                      <Button
+                        type="button"
+                        onClick={goNext}
+                        disabled={!canGoNext()}
+                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+                      >
+                        <span className="flex items-center gap-2">
+                          Continue
+                          <ArrowRight className="w-4 h-4" />
+                        </span>
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* ─── STEP 4: Role Selection ─── */}
+                  {regStep === 4 && (
+                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+                      <div className="mb-2">
+                        <button
+                          type="button"
+                          onClick={goBack}
+                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+                        >
+                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                          Back
+                        </button>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+                            <Shield className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-foreground">Choose Your Access Level</h3>
                         </div>
-                        <h3 className="text-sm font-semibold text-foreground">Professional Details <span className="text-muted-foreground font-normal">(optional)</span></h3>
+                        <p className="text-xs text-muted-foreground ml-8">Select the role that best fits your responsibilities</p>
                       </div>
+
                       <div className="space-y-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                            <Briefcase className="w-3 h-3" /> Skill Tags
-                            {selectedSkills.length > 0 && (
-                              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
-                                {selectedSkills.length}
-                              </span>
-                            )}
-                          </Label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {SKILL_OPTIONS.map(skill => {
-                              const isSelected = selectedSkills.includes(skill);
-                              return (
-                                <button
-                                  key={skill}
-                                  type="button"
-                                  onClick={() => toggleSkill(skill)}
-                                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
-                                    isSelected
-                                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-500/20 scale-105'
-                                      : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary hover:bg-primary/5'
-                                  }`}
-                                >
-                                  {skill}
-                                </button>
-                              );
-                            })}
+                        {ROLE_OPTIONS.map((role) => {
+                          const isSelected = regData.role === role.value;
+                          const Icon = role.icon;
+                          return (
+                            <button
+                              key={role.value}
+                              type="button"
+                              onClick={() => setRegData(d => ({ ...d, role: role.value }))}
+                              className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 relative ${
+                                isSelected
+                                  ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30 shadow-md shadow-orange-500/10'
+                                  : 'border-border bg-card/50 hover:border-orange-300 dark:hover:border-orange-700 hover:bg-orange-50/50 dark:hover:bg-orange-950/10'
+                              }`}
+                            >
+                              {isSelected && (
+                                <div className="absolute top-3 right-3">
+                                  <CheckCircle2 className="w-5 h-5 text-orange-500" />
+                                </div>
+                              )}
+                              <div className="flex items-start gap-3">
+                                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                                  isSelected
+                                    ? 'gradient-orange text-white shadow-sm shadow-orange-500/20'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  <Icon className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-semibold text-foreground text-sm">{role.label}</h4>
+                                    {role.warning && (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] font-medium">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        {role.warning}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{role.description}</p>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {regData.role === 'super_admin' && (
+                        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 animate-[viewEnter_0.3s_ease-out]">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                          <p className="text-xs text-amber-800 dark:text-amber-200/80 leading-relaxed">
+                            <span className="font-semibold">Important:</span> Super Admin accounts can only be created by an existing Super Admin. Your registration will require authorization before activation.
+                          </p>
+                        </div>
+                      )}
+
+                      <Button
+                        type="button"
+                        onClick={goNext}
+                        disabled={!canGoNext()}
+                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+                      >
+                        <span className="flex items-center gap-2">
+                          Continue
+                          <ArrowRight className="w-4 h-4" />
+                        </span>
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* ─── STEP 5: Review & Submit ─── */}
+                  {regStep === 5 && (
+                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+                      <div className="mb-2">
+                        <button
+                          type="button"
+                          onClick={goBack}
+                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+                        >
+                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                          Back
+                        </button>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-foreground">Review & Submit</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground ml-8">Confirm your details before creating your account</p>
+                      </div>
+
+                      <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
+                        {/* Account */}
+                        <div className="p-3 rounded-xl border border-border bg-card/50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Lock className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="text-xs font-semibold text-foreground">Account</span>
+                          </div>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Email</span>
+                              <span className="text-foreground font-medium">{regData.email}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Password</span>
+                              <span className="text-foreground font-medium">••••••••</span>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                            <FileText className="w-3 h-3" /> Bio / Portfolio
-                          </Label>
-                          <Textarea
-                            placeholder="Brief description of your experience and capabilities"
-                            value={regData.bio}
-                            onChange={e => setRegData(d => ({ ...d, bio: e.target.value }))}
-                            rows={3}
-                            className="bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm resize-none"
-                          />
+                        {/* Company */}
+                        <div className="p-3 rounded-xl border border-border bg-card/50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Building2 className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="text-xs font-semibold text-foreground">Company</span>
+                          </div>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Name</span>
+                              <span className="text-foreground font-medium">{regData.companyName}</span>
+                            </div>
+                            {regData.companyIndustry && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Industry</span>
+                                <span className="text-foreground font-medium">{regData.companyIndustry}</span>
+                              </div>
+                            )}
+                            {regData.companyTinNumber && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">TIN</span>
+                                <span className="text-foreground font-medium">{regData.companyTinNumber}</span>
+                              </div>
+                            )}
+                            {regData.companyRegistrationNo && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Reg. No</span>
+                                <span className="text-foreground font-medium">{regData.companyRegistrationNo}</span>
+                              </div>
+                            )}
+                            {regData.companyPhone && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Phone</span>
+                                <span className="text-foreground font-medium">{regData.companyPhone}</span>
+                              </div>
+                            )}
+                            {(regData.companyCity || regData.companyCountry) && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Location</span>
+                                <span className="text-foreground font-medium">{[regData.companyCity, regData.companyCountry].filter(Boolean).join(', ')}</span>
+                              </div>
+                            )}
+                            {regData.companyEmail && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Email</span>
+                                <span className="text-foreground font-medium">{regData.companyEmail}</span>
+                              </div>
+                            )}
+                            {regData.companyWebsite && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Website</span>
+                                <span className="text-foreground font-medium">{regData.companyWebsite}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Personal */}
+                        <div className="p-3 rounded-xl border border-border bg-card/50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <User className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="text-xs font-semibold text-foreground">Personal</span>
+                          </div>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Full Name</span>
+                              <span className="text-foreground font-medium">{regData.fullName}</span>
+                            </div>
+                            {regData.jobTitle && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Job Title</span>
+                                <span className="text-foreground font-medium">{regData.jobTitle}</span>
+                              </div>
+                            )}
+                            {regData.phone && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Phone</span>
+                                <span className="text-foreground font-medium">{regData.phone}</span>
+                              </div>
+                            )}
+                            {regData.location && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Location</span>
+                                <span className="text-foreground font-medium">{regData.location}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Role */}
+                        <div className="p-3 rounded-xl border border-border bg-card/50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Shield className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="text-xs font-semibold text-foreground">Role</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {(() => {
+                              const selectedRole = ROLE_OPTIONS.find(r => r.value === regData.role);
+                              if (!selectedRole) return null;
+                              const RoleIcon = selectedRole.icon;
+                              return (
+                                <>
+                                  <div className="w-8 h-8 rounded-lg gradient-orange flex items-center justify-center text-white">
+                                    <RoleIcon className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-foreground">{selectedRole.label}</p>
+                                    <p className="text-xs text-muted-foreground">{selectedRole.description}</p>
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                          {regData.role === 'super_admin' && (
+                            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                              <AlertTriangle className="w-3 h-3" />
+                              Requires existing Super Admin authorization
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
 
-                    <Button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full h-11 gradient-emerald text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
-                    >
-                      {loading ? (
-                        <span className="flex items-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Creating Account...
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          Create Account
-                          <ArrowRight className="w-4 h-4" />
-                        </span>
-                      )}
-                    </Button>
-                  </form>
+                      <Button
+                        type="button"
+                        onClick={handleRegister}
+                        disabled={loading}
+                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+                      >
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Creating Account...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            Create Account
+                            <ArrowRight className="w-4 h-4" />
+                          </span>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

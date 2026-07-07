@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
             user: {
               select: {
                 email: true,
-                profile: { select: { fullName: true, companyName: true } },
+                profile: { select: { fullName: true, jobTitle: true } },
+                company: { select: { id: true, name: true } },
               },
             },
           },
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
             'Tender Title': tender.title,
             'Tender Status': tender.status,
             'Bidder Name': bid.user?.profile?.fullName || bid.user?.email || 'Unknown',
-            'Company': bid.user?.profile?.companyName || '-',
+            'Company': bid.user?.company?.name || '-',
             'Financial Proposal (ETB)': bid.financialProposal,
             'Timeline': bid.timeline,
             'Bid Status': bid.status,

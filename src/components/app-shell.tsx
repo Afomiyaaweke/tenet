@@ -28,7 +28,7 @@ import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
-  Search, Sparkles, Verified, Zap, Globe2,
+  Search, Sparkles, Verified, Zap, Globe2, Shield, Building2,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetsLogo } from '@/components/logo';
@@ -43,17 +43,17 @@ const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
 };
 
 const NOTIFICATION_COLORS: Record<string, string> = {
-  success: 'text-emerald-500',
+  success: 'text-orange-500',
   warning: 'text-amber-500',
   alert: 'text-red-500',
-  info: 'text-emerald-500',
+  info: 'text-orange-500',
 };
 
 const NOTIFICATION_BG: Record<string, string> = {
-  success: 'bg-emerald-50 dark:bg-emerald-950/30',
+  success: 'bg-orange-50 dark:bg-orange-950/30',
   warning: 'bg-amber-50 dark:bg-amber-950/30',
   alert: 'bg-red-50 dark:bg-red-950/30',
-  info: 'bg-emerald-50 dark:bg-emerald-950/30',
+  info: 'bg-orange-50 dark:bg-orange-950/30',
 };
 
 interface NavItem {
@@ -67,8 +67,10 @@ interface NavSection {
   items: NavItem[];
 }
 
-const NAV_ITEMS: NavSection[] = [
-  {
+/* ──────────────────── Role-aware navigation ──────────────────── */
+
+function getNavItemsForRole(role: string): NavSection[] {
+  const main: NavSection = {
     label: 'MAIN',
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -76,26 +78,76 @@ const NAV_ITEMS: NavSection[] = [
       { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
       { id: 'bids', label: 'Bids', icon: Gavel },
     ],
-  },
-  {
+  };
+
+  const manage: NavSection = {
     label: 'MANAGE',
     items: [
       { id: 'projects', label: 'Projects', icon: FolderKanban },
       { id: 'chat', label: 'Messages', icon: MessageSquare },
       { id: 'events', label: 'Workshops', icon: GraduationCap },
     ],
-  },
-  {
+  };
+
+  const tools: NavSection = {
     label: 'TOOLS',
     items: [
       { id: 'profile', label: 'Profile', icon: User },
       { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'agent', label: 'AI Doc Studio', icon: Bot },
     ],
-  },
-];
+  };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
+  if (role === 'super_admin') {
+    return [
+      main,
+      manage,
+      tools,
+      {
+        label: 'ADMIN',
+        items: [
+          { id: 'admin', label: 'Administration', icon: Shield },
+        ],
+      },
+    ];
+  }
+
+  if (role === 'team_admin') {
+    return [
+      main,
+      manage,
+      tools,
+      {
+        label: 'TEAM',
+        items: [
+          { id: 'profile', label: 'Company Settings', icon: Building2 },
+        ],
+      },
+    ];
+  }
+
+  // Regular user
+  return [main, tools];
+}
+
+/* ──────────────────── Role badge config ──────────────────── */
+
+const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = {
+  super_admin: {
+    label: 'Super Admin',
+    className: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400',
+  },
+  team_admin: {
+    label: 'Team Admin',
+    className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  },
+  user: {
+    label: 'User',
+    className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  },
+};
+
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -118,19 +170,25 @@ function getUserInitial(user: { profile?: { fullName?: string }; email?: string 
   return (user?.profile?.fullName || user?.email || 'U')[0].toUpperCase();
 }
 
+function getCompanyInitial(company: { name?: string } | null): string {
+  return (company?.name || 'C')[0].toUpperCase();
+}
+
 /* ──────────────────────── SidebarContent ──────────────────────── */
 
 function SidebarContent({
   user,
   role,
+  company,
   navSections,
   view,
   setView,
   unreadCount,
   logout,
 }: {
-  user: { profile?: { fullName?: string; verified?: boolean }; email?: string; role?: string } | null;
+  user: { profile?: { fullName?: string; verified?: boolean }; email?: string; role?: string; companyId?: string; company?: { name?: string } } | null;
   role: string;
+  company: { name?: string; verified?: boolean } | null;
   navSections: NavSection[];
   view: string;
   setView: (view: View, params?: Record<string, string>) => void;
@@ -139,6 +197,8 @@ function SidebarContent({
 }) {
   const displayName = user?.profile?.fullName || user?.email || 'User';
   const isVerified = (user?.profile as { verified?: boolean })?.verified ?? false;
+  const companyName = company?.name || user?.company?.name;
+  const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
 
   return (
     <div className="flex flex-col h-full bg-card">
@@ -158,26 +218,34 @@ function SidebarContent({
       <div className="px-4 py-4">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors">
           <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-full gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200 dark:shadow-emerald-900/30">
+            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center shadow-sm shadow-slate-200 dark:shadow-slate-900/30">
               <span className="text-white font-bold text-sm">{getUserInitial(user)}</span>
             </div>
             {isVerified && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-card flex items-center justify-center">
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-orange-500 rounded-full border-2 border-card flex items-center justify-center">
                 <Check className="w-2 h-2 text-white" strokeWidth={3} />
+              </span>
+            )}
+            {companyName && (
+              <span className="absolute -bottom-1 -left-1 w-4 h-4 bg-orange-600 rounded-full border-2 border-card flex items-center justify-center" title={companyName}>
+                <span className="text-white font-bold text-[7px]">{getCompanyInitial({ name: companyName })}</span>
               </span>
             )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold truncate text-foreground">{displayName}</p>
+            {companyName && (
+              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{companyName}</p>
+            )}
             <div className="flex items-center gap-1.5 mt-0.5">
               <Badge
                 variant="secondary"
-                className="text-[10px] px-1.5 py-0 font-semibold bg-primary/10 text-primary border border-primary/20"
+                className={`text-[10px] px-1.5 py-0 font-semibold border-0 ${badgeConfig.className}`}
               >
-                Member
+                {badgeConfig.label}
               </Badge>
               {isVerified && (
-                <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium">
+                <span className="flex items-center gap-0.5 text-[10px] text-orange-600 font-medium">
                   <Verified className="w-3 h-3" /> Verified
                 </span>
               )}
@@ -201,7 +269,7 @@ function SidebarContent({
                   const Icon = item.icon;
                   const isActive =
                     view === item.id ||
-                    (item.id === 'tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare')) ||
+                    (item.id === 'tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare' || view === 'bid-analysis')) ||
                     (item.id === 'projects' && view === 'project-detail');
 
                   return (
@@ -246,10 +314,10 @@ function SidebarContent({
         {/* Upgrade Card */}
         <div className="relative rounded-xl overflow-hidden p-[1px]">
           {/* Gradient border */}
-          <div className="absolute inset-0 gradient-emerald opacity-40 rounded-xl" />
+          <div className="absolute inset-0 bg-orange-600 opacity-40 rounded-xl" />
           <div className="relative bg-card rounded-xl p-3.5">
             <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-7 h-7 rounded-lg gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200">
+              <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center shadow-sm shadow-orange-200">
                 <Zap className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
@@ -259,7 +327,7 @@ function SidebarContent({
             </div>
             <Button
               size="sm"
-              className="w-full h-7 text-[11px] font-semibold gradient-emerald text-white border-0 shadow-sm shadow-emerald-200 hover:opacity-90"
+              className="w-full h-7 text-[11px] font-semibold bg-orange-600 text-white border-0 shadow-sm shadow-orange-200 hover:bg-orange-700"
             >
               <Sparkles className="w-3 h-3 mr-1" /> Get Pro
             </Button>
@@ -339,8 +407,8 @@ function NotificationDropdown({
         <ScrollArea className="max-h-[340px]">
           {displayItems.length === 0 ? (
             <div className="py-8 text-center">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-emerald-400" />
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-orange-400" />
               </div>
               <p className="text-sm font-medium text-muted-foreground">All caught up!</p>
               <p className="text-xs text-muted-foreground/60 mt-0.5">No new notifications</p>
@@ -371,7 +439,7 @@ function NotificationDropdown({
                       <p className="text-[11px] text-muted-foreground truncate mt-0.5 leading-relaxed">{n.message}</p>
                       <p className="text-[10px] text-muted-foreground/50 mt-1 font-medium">{relativeTime(n.createdAt)}</p>
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 mt-2 ring-2 ring-emerald-100 dark:ring-emerald-900/40" />
+                    <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 mt-2 ring-2 ring-orange-100 dark:ring-orange-900/40" />
                   </button>
                 );
               })}
@@ -400,11 +468,11 @@ function NotificationDropdown({
 /* ──────────────────────────── AppShell ──────────────────────────── */
 
 export function AppShell() {
-  const { user, logout } = useAuthStore();
+  const { user, company, logout } = useAuthStore();
   const { view, viewParams, setView } = useNavStore();
   const { fetchNotifications, notifications } = useDataStore();
-  const role = user?.role || 'contractor';
-  const navSections = NAV_ITEMS;
+  const role = user?.role || 'user';
+  const navSections = useMemo(() => getNavItemsForRole(role), [role]);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Flat list for title lookup
@@ -442,6 +510,8 @@ export function AppShell() {
         return <TenderCompareView tenderIds={viewParams.ids} />;
       case 'bid-compare':
         return <BidCompareView tenderId={viewParams.tenderId} />;
+      case 'bid-analysis':
+        return <BidsView />;
       case 'bids':
         return <BidsView />;
       case 'projects':
@@ -468,10 +538,13 @@ export function AppShell() {
   };
 
   const pageTitle = allNavItems.find((i) => i.id === view)?.label
-    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : 'Dashboard');
-  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' ? 'Tenders' : view === 'tender-compare' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
+    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : 'Dashboard');
+  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' || view === 'bid-analysis' ? 'Tenders' : view === 'tender-compare' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
 
-  const sidebarProps = { user, role, navSections, view, setView, unreadCount, logout };
+  const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
+  const companyName = company?.name || user?.company?.name;
+
+  const sidebarProps = { user, role, company, navSections, view, setView, unreadCount, logout };
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -530,7 +603,7 @@ export function AppShell() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted/80 transition-colors ml-0.5">
-                  <div className="w-7 h-7 rounded-full gradient-emerald flex items-center justify-center shadow-sm shadow-emerald-200">
+                  <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shadow-sm shadow-slate-200">
                     <span className="text-white font-bold text-[11px]">{getUserInitial(user)}</span>
                   </div>
                 </Button>
@@ -538,8 +611,18 @@ export function AppShell() {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user?.profile?.fullName || user?.email || 'User'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium leading-none">{user?.profile?.fullName || user?.email || 'User'}</p>
+                      <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 font-semibold border-0 ${badgeConfig.className}`}>
+                        {badgeConfig.label}
+                      </Badge>
+                    </div>
                     <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                    {companyName && (
+                      <p className="text-[11px] leading-none text-muted-foreground/70 flex items-center gap-1">
+                        <Building2 className="w-3 h-3" /> {companyName}
+                      </p>
+                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -551,6 +634,12 @@ export function AppShell() {
                   <FileText className="mr-2 h-4 w-4" />
                   <span>Documents</span>
                 </DropdownMenuItem>
+                {role === 'super_admin' && (
+                  <DropdownMenuItem onClick={() => setView('admin' as View)} className="cursor-pointer">
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Administration</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30">
                   <LogOut className="mr-2 h-4 w-4" />

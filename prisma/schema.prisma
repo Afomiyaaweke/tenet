@@ -8,23 +8,52 @@ datasource db {
 }
 
 // ==========================================
-// USER & AUTHENTICATION
+// COMPANY
+// ==========================================
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  registrationNo  String?  @unique
+  industry        String   @default("General") // Construction, IT, Healthcare, Supply, Consulting, etc.
+  tinNumber       String?  @unique
+  address         String?
+  city            String?
+  country         String   @default("Ethiopia")
+  phone           String?
+  email           String?
+  website         String?
+  logoUrl         String?
+  verified        Boolean  @default(false)
+  status          String   @default("active") // active, suspended
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users     User[]
+  profiles  Profile[]
+  documents Document[]
+}
+
+// ==========================================
+// USER & AUTHENTICATION (3-tier roles)
 // ==========================================
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  role         String    @default("contractor") // admin, contractor, tender_owner
-  status       String    @default("active") // active, suspended, banned
-  emailVerified Boolean  @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          String    @default("user") // super_admin, team_admin, user
+  companyId     String?
+  status        String    @default("active") // active, suspended, banned
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  profile     Profile?
-  documents   Document[]
-  bids        Bid[]
-  messages    Message[]
+  company   Company?   @relation(fields: [companyId], references: [id])
+  profile   Profile?
+  documents Document[]
+  bids      Bid[]
+  messages  Message[]
   registrations Registration[]
   conversationMemberships ConversationMember[]
   chatMessages ChatMessage[]
@@ -36,25 +65,26 @@ model User {
 // ==========================================
 
 model Profile {
-  id           String  @id @default(cuid())
-  userId       String  @unique
-  type         String  @default("individual") // individual, company
-  fullName     String
-  companyName  String?
-  phone        String
-  location     String
-  address      String?
-  tinNumber    String?
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  companyId     String?
+  fullName      String
+  jobTitle      String?  // CEO, Manager, Engineer, etc.
+  phone         String
+  location      String
+  address       String?
+  tinNumber     String?
   licenseNumber String?
-  skillTags    String  @default("") // comma-separated
-  bio          String?
-  logoUrl      String?
-  profilePhoto String?
-  verified     Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  skillTags     String  @default("") // comma-separated
+  bio           String?
+  logoUrl       String?
+  profilePhoto  String?
+  verified      Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id])
 }
 
 // ==========================================
@@ -63,7 +93,8 @@ model Profile {
 
 model Document {
   id          String   @id @default(cuid())
-  userId      String
+  userId      String?
+  companyId   String?
   docType     String   // business_license, tax_clearance, portfolio, certificate, other
   fileUrl     String
   fileName    String
@@ -72,7 +103,8 @@ model Document {
   reviewedAt  DateTime?
   createdAt   DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id])
 }
 
 // ==========================================
@@ -94,8 +126,9 @@ model Tender {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  bids     Bid[]
-  project  Project?
+  bids          Bid[]
+  project       Project?
+  bidAnalysis   BidAnalysis[]
 }
 
 // ==========================================
@@ -118,6 +151,26 @@ model Bid {
   tender  Tender  @relation(fields: [tenderId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   project Project?
+}
+
+// ==========================================
+// BID ANALYSIS (AI-generated)
+// ==========================================
+
+model BidAnalysis {
+  id              String   @id @default(cuid())
+  tenderId        String
+  summary         String   @default("") // JSON: { totalBids, averageScore }
+  rankings        String   @default("") // JSON: [{ rank, name, company, overallScore, ... }]
+  budgetAnalysis  String   @default("") // AI budget analysis text
+  recommendation  String   @default("") // Final recommendation
+  riskSummary     String   @default("") // Overall risk assessment
+  createdBy       String   // admin user id who triggered analysis
+  createdAt       DateTime @default(now())
+
+  tender Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@index([tenderId])
 }
 
 // ==========================================
@@ -290,22 +343,15 @@ model Notification {
 // TELEGRAM-STYLE MESSAGING (Conversations, Groups, Channels)
 // ==========================================
 
-/**
- * A conversation is the container for any chat thread.
- *  - type "direct": 1:1 between two users
- *  - type "group": multi-member group chat
- *  - type "channel": broadcast (owner-only posting)
- *  - type "project": legacy project/tender-scoped chat (mirrors Chat)
- */
 model Conversation {
   id          String   @id @default(cuid())
   type        String   @default("group") // direct, group, channel, project
-  title       String?  // required for group/channel/project; optional for direct
-  description String?  // group/channel bio
-  avatarUrl   String?  // group/channel photo
-  createdBy   String   // user id who created the conversation
-  tenderId    String?  // optional link to a tender (for project-scoped groups)
-  projectId   String?  // optional link to a project
+  title       String?
+  description String?
+  avatarUrl   String?
+  createdBy   String
+  tenderId    String?
+  projectId   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -316,10 +362,6 @@ model Conversation {
   @@index([tenderId])
 }
 
-/**
- * Membership row linking a user to a conversation.
- * Carries per-user role, read cursor, mute and pin state.
- */
 model ConversationMember {
   id             String   @id @default(cuid())
   conversationId String
@@ -337,20 +379,16 @@ model ConversationMember {
   @@index([userId])
 }
 
-/**
- * A message inside a conversation. Supports replies (threaded),
- * soft-delete, edit tracking, and attachments.
- */
 model ChatMessage {
   id             String   @id @default(cuid())
   conversationId String
   userId         String
   content        String
-  replyToId      String?  // threaded reply target
+  replyToId      String?
   editedAt       DateTime?
   deletedAt      DateTime?
   attachmentUrl  String?
-  attachmentType String?  // image, file, audio, voice
+  attachmentType String?
   attachmentName String?
   flagged        Boolean  @default(false)
   createdAt      DateTime @default(now())
@@ -365,10 +403,6 @@ model ChatMessage {
   @@index([userId])
 }
 
-/**
- * An emoji reaction by a user on a message.
- * One (messageId, userId, emoji) tuple per user+emoji.
- */
 model MessageReaction {
   id        String   @id @default(cuid())
   messageId String

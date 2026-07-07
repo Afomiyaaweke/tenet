@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       contextPrompt += `\n- Name: ${user!.profile.fullName}`;
       contextPrompt += `\n- Profile type: ${user!.profile.type}`;
       contextPrompt += `\n- Location: ${user!.profile.location}`;
-      if (user!.profile.companyName) contextPrompt += `\n- Company: ${user!.profile.companyName}`;
+      if (user!.company?.name) contextPrompt += `\n- Company: ${user!.company.name}`;
       if (user!.profile.skillTags) contextPrompt += `\n- Skills: ${user!.profile.skillTags}`;
       contextPrompt += `\n- Verified: ${user!.profile.verified ? 'Yes' : 'No'}`;
     }

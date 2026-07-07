@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, useNavStore } from '@/store';
-import { api, Tender, Bid } from '@/lib/api';
+import { api, Tender, Bid, BidAnalysis, BidAnalysisResult } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { toast } from 'sonner';
 import {
   ArrowLeft, MapPin, Calendar, DollarSign, Tag, FileText, Gavel, Clock, Users,
   ChevronDown, ChevronUp, Award, AlertCircle, CheckCircle, X, ArrowRight,
   Briefcase, TrendingUp, Timer, CircleDot, Eye, Building2,
   ListChecks, FileStack, CircleCheck, Target, Ban, GitCompareArrows,
+  Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion,
+  TrendingDown, Loader2, BrainCircuit, AlertTriangle,
 } from 'lucide-react';
 
 const containerVariants = {
@@ -28,10 +33,59 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
 };
 
-type DetailTab = 'overview' | 'bids' | 'documents';
+type DetailTab = 'overview' | 'bids' | 'documents' | 'analysis';
 
 function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+function parseBidAnalysis(analysis: BidAnalysis): BidAnalysisResult | null {
+  try {
+    return {
+      summary: JSON.parse(analysis.summary || '{}'),
+      applicants: JSON.parse(analysis.rankings || '[]'),
+      budgetAnalysis: analysis.budgetAnalysis || '',
+      riskSummary: analysis.riskSummary || '',
+      finalRecommendation: analysis.recommendation || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function ScoreBar({ score, label }: { score: number; label?: string }) {
+  const colorClass = score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500';
+  const textColor = score >= 80 ? 'text-emerald-700' : score >= 60 ? 'text-amber-700' : 'text-red-700';
+  return (
+    <div className="flex items-center gap-2 min-w-[120px]">
+      {label && <span className="text-[10px] text-muted-foreground w-12 shrink-0">{label}</span>}
+      <div className="flex-1 h-2 bg-muted/50 rounded-full overflow-hidden">
+        <motion.div
+          className={`h-full rounded-full ${colorClass}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${Math.min(score, 100)}%` }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+        />
+      </div>
+      <span className={`text-xs font-semibold ${textColor} w-8 text-right`}>{score}</span>
+    </div>
+  );
+}
+
+function RiskBadge({ level }: { level: 'low' | 'medium' | 'high' }) {
+  const config = {
+    low: { className: 'bg-emerald-100 text-emerald-700', icon: ShieldCheck },
+    medium: { className: 'bg-amber-100 text-amber-700', icon: ShieldQuestion },
+    high: { className: 'bg-red-100 text-red-700', icon: ShieldAlert },
+  };
+  const c = config[level];
+  const Icon = c.icon;
+  return (
+    <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${c.className}`}>
+      <Icon className="h-3 w-3 mr-1" />
+      {level.charAt(0).toUpperCase() + level.slice(1)}
+    </Badge>
+  );
 }
 
 export function TenderDetailView({ tenderId }: { tenderId?: string }) {
@@ -47,6 +101,14 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
   const [hasBid, setHasBid] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
 
+  // Analysis state
+  const [analyses, setAnalyses] = useState<BidAnalysis[]>([]);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysesLoading, setAnalysesLoading] = useState(false);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
+
+  const isAdminOrCreator = user?.role === 'super_admin' || (user?.role === 'team_admin' && tender?.createdBy === user.id);
+
   const loadTender = useCallback(async () => {
     setLoading(true);
     const res = await api.get(`/tenders/${tenderId}`);
@@ -60,11 +122,53 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
     setLoading(false);
   }, [tenderId, user?.id]);
 
+  const loadAnalyses = useCallback(async () => {
+    if (!tenderId) return;
+    setAnalysesLoading(true);
+    const res = await api.get('/bid-analysis', { tenderId });
+    if (res.success) {
+      setAnalyses(res.data);
+      // Auto-select the latest analysis
+      if (res.data.length > 0 && !selectedAnalysisId) {
+        setSelectedAnalysisId(res.data[0].id);
+      }
+    }
+    setAnalysesLoading(false);
+  }, [tenderId, selectedAnalysisId]);
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (tenderId) loadTender();
   }, [tenderId, loadTender]);
+
+  useEffect(() => {
+    if (tenderId && activeTab === 'analysis') loadAnalyses();
+  }, [tenderId, activeTab, loadAnalyses]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  const handleRunAnalysis = async () => {
+    if (!tenderId) return;
+    setAnalysisLoading(true);
+    try {
+      const res = await api.post('/bid-analysis', { tenderId });
+      if (res.success) {
+        toast.success('AI analysis completed successfully!');
+        // Reload analyses and select the new one
+        const analysesRes = await api.get('/bid-analysis', { tenderId });
+        if (analysesRes.success) {
+          setAnalyses(analysesRes.data);
+          if (analysesRes.data.length > 0) {
+            setSelectedAnalysisId(analysesRes.data[0].id);
+          }
+        }
+      } else {
+        toast.error(res.error || 'Failed to run analysis');
+      }
+    } catch {
+      toast.error('Failed to run AI analysis. Please try again.');
+    }
+    setAnalysisLoading(false);
+  };
 
   const handleSubmitBid = async () => {
     const res = await api.post('/bids', {
@@ -129,6 +233,17 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
     }
   };
 
+  // Get the selected analysis data
+  const selectedAnalysis = useMemo(() => {
+    if (!selectedAnalysisId) return null;
+    return analyses.find(a => a.id === selectedAnalysisId) || null;
+  }, [selectedAnalysisId, analyses]);
+
+  const parsedAnalysis = useMemo(() => {
+    if (!selectedAnalysis) return null;
+    return parseBidAnalysis(selectedAnalysis);
+  }, [selectedAnalysis]);
+
   if (loading) {
     return (
       <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto view-enter">
@@ -160,13 +275,14 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
 
   const isOpen = tender.status === 'open';
   const deadlinePassed = new Date(tender.deadline) < new Date();
-  const canBid = user?.role === 'contractor' && isOpen && !deadlinePassed && !hasBid && user?.profile?.verified;
+  const canBid = user?.role === 'user' && isOpen && !deadlinePassed && !hasBid;
   const days = daysUntil(tender.deadline);
 
   const tabs: { key: DetailTab; label: string; icon: typeof ListChecks; count?: number }[] = [
     { key: 'overview', label: 'Overview', icon: ListChecks },
     { key: 'bids', label: 'Bids', icon: Gavel, count: bids.length },
     { key: 'documents', label: 'Documents', icon: FileStack },
+    ...(isAdminOrCreator ? [{ key: 'analysis' as DetailTab, label: 'Analysis', icon: BrainCircuit, count: analyses.length || undefined }] : []),
   ];
 
   return (
@@ -338,7 +454,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                     <CheckCircle className="h-4 w-4 mr-1.5" /> Bid Submitted
                   </Badge>
                 )}
-                {(user?.role === 'admin' || (user?.role === 'tender_owner' && tender.createdBy === user.id)) && (
+                {(user?.role === 'super_admin' || (user?.role === 'team_admin' && tender.createdBy === user.id)) && (
                   <div className="flex lg:flex-col gap-2">
                     {tender.status === 'open' && (
                       <Button variant="outline" size="sm" onClick={() => handleStatusChange('closed')}
@@ -372,12 +488,12 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
       >
         <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardContent className="p-1.5">
-            <div className="flex gap-1">
+            <div className="flex gap-1 overflow-x-auto">
               {tabs.map(tab => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     activeTab === tab.key
                       ? 'gradient-emerald text-white premium-shadow'
                       : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
@@ -551,11 +667,11 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
               </div>
             )}
 
-            {(user?.role === 'admin' || user?.role === 'tender_owner') && bids.length > 0 ? (
+            {(user?.role === 'super_admin' || user?.role === 'team_admin') && bids.length > 0 ? (
               <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                       <div className="p-1.5 rounded-lg gradient-amber">
                         <Gavel className="h-3.5 w-3.5 text-white" />
@@ -565,15 +681,27 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         {bids.length}
                       </Badge>
                     </CardTitle>
-                    {bids.length >= 2 && (
-                      <Button
-                        size="sm"
-                        className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
-                        onClick={() => setView('bid-compare', { tenderId: tender.id })}
-                      >
-                        <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" /> Compare Bids
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* Analyze Bids button for tender creators */}
+                      {isAdminOrCreator && (
+                        <Button
+                          size="sm"
+                          className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+                          onClick={() => setActiveTab('analysis')}
+                        >
+                          <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Analyze Bids
+                        </Button>
+                      )}
+                      {bids.length >= 2 && (
+                        <Button
+                          size="sm"
+                          className="gradient-teal hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+                          onClick={() => setView('bid-compare', { tenderId: tender.id })}
+                        >
+                          <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" /> Compare Bids
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -666,6 +794,354 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             </Card>
           </motion.div>
         )}
+
+        {/* Analysis Tab */}
+        {activeTab === 'analysis' && (
+          <motion.div
+            key="analysis"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
+            {/* Analysis Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl gradient-emerald flex-shrink-0">
+                  <BrainCircuit className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">AI Bid Analysis</h3>
+                  <p className="text-xs text-muted-foreground">Powered by Tenets AI — rank, score, and evaluate bids automatically</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {analyses.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl text-xs"
+                    onClick={loadAnalyses}
+                  >
+                    <Eye className="h-3.5 w-3.5 mr-1.5" /> Refresh
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+                  onClick={handleRunAnalysis}
+                  disabled={analysisLoading || bids.length === 0}
+                >
+                  {analysisLoading ? (
+                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Analyzing...</>
+                  ) : (
+                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Run AI Analysis</>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* No bids message */}
+            {bids.length === 0 && (
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
+                <CardContent className="p-12 text-center">
+                  <div className="relative w-16 h-16 mx-auto mb-4">
+                    <div className="absolute inset-0 rounded-2xl gradient-amber opacity-20" />
+                    <div className="absolute inset-2 rounded-xl gradient-amber flex items-center justify-center">
+                      <Gavel className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold">No bids to analyze</h3>
+                  <p className="text-muted-foreground text-sm mt-1">AI analysis requires at least one submitted bid on this tender</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Analysis loading */}
+            {analysisLoading && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <Card className="premium-shadow rounded-xl border-0 bg-card">
+                  <CardContent className="p-12 text-center space-y-4">
+                    <div className="relative w-16 h-16 mx-auto">
+                      <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20 animate-pulse" />
+                      <div className="absolute inset-2 rounded-xl gradient-emerald flex items-center justify-center">
+                        <Sparkles className="h-6 w-6 text-white animate-pulse" />
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-semibold">Analyzing bids with AI...</h3>
+                    <p className="text-muted-foreground text-sm">This may take a moment. Our AI is evaluating each bid&apos;s technical merit, financial competitiveness, and risk profile.</p>
+                    <div className="flex items-center justify-center gap-1.5 pt-2">
+                      {[0, 1, 2].map(i => (
+                        <motion.div
+                          key={i}
+                          className="h-2 w-2 rounded-full bg-emerald-500"
+                          animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Previous analyses selector */}
+            {analyses.length > 1 && !analysisLoading && (
+              <Card className="premium-shadow rounded-xl border-0 bg-card">
+                <CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Previous Analyses</p>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {analyses.map((a, idx) => (
+                      <button
+                        key={a.id}
+                        onClick={() => setSelectedAnalysisId(a.id)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                          selectedAnalysisId === a.id
+                            ? 'gradient-emerald text-white premium-shadow'
+                            : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
+                      >
+                        <BarChart3 className="h-3 w-3" />
+                        <span>Analysis {analyses.length - idx}</span>
+                        <span className={selectedAnalysisId === a.id ? 'text-white/70' : 'text-muted-foreground'}>
+                          {new Date(a.createdAt).toLocaleDateString()}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Analysis Results */}
+            {parsedAnalysis && !analysisLoading && (
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="space-y-4"
+              >
+                {/* Summary Card */}
+                <motion.div variants={itemVariants}>
+                  <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                    <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg gradient-emerald">
+                          <BarChart3 className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        Analysis Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div className="bg-emerald-50/60 rounded-xl p-4 text-center">
+                          <Users className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
+                          <p className="text-2xl font-bold text-emerald-700">{parsedAnalysis.summary.totalBids}</p>
+                          <p className="text-[10px] text-muted-foreground">Total Bids</p>
+                        </div>
+                        <div className="bg-teal-50/60 rounded-xl p-4 text-center">
+                          <TrendingUp className="h-5 w-5 text-teal-600 mx-auto mb-1" />
+                          <p className="text-2xl font-bold text-teal-700">{parsedAnalysis.summary.averageScore}</p>
+                          <p className="text-[10px] text-muted-foreground">Average Score</p>
+                        </div>
+                        <div className="bg-amber-50/60 rounded-xl p-4 text-center col-span-2 sm:col-span-1">
+                          <DollarSign className="h-5 w-5 text-amber-600 mx-auto mb-1" />
+                          <p className="text-sm font-bold text-amber-700 leading-snug">Budget Analysis</p>
+                          <p className="text-[10px] text-muted-foreground mt-1 line-clamp-3">{parsedAnalysis.budgetAnalysis}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                {/* Risk Summary */}
+                {parsedAnalysis.riskSummary && (
+                  <motion.div variants={itemVariants}>
+                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                      <div className="h-1 bg-gradient-to-r from-amber-400 to-rose-400" />
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-amber-50">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                          </div>
+                          Risk Assessment
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-xl p-4">
+                          {parsedAnalysis.riskSummary}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* Rankings Table */}
+                {parsedAnalysis.applicants.length > 0 && (
+                  <motion.div variants={itemVariants}>
+                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                      <div className="h-1 bg-gradient-to-r from-teal-400 to-emerald-400" />
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg gradient-teal">
+                            <Award className="h-3.5 w-3.5 text-white" />
+                          </div>
+                          Applicant Rankings
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12">Rank</TableHead>
+                                <TableHead>Applicant</TableHead>
+                                <TableHead className="text-center">Overall</TableHead>
+                                <TableHead className="text-center">Technical</TableHead>
+                                <TableHead className="text-center">Financial</TableHead>
+                                <TableHead className="text-center">Risk</TableHead>
+                                <TableHead>Key Points</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {parsedAnalysis.applicants.map((applicant) => (
+                                <TableRow key={applicant.rank}>
+                                  <TableCell>
+                                    <div className={`flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold ${
+                                      applicant.rank === 1 ? 'gradient-emerald text-white' :
+                                      applicant.rank === 2 ? 'bg-teal-100 text-teal-700' :
+                                      applicant.rank === 3 ? 'bg-amber-100 text-amber-700' :
+                                      'bg-muted text-muted-foreground'
+                                    }`}>
+                                      {applicant.rank}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div>
+                                      <p className="text-sm font-medium">{applicant.name}</p>
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <Building2 className="h-3 w-3 text-muted-foreground" />
+                                        <p className="text-[11px] text-muted-foreground">{applicant.company}</p>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <ScoreBar score={applicant.overallScore} />
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <ScoreBar score={applicant.technicalScore} />
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <ScoreBar score={applicant.financialScore} />
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <RiskBadge level={applicant.riskLevel} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1.5 max-w-[220px]">
+                                      {/* Strengths */}
+                                      {applicant.strengths.length > 0 && (
+                                        <div className="flex flex-wrap gap-1">
+                                          {applicant.strengths.map((s, i) => (
+                                            <span key={i} className="inline-flex items-center text-[10px] font-medium bg-emerald-50 text-emerald-700 rounded-md px-1.5 py-0.5">
+                                              <CheckCircle className="h-2.5 w-2.5 mr-0.5" />{s}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {/* Weaknesses */}
+                                      {applicant.weaknesses.length > 0 && (
+                                        <div className="flex flex-wrap gap-1">
+                                          {applicant.weaknesses.map((w, i) => (
+                                            <span key={i} className="inline-flex items-center text-[10px] font-medium bg-rose-50 text-rose-700 rounded-md px-1.5 py-0.5">
+                                              <TrendingDown className="h-2.5 w-2.5 mr-0.5" />{w}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* Recommendation Card */}
+                {parsedAnalysis.finalRecommendation && (
+                  <motion.div variants={itemVariants}>
+                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                      <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg gradient-emerald">
+                            <Target className="h-3.5 w-3.5 text-white" />
+                          </div>
+                          Final Recommendation
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-4 border border-emerald-200/50 dark:border-emerald-800/30">
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{parsedAnalysis.finalRecommendation}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* Analysis metadata */}
+                {selectedAnalysis && (
+                  <motion.div variants={itemVariants}>
+                    <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+                      <span>Analysis run on {new Date(selectedAnalysis.createdAt).toLocaleString()}</span>
+                      {analyses.length > 1 && (
+                        <button
+                          onClick={() => setSelectedAnalysisId(null)}
+                          className="hover:text-foreground transition-colors"
+                        >
+                          View all analyses
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+
+            {/* No analysis yet */}
+            {analyses.length === 0 && !analysisLoading && bids.length > 0 && (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+                <Card className="premium-shadow rounded-xl border-0 bg-card">
+                  <CardContent className="p-12 text-center">
+                    <div className="relative w-20 h-20 mx-auto mb-6">
+                      <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20" />
+                      <div className="absolute inset-2 rounded-xl gradient-emerald flex items-center justify-center">
+                        <BrainCircuit className="h-8 w-8 text-white" />
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-semibold">No analysis yet</h3>
+                    <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+                      Click &quot;Run AI Analysis&quot; to automatically evaluate and rank all {bids.length} bid{bids.length !== 1 ? 's' : ''} submitted on this tender.
+                    </p>
+                    <Button
+                      className="mt-4 gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+                      onClick={handleRunAnalysis}
+                      disabled={analysisLoading}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" /> Run AI Analysis
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
@@ -705,6 +1181,9 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
     }
   };
 
+  const companyName = bid.user?.company?.name;
+  const jobTitle = bid.user?.profile?.jobTitle;
+
   return (
     <motion.div variants={itemVariants} className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors space-y-2">
       <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpanded(!expanded)}>
@@ -716,7 +1195,18 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
           </div>
           <div>
             <p className="text-sm font-medium">{bid.user?.profile?.fullName || bid.user?.email || 'Contractor'}</p>
-            <p className="text-xs text-muted-foreground">Submitted {new Date(bid.createdAt).toLocaleDateString()}</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              {jobTitle && <span>{jobTitle}</span>}
+              {companyName && (
+                <>
+                  {jobTitle && <span className="text-muted-foreground/50">&middot;</span>}
+                  <span className="inline-flex items-center gap-0.5">
+                    <Building2 className="h-3 w-3" /> {companyName}
+                  </span>
+                </>
+              )}
+              {!jobTitle && !companyName && <span>Submitted {new Date(bid.createdAt).toLocaleDateString()}</span>}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -760,7 +1250,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
               </div>
 
               {/* Admin Actions */}
-              {user?.role === 'admin' && bid.status === 'pending_review' && (
+              {(user?.role === 'super_admin' || user?.role === 'team_admin') && bid.status === 'pending_review' && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button size="sm"
                     className="gradient-teal text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
@@ -774,7 +1264,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
                   </Button>
                 </div>
               )}
-              {user?.role === 'admin' && bid.status === 'shortlisted' && (
+              {(user?.role === 'super_admin' || user?.role === 'team_admin') && bid.status === 'shortlisted' && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button size="sm"
                     className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"

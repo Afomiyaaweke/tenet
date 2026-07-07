@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
-    // Remove passwordHash from response
+    // Remove passwordHash from response (user already includes company via getAuthUser)
     const { passwordHash: _, ...userWithoutPassword } = user!;
 
     return NextResponse.json({

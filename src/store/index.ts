@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { User, Tender, Bid, Project, EventItem, Chat, Notification, Document } from '@/lib/api';
+import { User, Company, Tender, Bid, Project, EventItem, Chat, Notification, Document, BidAnalysis } from '@/lib/api';
 import { api } from '@/lib/api';
 
 // Auth Store
 interface AuthState {
   user: User | null;
+  company: Company | null;
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
@@ -16,6 +17,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  company: null,
   token: typeof window !== 'undefined' ? localStorage.getItem('tenet_token') : null,
   isLoading: true,
 
@@ -41,16 +43,16 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     localStorage.removeItem('tenet_token');
-    set({ user: null, token: null });
+    set({ user: null, company: null, token: null });
   },
 
   fetchMe: async () => {
     const res = await api.get('/auth/me');
     if (res.success) {
-      set({ user: res.data, isLoading: false });
+      set({ user: res.data, company: res.data?.company || null, isLoading: false });
     } else {
       localStorage.removeItem('tenet_token');
-      set({ user: null, token: null, isLoading: false });
+      set({ user: null, company: null, token: null, isLoading: false });
     }
   },
 
@@ -58,7 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 // Navigation Store
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
 
 interface NavState {
   view: View;
@@ -81,6 +83,7 @@ interface DataState {
   documents: Document[];
   chats: Chat[];
   notifications: Notification[];
+  bidAnalyses: BidAnalysis[];
   loading: Record<string, boolean>;
 
   fetchTenders: (params?: Record<string, string>) => Promise<void>;
@@ -90,6 +93,8 @@ interface DataState {
   fetchDocuments: () => Promise<void>;
   fetchChats: () => Promise<void>;
   fetchNotifications: () => Promise<void>;
+  fetchCompany: (companyId: string) => Promise<void>;
+  fetchBidAnalyses: (tenderId: string) => Promise<void>;
   setLoading: (key: string, val: boolean) => void;
 }
 
@@ -101,6 +106,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   documents: [],
   chats: [],
   notifications: [],
+  bidAnalyses: [],
   loading: {},
 
   fetchTenders: async (params) => {
@@ -148,6 +154,22 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchNotifications: async () => {
     const res = await api.get('/notifications');
     if (res.success) set({ notifications: res.data });
+  },
+
+  fetchCompany: async (companyId) => {
+    get().setLoading('company', true);
+    const res = await api.get(`/companies/${companyId}`);
+    if (res.success) {
+      useAuthStore.setState({ company: res.data });
+    }
+    get().setLoading('company', false);
+  },
+
+  fetchBidAnalyses: async (tenderId) => {
+    get().setLoading('bidAnalyses', true);
+    const res = await api.get(`/tenders/${tenderId}/bid-analysis`);
+    if (res.success) set({ bidAnalyses: res.data });
+    get().setLoading('bidAnalyses', false);
   },
 
   setLoading: (key, val) => set((s) => ({ loading: { ...s.loading, [key]: val } })),

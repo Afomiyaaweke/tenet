@@ -12,7 +12,7 @@ import {
   Gavel, Clock, DollarSign, FileSearch, Award, AlertCircle,
   CheckCircle, ChevronDown, ChevronUp, ArrowRight, TrendingUp,
   Briefcase, X, Eye, RotateCcw, Filter, Target,
-  CircleDot,
+  CircleDot, Building2,
 } from 'lucide-react';
 
 const containerVariants = {
@@ -90,6 +90,8 @@ export function BidsView() {
     }
   };
 
+  const isAdminOrOwner = user?.role === 'super_admin' || user?.role === 'team_admin';
+
   const tabs: { key: BidTab; label: string; icon: typeof Clock; count: number; color: string }[] = [
     { key: 'all', label: 'All', icon: Gavel, count: stats.total, color: 'emerald' },
     { key: 'pending_review', label: 'Pending', icon: Clock, count: stats.pending, color: 'amber' },
@@ -113,10 +115,10 @@ export function BidsView() {
           </div>
           <div>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-              <span className="text-gradient-emerald">{user?.role === 'admin' || user?.role === 'tender_owner' ? 'Review' : 'My'}</span> Bids
+              <span className="text-gradient-emerald">{isAdminOrOwner ? 'Review' : 'My'}</span> Bids
             </h2>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {user?.role === 'admin' || user?.role === 'tender_owner' ? 'Manage and evaluate submitted bids' : 'Track your bid submissions'}
+              {isAdminOrOwner ? 'Manage and evaluate submitted bids' : 'Track your bid submissions'}
             </p>
           </div>
         </div>
@@ -212,11 +214,11 @@ export function BidsView() {
               </div>
               <h3 className="text-lg font-semibold">No bids found</h3>
               <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
-                {user?.role === 'contractor'
+                {user?.role === 'user'
                   ? 'Start by browsing open tenders and submitting your proposals'
                   : 'No bids match your current filters'}
               </p>
-              {user?.role === 'contractor' && (
+              {user?.role === 'user' && (
                 <Button
                   className="mt-4 gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
                   onClick={() => setView('tenders')}>
@@ -250,7 +252,8 @@ export function BidsView() {
               const sInfo = statusIcon(bid.status);
               const SIcon = sInfo.icon;
               const isExpanded = expandedId === bid.id;
-              const isAdminOrOwner = user?.role === 'admin' || user?.role === 'tender_owner';
+              const companyName = bid.user?.company?.name;
+              const jobTitle = bid.user?.profile?.jobTitle;
 
               return (
                 <motion.div
@@ -287,9 +290,32 @@ export function BidsView() {
                               </p>
                               <p className="text-xs text-muted-foreground mt-0.5">
                                 {isAdminOrOwner
-                                  ? (bid.user?.profile?.fullName || bid.user?.email || 'Contractor')
-                                  : (bid.user?.profile?.fullName || 'Contractor')
-                                } &middot; {new Date(bid.createdAt).toLocaleDateString()}
+                                  ? (
+                                    <span className="flex items-center gap-1 flex-wrap">
+                                      <span>{bid.user?.profile?.fullName || bid.user?.email || 'Contractor'}</span>
+                                      {jobTitle && <span className="text-muted-foreground/60">&middot; {jobTitle}</span>}
+                                      {companyName && (
+                                        <span className="inline-flex items-center gap-0.5">
+                                          <span className="text-muted-foreground/60">&middot;</span>
+                                          <Building2 className="h-3 w-3" /> {companyName}
+                                        </span>
+                                      )}
+                                      <span className="text-muted-foreground/60">&middot; {new Date(bid.createdAt).toLocaleDateString()}</span>
+                                    </span>
+                                  )
+                                  : (
+                                    <span className="flex items-center gap-1.5 flex-wrap">
+                                      <span>{bid.user?.profile?.fullName || 'Contractor'}</span>
+                                      {companyName && (
+                                        <span className="inline-flex items-center gap-0.5">
+                                          <span className="text-muted-foreground/60">&middot;</span>
+                                          <Building2 className="h-3 w-3" /> {companyName}
+                                        </span>
+                                      )}
+                                      <span className="text-muted-foreground/60">&middot; {new Date(bid.createdAt).toLocaleDateString()}</span>
+                                    </span>
+                                  )
+                                }
                               </p>
                             </div>
                           </div>
@@ -406,7 +432,7 @@ export function BidsView() {
                                 )}
 
                                 {/* Contractor: Withdraw action for pending bids */}
-                                {user?.role === 'contractor' && bid.status === 'pending_review' && (
+                                {user?.role === 'user' && bid.status === 'pending_review' && (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -417,7 +443,7 @@ export function BidsView() {
                                 )}
 
                                 {/* Status tracking for contractor */}
-                                {user?.role === 'contractor' && (
+                                {user?.role === 'user' && (
                                   <div className="flex items-center gap-2 ml-auto">
                                     <div className="flex items-center gap-1.5">
                                       {['pending_review', 'shortlisted', 'awarded'].map((step, idx) => {

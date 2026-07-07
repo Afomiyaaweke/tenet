@@ -40,7 +40,10 @@ export async function GET(request: NextRequest) {
                 id: true,
                 email: true,
                 profile: {
-                  select: { fullName: true, companyName: true, profilePhoto: true },
+                  select: { fullName: true, jobTitle: true, profilePhoto: true },
+                },
+                company: {
+                  select: { id: true, name: true },
                 },
               },
             },
@@ -204,9 +207,12 @@ export async function POST(request: NextRequest) {
                     profile: {
                       select: {
                         fullName: true,
-                        companyName: true,
+                        jobTitle: true,
                         profilePhoto: true,
                       },
+                    },
+                    company: {
+                      select: { id: true, name: true },
                     },
                   },
                 },
@@ -255,9 +261,12 @@ export async function POST(request: NextRequest) {
                   profile: {
                     select: {
                       fullName: true,
-                      companyName: true,
+                      jobTitle: true,
                       profilePhoto: true,
                     },
+                  },
+                  company: {
+                    select: { id: true, name: true },
                   },
                 },
               },

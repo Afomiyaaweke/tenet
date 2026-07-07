@@ -1,0 +1,798 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { useAuthStore, useNavStore } from '@/store';
+     6→import { api, Tender, Bid } from '@/lib/api';
+     7→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     8→import { Badge } from '@/components/ui/badge';
+     9→import { Button } from '@/components/ui/button';
+    10→import { Input } from '@/components/ui/input';
+    11→import { Textarea } from '@/components/ui/textarea';
+    12→import { Label } from '@/components/ui/label';
+    13→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    14→import { toast } from 'sonner';
+    15→import {
+    16→  ArrowLeft, MapPin, Calendar, DollarSign, Tag, FileText, Gavel, Clock, Users,
+    17→  ChevronDown, ChevronUp, Award, AlertCircle, CheckCircle, X, ArrowRight,
+    18→  Briefcase, TrendingUp, Timer, CircleDot, Eye, Building2,
+    19→  ListChecks, FileStack, CircleCheck, Target, Ban, GitCompareArrows,
+    20→} from 'lucide-react';
+    21→
+    22→const containerVariants = {
+    23→  hidden: { opacity: 0 },
+    24→  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+    25→};
+    26→const itemVariants = {
+    27→  hidden: { opacity: 0, y: 12 },
+    28→  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+    29→};
+    30→
+    31→type DetailTab = 'overview' | 'bids' | 'documents';
+    32→
+    33→function daysUntil(dateStr: string): number {
+    34→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    35→}
+    36→
+    37→export function TenderDetailView({ tenderId }: { tenderId?: string }) {
+    38→  const { user } = useAuthStore();
+    39→  const { setView } = useNavStore();
+    40→  const [tender, setTender] = useState<Tender | null>(null);
+    41→  const [bids, setBids] = useState<Bid[]>([]);
+    42→  const [loading, setLoading] = useState(true);
+    43→  const [showBid, setShowBid] = useState(false);
+    44→  const [bidData, setBidData] = useState({
+    45→    technicalProposal: '', financialProposal: '', timeline: '',
+    46→  });
+    47→  const [hasBid, setHasBid] = useState(false);
+    48→  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+    49→
+    50→  const loadTender = useCallback(async () => {
+    51→    setLoading(true);
+    52→    const res = await api.get(`/tenders/${tenderId}`);
+    53→    if (res.success) setTender(res.data);
+    54→    // Load bids for this tender
+    55→    const bidsRes = await api.get('/bids', { tenderId: tenderId! });
+    56→    if (bidsRes.success) {
+    57→      setBids(bidsRes.data);
+    58→      setHasBid(bidsRes.data.some((b: Bid) => b.userId === user?.id));
+    59→    }
+    60→    setLoading(false);
+    61→  }, [tenderId, user?.id]);
+    62→
+    63→  /* eslint-disable react-hooks/set-state-in-effect */
+    64→  useEffect(() => {
+    65→    if (tenderId) loadTender();
+    66→  }, [tenderId, loadTender]);
+    67→  /* eslint-enable react-hooks/set-state-in-effect */
+    68→
+    69→  const handleSubmitBid = async () => {
+    70→    const res = await api.post('/bids', {
+    71→      tenderId,
+    72→      ...bidData,
+    73→      financialProposal: parseFloat(bidData.financialProposal),
+    74→    });
+    75→    if (res.success) {
+    76→      toast.success('Bid submitted successfully!');
+    77→      setShowBid(false);
+    78→      loadTender();
+    79→    } else {
+    80→      toast.error(res.error || 'Failed to submit bid');
+    81→    }
+    82→  };
+    83→
+    84→  const handleStatusChange = async (status: string) => {
+    85→    const res = await api.patch(`/tenders/${tenderId}/status`, { status });
+    86→    if (res.success) {
+    87→      toast.success(`Tender status updated to ${status}`);
+    88→      loadTender();
+    89→    } else {
+    90→      toast.error(res.error || 'Failed to update status');
+    91→    }
+    92→  };
+    93→
+    94→  const bidStats = useMemo(() => ({
+    95→    pending: bids.filter(b => b.status === 'pending_review').length,
+    96→    shortlisted: bids.filter(b => b.status === 'shortlisted').length,
+    97→    awarded: bids.filter(b => b.status === 'awarded').length,
+    98→    rejected: bids.filter(b => b.status === 'rejected').length,
+    99→    total: bids.length,
+   100→  }), [bids]);
+   101→
+   102→  const statusBadge = (status: string) => {
+   103→    switch (status) {
+   104→      case 'open': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   105→      case 'closed': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   106→      case 'awarded': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
+   107→      case 'cancelled': return 'bg-muted text-muted-foreground hover:bg-muted';
+   108→      default: return 'bg-muted text-muted-foreground hover:bg-muted';
+   109→    }
+   110→  };
+   111→
+   112→  const statusDot = (status: string) => {
+   113→    switch (status) {
+   114→      case 'open': return 'bg-emerald-500';
+   115→      case 'closed': return 'bg-rose-500';
+   116→      case 'awarded': return 'bg-teal-500';
+   117→      case 'cancelled': return 'bg-muted-foreground/50';
+   118→      default: return 'bg-muted-foreground/50';
+   119→    }
+   120→  };
+   121→
+   122→  const statusAccent = (status: string) => {
+   123→    switch (status) {
+   124→      case 'open': return 'from-emerald-400 to-emerald-600';
+   125→      case 'closed': return 'from-rose-400 to-rose-600';
+   126→      case 'awarded': return 'from-teal-400 to-teal-600';
+   127→      case 'cancelled': return 'from-muted to-muted-foreground/50';
+   128→      default: return 'from-muted to-muted-foreground/50';
+   129→    }
+   130→  };
+   131→
+   132→  if (loading) {
+   133→    return (
+   134→      <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto view-enter">
+   135→        <div className="h-8 bg-muted/50 rounded-xl w-1/3 animate-pulse" />
+   136→        <div className="h-1.5 bg-muted/30 rounded-xl animate-pulse" />
+   137→        <div className="h-40 bg-muted/50 rounded-xl animate-pulse premium-shadow" />
+   138→        <div className="h-20 bg-muted/50 rounded-xl animate-pulse premium-shadow" />
+   139→      </div>
+   140→    );
+   141→  }
+   142→
+   143→  if (!tender) {
+   144→    return (
+   145→      <div className="p-6 text-center view-enter">
+   146→        <div className="relative w-20 h-20 mx-auto mb-6">
+   147→          <div className="absolute inset-0 rounded-2xl gradient-rose opacity-20" />
+   148→          <div className="absolute inset-2 rounded-xl gradient-rose flex items-center justify-center">
+   149→            <FileText className="h-8 w-8 text-white" />
+   150→          </div>
+   151→        </div>
+   152→        <h3 className="text-lg font-semibold">Tender not found</h3>
+   153→        <p className="text-muted-foreground text-sm mt-2">The tender you&apos;re looking for doesn&apos;t exist or has been removed</p>
+   154→        <Button variant="outline" onClick={() => setView('tenders')} className="mt-4 rounded-xl">
+   155→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
+   156→        </Button>
+   157→      </div>
+   158→    );
+   159→  }
+   160→
+   161→  const isOpen = tender.status === 'open';
+   162→  const deadlinePassed = new Date(tender.deadline) < new Date();
+   163→  const canBid = user?.role === 'contractor' && isOpen && !deadlinePassed && !hasBid && user?.profile?.verified;
+   164→  const days = daysUntil(tender.deadline);
+   165→
+   166→  const tabs: { key: DetailTab; label: string; icon: typeof ListChecks; count?: number }[] = [
+   167→    { key: 'overview', label: 'Overview', icon: ListChecks },
+   168→    { key: 'bids', label: 'Bids', icon: Gavel, count: bids.length },
+   169→    { key: 'documents', label: 'Documents', icon: FileStack },
+   170→  ];
+   171→
+   172→  return (
+   173→    <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto view-enter">
+   174→      {/* Back Button */}
+   175→      <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
+   176→        <Button variant="ghost" onClick={() => setView('tenders')}
+   177→          className="hover:text-emerald-700 hover:bg-primary/10 transition-colors rounded-xl">
+   178→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
+   179→        </Button>
+   180→      </motion.div>
+   181→
+   182→      {/* Hero Section */}
+   183→      <motion.div
+   184→        initial={{ opacity: 0, y: 12 }}
+   185→        animate={{ opacity: 1, y: 0 }}
+   186→        transition={{ duration: 0.45 }}
+   187→      >
+   188→        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
+   189→          {/* Accent strip */}
+   190→          <div className={`h-2 bg-gradient-to-r ${statusAccent(tender.status)}`} />
+   191→
+   192→          <CardContent className="p-6 space-y-5">
+   193→            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+   194→              <div className="flex-1 space-y-3">
+   195→                <div className="flex items-start gap-3">
+   196→                  <div className={`p-2.5 rounded-xl flex-shrink-0 ${
+   197→                    tender.status === 'open' ? 'gradient-emerald' :
+   198→                    tender.status === 'awarded' ? 'gradient-teal' :
+   199→                    tender.status === 'cancelled' ? 'bg-muted' :
+   200→                    'gradient-rose'
+   201→                  }`}>
+   202→                    <FileText className="h-5 w-5 text-white" />
+   203→                  </div>
+   204→                  <div className="min-w-0">
+   205→                    <h2 className="text-2xl font-bold tracking-tight">{tender.title}</h2>
+   206→                    <div className="flex flex-wrap items-center gap-2 mt-2">
+   207→                      <div className="flex items-center gap-1.5">
+   208→                        <span className={`h-1.5 w-1.5 rounded-full ${statusDot(tender.status)}`} />
+   209→                        <Badge className={`text-xs px-2.5 py-0.5 border-0 rounded-lg ${statusBadge(tender.status)}`}>
+   210→                          {tender.status}
+   211→                        </Badge>
+   212→                      </div>
+   213→                      {tender.categoryTags.split(',').filter(Boolean).map(tag => (
+   214→                        <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-lg hover:bg-primary/10">
+   215→                          {tag.trim()}
+   216→                        </Badge>
+   217→                      ))}
+   218→                    </div>
+   219→                  </div>
+   220→                </div>
+   221→
+   222→                {/* Key Metrics */}
+   223→                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+   224→                  <div className="bg-emerald-50/60 rounded-xl p-3">
+   225→                    <div className="flex items-center gap-1.5 mb-1">
+   226→                      <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+   227→                      <span className="text-[10px] text-emerald-600 font-medium">Budget</span>
+   228→                    </div>
+   229→                    <p className="text-sm font-bold text-emerald-700">ETB {tender.budgetMin.toLocaleString()} – {tender.budgetMax.toLocaleString()}</p>
+   230→                  </div>
+   231→                  <div className="bg-amber-50/60 rounded-xl p-3">
+   232→                    <div className="flex items-center gap-1.5 mb-1">
+   233→                      <Timer className="h-3.5 w-3.5 text-amber-600" />
+   234→                      <span className="text-[10px] text-amber-600 font-medium">Deadline</span>
+   235→                    </div>
+   236→                    <p className="text-sm font-bold text-amber-700">{new Date(tender.deadline).toLocaleDateString()}</p>
+   237→                    <p className={`text-[10px] font-medium mt-0.5 ${days <= 0 ? 'text-rose-600' : days <= 3 ? 'text-rose-600' : days <= 7 ? 'text-amber-600' : 'text-emerald-600'}`}>
+   238→                      {days <= 0 ? 'Expired' : days === 1 ? '1 day left' : `${days} days left`}
+   239→                    </p>
+   240→                  </div>
+   241→                  <div className="bg-teal-50/60 rounded-xl p-3">
+   242→                    <div className="flex items-center gap-1.5 mb-1">
+   243→                      <MapPin className="h-3.5 w-3.5 text-teal-600" />
+   244→                      <span className="text-[10px] text-teal-600 font-medium">Location</span>
+   245→                    </div>
+   246→                    <p className="text-sm font-bold text-teal-700">{tender.location}</p>
+   247→                  </div>
+   248→                  <div className="bg-purple-50/60 rounded-xl p-3">
+   249→                    <div className="flex items-center gap-1.5 mb-1">
+   250→                      <Users className="h-3.5 w-3.5 text-purple-600" />
+   251→                      <span className="text-[10px] text-purple-600 font-medium">Bids</span>
+   252→                    </div>
+   253→                    <p className="text-sm font-bold text-purple-700">{tender._count?.bids || 0} received</p>
+   254→                  </div>
+   255→                </div>
+   256→
+   257→                {/* Requirements — always visible while viewing the tender */}
+   258→                <div className="rounded-xl border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-4 space-y-2.5">
+   259→                  <div className="flex items-center justify-between gap-2">
+   260→                    <div className="flex items-center gap-2">
+   261→                      <div className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-900/50">
+   262→                        <ListChecks className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+   263→                      </div>
+   264→                      <span className="text-sm font-semibold text-foreground">Tender Requirements</span>
+   265→                    </div>
+   266→                    {tender.requiredDocs && (
+   267→                      <span className="text-[10px] font-medium text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/50 px-2 py-0.5 rounded-full">
+   268→                        {tender.requiredDocs.split(',').filter(Boolean).length} document{tender.requiredDocs.split(',').filter(Boolean).length === 1 ? '' : 's'}
+   269→                      </span>
+   270→                    )}
+   271→                  </div>
+   272→                  {tender.requiredDocs ? (
+   273→                    <div className="flex flex-wrap gap-1.5">
+   274→                      {tender.requiredDocs.split(',').filter(Boolean).map((doc, idx) => (
+   275→                        <span key={`${doc}-${idx}`} className="inline-flex items-center gap-1 text-xs font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded-lg px-2.5 py-1">
+   276→                          <FileStack className="h-3 w-3 shrink-0" />
+   277→                          {doc.trim()}
+   278→                        </span>
+   279→                      ))}
+   280→                    </div>
+   281→                  ) : (
+   282→                    <p className="text-xs text-muted-foreground italic">No specific documents listed — contact the tender owner for eligibility details.</p>
+   283→                  )}
+   284→                  <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1.5 border-t border-teal-200/50 dark:border-teal-900/30">
+   285→                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+   286→                      <CircleDot className="h-3 w-3 text-teal-500" /> Eligibility verified at bid submission
+   287→                    </span>
+   288→                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+   289→                      <AlertCircle className="h-3 w-3 text-amber-500" /> Late or incomplete submissions are rejected
+   290→                    </span>
+   291→                  </div>
+   292→                </div>
+   293→              </div>
+   294→
+   295→              {/* Action buttons */}
+   296→              <div className="flex items-center gap-2 flex-shrink-0 lg:flex-col lg:items-stretch">
+   297→                {canBid && (
+   298→                  <Dialog open={showBid} onOpenChange={setShowBid}>
+   299→                    <DialogTrigger asChild>
+   300→                      <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 w-full">
+   301→                        <Gavel className="h-4 w-4 mr-2" /> Submit Bid
+   302→                      </Button>
+   303→                    </DialogTrigger>
+   304→                    <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-xl">
+   305→                      <DialogHeader>
+   306→                        <DialogTitle className="text-xl font-bold">
+   307→                          <span className="text-gradient-emerald">Submit Bid</span> for {tender.title}
+   308→                        </DialogTitle>
+   309→                      </DialogHeader>
+   310→                      <div className="space-y-4">
+   311→                        <div className="space-y-2">
+   312→                          <Label className="text-sm font-medium">Technical Proposal *</Label>
+   313→                          <Textarea placeholder="Methodology, approach, team composition, relevant experience" rows={6}
+   314→                            value={bidData.technicalProposal} onChange={e => setBidData(d => ({ ...d, technicalProposal: e.target.value }))}
+   315→                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
+   316→                        </div>
+   317→                        <div className="space-y-2">
+   318→                          <Label className="text-sm font-medium">Financial Proposal (ETB) *</Label>
+   319→                          <Input type="number" placeholder="e.g. 250000"
+   320→                            value={bidData.financialProposal} onChange={e => setBidData(d => ({ ...d, financialProposal: e.target.value }))}
+   321→                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
+   322→                        </div>
+   323→                        <div className="space-y-2">
+   324→                          <Label className="text-sm font-medium">Timeline *</Label>
+   325→                          <Input placeholder="e.g. 30 days or 6 weeks"
+   326→                            value={bidData.timeline} onChange={e => setBidData(d => ({ ...d, timeline: e.target.value }))}
+   327→                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
+   328→                        </div>
+   329→                        <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleSubmitBid}>
+   330→                          Submit Bid <ArrowRight className="h-4 w-4 ml-2" />
+   331→                        </Button>
+   332→                      </div>
+   333→                    </DialogContent>
+   334→                  </Dialog>
+   335→                )}
+   336→                {hasBid && (
+   337→                  <Badge className="bg-emerald-100 text-emerald-700 border-0 rounded-lg hover:bg-emerald-100 py-1.5 px-3 text-sm">
+   338→                    <CheckCircle className="h-4 w-4 mr-1.5" /> Bid Submitted
+   339→                  </Badge>
+   340→                )}
+   341→                {(user?.role === 'admin' || (user?.role === 'tender_owner' && tender.createdBy === user.id)) && (
+   342→                  <div className="flex lg:flex-col gap-2">
+   343→                    {tender.status === 'open' && (
+   344→                      <Button variant="outline" size="sm" onClick={() => handleStatusChange('closed')}
+   345→                        className="rounded-xl text-xs">
+   346→                        <Ban className="h-3.5 w-3.5 mr-1.5" /> Close Tender
+   347→                      </Button>
+   348→                    )}
+   349→                    {tender.status === 'closed' && (
+   350→                      <Button variant="outline" size="sm" onClick={() => handleStatusChange('open')}
+   351→                        className="rounded-xl text-xs">
+   352→                        <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> Reopen
+   353→                      </Button>
+   354→                    )}
+   355→                    <Button variant="outline" size="sm" onClick={() => handleStatusChange('cancelled')}
+   356→                      className="rounded-xl text-xs border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700">
+   357→                      <X className="h-3.5 w-3.5 mr-1.5" /> Cancel
+   358→                    </Button>
+   359→                  </div>
+   360→                )}
+   361→              </div>
+   362→            </div>
+   363→          </CardContent>
+   364→        </Card>
+   365→      </motion.div>
+   366→
+   367→      {/* Tab Navigation */}
+   368→      <motion.div
+   369→        initial={{ opacity: 0, y: 6 }}
+   370→        animate={{ opacity: 1, y: 0 }}
+   371→        transition={{ duration: 0.35, delay: 0.1 }}
+   372→      >
+   373→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+   374→          <CardContent className="p-1.5">
+   375→            <div className="flex gap-1">
+   376→              {tabs.map(tab => (
+   377→                <button
+   378→                  key={tab.key}
+   379→                  onClick={() => setActiveTab(tab.key)}
+   380→                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+   381→                    activeTab === tab.key
+   382→                      ? 'gradient-emerald text-white premium-shadow'
+   383→                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+   384→                  }`}>
+   385→                  <tab.icon className="h-3.5 w-3.5" />
+   386→                  <span>{tab.label}</span>
+   387→                  {tab.count !== undefined && (
+   388→                    <span className={`text-[10px] px-1.5 py-0 rounded-full ${
+   389→                      activeTab === tab.key
+   390→                        ? 'bg-white/20 text-white'
+   391→                        : 'bg-muted text-muted-foreground'
+   392→                    }`}>
+   393→                      {tab.count}
+   394→                    </span>
+   395→                  )}
+   396→                </button>
+   397→              ))}
+   398→            </div>
+   399→          </CardContent>
+   400→        </Card>
+   401→      </motion.div>
+   402→
+   403→      {/* Tab Content */}
+   404→      <AnimatePresence mode="wait">
+   405→        {activeTab === 'overview' && (
+   406→          <motion.div
+   407→            key="overview"
+   408→            initial={{ opacity: 0, y: 8 }}
+   409→            animate={{ opacity: 1, y: 0 }}
+   410→            exit={{ opacity: 0, y: -8 }}
+   411→            transition={{ duration: 0.3 }}
+   412→            className="space-y-6"
+   413→          >
+   414→            {/* Scope of Work */}
+   415→            <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   416→              <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+   417→              <CardHeader className="pb-3">
+   418→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   419→                  <div className="p-1.5 rounded-lg gradient-emerald">
+   420→                    <Briefcase className="h-3.5 w-3.5 text-white" />
+   421→                  </div>
+   422→                  Scope of Work
+   423→                </CardTitle>
+   424→              </CardHeader>
+   425→              <CardContent>
+   426→                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm bg-muted/30 rounded-xl p-4 leading-relaxed">{tender.scope}</div>
+   427→              </CardContent>
+   428→            </Card>
+   429→
+   430→            {/* Requirements & Details Grid */}
+   431→            <div className="grid md:grid-cols-2 gap-4">
+   432→              {/* Budget Details */}
+   433→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   434→                <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
+   435→                <CardHeader className="pb-3">
+   436→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   437→                    <div className="p-1.5 rounded-lg bg-emerald-50">
+   438→                      <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+   439→                    </div>
+   440→                    Budget Information
+   441→                  </CardTitle>
+   442→                </CardHeader>
+   443→                <CardContent className="space-y-3">
+   444→                  <div className="flex justify-between items-center">
+   445→                    <span className="text-sm text-muted-foreground">Minimum Budget</span>
+   446→                    <span className="text-sm font-semibold">ETB {tender.budgetMin.toLocaleString()}</span>
+   447→                  </div>
+   448→                  <div className="flex justify-between items-center">
+   449→                    <span className="text-sm text-muted-foreground">Maximum Budget</span>
+   450→                    <span className="text-sm font-semibold">ETB {tender.budgetMax.toLocaleString()}</span>
+   451→                  </div>
+   452→                  <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+   453→                    <motion.div
+   454→                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+   455→                      initial={{ width: 0 }}
+   456→                      animate={{ width: '100%' }}
+   457→                      transition={{ duration: 0.8, ease: 'easeOut' }}
+   458→                    />
+   459→                  </div>
+   460→                  <p className="text-xs text-muted-foreground text-center">Budget range from minimum to maximum</p>
+   461→                </CardContent>
+   462→              </Card>
+   463→
+   464→              {/* Deadline & Location */}
+   465→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   466→                <div className="h-1 bg-gradient-to-r from-amber-400 to-teal-400" />
+   467→                <CardHeader className="pb-3">
+   468→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   469→                    <div className="p-1.5 rounded-lg bg-amber-50">
+   470→                      <Calendar className="h-3.5 w-3.5 text-amber-600" />
+   471→                    </div>
+   472→                    Timeline & Location
+   473→                  </CardTitle>
+   474→                </CardHeader>
+   475→                <CardContent className="space-y-3">
+   476→                  <div className="flex items-center gap-3">
+   477→                    <div className="p-2 rounded-lg bg-amber-50">
+   478→                      <Timer className="h-4 w-4 text-amber-600" />
+   479→                    </div>
+   480→                    <div>
+   481→                      <p className="text-xs text-muted-foreground">Submission Deadline</p>
+   482→                      <p className="text-sm font-semibold">{new Date(tender.deadline).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</p>
+   483→                      <p className={`text-[10px] font-medium ${days <= 0 ? 'text-rose-600' : days <= 3 ? 'text-rose-600' : days <= 7 ? 'text-amber-600' : 'text-emerald-600'}`}>
+   484→                        {days <= 0 ? 'Deadline has passed' : days === 1 ? '1 day remaining' : `${days} days remaining`}
+   485→                      </p>
+   486→                    </div>
+   487→                  </div>
+   488→                  <div className="flex items-center gap-3">
+   489→                    <div className="p-2 rounded-lg bg-teal-50">
+   490→                      <MapPin className="h-4 w-4 text-teal-600" />
+   491→                    </div>
+   492→                    <div>
+   493→                      <p className="text-xs text-muted-foreground">Project Location</p>
+   494→                      <p className="text-sm font-semibold">{tender.location}</p>
+   495→                    </div>
+   496→                  </div>
+   497→                </CardContent>
+   498→              </Card>
+   499→            </div>
+   500→
+   501→            {/* Required Documents */}
+   502→            {tender.requiredDocs && (
+   503→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   504→                <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
+   505→                <CardHeader className="pb-3">
+   506→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   507→                    <div className="p-1.5 rounded-lg bg-teal-50">
+   508→                      <FileStack className="h-3.5 w-3.5 text-teal-600" />
+   509→                    </div>
+   510→                    Required Documents
+   511→                  </CardTitle>
+   512→                </CardHeader>
+   513→                <CardContent>
+   514→                  <div className="flex flex-wrap gap-2">
+   515→                    {tender.requiredDocs.split(',').filter(Boolean).map(doc => (
+   516→                      <Badge key={doc} className="text-xs bg-teal-50 text-teal-700 border-0 rounded-lg hover:bg-teal-50 py-1 px-2.5">
+   517→                        <FileStack className="h-3 w-3 mr-1.5" /> {doc.trim()}
+   518→                      </Badge>
+   519→                    ))}
+   520→                  </div>
+   521→                </CardContent>
+   522→              </Card>
+   523→            )}
+   524→          </motion.div>
+   525→        )}
+   526→
+   527→        {activeTab === 'bids' && (
+   528→          <motion.div
+   529→            key="bids"
+   530→            initial={{ opacity: 0, y: 8 }}
+   531→            animate={{ opacity: 1, y: 0 }}
+   532→            exit={{ opacity: 0, y: -8 }}
+   533→            transition={{ duration: 0.3 }}
+   534→            className="space-y-4"
+   535→          >
+   536→            {/* Bid Stats */}
+   537→            {bids.length > 0 && (
+   538→              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   539→                {[
+   540→                  { label: 'Pending', count: bidStats.pending, color: 'amber', icon: Clock },
+   541→                  { label: 'Shortlisted', count: bidStats.shortlisted, color: 'teal', icon: Award },
+   542→                  { label: 'Awarded', count: bidStats.awarded, color: 'emerald', icon: CheckCircle },
+   543→                  { label: 'Rejected', count: bidStats.rejected, color: 'rose', icon: AlertCircle },
+   544→                ].map(stat => (
+   545→                  <div key={stat.label} className={`bg-${stat.color}-50/60 rounded-xl p-3 text-center`}>
+   546→                    <stat.icon className={`h-4 w-4 text-${stat.color}-600 mx-auto mb-1`} />
+   547→                    <p className={`text-lg font-bold text-${stat.color}-700`}>{stat.count}</p>
+   548→                    <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+   549→                  </div>
+   550→                ))}
+   551→              </div>
+   552→            )}
+   553→
+   554→            {(user?.role === 'admin' || user?.role === 'tender_owner') && bids.length > 0 ? (
+   555→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   556→                <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
+   557→                <CardHeader className="pb-3">
+   558→                  <div className="flex items-center justify-between">
+   559→                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+   560→                      <div className="p-1.5 rounded-lg gradient-amber">
+   561→                        <Gavel className="h-3.5 w-3.5 text-white" />
+   562→                      </div>
+   563→                      Submitted Bids
+   564→                      <Badge className="bg-amber-50 text-amber-700 border-0 rounded-lg text-[10px] hover:bg-amber-50">
+   565→                        {bids.length}
+   566→                      </Badge>
+   567→                    </CardTitle>
+   568→                    {bids.length >= 2 && (
+   569→                      <Button
+   570→                        size="sm"
+   571→                        className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+   572→                        onClick={() => setView('bid-compare', { tenderId: tender.id })}
+   573→                      >
+   574→                        <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" /> Compare Bids
+   575→                      </Button>
+   576→                    )}
+   577→                  </div>
+   578→                </CardHeader>
+   579→                <CardContent className="space-y-3">
+   580→                  <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
+   581→                    {bids.map(bid => (
+   582→                      <BidCard key={bid.id} bid={bid} onUpdate={loadTender} />
+   583→                    ))}
+   584→                  </motion.div>
+   585→                </CardContent>
+   586→              </Card>
+   587→            ) : bids.length > 0 ? (
+   588→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   589→                <CardContent className="p-6">
+   590→                  <div className="flex items-center gap-4 p-4 bg-emerald-50/50 rounded-xl">
+   591→                    <div className="p-2 rounded-lg gradient-emerald">
+   592→                      <CheckCircle className="h-5 w-5 text-white" />
+   593→                    </div>
+   594→                    <div>
+   595→                      <p className="text-sm font-semibold text-emerald-700">Your bid has been submitted</p>
+   596→                      <p className="text-xs text-emerald-600 mt-0.5">You&apos;ll be notified when the bid status changes</p>
+   597→                    </div>
+   598→                  </div>
+   599→                </CardContent>
+   600→              </Card>
+   601→            ) : (
+   602→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+   603→                <CardContent className="p-12 text-center">
+   604→                  <div className="relative w-16 h-16 mx-auto mb-4">
+   605→                    <div className="absolute inset-0 rounded-2xl gradient-amber opacity-20" />
+   606→                    <div className="absolute inset-2 rounded-xl gradient-amber flex items-center justify-center">
+   607→                      <Gavel className="h-6 w-6 text-white" />
+   608→                    </div>
+   609→                  </div>
+   610→                  <h3 className="text-lg font-semibold">No bids yet</h3>
+   611→                  <p className="text-muted-foreground text-sm mt-1">Bids will appear here once contractors submit proposals</p>
+   612→                </CardContent>
+   613→              </Card>
+   614→            )}
+   615→          </motion.div>
+   616→        )}
+   617→
+   618→        {activeTab === 'documents' && (
+   619→          <motion.div
+   620→            key="documents"
+   621→            initial={{ opacity: 0, y: 8 }}
+   622→            animate={{ opacity: 1, y: 0 }}
+   623→            exit={{ opacity: 0, y: -8 }}
+   624→            transition={{ duration: 0.3 }}
+   625→          >
+   626→            <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   627→              <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
+   628→              <CardHeader className="pb-3">
+   629→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   630→                  <div className="p-1.5 rounded-lg gradient-teal">
+   631→                    <FileStack className="h-3.5 w-3.5 text-white" />
+   632→                  </div>
+   633→                  Tender Documents
+   634→                </CardTitle>
+   635→              </CardHeader>
+   636→              <CardContent>
+   637→                {tender.requiredDocs ? (
+   638→                  <div className="space-y-3">
+   639→                    {tender.requiredDocs.split(',').filter(Boolean).map((doc, idx) => (
+   640→                      <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors">
+   641→                        <div className="flex items-center gap-3">
+   642→                          <div className="p-2 rounded-lg bg-teal-50">
+   643→                            <FileText className="h-4 w-4 text-teal-600" />
+   644→                          </div>
+   645→                          <div>
+   646→                            <p className="text-sm font-medium">{doc.trim()}</p>
+   647→                            <p className="text-[10px] text-muted-foreground">Required document</p>
+   648→                          </div>
+   649→                        </div>
+   650→                        <Badge className="text-[10px] bg-amber-50 text-amber-700 border-0 rounded-lg hover:bg-amber-50">
+   651→                          Required
+   652→                        </Badge>
+   653→                      </div>
+   654→                    ))}
+   655→                  </div>
+   656→                ) : (
+   657→                  <div className="text-center py-8">
+   658→                    <div className="p-3 rounded-2xl bg-muted/50 w-fit mx-auto mb-4">
+   659→                      <FileStack className="h-8 w-8 text-muted-foreground" />
+   660→                    </div>
+   661→                    <h3 className="text-sm font-semibold">No documents specified</h3>
+   662→                    <p className="text-muted-foreground text-xs mt-1">This tender has no specific document requirements</p>
+   663→                  </div>
+   664→                )}
+   665→              </CardContent>
+   666→            </Card>
+   667→          </motion.div>
+   668→        )}
+   669→      </AnimatePresence>
+   670→    </div>
+   671→  );
+   672→}
+   673→
+   674→function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
+   675→  const { user } = useAuthStore();
+   676→  const [expanded, setExpanded] = useState(false);
+   677→
+   678→  const handleStatusUpdate = async (status: string) => {
+   679→    const res = await api.patch(`/bids/${bid.id}/status`, { status });
+   680→    if (res.success) {
+   681→      toast.success(`Bid ${status}`);
+   682→      onUpdate();
+   683→    } else {
+   684→      toast.error(res.error || 'Failed to update bid');
+   685→    }
+   686→  };
+   687→
+   688→  const bidStatusBadge = (status: string) => {
+   689→    switch (status) {
+   690→      case 'awarded': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   691→      case 'rejected': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   692→      case 'shortlisted': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
+   693→      case 'pending_review': return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
+   694→      default: return 'bg-muted text-muted-foreground hover:bg-muted';
+   695→    }
+   696→  };
+   697→
+   698→  const bidStatusDot = (status: string) => {
+   699→    switch (status) {
+   700→      case 'awarded': return 'bg-emerald-500';
+   701→      case 'rejected': return 'bg-rose-500';
+   702→      case 'shortlisted': return 'bg-teal-500';
+   703→      case 'pending_review': return 'bg-amber-500';
+   704→      default: return 'bg-muted-foreground/50';
+   705→    }
+   706→  };
+   707→
+   708→  return (
+   709→    <motion.div variants={itemVariants} className="p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors space-y-2">
+   710→      <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpanded(!expanded)}>
+   711→        <div className="flex items-center gap-3">
+   712→          <div className="w-9 h-9 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0">
+   713→            <span className="text-white font-semibold text-xs">
+   714→              {(bid.user?.profile?.fullName || 'U')[0].toUpperCase()}
+   715→            </span>
+   716→          </div>
+   717→          <div>
+   718→            <p className="text-sm font-medium">{bid.user?.profile?.fullName || bid.user?.email || 'Contractor'}</p>
+   719→            <p className="text-xs text-muted-foreground">Submitted {new Date(bid.createdAt).toLocaleDateString()}</p>
+   720→          </div>
+   721→        </div>
+   722→        <div className="flex items-center gap-2 flex-wrap justify-end">
+   723→          <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
+   724→            <DollarSign className="h-3 w-3 mr-1" /> ETB {bid.financialProposal.toLocaleString()}
+   725→          </Badge>
+   726→          <Badge className="text-xs border-0 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-50">
+   727→            <Clock className="h-3 w-3 mr-1" /> {bid.timeline}
+   728→          </Badge>
+   729→          <div className="flex items-center gap-1.5">
+   730→            <span className={`h-1.5 w-1.5 rounded-full ${bidStatusDot(bid.status)}`} />
+   731→            <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${bidStatusBadge(bid.status)}`}>
+   732→              {bid.status.replace('_', ' ')}
+   733→            </Badge>
+   734→          </div>
+   735→          <div className="text-muted-foreground ml-1">
+   736→            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+   737→          </div>
+   738→        </div>
+   739→      </div>
+   740→
+   741→      <AnimatePresence>
+   742→        {expanded && (
+   743→          <motion.div
+   744→            initial={{ height: 0, opacity: 0 }}
+   745→            animate={{ height: 'auto', opacity: 1 }}
+   746→            exit={{ height: 0, opacity: 0 }}
+   747→            transition={{ duration: 0.25 }}
+   748→            className="overflow-hidden"
+   749→          >
+   750→            <div className="mt-3 pt-3 border-t border-border/40 space-y-4">
+   751→              {/* Technical Proposal */}
+   752→              <div>
+   753→                <div className="flex items-center gap-2 mb-2">
+   754→                  <div className="p-1.5 rounded-lg gradient-emerald">
+   755→                    <Briefcase className="h-3.5 w-3.5 text-white" />
+   756→                  </div>
+   757→                  <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Technical Proposal</p>
+   758→                </div>
+   759→                <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-xl p-4 leading-relaxed">{bid.technicalProposal}</p>
+   760→              </div>
+   761→
+   762→              {/* Admin Actions */}
+   763→              {user?.role === 'admin' && bid.status === 'pending_review' && (
+   764→                <div className="flex flex-wrap gap-2 pt-1">
+   765→                  <Button size="sm"
+   766→                    className="gradient-teal text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
+   767→                    onClick={() => handleStatusUpdate('shortlisted')}>
+   768→                    <Award className="h-3.5 w-3.5 mr-1.5" /> Shortlist
+   769→                  </Button>
+   770→                  <Button size="sm" variant="outline"
+   771→                    className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
+   772→                    onClick={() => handleStatusUpdate('rejected')}>
+   773→                    <X className="h-3.5 w-3.5 mr-1.5" /> Reject
+   774→                  </Button>
+   775→                </div>
+   776→              )}
+   777→              {user?.role === 'admin' && bid.status === 'shortlisted' && (
+   778→                <div className="flex flex-wrap gap-2 pt-1">
+   779→                  <Button size="sm"
+   780→                    className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
+   781→                    onClick={() => handleStatusUpdate('awarded')}>
+   782→                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Award Bid
+   783→                  </Button>
+   784→                  <Button size="sm" variant="outline"
+   785→                    className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
+   786→                    onClick={() => handleStatusUpdate('rejected')}>
+   787→                    <X className="h-3.5 w-3.5 mr-1.5" /> Reject
+   788→                  </Button>
+   789→                </div>
+   790→              )}
+   791→            </div>
+   792→          </motion.div>
+   793→        )}
+   794→      </AnimatePresence>
+   795→    </motion.div>
+   796→  );
+   797→}
+   798→

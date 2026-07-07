@@ -696,7 +696,7 @@ export function DocBuilderView() {
                 <div>
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-0.5">Prepared by</p>
                   <p className="text-sm font-medium">
-                    {user?.profile?.companyName || user?.profile?.fullName || user?.email || 'Unknown User'}
+                    {user?.company?.name || user?.profile?.fullName || user?.email || 'Unknown User'}
                   </p>
                 </div>
                 <div className="text-right">

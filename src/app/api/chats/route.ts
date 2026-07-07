@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
             id: true,
             status: true,
             tender: { select: { id: true, title: true } },
-            bid: { select: { user: { select: { id: true, email: true, profile: { select: { fullName: true, companyName: true } } } } } },
+            bid: { select: { user: { select: { id: true, email: true, profile: { select: { fullName: true, jobTitle: true } }, company: { select: { id: true, name: true } } } } } },
           },
         },
         _count: { select: { messages: true } },

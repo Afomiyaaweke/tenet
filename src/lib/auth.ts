@@ -9,6 +9,7 @@ export interface JwtPayload {
   userId: string;
   email: string;
   role: string;
+  companyId?: string | null;
 }
 
 /**
@@ -42,7 +43,7 @@ export function extractBearerToken(request: NextRequest): string | null {
 
 /**
  * Get the current authenticated user from the request.
- * Returns the user with profile, or null if not authenticated.
+ * Returns the user with profile and company, or null if not authenticated.
  */
 export async function getAuthUser(request: NextRequest) {
   const token = extractBearerToken(request);
@@ -53,7 +54,7 @@ export async function getAuthUser(request: NextRequest) {
 
   const user = await db.user.findUnique({
     where: { id: payload.userId },
-    include: { profile: true },
+    include: { profile: true, company: true },
   });
 
   if (!user) return null;
@@ -73,15 +74,35 @@ export async function requireAuth(request: NextRequest) {
 }
 
 /**
- * Require admin role - returns user or a JSON error response
+ * Require super_admin role - returns user or a JSON error response
  */
-export async function requireAdmin(request: NextRequest) {
+export async function requireSuperAdmin(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult.error) return authResult;
 
-  if (authResult.user.role !== 'admin') {
-    return { user: null, error: Response.json({ success: false, error: 'Forbidden: Admin access required' }, { status: 403 }) };
+  if (authResult.user!.role !== 'super_admin') {
+    return { user: null, error: Response.json({ success: false, error: 'Forbidden: Super admin access required' }, { status: 403 }) };
   }
 
   return authResult;
 }
+
+/**
+ * Require team_admin role (or super_admin, which overrides) - returns user or a JSON error response
+ */
+export async function requireTeamAdmin(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult.error) return authResult;
+
+  if (authResult.user!.role !== 'team_admin' && authResult.user!.role !== 'super_admin') {
+    return { user: null, error: Response.json({ success: false, error: 'Forbidden: Team admin access required' }, { status: 403 }) };
+  }
+
+  return authResult;
+}
+
+/**
+ * Require admin role (team_admin or super_admin) - alias for requireTeamAdmin
+ * Used by routes that need admin-level access (create tenders, manage projects, etc.)
+ */
+export const requireAdmin = requireTeamAdmin;

@@ -1,0 +1,665 @@
+     1→'use client';
+     2→
+     3→import { useState, useRef, useCallback, useEffect } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api, Document } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Textarea } from '@/components/ui/textarea';
+    11→import { Label } from '@/components/ui/label';
+    12→import { toast } from 'sonner';
+    13→import {
+    14→  User, Mail, Phone, MapPin, Building, Shield, Edit2, Save, X,
+    15→  CheckCircle, Briefcase, FileText, Upload, Clock, XCircle,
+    16→  Award, Receipt, FolderOpen, File, Camera,
+    17→} from 'lucide-react';
+    18→import { motion, AnimatePresence } from 'framer-motion';
+    19→
+    20→const SKILL_OPTIONS = [
+    21→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    22→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Landscaping',
+    23→  'Interior Design', 'Project Management', 'Logistics', 'Manufacturing',
+    24→  'Healthcare', 'Education', 'Finance', 'Legal', 'Agriculture', 'Telecommunications'
+    25→];
+    26→
+    27→const SKILL_COLORS: Record<string, string> = {
+    28→  'Construction': 'bg-amber-50 text-amber-700 border-amber-200/60',
+    29→  'IT': 'bg-blue-50 text-blue-700 border-blue-200/60',
+    30→  'Supply': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    31→  'Consulting': 'bg-purple-50 text-purple-700 border-purple-200/60',
+    32→  'Engineering': 'bg-teal-50 text-teal-700 border-teal-200/60',
+    33→  'Architecture': 'bg-rose-50 text-rose-700 border-rose-200/60',
+    34→  'Electrical': 'bg-yellow-50 text-yellow-700 border-yellow-200/60',
+    35→  'Plumbing': 'bg-cyan-50 text-cyan-700 border-cyan-200/60',
+    36→  'HVAC': 'bg-orange-50 text-orange-700 border-orange-200/60',
+    37→  'Landscaping': 'bg-lime-50 text-lime-700 border-lime-200/60',
+    38→  'Interior Design': 'bg-pink-50 text-pink-700 border-pink-200/60',
+    39→  'Project Management': 'bg-indigo-50 text-indigo-700 border-indigo-200/60',
+    40→  'Logistics': 'bg-sky-50 text-sky-700 border-sky-200/60',
+    41→  'Manufacturing': 'bg-stone-50 text-stone-700 border-stone-200/60',
+    42→  'Healthcare': 'bg-red-50 text-red-700 border-red-200/60',
+    43→  'Education': 'bg-violet-50 text-violet-700 border-violet-200/60',
+    44→  'Finance': 'bg-green-50 text-green-700 border-green-200/60',
+    45→  'Legal': 'bg-slate-50 text-slate-700 border-slate-200/60',
+    46→  'Agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    47→  'Telecommunications': 'bg-blue-50 text-blue-700 border-blue-200/60',
+    48→};
+    49→
+    50→const docTypeConfig = (type: string) => {
+    51→  switch (type) {
+    52→    case 'business_license': return { icon: Briefcase, bg: 'bg-emerald-50', color: 'text-emerald-600', label: 'Business License' };
+    53→    case 'tax_clearance': return { icon: Receipt, bg: 'bg-amber-50', color: 'text-amber-600', label: 'Tax Clearance' };
+    54→    case 'portfolio': return { icon: FolderOpen, bg: 'bg-teal-50', color: 'text-teal-600', label: 'Portfolio' };
+    55→    case 'certificate': return { icon: Award, bg: 'bg-purple-50', color: 'text-purple-600', label: 'Certificate' };
+    56→    default: return { icon: File, bg: 'bg-muted/50', color: 'text-muted-foreground', label: type.replace('_', ' ') };
+    57→  }
+    58→};
+    59→
+    60→const docStatusBadge = (status: string) => {
+    61→  switch (status) {
+    62→    case 'approved': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+    63→    case 'rejected': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+    64→    default: return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
+    65→  }
+    66→};
+    67→
+    68→const docStatusDot = (status: string) => {
+    69→  switch (status) {
+    70→    case 'approved': return 'bg-emerald-500';
+    71→    case 'rejected': return 'bg-rose-500';
+    72→    default: return 'bg-amber-500';
+    73→  }
+    74→};
+    75→
+    76→function getProfileCompleteness(profile: Record<string, unknown> | undefined): { pct: number; missing: string[] } {
+    77→  if (!profile) return { pct: 0, missing: ['Full Name', 'Phone', 'Location', 'Skills', 'Bio'] };
+    78→  const checks: [string, boolean][] = [
+    79→    ['Full Name', !!(profile.fullName as string)],
+    80→    ['Phone', !!(profile.phone as string)],
+    81→    ['Location', !!(profile.location as string)],
+    82→    ['Skills', !!(profile.skillTags as string)],
+    83→    ['Bio', !!(profile.bio as string)],
+    84→  ];
+    85→  const completed = checks.filter(([, v]) => v).length;
+    86→  const missing = checks.filter(([, v]) => !v).map(([label]) => label);
+    87→  return { pct: Math.round((completed / checks.length) * 100), missing };
+    88→}
+    89→
+    90→const sectionVariants = {
+    91→  hidden: { opacity: 0, y: 20 },
+    92→  visible: (i: number) => ({
+    93→    opacity: 1,
+    94→    y: 0,
+    95→    transition: { delay: i * 0.08, duration: 0.35, ease: 'easeOut' },
+    96→  }),
+    97→};
+    98→
+    99→export function ProfileView() {
+   100→  const { user, setUser } = useAuthStore();
+   101→  const [editing, setEditing] = useState(false);
+   102→  const [form, setForm] = useState(() => ({
+   103→    fullName: user?.profile?.fullName || '',
+   104→    phone: user?.profile?.phone || '',
+   105→    location: user?.profile?.location || '',
+   106→    address: user?.profile?.address || '',
+   107→    companyName: user?.profile?.companyName || '',
+   108→    tinNumber: user?.profile?.tinNumber || '',
+   109→    licenseNumber: user?.profile?.licenseNumber || '',
+   110→    bio: user?.profile?.bio || '',
+   111→    skillTags: user?.profile?.skillTags || '',
+   112→  }));
+   113→  const [selectedSkills, setSelectedSkills] = useState<string[]>(
+   114→    () => (user?.profile?.skillTags || '').split(',').map(s => s.trim()).filter(Boolean)
+   115→  );
+   116→  const [documents, setDocuments] = useState<Document[]>([]);
+   117→  const [docType, setDocType] = useState('business_license');
+   118→  const [docsLoading, setDocsLoading] = useState(false);
+   119→  const fileRef = useRef<HTMLInputElement>(null);
+   120→
+   121→  const loadDocs = useCallback(async () => {
+   122→    setDocsLoading(true);
+   123→    const res = await api.get('/documents');
+   124→    if (res.success) setDocuments(res.data);
+   125→    setDocsLoading(false);
+   126→  }, []);
+   127→
+   128→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   129→  useEffect(() => { loadDocs(); }, [loadDocs]);
+   130→
+   131→  const handleSave = async () => {
+   132→    const profileId = user?.profile?.id;
+   133→    if (!profileId) return;
+   134→    const res = await api.put(`/profiles/${profileId}`, {
+   135→      ...form,
+   136→      skillTags: selectedSkills.join(','),
+   137→    });
+   138→    if (res.success) {
+   139→      toast.success('Profile updated!');
+   140→      setEditing(false);
+   141→      // Refresh user data
+   142→      const meRes = await api.get('/auth/me');
+   143→      if (meRes.success) setUser(meRes.data);
+   144→    } else toast.error(res.error || 'Failed to update profile');
+   145→  };
+   146→
+   147→  const toggleSkill = (skill: string) => {
+   148→    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+   149→  };
+   150→
+   151→  const handleDocUpload = async () => {
+   152→    const file = fileRef.current?.files?.[0];
+   153→    if (!file) return;
+   154→    const formData = new FormData();
+   155→    formData.append('file', file);
+   156→    formData.append('docType', docType);
+   157→    formData.append('userId', user?.id || '');
+   158→    const res = await api.upload('/documents', formData);
+   159→    if (res.success) {
+   160→      toast.success('Document uploaded for verification');
+   161→      loadDocs();
+   162→    } else toast.error(res.error || 'Upload failed');
+   163→  };
+   164→
+   165→  const profile = user?.profile;
+   166→  const isVerified = profile?.verified ?? false;
+   167→  const completeness = getProfileCompleteness(profile);
+   168→  const approvedDocs = documents.filter(d => d.status === 'approved').length;
+   169→  const pendingDocs = documents.filter(d => d.status === 'pending').length;
+   170→
+   171→  return (
+   172→    <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto view-enter">
+   173→      {/* Header */}
+   174→      <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible"
+   175→        className="flex items-center justify-between">
+   176→        <div className="flex items-center gap-4">
+   177→          <div className="p-3 rounded-2xl gradient-emerald flex-shrink-0 shadow-md shadow-emerald-200/50">
+   178→            <User className="h-6 w-6 text-white" />
+   179→          </div>
+   180→          <div>
+   181→            <h2 className="text-2xl font-bold tracking-tight">
+   182→              <span className="text-gradient-emerald">My Profile</span>
+   183→            </h2>
+   184→            <p className="text-muted-foreground text-sm mt-0.5">Manage your personal information and verification status</p>
+   185→          </div>
+   186→        </div>
+   187→        {!editing ? (
+   188→          <Button
+   189→            variant="outline"
+   190→            onClick={() => setEditing(true)}
+   191→            className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-primary/10 hover:text-emerald-800 transition-colors"
+   192→          >
+   193→            <Edit2 className="h-4 w-4 mr-2" /> Edit Profile
+   194→          </Button>
+   195→        ) : (
+   196→          <div className="flex gap-2">
+   197→            <Button
+   198→              variant="outline"
+   199→              onClick={() => setEditing(false)}
+   200→              className="rounded-xl"
+   201→            >
+   202→              <X className="h-4 w-4 mr-1" /> Cancel
+   203→            </Button>
+   204→            <Button
+   205→              className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+   206→              onClick={handleSave}
+   207→            >
+   208→              <Save className="h-4 w-4 mr-1" /> Save
+   209→            </Button>
+   210→          </div>
+   211→        )}
+   212→      </motion.div>
+   213→
+   214→      {/* Profile Header Card */}
+   215→      <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible">
+   216→        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
+   217→          <CardContent className="p-6">
+   218→            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+   219→              {/* Avatar */}
+   220→              <div className="relative flex-shrink-0 group">
+   221→                <div className="w-20 h-20 rounded-2xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-200/40">
+   222→                  <span className="text-white font-bold text-3xl">
+   223→                    {(profile?.fullName || 'U')[0].toUpperCase()}
+   224→                  </span>
+   225→                </div>
+   226→                {isVerified && (
+   227→                  <span className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-xl border-3 border-white flex items-center justify-center shadow-md shadow-emerald-200">
+   228→                    <CheckCircle className="w-4 h-4 text-white" strokeWidth={2.5} />
+   229→                  </span>
+   230→                )}
+   231→                {/* Camera overlay for edit mode */}
+   232→                {editing && (
+   233→                  <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+   234→                    <Camera className="h-5 w-5 text-white" />
+   235→                  </div>
+   236→                )}
+   237→              </div>
+   238→
+   239→              {/* Info */}
+   240→              <div className="flex-1 text-center sm:text-left">
+   241→                <h3 className="text-xl font-bold text-foreground">{profile?.fullName || 'Complete your profile'}</h3>
+   242→                <p className="text-sm text-muted-foreground mt-0.5">
+   243→                  {profile?.type === 'company' ? profile.companyName : 'Individual Professional'}
+   244→                </p>
+   245→                <div className="flex flex-wrap items-center gap-2 mt-3 justify-center sm:justify-start">
+   246→                  <Badge className={`text-xs px-3 py-1 border-0 font-semibold ${
+   247→                    isVerified
+   248→                      ? 'bg-emerald-100 text-emerald-700'
+   249→                      : 'bg-amber-100 text-amber-700'
+   250→                  }`}>
+   251→                    <Shield className="h-3 w-3 mr-1.5" />
+   252→                    {isVerified ? 'Verified' : 'Pending Verification'}
+   253→                  </Badge>
+   254→                  <Badge className="text-xs px-3 py-1 border-0 font-semibold bg-emerald-50 text-emerald-700 capitalize">
+   255→                    <Briefcase className="h-3 w-3 mr-1.5" />
+   256→                    {user?.role?.replace('_', ' ')}
+   257→                  </Badge>
+   258→                </div>
+   259→              </div>
+   260→
+   261→              {/* Verification Status & Completeness */}
+   262→              <div className="hidden sm:flex flex-col items-end gap-3">
+   263→                <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl ${
+   264→                  isVerified ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'
+   265→                }`}>
+   266→                  <div className={`w-3 h-3 rounded-full ${isVerified ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+   267→                  <span className={`text-xs font-semibold ${isVerified ? 'text-emerald-700' : 'text-amber-700'}`}>
+   268→                    {isVerified ? 'Identity Verified' : 'Verification Pending'}
+   269→                  </span>
+   270→                </div>
+   271→                {/* Profile Completeness */}
+   272→                <div className="w-40">
+   273→                  <div className="flex items-center justify-between mb-1">
+   274→                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Profile</span>
+   275→                    <span className={`text-xs font-bold ${completeness.pct >= 80 ? 'text-emerald-600' : completeness.pct >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>
+   276→                      {completeness.pct}%
+   277→                    </span>
+   278→                  </div>
+   279→                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+   280→                    <motion.div
+   281→                      initial={{ width: 0 }}
+   282→                      animate={{ width: `${completeness.pct}%` }}
+   283→                      transition={{ duration: 0.8, ease: 'easeOut' }}
+   284→                      className={`h-full rounded-full ${
+   285→                        completeness.pct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
+   286→                        completeness.pct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
+   287→                        'bg-gradient-to-r from-rose-400 to-rose-600'
+   288→                      }`}
+   289→                    />
+   290→                  </div>
+   291→                  {completeness.missing.length > 0 && !editing && (
+   292→                    <p className="text-[10px] text-muted-foreground mt-1">
+   293→                      Add: {completeness.missing.slice(0, 2).join(', ')}{completeness.missing.length > 2 ? '...' : ''}
+   294→                    </p>
+   295→                  )}
+   296→                </div>
+   297→              </div>
+   298→            </div>
+   299→          </CardContent>
+   300→        </Card>
+   301→      </motion.div>
+   302→
+   303→      {/* Personal Information Section */}
+   304→      <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible">
+   305→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   306→          <CardHeader className="pb-3">
+   307→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   308→              <div className="p-1.5 rounded-lg gradient-emerald">
+   309→                <User className="h-3.5 w-3.5 text-white" />
+   310→              </div>
+   311→              Personal Information
+   312→            </CardTitle>
+   313→          </CardHeader>
+   314→          <CardContent className="space-y-4">
+   315→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   316→              <div className="space-y-2">
+   317→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   318→                  <User className="h-3 w-3 text-emerald-500" /> Full Name
+   319→                </Label>
+   320→                {editing ? (
+   321→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.fullName} onChange={e => setForm(d => ({ ...d, fullName: e.target.value }))} />
+   322→                ) : (
+   323→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.fullName || '-'}</p>
+   324→                )}
+   325→              </div>
+   326→              <div className="space-y-2">
+   327→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   328→                  <Mail className="h-3 w-3 text-emerald-500" /> Email
+   329→                </Label>
+   330→                <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{user?.email}</p>
+   331→              </div>
+   332→            </div>
+   333→
+   334→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   335→              <div className="space-y-2">
+   336→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   337→                  <Phone className="h-3 w-3 text-emerald-500" /> Phone
+   338→                </Label>
+   339→                {editing ? (
+   340→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.phone} onChange={e => setForm(d => ({ ...d, phone: e.target.value }))} />
+   341→                ) : (
+   342→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.phone || '-'}</p>
+   343→                )}
+   344→              </div>
+   345→              <div className="space-y-2">
+   346→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   347→                  <MapPin className="h-3 w-3 text-emerald-500" /> Location
+   348→                </Label>
+   349→                {editing ? (
+   350→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.location} onChange={e => setForm(d => ({ ...d, location: e.target.value }))} />
+   351→                ) : (
+   352→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.location || '-'}</p>
+   353→                )}
+   354→              </div>
+   355→            </div>
+   356→          </CardContent>
+   357→        </Card>
+   358→      </motion.div>
+   359→
+   360→      {/* Company Information Section (conditional) */}
+   361→      {profile?.type === 'company' && (
+   362→        <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible">
+   363→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   364→            <CardHeader className="pb-3">
+   365→              <CardTitle className="text-base font-bold flex items-center gap-2">
+   366→                <div className="p-1.5 rounded-lg gradient-teal">
+   367→                  <Building className="h-3.5 w-3.5 text-white" />
+   368→                </div>
+   369→                Company Information
+   370→              </CardTitle>
+   371→            </CardHeader>
+   372→            <CardContent className="space-y-4">
+   373→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   374→                <div className="space-y-2">
+   375→                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   376→                    <Building className="h-3 w-3 text-teal-500" /> Company Name
+   377→                  </Label>
+   378→                  {editing ? (
+   379→                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.companyName} onChange={e => setForm(d => ({ ...d, companyName: e.target.value }))} />
+   380→                  ) : (
+   381→                    <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.companyName || '-'}</p>
+   382→                  )}
+   383→                </div>
+   384→                <div className="space-y-2">
+   385→                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   386→                    <FileText className="h-3 w-3 text-teal-500" /> TIN Number
+   387→                  </Label>
+   388→                  {editing ? (
+   389→                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.tinNumber} onChange={e => setForm(d => ({ ...d, tinNumber: e.target.value }))} />
+   390→                  ) : (
+   391→                    <div className="flex items-center gap-2">
+   392→                      <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium flex-1">{profile?.tinNumber || '-'}</p>
+   393→                      {profile?.tinNumber && (
+   394→                        <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700">TIN</Badge>
+   395→                      )}
+   396→                    </div>
+   397→                  )}
+   398→                </div>
+   399→              </div>
+   400→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   401→                <div className="space-y-2">
+   402→                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   403→                    <Award className="h-3 w-3 text-teal-500" /> License Number
+   404→                  </Label>
+   405→                  {editing ? (
+   406→                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.licenseNumber} onChange={e => setForm(d => ({ ...d, licenseNumber: e.target.value }))} />
+   407→                  ) : (
+   408→                    <div className="flex items-center gap-2">
+   409→                      <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium flex-1">{profile?.licenseNumber || '-'}</p>
+   410→                      {profile?.licenseNumber && (
+   411→                        <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700">License</Badge>
+   412→                      )}
+   413→                    </div>
+   414→                  )}
+   415→                </div>
+   416→                <div className="space-y-2">
+   417→                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   418→                    <MapPin className="h-3 w-3 text-teal-500" /> Address
+   419→                  </Label>
+   420→                  {editing ? (
+   421→                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.address} onChange={e => setForm(d => ({ ...d, address: e.target.value }))} />
+   422→                  ) : (
+   423→                    <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.address || '-'}</p>
+   424→                  )}
+   425→                </div>
+   426→              </div>
+   427→            </CardContent>
+   428→          </Card>
+   429→        </motion.div>
+   430→      )}
+   431→
+   432→      {/* Skills Section */}
+   433→      <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
+   434→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   435→          <CardHeader className="pb-3">
+   436→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   437→              <div className="p-1.5 rounded-lg gradient-amber">
+   438→                <Briefcase className="h-3.5 w-3.5 text-white" />
+   439→              </div>
+   440→              Skills & Expertise
+   441→              {selectedSkills.length > 0 && (
+   442→                <Badge className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-0 font-medium ml-1">
+   443→                  {selectedSkills.length}
+   444→                </Badge>
+   445→              )}
+   446→            </CardTitle>
+   447→          </CardHeader>
+   448→          <CardContent>
+   449→            {editing ? (
+   450→              <div className="flex flex-wrap gap-2">
+   451→                {SKILL_OPTIONS.map(skill => {
+   452→                  const isSelected = selectedSkills.includes(skill);
+   453→                  return (
+   454→                    <motion.button
+   455→                      key={skill}
+   456→                      whileTap={{ scale: 0.95 }}
+   457→                      onClick={() => toggleSkill(skill)}
+   458→                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+   459→                        isSelected
+   460→                          ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50 hover:bg-emerald-600'
+   461→                          : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-emerald-700 border border-border/60'
+   462→                      }`}
+   463→                    >
+   464→                      {skill}
+   465→                    </motion.button>
+   466→                  );
+   467→                })}
+   468→              </div>
+   469→            ) : (
+   470→              <div className="flex flex-wrap gap-2">
+   471→                {profile?.skillTags?.split(',').filter(Boolean).length ? (
+   472→                  profile.skillTags.split(',').filter(Boolean).map(tag => (
+   473→                    <span
+   474→                      key={tag}
+   475→                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border ${SKILL_COLORS[tag.trim()] || 'bg-emerald-50 text-emerald-700 border-emerald-200/60'}`}
+   476→                    >
+   477→                      {tag.trim()}
+   478→                    </span>
+   479→                  ))
+   480→                ) : (
+   481→                  <p className="text-sm text-muted-foreground">No skills listed</p>
+   482→                )}
+   483→              </div>
+   484→            )}
+   485→          </CardContent>
+   486→        </Card>
+   487→      </motion.div>
+   488→
+   489→      {/* Bio Section */}
+   490→      <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible">
+   491→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   492→          <CardHeader className="pb-3">
+   493→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   494→              <div className="p-1.5 rounded-lg gradient-rose">
+   495→                <FileText className="h-3.5 w-3.5 text-white" />
+   496→              </div>
+   497→              Bio & Portfolio
+   498→            </CardTitle>
+   499→          </CardHeader>
+   500→          <CardContent>
+   501→            {editing ? (
+   502→              <Textarea
+   503→                className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50 min-h-[120px]"
+   504→                value={form.bio}
+   505→                onChange={e => setForm(d => ({ ...d, bio: e.target.value }))}
+   506→                rows={4}
+   507→                placeholder="Write a brief description about yourself or your company..."
+   508→              />
+   509→            ) : (
+   510→              <p className="text-sm p-3 bg-muted/50 rounded-lg whitespace-pre-wrap leading-relaxed">
+   511→                {profile?.bio || 'No bio provided'}
+   512→              </p>
+   513→            )}
+   514→          </CardContent>
+   515→        </Card>
+   516→      </motion.div>
+   517→
+   518→      {/* Document Upload & Verification Section */}
+   519→      <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible">
+   520→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   521→          <CardHeader className="pb-3">
+   522→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   523→              <div className="p-1.5 rounded-lg gradient-teal">
+   524→                <Shield className="h-3.5 w-3.5 text-white" />
+   525→              </div>
+   526→              Verification Documents
+   527→              {!docsLoading && documents.length > 0 && (
+   528→                <Badge className="text-[10px] px-1.5 py-0 bg-teal-50 text-teal-700 border-0 font-medium ml-1">
+   529→                  {documents.length}
+   530→                </Badge>
+   531→              )}
+   532→            </CardTitle>
+   533→          </CardHeader>
+   534→          <CardContent className="space-y-5">
+   535→            {/* Verification Progress */}
+   536→            {!isVerified && (
+   537→              <div className="bg-amber-50/60 border border-amber-200/60 rounded-xl p-4">
+   538→                <div className="flex items-center gap-2 mb-3">
+   539→                  <div className="p-1 rounded-md bg-amber-100">
+   540→                    <Clock className="h-3.5 w-3.5 text-amber-600" />
+   541→                  </div>
+   542→                  <p className="text-sm font-semibold text-amber-800">Verification Progress</p>
+   543→                </div>
+   544→                <div className="flex items-center gap-4">
+   545→                  <div className="flex items-center gap-2">
+   546→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   547→                      profile?.fullName ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   548→                    }`}>
+   549→                      {profile?.fullName ? <CheckCircle className="h-3 w-3" /> : '1'}
+   550→                    </div>
+   551→                    <span className="text-xs text-muted-foreground">Profile</span>
+   552→                  </div>
+   553→                  <div className="flex-1 h-px bg-border/60" />
+   554→                  <div className="flex items-center gap-2">
+   555→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   556→                      documents.length > 0 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   557→                    }`}>
+   558→                      {documents.length > 0 ? <CheckCircle className="h-3 w-3" /> : '2'}
+   559→                    </div>
+   560→                    <span className="text-xs text-muted-foreground">Documents</span>
+   561→                  </div>
+   562→                  <div className="flex-1 h-px bg-border/60" />
+   563→                  <div className="flex items-center gap-2">
+   564→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   565→                      approvedDocs > 0 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   566→                    }`}>
+   567→                      {approvedDocs > 0 ? <CheckCircle className="h-3 w-3" /> : '3'}
+   568→                    </div>
+   569→                    <span className="text-xs text-muted-foreground">Approval</span>
+   570→                  </div>
+   571→                </div>
+   572→                {pendingDocs > 0 && (
+   573→                  <p className="text-xs text-amber-700 mt-3">
+   574→                    {pendingDocs} document{pendingDocs > 1 ? 's' : ''} pending review. Admin will verify your documents shortly.
+   575→                  </p>
+   576→                )}
+   577→              </div>
+   578→            )}
+   579→
+   580→            {/* Upload area */}
+   581→            <div className="border-2 border-dashed border-emerald-200/60 rounded-xl p-5 hover:border-emerald-300 transition-colors bg-emerald-50/20">
+   582→              <div className="flex flex-col sm:flex-row gap-3 items-end">
+   583→                <div className="flex-1 space-y-2">
+   584→                  <Label className="text-sm font-medium">Document Type</Label>
+   585→                  <select
+   586→                    className="w-full h-9 rounded-xl border border-border/60 bg-card px-3 text-sm focus:ring-primary/20 focus:outline-none"
+   587→                    value={docType}
+   588→                    onChange={e => setDocType(e.target.value)}
+   589→                  >
+   590→                    <option value="business_license">Business License</option>
+   591→                    <option value="tax_clearance">Tax Clearance</option>
+   592→                    <option value="portfolio">Portfolio</option>
+   593→                    <option value="certificate">Certificate</option>
+   594→                    <option value="other">Other</option>
+   595→                  </select>
+   596→                </div>
+   597→                <div className="flex-1 space-y-2">
+   598→                  <Label className="text-sm font-medium">Select File</Label>
+   599→                  <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png"
+   600→                    className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 file:cursor-pointer file:transition-colors" />
+   601→                </div>
+   602→                <Button
+   603→                  className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 whitespace-nowrap"
+   604→                  onClick={handleDocUpload}
+   605→                >
+   606→                  <Upload className="h-4 w-4 mr-1.5" /> Upload
+   607→                </Button>
+   608→              </div>
+   609→              <p className="text-[10px] text-muted-foreground/60 mt-2">Accepted formats: PDF, JPEG, PNG &middot; Max size: 10MB</p>
+   610→            </div>
+   611→
+   612→            {/* Documents list */}
+   613→            {docsLoading ? (
+   614→              <div className="space-y-2">
+   615→                {[1, 2].map(i => (
+   616→                  <div key={i} className="h-14 bg-muted/50 rounded-xl animate-pulse" />
+   617→                ))}
+   618→              </div>
+   619→            ) : documents.length > 0 ? (
+   620→              <div className="space-y-2">
+   621→                <AnimatePresence>
+   622→                  {documents.map(doc => {
+   623→                    const dtConfig = docTypeConfig(doc.docType);
+   624→                    const DtIcon = dtConfig.icon;
+   625→                    return (
+   626→                      <motion.div
+   627→                        key={doc.id}
+   628→                        initial={{ opacity: 0, y: 8 }}
+   629→                        animate={{ opacity: 1, y: 0 }}
+   630→                        className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors"
+   631→                      >
+   632→                        <div className="flex items-center gap-3">
+   633→                          <div className={`p-2 rounded-lg ${dtConfig.bg} flex-shrink-0`}>
+   634→                            <DtIcon className={`h-4 w-4 ${dtConfig.color}`} />
+   635→                          </div>
+   636→                          <div>
+   637→                            <div className="flex items-center gap-1.5">
+   638→                              <span className={`h-1.5 w-1.5 rounded-full ${docStatusDot(doc.status)}`} />
+   639→                              <p className="text-sm font-medium">{dtConfig.label}</p>
+   640→                            </div>
+   641→                            <p className="text-xs text-muted-foreground">{doc.fileName} &middot; {new Date(doc.createdAt).toLocaleDateString()}</p>
+   642→                            {doc.reviewNotes && <p className="text-xs text-amber-600 mt-0.5">{doc.reviewNotes}</p>}
+   643→                          </div>
+   644→                        </div>
+   645→                        <Badge className={`text-[10px] px-2 py-0 border-0 rounded-lg ${docStatusBadge(doc.status)}`}>
+   646→                          {doc.status === 'approved' && <CheckCircle className="h-2.5 w-2.5 mr-0.5" />}
+   647→                          {doc.status === 'rejected' && <XCircle className="h-2.5 w-2.5 mr-0.5" />}
+   648→                          {doc.status === 'pending' && <Clock className="h-2.5 w-2.5 mr-0.5" />}
+   649→                          {doc.status}
+   650→                        </Badge>
+   651→                      </motion.div>
+   652→                    );
+   653→                  })}
+   654→                </AnimatePresence>
+   655→              </div>
+   656→            ) : (
+   657→              <p className="text-sm text-muted-foreground text-center py-3">No documents uploaded yet</p>
+   658→            )}
+   659→          </CardContent>
+   660→        </Card>
+   661→      </motion.div>
+   662→    </div>
+   663→  );
+   664→}
+   665→
