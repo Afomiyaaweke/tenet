@@ -141,9 +141,9 @@ export async function GET(request: NextRequest) {
       db.tender.count({ where }),
     ]);
 
-    // Add matchScore for contractors
+    // Add matchScore for standard users
     let resultTenders: Record<string, unknown>[] = tenders;
-    if (user!.role === 'contractor' && user!.profile?.skillTags) {
+    if (user!.role === 'user' && user!.profile?.skillTags) {
       const userSkills = (user!.profile.skillTags as string)
         .split(',')
         .map((s) => s.trim().toLowerCase())
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
         return { ...tender, matchScore };
       });
 
-      // Sort by matchScore if sortBy is relevance and contractor
+      // Sort by matchScore if sortBy is relevance and user
       if (sortBy === 'relevance') {
         resultTenders.sort((a, b) => ((b.matchScore as number) || 0) - ((a.matchScore as number) || 0));
       }

@@ -174,7 +174,7 @@ export function EventsView() {
             )}
             <ChevronDown className={`h-3 w-3 ml-1 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
           </Button>
-          {user?.role === 'admin' && (
+          {(user?.role === 'super_admin' || user?.role === 'team_admin') && (
             <Dialog open={showCreate} onOpenChange={setShowCreate}>
               <DialogTrigger asChild>
                 <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
@@ -453,7 +453,7 @@ export function EventsView() {
                       </div>
 
                       {/* Actions */}
-                      {user?.role === 'contractor' && (
+                      {user?.role === 'user' && (
                         <div className="pt-3 border-t border-border/40 pl-11 mt-auto">
                           {isRegistered ? (
                             <Button size="sm" variant="outline" className="text-xs h-8 rounded-xl border-emerald-200 text-emerald-700 hover:bg-primary/10 transition-all"

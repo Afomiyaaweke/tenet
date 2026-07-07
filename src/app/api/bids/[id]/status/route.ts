@@ -88,7 +88,7 @@ export async function PATCH(
           data: { status: 'awarded' },
         });
 
-        // Create notification for the contractor
+        // Create notification for the bidder
         await tx.notification.create({
           data: {
             userId: bid.userId,

@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import {
+     4→  useEffect,
+     5→  useState,
+     6→  useCallback,
+     7→  useRef,
+     8→  useMemo,
+     9→  type ComponentType,
+    10→} from 'react';
+    11→import { useAuthStore } from '@/store';
+    12→import {
+    13→  api,
+    14→  type Conversation,
+    15→  type ConversationMember,
+    16→  type ChatMessageItem,
+    17→  type MessageReactionItem,
+    18→} from '@/lib/api';
+    19→import { Badge } from '@/components/ui/badge';
+    20→import { Button } from '@/components/ui/button';
+    21→import { Input } from '@/components/ui/input';
+    22→import { Textarea } from '@/components/ui/textarea';
+    23→import { ScrollArea } from '@/components/ui/scroll-area';
+    24→import {
+    25→  Dialog,
+    26→  DialogContent,
+    27→  DialogDescription,
+    28→  DialogFooter,
+    29→  DialogHeader,
+    30→  DialogTitle,
+    31→} from '@/components/ui/dialog';
+    32→import {
+    33→  DropdownMenu,
+    34→  DropdownMenuContent,
+    35→  DropdownMenuItem,
+    36→  DropdownMenuSeparator,
+    37→  DropdownMenuTrigger,
+    38→} from '@/components/ui/dropdown-menu';
+    39→import {
+    40→  Tooltip,
+    41→  TooltipContent,
+    42→  TooltipProvider,
+    43→  TooltipTrigger,
+    44→} from '@/components/ui/tooltip';
+    45→import { Separator } from '@/components/ui/separator';
+    46→import { toast } from 'sonner';
+    47→import { io, type Socket } from 'socket.io-client';
+    48→import {
+    49→  MessageSquare,
+    50→  ArrowLeft,
+    51→  ArrowUp,
+    52→  Search,
+    53→  Phone,
+    54→  Video,
+    55→  MoreVertical,
+    56→  MoreHorizontal,
+    57→  Check,
+    58→  CheckCheck,
+    59→  Users,
+    60→  UserPlus,
+    61→  Pencil,
+    62→  Trash2,
+    63→  Reply,
+    64→  Smile,
+    65→  Paperclip,
+    66→  Pin,
+    67→  Bell,
+    68→  BellOff,
+    69→  X,
+    70→  Plus,
+    71→  Edit,
+    72→  Copy,
+    73→  Flag,
+    74→} from 'lucide-react';
+    75→
+    76→// =====================================================
+    77→// Types
+    78→// =====================================================
+    79→
+    80→type FilterTab = 'all' | 'groups' | 'direct';
+    81→type ReadState = 'sent' | 'delivered' | 'read';
+    82→
+    83→type UserSearchResult = {
+    84→  id: string;
+    85→  email: string;
+    86→  profile?: {
+    87→    fullName: string;
+    88→    jobTitle?: string;
+    89→    profilePhoto?: string;
+    90→  };
+    91→  company?: {
+    92→    id: string;
+    93→    name: string;
+    94→  };
+    95→};
+    96→
+    97→type ActiveConv = Conversation & {
+    98→  myRole?: 'owner' | 'admin' | 'member';
+    99→};
+   100→
+   101→// =====================================================
+   102→// Helpers
+   103→// =====================================================
+   104→
+   105→const GRADIENT_OPTIONS = [
+   106→  'gradient-emerald',
+   107→  'gradient-teal',
+   108→  'gradient-amber',
+   109→  'gradient-rose',
+   110→] as const;
+   111→
+   112→const SENDER_COLOR_MAP: Record<string, string> = {
+   113→  'gradient-emerald': 'text-emerald-600 dark:text-emerald-400',
+   114→  'gradient-teal': 'text-teal-600 dark:text-teal-400',
+   115→  'gradient-amber': 'text-amber-600 dark:text-amber-500',
+   116→  'gradient-rose': 'text-rose-500 dark:text-rose-400',
+   117→};
+   118→
+   119→function getAvatarGradient(seed: string): string {
+   120→  let hash = 0;
+   121→  for (let i = 0; i < seed.length; i++) {
+   122→    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+   123→  }
+   124→  return GRADIENT_OPTIONS[Math.abs(hash) % GRADIENT_OPTIONS.length];
+   125→}
+   126→
+   127→function getSenderColor(seed: string): string {
+   128→  return SENDER_COLOR_MAP[getAvatarGradient(seed)] || 'text-primary';
+   129→}
+   130→
+   131→function getUserInitial(name?: string): string {
+   132→  if (!name) return '?';
+   133→  const parts = name.trim().split(/\s+/);
+   134→  const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+   135→  return initials.toUpperCase() || name.charAt(0).toUpperCase() || '?';
+   136→}
+   137→
+   138→function formatRelativeTime(dateStr: string): string {
+   139→  const now = new Date();
+   140→  const date = new Date(dateStr);
+   141→  const diffMs = now.getTime() - date.getTime();
+   142→  const diffMin = Math.floor(diffMs / 60000);
+   143→  const diffHour = Math.floor(diffMs / 3600000);
+   144→  const diffDay = Math.floor(diffMs / 86400000);
+   145→  if (diffMin < 1) return 'now';
+   146→  if (diffMin < 60) return `${diffMin}m`;
+   147→  if (diffHour < 24) return `${diffHour}h`;
+   148→  if (diffDay === 1) return 'Yesterday';
+   149→  if (diffDay < 7) return `${diffDay}d`;
+   150→  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+   151→}
+   152→
+   153→function formatMessageTime(dateStr: string): string {
+   154→  return new Date(dateStr).toLocaleTimeString([], {
+   155→    hour: '2-digit',
+   156→    minute: '2-digit',
+   157→  });
+   158→}
+   159→
+   160→function formatDateSeparator(dateStr: string): string {
+   161→  const now = new Date();
+   162→  const date = new Date(dateStr);
+   163→  const diffMs = now.getTime() - date.getTime();
+   164→  const diffDay = Math.floor(diffMs / 86400000);
+   165→  if (diffDay === 0) return 'Today';
+   166→  if (diffDay === 1) return 'Yesterday';
+   167→  if (diffDay < 7) return date.toLocaleDateString([], { weekday: 'long' });
+   168→  return date.toLocaleDateString([], {
+   169→    month: 'long',
+   170→    day: 'numeric',
+   171→    year: 'numeric',
+   172→  });
+   173→}
+   174→
+   175→function shouldShowDateSeparator(
+   176→  messages: ChatMessageItem[],
+   177→  index: number
+   178→): boolean {
+   179→  if (index === 0) return true;
+   180→  const prev = new Date(messages[index - 1].createdAt).toDateString();
+   181→  const curr = new Date(messages[index].createdAt).toDateString();
+   182→  return prev !== curr;
+   183→}
+   184→
+   185→function isGroupedWithPrev(
+   186→  messages: ChatMessageItem[],
+   187→  index: number
+   188→): boolean {
+   189→  if (index === 0) return false;
+   190→  const prev = messages[index - 1];
+   191→  const curr = messages[index];
+   192→  if (prev.userId !== curr.userId) return false;
+   193→  if (shouldShowDateSeparator(messages, index)) return false;
+   194→  const diff =
+   195→    new Date(curr.createdAt).getTime() - new Date(prev.createdAt).getTime();
+   196→  return diff < 5 * 60 * 1000; // 5 minutes
+   197→}
+   198→
+   199→function truncate(text: string, n: number): string {
+   200→  if (!text) return '';
+   201→  return text.length > n ? text.slice(0, n) + '…' : text;
+   202→}
+   203→
+   204→const msgVariants: Variants = {
+   205→  hidden: { opacity: 0, y: 12, scale: 0.97 },
+   206→  visible: (isOwn: boolean) => ({
+   207→    opacity: 1,
+   208→    y: 0,
+   209→    scale: 1,
+   210→    transition: { type: 'spring', stiffness: 400, damping: 30, delay: 0.03 },
+   211→  }),
+   212→};
+   213→
+   214→const chatItemVariants: Variants = {
+   215→  hidden: { opacity: 0, x: -12 },
+   216→  visible: (i: number) => ({
+   217→    opacity: 1,
+   218→    x: 0,
+   219→    transition: { delay: i * 0.04, duration: 0.25, ease: 'easeOut' },
+   220→  }),
+   221→};
+   222→
+   223→const QUICK_REACT_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+   224→const EMOJI_PICKER_LIST = [
+   225→  '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '🎉',
+   226→  '👏', '💯', '🤔', '👀', '✅', '❌', '😊', '😎',
+   227→  '🙌', '💪', '🚀', '💡',
+   228→];
+   229→
+   230→// =====================================================
+   231→// Reusable avatar / empty-state components
+   232→// =====================================================
+   233→
+   234→function UserAvatar({
+   235→  userId,
+   236→  name,
+   237→  photoUrl,
+   238→  size = 40,
+   239→  rounded = 'rounded-xl',
+   240→  className = '',
+   241→}: {
+   242→  userId: string;
+   243→  name?: string;
+   244→  photoUrl?: string;
+   245→  size?: number;
+   246→  rounded?: string;
+   247→  className?: string;
+   248→}) {
+   249→  if (photoUrl) {
+   250→    return (
+   251→      <img
+   252→        src={photoUrl}
+   253→        alt={name || 'avatar'}
+   254→        style={{ width: size, height: size }}
+   255→        className={`${rounded} object-cover flex-shrink-0 ${className}`}
+   256→      />
+   257→    );
+   258→  }
+   259→  return (
+   260→    <div
+   261→      style={{ width: size, height: size, fontSize: Math.max(10, size * 0.35) }}
+   262→      className={`${rounded} flex items-center justify-center text-white font-semibold flex-shrink-0 ${getAvatarGradient(
+   263→        userId
+   264→      )} premium-shadow ${className}`}
+   265→    >
+   266→      {getUserInitial(name)}
+   267→    </div>
+   268→  );
+   269→}
+   270→
+   271→function GroupAvatar({
+   272→  seed,
+   273→  title,
+   274→  avatarUrl,
+   275→  size = 40,
+   276→  rounded = 'rounded-xl',
+   277→}: {
+   278→  seed: string;
+   279→  title?: string;
+   280→  avatarUrl?: string;
+   281→  size?: number;
+   282→  rounded?: string;
+   283→}) {
+   284→  if (avatarUrl) {
+   285→    return (
+   286→      <img
+   287→        src={avatarUrl}
+   288→        alt={title || 'group'}
+   289→        style={{ width: size, height: size }}
+   290→        className={`${rounded} object-cover flex-shrink-0`}
+   291→      />
+   292→    );
+   293→  }
+   294→  const letter = (title || 'G').trim().charAt(0).toUpperCase();
+   295→  return (
+   296→    <div
+   297→      style={{ width: size, height: size, fontSize: Math.max(10, size * 0.4) }}
+   298→      className={`${rounded} flex items-center justify-center text-white font-semibold flex-shrink-0 ${getAvatarGradient(
+   299→        seed
+   300→      )} premium-shadow`}
+   301→    >
+   302→      {letter || <Users style={{ width: size * 0.5, height: size * 0.5 }} />}
+   303→    </div>
+   304→  );
+   305→}
+   306→
+   307→function EmptyState({
+   308→  icon: Icon = MessageSquare,
+   309→  title,
+   310→  subtitle,
+   311→  size = 'lg',
+   312→}: {
+   313→  icon?: ComponentType<{ className?: string }>;
+   314→  title: string;
+   315→  subtitle?: string;
+   316→  size?: 'sm' | 'lg';
+   317→}) {
+   318→  const dim = size === 'lg' ? 'w-20 h-20' : 'w-14 h-14';
+   319→  const iconCls = size === 'lg' ? 'h-10 w-10' : 'h-7 w-7';
+   320→  return (
+   321→    <div
+   322→ className="flex flex-col items-center justify-center text-center gap-3 p-6 animate-[fadeIn_0.3s_ease-out]"
+   323→ >
+   324→      <div
+   325→        className={`${dim} rounded-2xl gradient-emerald flex items-center justify-center premium-shadow-lg`}
+   326→      >
+   327→        <Icon className={`${iconCls} text-white`} />
+   328→      </div>
+   329→      <div>
+   330→        <h3 className="text-base font-semibold mb-1">{title}</h3>
+   331→        {subtitle && (
+   332→          <p className="text-sm text-muted-foreground max-w-xs">{subtitle}</p>
+   333→        )}
+   334→      </div>
+   335→    </div>
+   336→  );
+   337→}
+   338→
+   339→// =====================================================
+   340→// Member picker (reused by NewGroup / NewDirect / AddMember)
+   341→// =====================================================
+   342→
+   343→function MemberPicker({
+   344→  excludedIds = [],
+   345→  onSelect,
+   346→  placeholder = 'Search users by name or email…',
+   347→}: {
+   348→  excludedIds?: string[];
+   349→  onSelect: (user: UserSearchResult) => void;
+   350→  placeholder?: string;
+   351→}) {
+   352→  const [query, setQuery] = useState('');
+   353→  const [results, setResults] = useState<UserSearchResult[]>([]);
+   354→  const [loading, setLoading] = useState(false);
+   355→  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   356→  const excludedKey = excludedIds.join(',');
+   357→
+   358→  useEffect(() => {
+   359→    if (debounceRef.current) clearTimeout(debounceRef.current);
+   360→    if (!query.trim()) {
+   361→      setResults([]);
+   362→      setLoading(false);
+   363→      return;
+   364→    }
+   365→    setLoading(true);
+   366→    debounceRef.current = setTimeout(async () => {
+   367→      try {
+   368→        const res = await api.get('/users/search', { q: query.trim() });
+   369→        if (res.success) {
+   370→          const excluded = new Set(excludedIds);
+   371→          setResults(
+   372→            (res.data || []).filter(
+   373→              (u: UserSearchResult) => !excluded.has(u.id)
+   374→            )
+   375→          );
+   376→        } else {
+   377→          setResults([]);
+   378→        }
+   379→      } catch {
+   380→        setResults([]);
+   381→      } finally {
+   382→        setLoading(false);
+   383→      }
+   384→    }, 250);
+   385→    return () => {
+   386→      if (debounceRef.current) clearTimeout(debounceRef.current);
+   387→    };
+   388→  }, [query, excludedKey, excludedIds]);
+   389→
+   390→  return (
+   391→    <div className="space-y-2">
+   392→      <div className="relative">
+   393→        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+   394→        <Input
+   395→          placeholder={placeholder}
+   396→          value={query}
+   397→          onChange={(e) => setQuery(e.target.value)}
+   398→          className="h-9 text-sm pl-8 bg-muted/50 border-border/40 rounded-lg"
+   399→        />
+   400→      </div>
+   401→      {loading && <p className="text-xs text-muted-foreground px-1">Searching…</p>}
+   402→      {!loading && query.trim() && results.length === 0 && (
+   403→        <p className="text-xs text-muted-foreground px-1">No users found.</p>
+   404→      )}
+   405→      {!loading && results.length > 0 && (
+   406→        <div className="border border-border/40 rounded-lg max-h-56 overflow-y-auto divide-y divide-border/20">
+   407→          {results.map((u) => (
+   408→            <button
+   409→              key={u.id}
+   410→              onClick={() => onSelect(u)}
+   411→              className="w-full flex items-center gap-3 p-2 hover:bg-muted/50 transition-colors text-left"
+   412→            >
+   413→              <UserAvatar
+   414→                userId={u.id}
+   415→                name={u.profile?.fullName}
+   416→                photoUrl={u.profile?.profilePhoto}
+   417→                size={32}
+   418→                rounded="rounded-full"
+   419→              />
+   420→              <div className="min-w-0 flex-1">
+   421→                <p className="text-sm font-medium truncate">
+   422→                  {u.profile?.fullName || u.email}
+   423→                </p>
+   424→                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+   425→              </div>
+   426→              <Plus className="h-4 w-4 text-primary flex-shrink-0" />
+   427→            </button>
+   428→          ))}
+   429→        </div>
+   430→      )}
+   431→    </div>
+   432→  );
+   433→}
+   434→
+   435→// =====================================================
+   436→// New Group / New Direct dialogs
+   437→// =====================================================
+   438→
+   439→function NewGroupDialog({
+   440→  open,
+   441→  onOpenChange,
+   442→  onCreated,
+   443→  currentUserId,
+   444→}: {
+   445→  open: boolean;
+   446→  onOpenChange: (o: boolean) => void;
+   447→  onCreated: (conv: Conversation) => void;
+   448→  currentUserId: string;
+   449→}) {
+   450→  const [title, setTitle] = useState('');
+   451→  const [description, setDescription] = useState('');
+   452→  const [selected, setSelected] = useState<UserSearchResult[]>([]);
+   453→  const [creating, setCreating] = useState(false);
+   454→
+   455→  const reset = () => {
+   456→    setTitle('');
+   457→    setDescription('');
+   458→    setSelected([]);
+   459→  };
+   460→
+   461→  const handleCreate = async () => {
+   462→    if (!title.trim()) {
+   463→      toast.error('Group name is required');
+   464→      return;
+   465→    }
+   466→    if (selected.length === 0) {
+   467→      toast.error('Add at least one member');
+   468→      return;
+   469→    }
+   470→    setCreating(true);
+   471→    try {
+   472→      const res = await api.post('/conversations', {
+   473→        type: 'group',
+   474→        title: title.trim(),
+   475→        description: description.trim() || undefined,
+   476→        memberIds: selected.map((u) => u.id),
+   477→      });
+   478→      if (res.success) {
+   479→        toast.success('Group created');
+   480→        onCreated(res.data as Conversation);
+   481→        reset();
+   482→        onOpenChange(false);
+   483→      } else {
+   484→        toast.error(res.error || 'Failed to create group');
+   485→      }
+   486→    } finally {
+   487→      setCreating(false);
+   488→    }
+   489→  };
+   490→
+   491→  return (
+   492→    <Dialog
+   493→      open={open}
+   494→      onOpenChange={(o) => {
+   495→        if (!o) reset();
+   496→        onOpenChange(o);
+   497→      }}
+   498→    >
+   499→      <DialogContent className="sm:max-w-md">
+   500→        <DialogHeader>
+   501→          <DialogTitle>New Group</DialogTitle>
+   502→          <DialogDescription>
+   503→            Create a group conversation with other users.
+   504→          </DialogDescription>
+   505→        </DialogHeader>
+   506→        <div className="space-y-3 py-2">
+   507→          <div className="space-y-1.5">
+   508→            <label className="text-xs font-medium text-muted-foreground">
+   509→              Group name *
+   510→            </label>
+   511→            <Input
+   512→              placeholder="e.g. Project Alpha Team"
+   513→              value={title}
+   514→              onChange={(e) => setTitle(e.target.value)}
+   515→              className="bg-muted/50"
+   516→            />
+   517→          </div>
+   518→          <div className="space-y-1.5">
+   519→            <label className="text-xs font-medium text-muted-foreground">
+   520→              Description (optional)
+   521→            </label>
+   522→            <Textarea
+   523→              placeholder="What's this group about?"
+   524→              value={description}
+   525→              onChange={(e) => setDescription(e.target.value)}
+   526→              rows={2}
+   527→              className="bg-muted/50 resize-none"
+   528→            />
+   529→          </div>
+   530→          <div className="space-y-1.5">
+   531→            <label className="text-xs font-medium text-muted-foreground">
+   532→              Add members *
+   533→            </label>
+   534→            <MemberPicker
+   535→              excludedIds={[currentUserId, ...selected.map((u) => u.id)]}
+   536→              onSelect={(u) => setSelected((prev) => [...prev, u])}
+   537→            />
+   538→            {selected.length > 0 && (
+   539→              <div className="flex flex-wrap gap-1.5 pt-1">
+   540→                {selected.map((u) => (
+   541→                  <span
+   542→                    key={u.id}
+   543→                    className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full"
+   544→                  >
+   545→                    {u.profile?.fullName || u.email}
+   546→                    <button
+   547→                      onClick={() =>
+   548→                        setSelected((prev) =>
+   549→                          prev.filter((x) => x.id !== u.id)
+   550→                        )
+   551→                      }
+   552→                    >
+   553→                      <X className="h-3 w-3" />
+   554→                    </button>
+   555→                  </span>
+   556→                ))}
+   557→              </div>
+   558→            )}
+   559→          </div>
+   560→        </div>
+   561→        <DialogFooter>
+   562→          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+   563→            Cancel
+   564→          </Button>
+   565→          <Button
+   566→            className="gradient-emerald"
+   567→            onClick={handleCreate}
+   568→            disabled={creating}
+   569→          >
+   570→            {creating ? 'Creating…' : 'Create Group'}
+   571→          </Button>
+   572→        </DialogFooter>
+   573→      </DialogContent>
+   574→    </Dialog>
+   575→  );
+   576→}
+   577→
+   578→function NewDirectDialog({
+   579→  open,
+   580→  onOpenChange,
+   581→  onCreated,
+   582→  currentUserId,
+   583→}: {
+   584→  open: boolean;
+   585→  onOpenChange: (o: boolean) => void;
+   586→  onCreated: (conv: Conversation) => void;
+   587→  currentUserId: string;
+   588→}) {
+   589→  const [busy, setBusy] = useState(false);
+   590→
+   591→  const handleSelect = async (u: UserSearchResult) => {
+   592→    setBusy(true);
+   593→    try {
+   594→      const res = await api.post('/conversations', {
+   595→        type: 'direct',
+   596→        memberIds: [u.id],
+   597→      });
+   598→      if (res.success) {
+   599→        toast.success(`Conversation with ${u.profile?.fullName || u.email}`);
+   600→        onCreated(res.data as Conversation);
+   601→        onOpenChange(false);
+   602→      } else {
+   603→        toast.error(res.error || 'Failed to start conversation');
+   604→      }
+   605→    } finally {
+   606→      setBusy(false);
+   607→    }
+   608→  };
+   609→
+   610→  return (
+   611→    <Dialog open={open} onOpenChange={onOpenChange}>
+   612→      <DialogContent className="sm:max-w-md">
+   613→        <DialogHeader>
+   614→          <DialogTitle>New Direct Message</DialogTitle>
+   615→          <DialogDescription>
+   616→            Search for a user to start a 1:1 conversation.
+   617→          </DialogDescription>
+   618→        </DialogHeader>
+   619→        <div className="py-2">
+   620→          <MemberPicker
+   621→            excludedIds={[currentUserId]}
+   622→            onSelect={handleSelect}
+   623→            placeholder="Search by name or email…"
+   624→          />
+   625→          {busy && (
+   626→            <p className="text-xs text-muted-foreground mt-2 px-1">
+   627→              Starting conversation…
+   628→            </p>
+   629→          )}
+   630→        </div>
+   631→      </DialogContent>
+   632→    </Dialog>
+   633→  );
+   634→}
+   635→
+   636→// =====================================================
+   637→// Conversation list
+   638→// =====================================================
+   639→
+   640→function ConversationList({
+   641→  conversations,
+   642→  activeConvId,
+   643→  onSelect,
+   644→  onlineUsers,
+   645→  typingByConv,
+   646→  searchQuery,
+   647→  onSearchChange,
+   648→  filterTab,
+   649→  onFilterChange,
+   650→  onNewGroup,
+   651→  onNewDirect,
+   652→  currentUserId,
+   653→}: {
+   654→  conversations: Conversation[];
+   655→  activeConvId?: string;
+   656→  onSelect: (conv: Conversation) => void;
+   657→  onlineUsers: Set<string>;
+   658→  typingByConv: Record<string, string[]>;
+   659→  searchQuery: string;
+   660→  onSearchChange: (q: string) => void;
+   661→  filterTab: FilterTab;
+   662→  onFilterChange: (t: FilterTab) => void;
+   663→  onNewGroup: () => void;
+   664→  onNewDirect: () => void;
+   665→  currentUserId: string;
+   666→}) {
+   667→  return (
+   668→    <div className="flex flex-col h-full min-h-0 bg-card">
+   669→      {/* Header */}
+   670→      <div className="px-4 py-3 border-b border-border/40 flex-shrink-0">
+   671→        <div className="flex items-center justify-between mb-3">
+   672→          <h3 className="font-semibold text-base flex items-center gap-2">
+   673→            <div className="p-1.5 rounded-lg gradient-emerald">
+   674→              <MessageSquare className="h-4 w-4 text-white" />
+   675→            </div>
+   676→            Messages
+   677→          </h3>
+   678→          <DropdownMenu>
+   679→            <DropdownMenuTrigger asChild>
+   680→              <Button
+   681→                variant="ghost"
+   682→                size="icon"
+   683→                className="h-8 w-8 rounded-lg hover:bg-primary/10"
+   684→              >
+   685→                <Pencil className="h-4 w-4" />
+   686→              </Button>
+   687→            </DropdownMenuTrigger>
+   688→            <DropdownMenuContent align="end">
+   689→              <DropdownMenuItem onSelect={onNewGroup}>
+   690→                <Users className="h-4 w-4 mr-2" />
+   691→                New Group
+   692→              </DropdownMenuItem>
+   693→              <DropdownMenuItem onSelect={onNewDirect}>
+   694→                <MessageSquare className="h-4 w-4 mr-2" />
+   695→                New Direct Message
+   696→              </DropdownMenuItem>
+   697→            </DropdownMenuContent>
+   698→          </DropdownMenu>
+   699→        </div>
+   700→        <div className="relative mb-2">
+   701→          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+   702→          <Input
+   703→            placeholder="Search conversations…"
+   704→            value={searchQuery}
+   705→            onChange={(e) => onSearchChange(e.target.value)}
+   706→            className="h-9 text-sm pl-8 bg-muted/50 border-border/40 rounded-lg focus:border-primary"
+   707→          />
+   708→        </div>
+   709→        <div className="flex gap-1">
+   710→          {(['all', 'groups', 'direct'] as const).map((t) => (
+   711→            <button
+   712→              key={t}
+   713→              onClick={() => onFilterChange(t)}
+   714→              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors capitalize ${
+   715→                filterTab === t
+   716→                  ? 'gradient-emerald text-white premium-shadow'
+   717→                  : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+   718→              }`}
+   719→            >
+   720→              {t}
+   721→            </button>
+   722→          ))}
+   723→        </div>
+   724→      </div>
+   725→      {/* List */}
+   726→      <ScrollArea className="flex-1 min-h-0">
+   727→        {conversations.length === 0 ? (
+   728→          <div className="p-4">
+   729→            <EmptyState
+   730→              icon={MessageSquare}
+   731→              title="No conversations yet"
+   732→              subtitle="Start a new group or direct message to begin."
+   733→              size="sm"
+   734→            />
+   735→          </div>
+   736→        ) : (
+   737→          conversations.map((conv, i) => (
+   738→              <ConversationListItem
+   739→                key={conv.id}
+   740→                conv={conv}
+   741→                active={conv.id === activeConvId}
+   742→                index={i}
+   743→                onlineUsers={onlineUsers}
+   744→                typingUsers={typingByConv[conv.id] || []}
+   745→                currentUserId={currentUserId}
+   746→                onSelect={onSelect}
+   747→              />
+   748→            ))
+   749→)}
+   750→      </ScrollArea>
+   751→    </div>
+   752→  );
+   753→}
+   754→
+   755→function ConversationListItem({
+   756→  conv,
+   757→  active,
+   758→  index,
+   759→  onlineUsers,
+   760→  typingUsers,
+   761→  currentUserId,
+   762→  onSelect,
+   763→}: {
+   764→  conv: Conversation;
+   765→  active: boolean;
+   766→  index: number;
+   767→  onlineUsers: Set<string>;
+   768→  typingUsers: string[];
+   769→  currentUserId: string;
+   770→  onSelect: (conv: Conversation) => void;
+   771→}) {
+   772→  const myMembership = conv.members?.find((m) => m.userId === currentUserId);
+   773→  const pinned = !!(myMembership?.pinned || (conv as Conversation & { pinned?: boolean }).pinned);
+   774→  const muted = !!myMembership?.muted;
+   775→  const unread = conv.unreadCount || 0;
+   776→
+   777→  // Title and avatar resolution
+   778→  let title = conv.title || '';
+   779→  let photoUrl: string | undefined;
+   780→  let otherUserId: string | undefined;
+   781→  if (conv.type === 'direct') {
+   782→    const other = conv.members?.find((m) => m.userId !== currentUserId);
+   783→    title = other?.user.profile?.fullName || other?.user.email || 'Direct Message';
+   784→    photoUrl = other?.user.profile?.profilePhoto;
+   785→    otherUserId = other?.userId;
+   786→  } else if (!title) {
+   787→    title = conv.type === 'channel' ? 'Channel' : 'Untitled Group';
+   788→  }
+   789→
+   790→  // Last message preview
+   791→  const lastMsg = conv.messages?.[0];
+   792→  const typingOthers = typingUsers.filter((u) => u !== currentUserId);
+   793→  let previewText = '';
+   794→  let previewTime = conv.updatedAt;
+   795→  if (typingOthers.length > 0) {
+   796→    previewText = 'typing…';
+   797→  } else if (lastMsg) {
+   798→    const senderName =
+   799→      lastMsg.userId === currentUserId
+   800→        ? 'You'
+   801→        : lastMsg.user?.profile?.fullName?.split(' ')[0] || 'User';
+   802→    previewText =
+   803→      conv.type === 'direct' ? lastMsg.content : `${senderName}: ${lastMsg.content}`;
+   804→    previewTime = lastMsg.createdAt;
+   805→  } else {
+   806→    previewText = 'No messages yet';
+   807→  }
+   808→
+   809→  const isOnline = otherUserId ? onlineUsers.has(otherUserId) : false;
+   810→
+   811→  return (
+   812→    <button
+   813→ onClick={() => onSelect(conv)}
+   814→ className={`w-full p-3 text-left transition-colors duration-150 border-b border-border/20 group relative ${
+   815→ active ? 'bg-primary/10' : 'hover:bg-muted/50'
+   816→ } animate-[fadeIn_0.3s_ease-out]`}
+   817→ >
+   818→      {active && (
+   819→        <div
+   820→ layoutId="activeConvBar"
+   821→ className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full gradient-emerald"
+   822→ />
+   823→      )}
+   824→      {pinned && !active && (
+   825→        <Pin className="absolute top-2 right-2 h-3 w-3 text-muted-foreground/60" />
+   826→      )}
+   827→      <div className="flex items-start gap-3">
+   828→        <div className="relative flex-shrink-0">
+   829→          {conv.type === 'direct' ? (
+   830→            <UserAvatar
+   831→              userId={otherUserId || conv.id}
+   832→              name={title}
+   833→              photoUrl={photoUrl}
+   834→              size={44}
+   835→              rounded="rounded-full"
+   836→            />
+   837→          ) : (
+   838→            <GroupAvatar
+   839→              seed={conv.id}
+   840→              title={title}
+   841→              avatarUrl={conv.avatarUrl}
+   842→              size={44}
+   843→              rounded="rounded-full"
+   844→            />
+   845→          )}
+   846→          {isOnline && (
+   847→            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-card" />
+   848→          )}
+   849→        </div>
+   850→        <div className="min-w-0 flex-1">
+   851→          <div className="flex items-center justify-between gap-2">
+   852→            <p
+   853→              className={`text-sm truncate flex-1 flex items-center gap-1 ${
+   854→                active
+   855→                  ? 'font-semibold'
+   856→                  : unread > 0
+   857→                    ? 'font-semibold'
+   858→                    : 'font-medium'
+   859→              }`}
+   860→            >
+   861→              <span className="truncate">{title}</span>
+   862→              {muted && (
+   863→                <BellOff className="h-3 w-3 text-muted-foreground/60 flex-shrink-0" />
+   864→              )}
+   865→            </p>
+   866→            <div className="flex items-center gap-1.5 flex-shrink-0">
+   867→              {unread > 0 && (
+   868→                <span
+   869→ className="min-w-[18px] h-[18px] px-1 rounded-full gradient-emerald text-white text-[10px] font-bold flex items-center justify-center premium-shadow animate-[fadeIn_0.3s_ease-out]"
+   870→ >
+   871→                  {unread > 99 ? '99+' : unread}
+   872→                </span>
+   873→              )}
+   874→              <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">
+   875→                {previewTime ? formatRelativeTime(previewTime) : ''}
+   876→              </span>
+   877→            </div>
+   878→          </div>
+   879→          <p
+   880→            className={`text-[11px] truncate mt-0.5 ${
+   881→              typingOthers.length > 0
+   882→                ? 'text-primary font-medium'
+   883→                : 'text-muted-foreground'
+   884→            }`}
+   885→          >
+   886→            {truncate(previewText, 48)}
+   887→          </p>
+   888→        </div>
+   889→      </div>
+   890→    </button>
+   891→  );
+   892→}
+   893→
+   894→// =====================================================
+   895→// Reactions
+   896→// =====================================================
+   897→
+   898→function QuickReactButton({ onReact }: { onReact: (emoji: string) => void }) {
+   899→  const [open, setOpen] = useState(false);
+   900→  const ref = useRef<HTMLDivElement>(null);
+   901→
+   902→  useEffect(() => {
+   903→    if (!open) return;
+   904→    const handler = (e: MouseEvent) => {
+   905→      if (ref.current && !ref.current.contains(e.target as Node)) {
+   906→        setOpen(false);
+   907→      }
+   908→    };
+   909→    document.addEventListener('mousedown', handler);
+   910→    return () => document.removeEventListener('mousedown', handler);
+   911→  }, [open]);
+   912→
+   913→  return (
+   914→    <div ref={ref} className="relative">
+   915→      <button
+   916→        onClick={() => setOpen((o) => !o)}
+   917→        className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground transition-colors"
+   918→        title="Add reaction"
+   919→      >
+   920→        <Plus className="h-3 w-3" />
+   921→      </button>
+   922→      {open && (
+   923→          <div
+   924→ className="absolute z-50 bottom-8 right-0 bg-card border border-border rounded-full shadow-lg p-1 flex items-center gap-0.5 animate-[fadeIn_0.3s_ease-out]"
+   925→ >
+   926→            {QUICK_REACT_EMOJIS.map((e) => (
+   927→              <button
+   928→                key={e}
+   929→                onClick={() => {
+   930→                  onReact(e);
+   931→                  setOpen(false);
+   932→                }}
+   933→                className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center text-sm transition-transform hover:scale-125"
+   934→              >
+   935→                {e}
+   936→              </button>
+   937→            ))}
+   938→          </div>
+   939→        )}
+   940→</div>
+   941→  );
+   942→}
+   943→
+   944→function MessageReactions({
+   945→  reactions,
+   946→  currentUserId,
+   947→  onReact,
+   948→}: {
+   949→  reactions: MessageReactionItem[];
+   950→  currentUserId: string;
+   951→  onReact: (emoji: string) => void;
+   952→}) {
+   953→  const grouped = useMemo(() => {
+   954→    const map = new Map<
+   955→      string,
+   956→      { count: number; mine: boolean; users: string[] }
+   957→    >();
+   958→    for (const r of reactions) {
+   959→      const entry = map.get(r.emoji) || { count: 0, mine: false, users: [] };
+   960→      entry.count += 1;
+   961→      if (r.userId === currentUserId) entry.mine = true;
+   962→      entry.users.push(r.user?.profile?.fullName || 'User');
+   963→      map.set(r.emoji, entry);
+   964→    }
+   965→    return Array.from(map.entries());
+   966→  }, [reactions, currentUserId]);
+   967→
+   968→  return (
+   969→    <div className="flex flex-wrap items-center gap-1 mt-1">
+   970→      {grouped.map(([emoji, info]) => (
+   971→        <button
+   972→          key={emoji}
+   973→          onClick={() => onReact(emoji)}
+   974→          className={`inline-flex items-center gap-1 px-1.5 h-6 rounded-full text-[11px] font-medium transition-all hover:scale-105 ${
+   975→            info.mine
+   976→              ? 'gradient-emerald text-white premium-shadow'
+   977→              : 'bg-muted text-foreground hover:bg-muted/70'
+   978→          }`}
+   979→          title={info.users.join(', ')}
+   980→        >
+   981→          <span>{emoji}</span>
+   982→          <span>{info.count}</span>
+   983→        </button>
+   984→      ))}
+   985→      <QuickReactButton onReact={onReact} />
+   986→    </div>
+   987→  );
+   988→}
+   989→
+   990→// =====================================================
+   991→// Message bubble
+   992→// =====================================================
+   993→
+   994→function MessageBubble({
+   995→  message,
+   996→  isOwn,
+   997→  isGroup,
+   998→  isGrouped,
+   999→  currentUserId,
+  1000→  readState,
+  1001→  onReply,
+  1002→  onEdit,
+  1003→  onDelete,
+  1004→  onReact,
+  1005→  onCopy,
+  1006→  canDelete,
+  1007→}: {
+  1008→  message: ChatMessageItem;
+  1009→  isOwn: boolean;
+  1010→  isGroup: boolean;
+  1011→  isGrouped: boolean;
+  1012→  currentUserId: string;
+  1013→  readState?: ReadState;
+  1014→  onReply: (m: ChatMessageItem) => void;
+  1015→  onEdit: (m: ChatMessageItem) => void;
+  1016→  onDelete: (m: ChatMessageItem) => void;
+  1017→  onReact: (m: ChatMessageItem, emoji: string) => void;
+  1018→  onCopy: (m: ChatMessageItem) => void;
+  1019→  canDelete: boolean;
+  1020→}) {
+  1021→  const [menuOpen, setMenuOpen] = useState(false);
+  1022→  const senderName = message.user?.profile?.fullName || 'User';
+  1023→  const hasAttachment = !!message.attachmentUrl;
+  1024→  const isImage = message.attachmentType === 'image' && hasAttachment;
+  1025→
+  1026→  const handleReact = (emoji: string) => onReact(message, emoji);
+  1027→
+  1028→  return (
+  1029→    <div
+  1030→ className={`group relative flex ${
+  1031→ isOwn ? 'justify-end' : 'justify-start'
+  1032→ } ${isGrouped ? 'mt-0.5' : 'mt-3'} animate-[fadeIn_0.3s_ease-out]`}
+  1033→ >
+  1034→      <div
+  1035→        className={`flex gap-2 max-w-[80%] md:max-w-[68%] ${
+  1036→          isOwn ? 'flex-row-reverse' : ''
+  1037→        }`}
+  1038→      >
+  1039→        {/* Avatar spacer (only for non-own) */}
+  1040→        {!isOwn && (
+  1041→          <div className="w-7 flex-shrink-0">
+  1042→            {!isGrouped && (
+  1043→              <UserAvatar
+  1044→                userId={message.userId}
+  1045→                name={senderName}
+  1046→                photoUrl={message.user?.profile?.profilePhoto}
+  1047→                size={28}
+  1048→                rounded="rounded-full"
+  1049→              />
+  1050→            )}
+  1051→          </div>
+  1052→        )}
+  1053→
+  1054→        <div
+  1055→          className={`flex flex-col ${
+  1056→            isOwn ? 'items-end' : 'items-start'
+  1057→          } min-w-0`}
+  1058→        >
+  1059→          <div
+  1060→            className={`relative rounded-2xl ${
+  1061→              isOwn
+  1062→                ? 'gradient-emerald text-white rounded-tr-sm premium-shadow'
+  1063→                : 'bg-muted text-foreground rounded-tl-sm'
+  1064→            } ${
+  1065→              isGrouped ? (isOwn ? 'rounded-tr-2xl' : 'rounded-tl-2xl') : ''
+  1066→            } ${message.flagged ? 'ring-2 ring-rose-400' : ''} px-3 py-2`}
+  1067→          >
+  1068→            {/* Sender name for group, non-own, non-grouped */}
+  1069→            {!isOwn && !isGrouped && isGroup && (
+  1070→              <p
+  1071→                className={`text-[11px] font-semibold mb-0.5 ${getSenderColor(
+  1072→                  message.userId
+  1073→                )}`}
+  1074→              >
+  1075→                {senderName}
+  1076→              </p>
+  1077→            )}
+  1078→            {/* Reply preview */}
+  1079→            {message.replyTo && (
+  1080→              <div
+  1081→                className={`mb-1.5 pl-2 border-l-2 ${
+  1082→                  isOwn ? 'border-white/50' : 'border-primary/60'
+  1083→                }`}
+  1084→              >
+  1085→                <p
+  1086→                  className={`text-[10px] font-semibold ${
+  1087→                    isOwn ? 'text-white/85' : 'text-primary'
+  1088→                  }`}
+  1089→                >
+  1090→                  {message.replyTo.userId === currentUserId
+  1091→                    ? 'You'
+  1092→                    : message.replyTo.user?.profile?.fullName || 'User'}
+  1093→                </p>
+  1094→                <p
+  1095→                  className={`text-[11px] truncate max-w-[200px] ${
+  1096→                    isOwn ? 'text-white/70' : 'text-muted-foreground'
+  1097→                  }`}
+  1098→                >
+  1099→                  {truncate(message.replyTo.content, 60)}
+  1100→                </p>
+  1101→              </div>
+  1102→            )}
+  1103→            {/* Attachment */}
+  1104→            {hasAttachment && (
+  1105→              <div className="mb-1">
+  1106→                {isImage ? (
+  1107→                  <img
+  1108→                    src={message.attachmentUrl}
+  1109→                    alt={message.attachmentName || 'attachment'}
+  1110→                    className="rounded-lg max-w-full max-h-60"
+  1111→                  />
+  1112→                ) : (
+  1113→                  <a
+  1114→                    href={message.attachmentUrl}
+  1115→                    target="_blank"
+  1116→                    rel="noreferrer"
+  1117→                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ${
+  1118→                      isOwn
+  1119→                        ? 'bg-white/15 hover:bg-white/25'
+  1120→                        : 'bg-background hover:bg-background/70'
+  1121→                    }`}
+  1122→                  >
+  1123→                    <Paperclip className="h-4 w-4 flex-shrink-0" />
+  1124→                    <span className="truncate">
+  1125→                      {message.attachmentName || 'Download'}
+  1126→                    </span>
+  1127→                  </a>
+  1128→                )}
+  1129→              </div>
+  1130→            )}
+  1131→            {/* Content */}
+  1132→            {message.content && (
+  1133→              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+  1134→                {message.content}
+  1135→              </p>
+  1136→            )}
+  1137→            {/* Meta row */}
+  1138→            <div
+  1139→              className={`flex items-center justify-end gap-1 mt-0.5 ${
+  1140→                isOwn ? '' : 'text-muted-foreground'
+  1141→              }`}
+  1142→            >
+  1143→              {message.flagged && (
+  1144→                <span className="inline-flex items-center gap-0.5 text-[10px] text-rose-400 mr-1">
+  1145→                  <Flag className="h-2.5 w-2.5" />
+  1146→                  Flagged
+  1147→                </span>
+  1148→              )}
+  1149→              {message.editedAt && (
+  1150→                <span
+  1151→                  className={`text-[10px] ${
+  1152→                    isOwn ? 'text-white/60' : 'text-muted-foreground/70'
+  1153→                  }`}
+  1154→                >
+  1155→                  edited
+  1156→                </span>
+  1157→              )}
+  1158→              <span
+  1159→                className={`text-[10px] ${
+  1160→                  isOwn ? 'text-white/60' : 'text-muted-foreground/70'
+  1161→                }`}
+  1162→              >
+  1163→                {formatMessageTime(message.createdAt)}
+  1164→              </span>
+  1165→              {isOwn &&
+  1166→                (readState === 'read' ? (
+  1167→                  <CheckCheck className="h-3 w-3 text-sky-200" />
+  1168→                ) : readState === 'delivered' ? (
+  1169→                  <CheckCheck className="h-3 w-3 text-white/60" />
+  1170→                ) : (
+  1171→                  <Check className="h-3 w-3 text-white/60" />
+  1172→                ))}
+  1173→            </div>
+  1174→
+  1175→            {/* Hover action bar (desktop) */}
+  1176→            <div
+  1177→              className={`hidden md:flex absolute top-0 ${
+  1178→                isOwn
+  1179→                  ? 'left-0 -translate-x-full pr-1'
+  1180→                  : 'right-0 translate-x-full pl-1'
+  1181→              } opacity-0 group-hover:opacity-100 transition-opacity items-center`}
+  1182→            >
+  1183→              <div className="flex items-center gap-0.5 bg-card border border-border rounded-full shadow-md p-0.5">
+  1184→                <button
+  1185→                  onClick={() => onReact(message, '👍')}
+  1186→                  className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center text-xs"
+  1187→                  title="React"
+  1188→                >
+  1189→                  👍
+  1190→                </button>
+  1191→                <button
+  1192→                  onClick={() => onReply(message)}
+  1193→                  className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center"
+  1194→                  title="Reply"
+  1195→                >
+  1196→                  <Reply className="h-3 w-3" />
+  1197→                </button>
+  1198→                {isOwn && (
+  1199→                  <button
+  1200→                    onClick={() => onEdit(message)}
+  1201→                    className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center"
+  1202→                    title="Edit"
+  1203→                  >
+  1204→                    <Edit className="h-3 w-3" />
+  1205→                  </button>
+  1206→                )}
+  1207→                <button
+  1208→                  onClick={() => onCopy(message)}
+  1209→                  className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center"
+  1210→                  title="Copy"
+  1211→                >
+  1212→                  <Copy className="h-3 w-3" />
+  1213→                </button>
+  1214→                <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+  1215→                  <DropdownMenuTrigger asChild>
+  1216→                    <button
+  1217→                      className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center"
+  1218→                      title="More"
+  1219→                    >
+  1220→                      <MoreHorizontal className="h-3 w-3" />
+  1221→                    </button>
+  1222→                  </DropdownMenuTrigger>
+  1223→                  <DropdownMenuContent align={isOwn ? 'start' : 'end'}>
+  1224→                    <DropdownMenuItem onSelect={() => onReply(message)}>
+  1225→                      <Reply className="h-3.5 w-3.5 mr-2" /> Reply
+  1226→                    </DropdownMenuItem>
+  1227→                    {isOwn && (
+  1228→                      <DropdownMenuItem onSelect={() => onEdit(message)}>
+  1229→                        <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+  1230→                      </DropdownMenuItem>
+  1231→                    )}
+  1232→                    <DropdownMenuItem onSelect={() => onCopy(message)}>
+  1233→                      <Copy className="h-3.5 w-3.5 mr-2" /> Copy
+  1234→                    </DropdownMenuItem>
+  1235→                    {canDelete && (
+  1236→                      <>
+  1237→                        <DropdownMenuSeparator />
+  1238→                        <DropdownMenuItem
+  1239→                          className="text-rose-600"
+  1240→                          onSelect={() => onDelete(message)}
+  1241→                        >
+  1242→                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+  1243→                        </DropdownMenuItem>
+  1244→                      </>
+  1245→                    )}
+  1246→                  </DropdownMenuContent>
+  1247→                </DropdownMenu>
+  1248→              </div>
+  1249→            </div>
+  1250→
+  1251→            {/* Mobile action menu trigger */}
+  1252→            <div className="md:hidden absolute -top-2 right-0">
+  1253→              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+  1254→                <DropdownMenuTrigger asChild>
+  1255→                  <button
+  1256→                    className={`w-5 h-5 rounded-full bg-card border border-border shadow-sm flex items-center justify-center ${
+  1257→                      isOwn ? 'text-foreground' : 'text-foreground'
+  1258→                    }`}
+  1259→                  >
+  1260→                    <MoreHorizontal className="h-3 w-3" />
+  1261→                  </button>
+  1262→                </DropdownMenuTrigger>
+  1263→                <DropdownMenuContent align="end">
+  1264→                  <DropdownMenuItem onSelect={() => onReact(message, '👍')}>
+  1265→                    <span className="mr-2">👍</span> React
+  1266→                  </DropdownMenuItem>
+  1267→                  <DropdownMenuItem onSelect={() => onReply(message)}>
+  1268→                    <Reply className="h-3.5 w-3.5 mr-2" /> Reply
+  1269→                  </DropdownMenuItem>
+  1270→                  {isOwn && (
+  1271→                    <DropdownMenuItem onSelect={() => onEdit(message)}>
+  1272→                      <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+  1273→                    </DropdownMenuItem>
+  1274→                  )}
+  1275→                  <DropdownMenuItem onSelect={() => onCopy(message)}>
+  1276→                    <Copy className="h-3.5 w-3.5 mr-2" /> Copy
+  1277→                  </DropdownMenuItem>
+  1278→                  {canDelete && (
+  1279→                    <>
+  1280→                      <DropdownMenuSeparator />
+  1281→                      <DropdownMenuItem
+  1282→                        className="text-rose-600"
+  1283→                        onSelect={() => onDelete(message)}
+  1284→                      >
+  1285→                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+  1286→                      </DropdownMenuItem>
+  1287→                    </>
+  1288→                  )}
+  1289→                </DropdownMenuContent>
+  1290→              </DropdownMenu>
+  1291→            </div>
+  1292→          </div>
+  1293→          {/* Reactions */}
+  1294→          <MessageReactions
+  1295→            reactions={message.reactions || []}
+  1296→            currentUserId={currentUserId}
+  1297→            onReact={handleReact}
+  1298→          />
+  1299→        </div>
+  1300→      </div>
+  1301→    </div>
+  1302→  );
+  1303→}
+  1304→
+  1305→// =====================================================
+  1306→// Typing indicator
+  1307→// =====================================================
+  1308→
+  1309→function TypingIndicator({ names }: { names: string[] }) {
+  1310→  if (names.length === 0) return null;
+  1311→  const label =
+  1312→    names.length === 1
+  1313→      ? `${names[0]} is typing…`
+  1314→      : names.length === 2
+  1315→        ? `${names[0]} and ${names[1]} are typing…`
+  1316→        : `${names[0]} and ${names.length - 1} others are typing…`;
+  1317→  return (
+  1318→    <div
+  1319→ className="flex justify-start mt-2 px-9 animate-[fadeIn_0.3s_ease-out]"
+  1320→ >
+  1321→      <div className="bg-muted rounded-2xl rounded-bl-sm px-3 py-2.5">
+  1322→        <div className="flex items-center gap-2">
+  1323→          <div className="flex gap-0.5">
+  1324→            {[0, 1, 2].map((i) => (
+  1325→              <span
+  1326→ key={i}
+  1327→ className="w-1.5 h-1.5 bg-muted-foreground rounded-full"
+  1328→ />
+  1329→            ))}
+  1330→          </div>
+  1331→          <span className="text-[10px] text-muted-foreground">{label}</span>
+  1332→        </div>
+  1333→      </div>
+  1334→    </div>
+  1335→  );
+  1336→}
+  1337→
+  1338→// =====================================================
+  1339→// Emoji picker (input toolbar)
+  1340→// =====================================================
+  1341→
+  1342→function EmojiPickerButton({ onPick }: { onPick: (emoji: string) => void }) {
+  1343→  const [open, setOpen] = useState(false);
+  1344→  const ref = useRef<HTMLDivElement>(null);
+  1345→  useEffect(() => {
+  1346→    if (!open) return;
+  1347→    const handler = (e: MouseEvent) => {
+  1348→      if (ref.current && !ref.current.contains(e.target as Node)) {
+  1349→        setOpen(false);
+  1350→      }
+  1351→    };
+  1352→    document.addEventListener('mousedown', handler);
+  1353→    return () => document.removeEventListener('mousedown', handler);
+  1354→  }, [open]);
+  1355→  return (
+  1356→    <div ref={ref} className="relative">
+  1357→      <Button
+  1358→        variant="ghost"
+  1359→        size="icon"
+  1360→        className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-muted"
+  1361→        onClick={() => setOpen((o) => !o)}
+  1362→      >
+  1363→        <Smile className="h-4 w-4" />
+  1364→      </Button>
+  1365→      {open && (
+  1366→          <div
+  1367→ className="absolute bottom-10 left-0 z-50 bg-card border border-border rounded-xl shadow-lg p-2 grid grid-cols-8 gap-1 w-64 animate-[fadeIn_0.3s_ease-out]"
+  1368→ >
+  1369→            {EMOJI_PICKER_LIST.map((e) => (
+  1370→              <button
+  1371→                key={e}
+  1372→                onClick={() => {
+  1373→                  onPick(e);
+  1374→                  setOpen(false);
+  1375→                }}
+  1376→                className="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-base"
+  1377→              >
+  1378→                {e}
+  1379→              </button>
+  1380→            ))}
+  1381→          </div>
+  1382→        )}
+  1383→</div>
+  1384→  );
+  1385→}
+  1386→
+  1387→// =====================================================
+  1388→// Group info panel
+  1389→// =====================================================
+  1390→
+  1391→function MemberRow({
+  1392→  member,
+  1393→  isSelf,
+  1394→  canManage,
+  1395→  onRemove,
+  1396→  onLeave,
+  1397→}: {
+  1398→  member: ConversationMember;
+  1399→  isSelf: boolean;
+  1400→  canManage: boolean;
+  1401→  onRemove: () => void;
+  1402→  onLeave: () => void;
+  1403→}) {
+  1404→  const isOwner = member.role === 'owner';
+  1405→  const canBeRemoved = canManage && !isSelf && !isOwner;
+  1406→  return (
+  1407→    <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted/30">
+  1408→      <UserAvatar
+  1409→        userId={member.userId}
+  1410→        name={member.user.profile?.fullName}
+  1411→        photoUrl={member.user.profile?.profilePhoto}
+  1412→        size={32}
+  1413→        rounded="rounded-full"
+  1414→      />
+  1415→      <div className="min-w-0 flex-1">
+  1416→        <p className="text-sm font-medium truncate">
+  1417→          {member.user.profile?.fullName || member.user.email}
+  1418→          {isSelf && (
+  1419→            <span className="text-muted-foreground ml-1">(You)</span>
+  1420→          )}
+  1421→        </p>
+  1422→        <p className="text-xs text-muted-foreground truncate">
+  1423→          {member.user.email}
+  1424→        </p>
+  1425→      </div>
+  1426→      <Badge
+  1427→        variant={isOwner ? 'default' : 'secondary'}
+  1428→        className="text-[10px] capitalize"
+  1429→      >
+  1430→        {isOwner ? 'Owner' : member.role === 'admin' ? 'Admin' : 'Member'}
+  1431→      </Badge>
+  1432→      {canBeRemoved && (
+  1433→        <DropdownMenu>
+  1434→          <DropdownMenuTrigger asChild>
+  1435→            <button className="w-6 h-6 rounded hover:bg-muted flex items-center justify-center">
+  1436→              <MoreVertical className="h-3.5 w-3.5" />
+  1437→            </button>
+  1438→          </DropdownMenuTrigger>
+  1439→          <DropdownMenuContent align="end">
+  1440→            <DropdownMenuItem
+  1441→              className="text-rose-600"
+  1442→              onSelect={onRemove}
+  1443→            >
+  1444→              <Trash2 className="h-3.5 w-3.5 mr-2" /> Remove
+  1445→            </DropdownMenuItem>
+  1446→          </DropdownMenuContent>
+  1447→        </DropdownMenu>
+  1448→      )}
+  1449→      {isSelf && !isOwner && (
+  1450→        <button
+  1451→          onClick={onLeave}
+  1452→          className="text-xs text-rose-600 hover:underline ml-1"
+  1453→        >
+  1454→          Leave
+  1455→        </button>
+  1456→      )}
+  1457→    </div>
+  1458→  );
+  1459→}
+  1460→
+  1461→function GroupInfoPanel({
+  1462→  conv,
+  1463→  currentUserId,
+  1464→  onClose,
+  1465→  onUpdated,
+  1466→  onDeleted,
+  1467→  onAddMember,
+  1468→  onRemoveMember,
+  1469→  onLeave,
+  1470→  onToggleMute,
+  1471→  onTogglePin,
+  1472→  variant = 'panel',
+  1473→}: {
+  1474→  conv: Conversation;
+  1475→  currentUserId: string;
+  1476→  onClose: () => void;
+  1477→  onUpdated: (conv: Conversation) => void;
+  1478→  onDeleted: () => void;
+  1479→  onAddMember: (user: UserSearchResult) => void;
+  1480→  onRemoveMember: (userId: string) => void;
+  1481→  onLeave: () => void;
+  1482→  onToggleMute: () => void;
+  1483→  onTogglePin: () => void;
+  1484→  variant?: 'panel' | 'dialog';
+  1485→}) {
+  1486→  const myMembership = conv.members?.find((m) => m.userId === currentUserId);
+  1487→  const myRole = myMembership?.role;
+  1488→  const canEdit = myRole === 'owner' || myRole === 'admin';
+  1489→  const muted = !!myMembership?.muted;
+  1490→  const pinned = !!(myMembership?.pinned || conv.pinned);
+  1491→
+  1492→  const [editingTitle, setEditingTitle] = useState(false);
+  1493→  const [editingDesc, setEditingDesc] = useState(false);
+  1494→  const [titleValue, setTitleValue] = useState(conv.title || '');
+  1495→  const [descValue, setDescValue] = useState(conv.description || '');
+  1496→  const [showAddMember, setShowAddMember] = useState(false);
+  1497→  const [confirmDelete, setConfirmDelete] = useState(false);
+  1498→
+  1499→  // Local edit drafts are initialized from conv on mount (useState lazy init).
+  1500→  // The parent uses key={conv.id} so the panel remounts on conversation change.
+  1501→
+  1502→  const saveTitle = async () => {
+  1503→    if (!titleValue.trim()) {
+  1504→      toast.error('Title cannot be empty');
+  1505→      return;
+  1506→    }
+  1507→    const res = await api.patch(`/conversations/${conv.id}`, {
+  1508→      title: titleValue.trim(),
+  1509→    });
+  1510→    if (res.success) {
+  1511→      onUpdated(res.data);
+  1512→      setEditingTitle(false);
+  1513→      toast.success('Group name updated');
+  1514→    } else {
+  1515→      toast.error(res.error || 'Failed to update');
+  1516→    }
+  1517→  };
+  1518→  const saveDesc = async () => {
+  1519→    const res = await api.patch(`/conversations/${conv.id}`, {
+  1520→      description: descValue.trim(),
+  1521→    });
+  1522→    if (res.success) {
+  1523→      onUpdated(res.data);
+  1524→      setEditingDesc(false);
+  1525→      toast.success('Description updated');
+  1526→    } else {
+  1527→      toast.error(res.error || 'Failed to update');
+  1528→    }
+  1529→  };
+  1530→  const handleDelete = async () => {
+  1531→    const res = await api.delete(`/conversations/${conv.id}`);
+  1532→    if (res.success) {
+  1533→      toast.success('Group deleted');
+  1534→      onDeleted();
+  1535→    } else {
+  1536→      toast.error(res.error || 'Failed to delete group');
+  1537→    }
+  1538→  };
+  1539→
+  1540→  const containerClass =
+  1541→    variant === 'dialog'
+  1542→      ? 'flex flex-col h-full bg-card'
+  1543→      : 'flex flex-col h-full bg-card';
+  1544→
+  1545→  return (
+  1546→    <div className={containerClass}>
+  1547→      {/* Header */}
+  1548→      <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between flex-shrink-0">
+  1549→        <h3 className="font-semibold text-sm">Group Info</h3>
+  1550→        <Button
+  1551→          variant="ghost"
+  1552→          size="icon"
+  1553→          className="h-7 w-7"
+  1554→          onClick={onClose}
+  1555→        >
+  1556→          <X className="h-4 w-4" />
+  1557→        </Button>
+  1558→      </div>
+  1559→      <ScrollArea className="flex-1 min-h-0">
+  1560→        <div className="p-4 space-y-4">
+  1561→          {/* Avatar + title */}
+  1562→          <div className="flex flex-col items-center text-center gap-2 pb-3 border-b border-border/30">
+  1563→            <GroupAvatar
+  1564→              seed={conv.id}
+  1565→              title={conv.title}
+  1566→              avatarUrl={conv.avatarUrl}
+  1567→              size={80}
+  1568→              rounded="rounded-2xl"
+  1569→            />
+  1570→            {editingTitle ? (
+  1571→              <div className="flex items-center gap-1 w-full max-w-xs">
+  1572→                <Input
+  1573→                  value={titleValue}
+  1574→                  onChange={(e) => setTitleValue(e.target.value)}
+  1575→                  className="h-8 text-sm text-center"
+  1576→                  autoFocus
+  1577→                />
+  1578→                <Button
+  1579→                  size="sm"
+  1580→                  className="gradient-emerald h-8 px-2"
+  1581→                  onClick={saveTitle}
+  1582→                >
+  1583→                  Save
+  1584→                </Button>
+  1585→                <Button
+  1586→                  size="sm"
+  1587→                  variant="ghost"
+  1588→                  className="h-8 px-2"
+  1589→                  onClick={() => {
+  1590→                    setEditingTitle(false);
+  1591→                    setTitleValue(conv.title || '');
+  1592→                  }}
+  1593→                >
+  1594→                  <X className="h-3.5 w-3.5" />
+  1595→                </Button>
+  1596→              </div>
+  1597→            ) : (
+  1598→              <div className="flex items-center gap-1.5">
+  1599→                <h3 className="font-semibold text-base">
+  1600→                  {conv.title || 'Untitled Group'}
+  1601→                </h3>
+  1602→                {canEdit && (
+  1603→                  <button
+  1604→                    onClick={() => setEditingTitle(true)}
+  1605→                    className="text-muted-foreground hover:text-foreground"
+  1606→                  >
+  1607→                    <Pencil className="h-3.5 w-3.5" />
+  1608→                  </button>
+  1609→                )}
+  1610→              </div>
+  1611→            )}
+  1612→            <p className="text-xs text-muted-foreground">
+  1613→              {conv.members?.length || 0} members
+  1614→            </p>
+  1615→          </div>
+  1616→
+  1617→          {/* Description */}
+  1618→          <div className="space-y-1">
+  1619→            <p className="text-xs font-medium text-muted-foreground">
+  1620→              Description
+  1621→            </p>
+  1622→            {editingDesc ? (
+  1623→              <div className="space-y-2">
+  1624→                <Textarea
+  1625→                  value={descValue}
+  1626→                  onChange={(e) => setDescValue(e.target.value)}
+  1627→                  rows={3}
+  1628→                  className="bg-muted/50 resize-none"
+  1629→                  autoFocus
+  1630→                />
+  1631→                <div className="flex gap-1">
+  1632→                  <Button
+  1633→                    size="sm"
+  1634→                    className="gradient-emerald h-7"
+  1635→                    onClick={saveDesc}
+  1636→                  >
+  1637→                    Save
+  1638→                  </Button>
+  1639→                  <Button
+  1640→                    size="sm"
+  1641→                    variant="ghost"
+  1642→                    className="h-7"
+  1643→                    onClick={() => {
+  1644→                      setEditingDesc(false);
+  1645→                      setDescValue(conv.description || '');
+  1646→                    }}
+  1647→                  >
+  1648→                    Cancel
+  1649→                  </Button>
+  1650→                </div>
+  1651→              </div>
+  1652→            ) : (
+  1653→              <div className="flex items-start justify-between gap-2">
+  1654→                <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+  1655→                  {conv.description ||
+  1656→                    (canEdit ? 'Add a description…' : 'No description')}
+  1657→                </p>
+  1658→                {canEdit && (
+  1659→                  <button
+  1660→                    onClick={() => setEditingDesc(true)}
+  1661→                    className="text-muted-foreground hover:text-foreground flex-shrink-0 mt-0.5"
+  1662→                  >
+  1663→                    <Pencil className="h-3.5 w-3.5" />
+  1664→                  </button>
+  1665→                )}
+  1666→              </div>
+  1667→            )}
+  1668→          </div>
+  1669→
+  1670→          <Separator />
+  1671→
+  1672→          {/* Members */}
+  1673→          <div className="space-y-2">
+  1674→            <div className="flex items-center justify-between">
+  1675→              <p className="text-xs font-medium text-muted-foreground">
+  1676→                {conv.members?.length || 0} Members
+  1677→              </p>
+  1678→              {canEdit && (
+  1679→                <Button
+  1680→                  size="sm"
+  1681→                  variant="outline"
+  1682→                  className="h-7 text-xs"
+  1683→                  onClick={() => setShowAddMember(true)}
+  1684→                >
+  1685→                  <UserPlus className="h-3 w-3 mr-1" /> Add
+  1686→                </Button>
+  1687→              )}
+  1688→            </div>
+  1689→            <div className="space-y-1">
+  1690→              {conv.members?.map((m) => (
+  1691→                <MemberRow
+  1692→                  key={m.id}
+  1693→                  member={m}
+  1694→                  isSelf={m.userId === currentUserId}
+  1695→                  canManage={canEdit}
+  1696→                  onRemove={() => onRemoveMember(m.userId)}
+  1697→                  onLeave={onLeave}
+  1698→                />
+  1699→              ))}
+  1700→            </div>
+  1701→          </div>
+  1702→
+  1703→          <Separator />
+  1704→
+  1705→          {/* Settings */}
+  1706→          <div className="space-y-1">
+  1707→            <button
+  1708→              onClick={onToggleMute}
+  1709→              className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50"
+  1710→            >
+  1711→              {muted ? (
+  1712→                <BellOff className="h-4 w-4 text-muted-foreground" />
+  1713→              ) : (
+  1714→                <Bell className="h-4 w-4 text-muted-foreground" />
+  1715→              )}
+  1716→              <span className="text-sm">
+  1717→                {muted ? 'Unmute notifications' : 'Mute notifications'}
+  1718→              </span>
+  1719→            </button>
+  1720→            <button
+  1721→              onClick={onTogglePin}
+  1722→              className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/50"
+  1723→            >
+  1724→              <div className="flex items-center gap-2">
+  1725→                <Pin className="h-4 w-4 text-muted-foreground" />
+  1726→                <span className="text-sm">
+  1727→                  {pinned ? 'Unpin conversation' : 'Pin conversation'}
+  1728→                </span>
+  1729→              </div>
+  1730→              {pinned && (
+  1731→                <Badge variant="secondary" className="text-[10px]">
+  1732→                  Pinned
+  1733→                </Badge>
+  1734→              )}
+  1735→            </button>
+  1736→          </div>
+  1737→
+  1738→          {/* Danger zone */}
+  1739→          <div className="pt-2">
+  1740→            {myRole === 'owner' ? (
+  1741→              <TooltipProvider delayDuration={300}>
+  1742→                <Tooltip>
+  1743→                  <TooltipTrigger asChild>
+  1744→                    <div className="w-full">
+  1745→                      <Button
+  1746→                        variant="outline"
+  1747→                        className="w-full text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+  1748→                        onClick={() => setConfirmDelete(true)}
+  1749→                      >
+  1750→                        <Trash2 className="h-4 w-4 mr-2" /> Delete Group
+  1751→                      </Button>
+  1752→                    </div>
+  1753→                  </TooltipTrigger>
+  1754→                  <TooltipContent>
+  1755→                    Owners can delete the group permanently
+  1756→                  </TooltipContent>
+  1757→                </Tooltip>
+  1758→              </TooltipProvider>
+  1759→            ) : (
+  1760→              <Button
+  1761→                variant="outline"
+  1762→                className="w-full text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+  1763→                onClick={onLeave}
+  1764→              >
+  1765→                Leave Group
+  1766→              </Button>
+  1767→            )}
+  1768→          </div>
+  1769→        </div>
+  1770→      </ScrollArea>
+  1771→
+  1772→      {/* Add member sub-dialog */}
+  1773→      <Dialog open={showAddMember} onOpenChange={setShowAddMember}>
+  1774→        <DialogContent className="sm:max-w-md">
+  1775→          <DialogHeader>
+  1776→            <DialogTitle>Add Member</DialogTitle>
+  1777→          </DialogHeader>
+  1778→          <div className="py-2">
+  1779→            <MemberPicker
+  1780→              excludedIds={[
+  1781→                currentUserId,
+  1782→                ...(conv.members?.map((m) => m.userId) || []),
+  1783→              ]}
+  1784→              onSelect={(u) => {
+  1785→                onAddMember(u);
+  1786→                setShowAddMember(false);
+  1787→              }}
+  1788→            />
+  1789→          </div>
+  1790→        </DialogContent>
+  1791→      </Dialog>
+  1792→
+  1793→      {/* Delete confirm */}
+  1794→      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+  1795→        <DialogContent className="sm:max-w-sm">
+  1796→          <DialogHeader>
+  1797→            <DialogTitle>Delete group?</DialogTitle>
+  1798→            <DialogDescription>
+  1799→              This action cannot be undone. All messages will be permanently
+  1800→              lost.
+  1801→            </DialogDescription>
+  1802→          </DialogHeader>
+  1803→          <DialogFooter>
+  1804→            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+  1805→              Cancel
+  1806→            </Button>
+  1807→            <Button variant="destructive" onClick={handleDelete}>
+  1808→              Delete
+  1809→            </Button>
+  1810→          </DialogFooter>
+  1811→        </DialogContent>
+  1812→      </Dialog>
+  1813→    </div>
+  1814→  );
+  1815→}
+  1816→
+  1817→// =====================================================
+  1818→// Main ChatView component
+  1819→// =====================================================
+  1820→
+  1821→export function ChatView({ chatId }: { chatId?: string }) {
+  1822→  const { user } = useAuthStore();
+  1823→  const currentUserId = user?.id || '';
+  1824→
+  1825→  // State
+  1826→  const [conversations, setConversations] = useState<Conversation[]>([]);
+  1827→  const [activeConv, setActiveConv] = useState<ActiveConv | null>(null);
+  1828→  const [messages, setMessages] = useState<ChatMessageItem[]>([]);
+  1829→  const [input, setInput] = useState('');
+  1830→  const [replyTo, setReplyTo] = useState<ChatMessageItem | null>(null);
+  1831→  const [editingMsg, setEditingMsg] = useState<ChatMessageItem | null>(null);
+  1832→  const [searchQuery, setSearchQuery] = useState('');
+  1833→  const [filterTab, setFilterTab] = useState<FilterTab>('all');
+  1834→  const [showConvSearch, setShowConvSearch] = useState(false);
+  1835→  const [convSearchQuery, setConvSearchQuery] = useState('');
+  1836→  const [typingByConv, setTypingByConv] = useState<Record<string, string[]>>(
+  1837→    {}
+  1838→  );
+  1839→  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  1840→  const [readReceipts, setReadReceipts] = useState<Record<string, ReadState>>(
+  1841→    {}
+  1842→  );
+  1843→  const [showInfoPanel, setShowInfoPanel] = useState(false);
+  1844→  const [showListMobile, setShowListMobile] = useState(true);
+  1845→  const [showNewGroup, setShowNewGroup] = useState(false);
+  1846→  const [showNewDirect, setShowNewDirect] = useState(false);
+  1847→  const [sending, setSending] = useState(false);
+  1848→
+  1849→  // Refs
+  1850→  const socketRef = useRef<Socket | null>(null);
+  1851→  const activeConvIdRef = useRef<string | null>(null);
+  1852→  const messagesRef = useRef<ChatMessageItem[]>([]);
+  1853→  const messagesEndRef = useRef<HTMLDivElement>(null);
+  1854→  const lastTypingEmitRef = useRef<number>(0);
+  1855→  const typingStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+  1856→    null
+  1857→  );
+  1858→
+  1859→  // Sync refs
+  1860→  useEffect(() => {
+  1861→    activeConvIdRef.current = activeConv?.id || null;
+  1862→  }, [activeConv]);
+  1863→  useEffect(() => {
+  1864→    messagesRef.current = messages;
+  1865→  }, [messages]);
+  1866→
+  1867→  // Fetch conversations
+  1868→  const fetchConversations = useCallback(async () => {
+  1869→    const res = await api.get('/conversations');
+  1870→    if (res.success) {
+  1871→      setConversations(res.data as Conversation[]);
+  1872→    }
+  1873→  }, []);
+  1874→
+  1875→  // Initial load
+  1876→  useEffect(() => {
+  1877→    fetchConversations();
+  1878→  }, [fetchConversations]);
+  1879→
+  1880→  // Select a conversation
+  1881→  const selectConversation = useCallback(
+  1882→    async (conv: Conversation) => {
+  1883→      // Leave previous room
+  1884→      if (
+  1885→        activeConvIdRef.current &&
+  1886→        activeConvIdRef.current !== conv.id
+  1887→      ) {
+  1888→        socketRef.current?.emit('leave-conversation', {
+  1889→          conversationId: activeConvIdRef.current,
+  1890→        });
+  1891→      }
+  1892→      setActiveConv(conv as ActiveConv);
+  1893→      setMessages([]);
+  1894→      setReplyTo(null);
+  1895→      setEditingMsg(null);
+  1896→      setInput('');
+  1897→      setReadReceipts({});
+  1898→      setShowConvSearch(false);
+  1899→      setConvSearchQuery('');
+  1900→      setShowInfoPanel(false);
+  1901→      setShowListMobile(false);
+  1902→      // Join new room
+  1903→      socketRef.current?.emit('join-conversation', {
+  1904→        conversationId: conv.id,
+  1905→      });
+  1906→      // Fetch full details
+  1907→      try {
+  1908→        const res = await api.get(`/conversations/${conv.id}`);
+  1909→        if (res.success) {
+  1910→          setActiveConv(res.data as ActiveConv);
+  1911→          setMessages(res.data.messages || []);
+  1912→          // Mark read
+  1913→          api.post(`/conversations/${conv.id}/read`);
+  1914→          setConversations((prev) =>
+  1915→            prev.map((c) =>
+  1916→              c.id === conv.id ? { ...c, unreadCount: 0 } : c
+  1917→            )
+  1918→          );
+  1919→        }
+  1920→      } catch {
+  1921→        toast.error('Failed to load conversation');
+  1922→      }
+  1923→    },
+  1924→    []
+  1925→  );
+  1926→
+  1927→  // Deep-link via chatId prop
+  1928→  useEffect(() => {
+  1929→    if (chatId && conversations.length > 0 && !activeConv) {
+  1930→      const conv = conversations.find((c) => c.id === chatId);
+  1931→      if (conv) selectConversation(conv);
+  1932→    }
+  1933→  }, [chatId, conversations, activeConv, selectConversation]);
+  1934→
+  1935→  // Typing emit helpers
+  1936→  const emitTyping = useCallback(() => {
+  1937→    if (!activeConvIdRef.current || !currentUserId) return;
+  1938→    const now = Date.now();
+  1939→    if (now - lastTypingEmitRef.current > 2000) {
+  1940→      socketRef.current?.emit('conversation-typing', {
+  1941→        conversationId: activeConvIdRef.current,
+  1942→        userId: currentUserId,
+  1943→      });
+  1944→      lastTypingEmitRef.current = now;
+  1945→    }
+  1946→    if (typingStopTimeoutRef.current) {
+  1947→      clearTimeout(typingStopTimeoutRef.current);
+  1948→    }
+  1949→    typingStopTimeoutRef.current = setTimeout(() => {
+  1950→      socketRef.current?.emit('conversation-stop-typing', {
+  1951→        conversationId: activeConvIdRef.current,
+  1952→        userId: currentUserId,
+  1953→      });
+  1954→      lastTypingEmitRef.current = 0;
+  1955→    }, 2000);
+  1956→  }, [currentUserId]);
+  1957→
+  1958→  const emitStopTyping = useCallback(() => {
+  1959→    if (typingStopTimeoutRef.current) {
+  1960→      clearTimeout(typingStopTimeoutRef.current);
+  1961→      typingStopTimeoutRef.current = null;
+  1962→    }
+  1963→    if (activeConvIdRef.current && currentUserId) {
+  1964→      socketRef.current?.emit('conversation-stop-typing', {
+  1965→        conversationId: activeConvIdRef.current,
+  1966→        userId: currentUserId,
+  1967→      });
+  1968→    }
+  1969→    lastTypingEmitRef.current = 0;
+  1970→  }, [currentUserId]);
+  1971→
+  1972→  // Send message
+  1973→  const handleSend = useCallback(async () => {
+  1974→    const content = input.trim();
+  1975→    if (!content || !activeConv || sending) return;
+  1976→    setSending(true);
+  1977→    setInput('');
+  1978→    const replyToId = replyTo?.id;
+  1979→    setReplyTo(null);
+  1980→    emitStopTyping();
+  1981→    try {
+  1982→      const res = await api.post(`/conversations/${activeConv.id}/messages`, {
+  1983→        content,
+  1984→        replyToId,
+  1985→      });
+  1986→      if (res.success) {
+  1987→        const msg: ChatMessageItem = res.data;
+  1988→        setMessages((prev) =>
+  1989→          prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]
+  1990→        );
+  1991→        setReadReceipts((prev) => ({ ...prev, [msg.id]: 'sent' }));
+  1992→        // Simulated delivered after 1.5s
+  1993→        setTimeout(() => {
+  1994→          setReadReceipts((prev) =>
+  1995→            prev[msg.id] === 'read'
+  1996→              ? prev
+  1997→              : { ...prev, [msg.id]: 'delivered' }
+  1998→          );
+  1999→        }, 1500);
+  2000→        // Emit socket event
+
+[showing lines 1-2000 of 3000; use offset=2001 with limit to continue reading]

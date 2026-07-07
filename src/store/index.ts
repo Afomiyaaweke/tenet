@@ -167,7 +167,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   fetchBidAnalyses: async (tenderId) => {
     get().setLoading('bidAnalyses', true);
-    const res = await api.get(`/tenders/${tenderId}/bid-analysis`);
+    const res = await api.get('/bid-analysis', { tenderId });
     if (res.success) set({ bidAnalyses: res.data });
     get().setLoading('bidAnalyses', false);
   },

@@ -81,8 +81,8 @@ export async function GET(
       );
     }
 
-    // Contractor access check
-    if (user!.role === 'contractor' && project.bid.userId !== user!.id) {
+    // Standard user access check
+    if (user!.role === 'user' && project.bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view milestones for your own projects' },
         { status: 403 }

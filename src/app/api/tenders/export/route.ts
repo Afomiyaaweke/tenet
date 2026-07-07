@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
       where.categoryTags = { contains: category };
     }
 
-    // Tender owners can only export their own tenders
-    if (ownerOnly || user!.role === 'tender_owner') {
+    // Team admins/super admins can only export their own tenders
+    if (ownerOnly || user!.role === 'team_admin') {
       where.createdBy = user!.id;
     }
 

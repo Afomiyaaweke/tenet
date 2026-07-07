@@ -38,8 +38,9 @@ export async function PATCH(
     }
 
     // Check access
-    const isContractorOwner = user!.role === 'contractor' && project.bid.userId === user!.id;
-    if (user!.role !== 'admin' && !isContractorOwner) {
+    const isProjectOwner = user!.role === 'user' && project.bid.userId === user!.id;
+    const isAdmin = user!.role === 'super_admin' || user!.role === 'team_admin';
+    if (!isAdmin && !isProjectOwner) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You cannot update tasks for this project' },
         { status: 403 }

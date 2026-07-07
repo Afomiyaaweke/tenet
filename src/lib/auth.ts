@@ -2,8 +2,13 @@ import jwt from 'jsonwebtoken';
 import { db } from '@/lib/db';
 import { NextRequest } from 'next/server';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'tenets-tender-secret-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = '7d';
+
+function getSecret(): string {
+  if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is not set');
+  return JWT_SECRET;
+}
 
 export interface JwtPayload {
   userId: string;
@@ -16,7 +21,7 @@ export interface JwtPayload {
  * Generate a JWT token for a user
  */
 export function generateToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+  return jwt.sign(payload, getSecret(), { expiresIn: JWT_EXPIRY });
 }
 
 /**
@@ -24,7 +29,7 @@ export function generateToken(payload: JwtPayload): string {
  */
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    return jwt.verify(token, getSecret()) as JwtPayload;
   } catch {
     return null;
   }

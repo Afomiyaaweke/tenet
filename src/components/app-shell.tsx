@@ -15,7 +15,7 @@ import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
-  Search, Sparkles, Verified, Zap, Globe2, Shield, Building2,
+  Search, Verified, Globe2, Shield, Building2,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetsLogo } from '@/components/logo';
@@ -329,29 +329,6 @@ function SidebarContent({
 
       {/* ── Bottom Section ── */}
       <div className="px-4 pb-4 pt-2 space-y-3">
-        {/* Upgrade Card */}
-        <div className="relative rounded-xl overflow-hidden p-[1px]">
-          {/* Gradient border */}
-          <div className="absolute inset-0 bg-orange-600 opacity-40 rounded-xl" />
-          <div className="relative bg-card rounded-xl p-3.5">
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center shadow-sm shadow-orange-200">
-                <Zap className="w-3.5 h-3.5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-foreground">Upgrade to Pro</p>
-                <p className="text-[10px] text-muted-foreground">Unlock premium features</p>
-              </div>
-            </div>
-            <Button
-              size="sm"
-              className="w-full h-7 text-[11px] font-semibold bg-orange-600 text-white border-0 shadow-sm shadow-orange-200 hover:bg-orange-700"
-            >
-              <Sparkles className="w-3 h-3 mr-1" /> Get Pro
-            </Button>
-          </div>
-        </div>
-
         {/* Sign Out */}
         <Button
           variant="ghost"

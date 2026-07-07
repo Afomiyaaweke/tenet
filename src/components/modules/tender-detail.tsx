@@ -829,14 +829,14 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             {bids.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: 'Pending', count: bidStats.pending, color: 'amber', icon: Clock },
-                  { label: 'Shortlisted', count: bidStats.shortlisted, color: 'teal', icon: Award },
-                  { label: 'Awarded', count: bidStats.awarded, color: 'emerald', icon: CheckCircle },
-                  { label: 'Rejected', count: bidStats.rejected, color: 'rose', icon: AlertCircle },
+                  { label: 'Pending', count: bidStats.pending, bg: 'bg-amber-50/60', text: 'text-amber-600', bold: 'text-amber-700', icon: Clock },
+                  { label: 'Shortlisted', count: bidStats.shortlisted, bg: 'bg-teal-50/60', text: 'text-teal-600', bold: 'text-teal-700', icon: Award },
+                  { label: 'Awarded', count: bidStats.awarded, bg: 'bg-emerald-50/60', text: 'text-emerald-600', bold: 'text-emerald-700', icon: CheckCircle },
+                  { label: 'Rejected', count: bidStats.rejected, bg: 'bg-rose-50/60', text: 'text-rose-600', bold: 'text-rose-700', icon: AlertCircle },
                 ].map(stat => (
-                  <div key={stat.label} className={`bg-${stat.color}-50/60 rounded-xl p-3 text-center`}>
-                    <stat.icon className={`h-4 w-4 text-${stat.color}-600 mx-auto mb-1`} />
-                    <p className={`text-lg font-bold text-${stat.color}-700`}>{stat.count}</p>
+                  <div key={stat.label} className={`${stat.bg} rounded-xl p-3 text-center`}>
+                    <stat.icon className={`h-4 w-4 ${stat.text} mx-auto mb-1`} />
+                    <p className={`text-lg font-bold ${stat.bold}`}>{stat.count}</p>
                     <p className="text-[10px] text-muted-foreground">{stat.label}</p>
                   </div>
                 ))}
@@ -912,7 +912,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                     </div>
                   </div>
                   <h3 className="text-lg font-semibold">No bids yet</h3>
-                  <p className="text-muted-foreground text-sm mt-1">Bids will appear here once contractors submit proposals</p>
+                  <p className="text-muted-foreground text-sm mt-1">Bids will appear here once users submit proposals</p>
                 </CardContent>
               </Card>
             )}

@@ -86,8 +86,8 @@ export async function GET(
       );
     }
 
-    // Contractor can only view tasks for their own projects
-    if (user!.role === 'contractor' && project.bid.userId !== user!.id) {
+    // Standard users can only view tasks for their own projects
+    if (user!.role === 'user' && project.bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view tasks for your own projects' },
         { status: 403 }

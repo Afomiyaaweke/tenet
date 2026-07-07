@@ -112,7 +112,7 @@ const TEMPLATES: TemplateDefinition[] = [
     textClass: 'text-amber-600',
     borderClass: 'border-amber-200',
     description: 'Create a detailed tender specification document',
-    restrictedRoles: ['admin', 'tender_owner'],
+    restrictedRoles: ['super_admin', 'team_admin'],
     fields: [
       { key: 'projectTitle', label: 'Project Title', type: 'text', placeholder: 'Enter the project title' },
       { key: 'estimatedBudgetRange', label: 'Estimated Budget Range (ETB)', type: 'text', placeholder: 'e.g. 1,000,000 - 5,000,000' },
@@ -273,7 +273,7 @@ function formatDocContent(content: string): React.ReactNode[] {
 
 export function DocBuilderView() {
   const { user } = useAuthStore();
-  const role = user?.role || 'contractor';
+  const role = user?.role || 'user';
 
   // UI State
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);

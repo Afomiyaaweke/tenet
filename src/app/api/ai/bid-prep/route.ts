@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 
-const SYSTEM_PROMPT = `You are the Tenets Tender Ecosystem AI Bid Proposal Generator. You create professional, compelling bid proposals based on tender requirements and contractor capabilities.
+const SYSTEM_PROMPT = `You are the Tenets Tender Ecosystem AI Bid Proposal Generator. You create professional, compelling bid proposals based on tender requirements and user capabilities.
 
 ## Your Task
 Generate a complete bid proposal document with the following sections. Each section must be detailed, persuasive, and professional.

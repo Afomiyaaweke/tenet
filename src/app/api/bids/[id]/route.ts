@@ -32,7 +32,7 @@ export async function GET(
     }
 
     // Non-admin users can only see their own bids
-    if (user!.role !== 'admin' && bid.userId !== user!.id) {
+    if (user!.role !== 'super_admin' && user!.role !== 'team_admin' && bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view your own bids' },
         { status: 403 }

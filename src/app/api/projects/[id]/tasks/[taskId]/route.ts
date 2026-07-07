@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/auth';
 
 /**
  * PUT /api/projects/[id]/tasks/[taskId]
- * Update task (admin or assigned contractor)
+ * Update task (admin or assigned user)
  */
 export async function PUT(
   request: NextRequest,
@@ -37,9 +37,10 @@ export async function PUT(
       );
     }
 
-    // Check access: admin or the contractor who owns this project
-    const isContractorOwner = user!.role === 'contractor' && project.bid.userId === user!.id;
-    if (user!.role !== 'admin' && !isContractorOwner) {
+    // Check access: admin or the user who owns this project
+    const isProjectOwner = user!.role === 'user' && project.bid.userId === user!.id;
+    const isAdmin = user!.role === 'super_admin' || user!.role === 'team_admin';
+    if (!isAdmin && !isProjectOwner) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You cannot update tasks for this project' },
         { status: 403 }

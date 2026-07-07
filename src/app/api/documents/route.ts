@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Use the userId from form data, or fall back to the authenticated user's id
     // Only admin can upload documents for other users
     const targetUserId = userId || user!.id;
-    if (userId && userId !== user!.id && user!.role !== 'admin') {
+    if (userId && userId !== user!.id && user!.role !== 'super_admin' && user!.role !== 'team_admin') {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only upload documents for yourself' },
         { status: 403 }
@@ -153,8 +153,8 @@ export async function GET(request: NextRequest) {
 
     let documents;
 
-    if (user!.role === 'admin') {
-      // Admin can see all documents
+    if (user!.role === 'super_admin' || user!.role === 'team_admin') {
+      // Admins can see all documents
       documents = await db.document.findMany({
         include: { user: { select: { id: true, email: true, role: true } } },
         orderBy: { createdAt: 'desc' },

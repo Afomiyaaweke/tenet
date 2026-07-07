@@ -34,7 +34,12 @@ function deadlineColor(days: number) {
 
 function deadlineBg(days: number) {
   const c = deadlineColor(days);
-  return `bg-${c}-50 text-${c}-700`;
+  const map: Record<string, string> = {
+    rose: 'bg-rose-50 text-rose-700',
+    amber: 'bg-amber-50 text-amber-700',
+    emerald: 'bg-emerald-50 text-emerald-700',
+  };
+  return map[c] || map.emerald;
 }
 
 export function TendersView() {
