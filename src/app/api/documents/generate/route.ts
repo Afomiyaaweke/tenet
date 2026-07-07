@@ -66,7 +66,7 @@ Format professionally. Be clear and unambiguous. Reference Ethiopian procurement
 
   'invoice': `You are a professional invoice document generator. Generate a detailed Invoice based on the provided project and payment information. The document should include:
 
-1. **Invoice Header** - Company name, logo placeholder, invoice number, date
+1. **Invoice Header** - Company name, company logo, invoice number, date
 2. **Bill To** - Client name, address, contact information
 3. **Project Reference** - Tender title, project reference number
 4. **Itemized Services** - Description, quantity, unit price, amount

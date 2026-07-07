@@ -156,7 +156,6 @@ export async function POST(
         userId,
         role: 'member',
       })),
-      skipDuplicates: true,
     });
 
     // Touch conversation updatedAt

@@ -50,7 +50,7 @@ export async function PATCH(
     // Create notification for the user
     await db.notification.create({
       data: {
-        userId: document.userId,
+        userId: document.userId || '',
         title: `Document ${status === 'approved' ? 'Approved' : 'Rejected'}`,
         message:
           status === 'approved'
