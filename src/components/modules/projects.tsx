@@ -170,7 +170,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
                 {project.tender?.title || 'Project'}
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                {project.bid?.user?.profile?.fullName || project.bid?.user?.profile?.companyName || 'Assigned'}
+                {project.bid?.user?.profile?.fullName || project.bid?.user?.company?.name || 'Assigned'}
               </p>
             </div>
           </div>

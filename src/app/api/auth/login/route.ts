@@ -16,10 +16,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by email
+    // Find user by email with company relation
     const user = await db.user.findUnique({
       where: { email },
-      include: { profile: true },
+      include: { profile: true, company: true },
     });
 
     if (!user) {
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role,
+      companyId: user.companyId,
     });
 
     // Return user data (without password hash)

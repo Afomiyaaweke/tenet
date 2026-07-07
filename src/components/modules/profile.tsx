@@ -1,21 +1,34 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useAuthStore } from '@/store';
-import { api, Document } from '@/lib/api';
+import { useAuthStore, useNavStore } from '@/store';
+import { api, Document, Company } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   User, Mail, Phone, MapPin, Building, Shield, Edit2, Save, X,
   CheckCircle, Briefcase, FileText, Upload, Clock, XCircle,
-  Award, Receipt, FolderOpen, File, Camera,
+  Award, Receipt, FolderOpen, File, Camera, Users, UserCircle,
+  Globe, MapPinned, Hash, ExternalLink, Plus, ChevronRight,
+  Lock, Eye, PenTool, Settings, FileCheck, ClipboardList,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// ==========================================
+// Constants
+// ==========================================
 
 const SKILL_OPTIONS = [
   'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
@@ -47,6 +60,63 @@ const SKILL_COLORS: Record<string, string> = {
   'Telecommunications': 'bg-blue-50 text-blue-700 border-blue-200/60',
 };
 
+// Role configuration
+type UserRole = 'super_admin' | 'team_admin' | 'user';
+
+interface RoleConfig {
+  label: string;
+  description: string;
+  icon: typeof Shield;
+  badgeClass: string;
+  permissions: { label: string; icon: typeof Eye }[];
+}
+
+const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
+  super_admin: {
+    label: 'Super Admin',
+    description: 'Full system access',
+    icon: Shield,
+    badgeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400',
+    permissions: [
+      { label: 'Manage all companies', icon: Building },
+      { label: 'Verify organizations', icon: CheckCircle },
+      { label: 'Manage all users & roles', icon: Users },
+      { label: 'Create & manage tenders', icon: ClipboardList },
+      { label: 'Review & award bids', icon: FileCheck },
+      { label: 'Access all projects', icon: FolderOpen },
+      { label: 'System configuration', icon: Settings },
+    ],
+  },
+  team_admin: {
+    label: 'Team Admin',
+    description: 'Company management',
+    icon: Users,
+    badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    permissions: [
+      { label: 'Create tenders', icon: ClipboardList },
+      { label: 'Review bids', icon: FileCheck },
+      { label: 'Manage team members', icon: Users },
+      { label: 'Company settings', icon: Settings },
+      { label: 'Submit bids', icon: PenTool },
+      { label: 'View tenders', icon: Eye },
+      { label: 'Manage own profile & documents', icon: User },
+    ],
+  },
+  user: {
+    label: 'User',
+    description: 'Standard access',
+    icon: UserCircle,
+    badgeClass: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    permissions: [
+      { label: 'Submit bids', icon: PenTool },
+      { label: 'View tenders', icon: Eye },
+      { label: 'Manage own profile', icon: User },
+      { label: 'Upload documents', icon: FileText },
+    ],
+  },
+};
+
+// Document helpers
 const docTypeConfig = (type: string) => {
   switch (type) {
     case 'business_license': return { icon: Briefcase, bg: 'bg-emerald-50', color: 'text-emerald-600', label: 'Business License' };
@@ -96,17 +166,30 @@ const sectionVariants = {
   }),
 };
 
+// Team member type for the role management section
+interface TeamMember {
+  id: string;
+  email: string;
+  role: UserRole;
+  status: string;
+  createdAt: string;
+  profile?: { fullName: string; jobTitle?: string };
+}
+
+// ==========================================
+// Main Component
+// ==========================================
+
 export function ProfileView() {
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, company } = useAuthStore();
+  const { setView } = useNavStore();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => ({
     fullName: user?.profile?.fullName || '',
+    jobTitle: user?.profile?.jobTitle || '',
     phone: user?.profile?.phone || '',
     location: user?.profile?.location || '',
     address: user?.profile?.address || '',
-    companyName: user?.profile?.companyName || '',
-    tinNumber: user?.profile?.tinNumber || '',
-    licenseNumber: user?.profile?.licenseNumber || '',
     bio: user?.profile?.bio || '',
     skillTags: user?.profile?.skillTags || '',
   }));
@@ -116,8 +199,25 @@ export function ProfileView() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [docType, setDocType] = useState('business_license');
   const [docsLoading, setDocsLoading] = useState(false);
+  const [companyData, setCompanyData] = useState<Company | null>(company || null);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [changingRole, setChangingRole] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const profile = user?.profile;
+  const isVerified = profile?.verified ?? false;
+  const userRole = (user?.role || 'user') as UserRole;
+  const roleConfig = ROLE_CONFIG[userRole];
+  const isSuperAdmin = userRole === 'super_admin';
+  const isTeamAdmin = userRole === 'team_admin';
+  const hasCompany = !!(user?.companyId || companyData);
+  const completeness = getProfileCompleteness(profile);
+  const approvedDocs = documents.filter(d => d.status === 'approved').length;
+  const pendingDocs = documents.filter(d => d.status === 'pending').length;
+
+  // Load documents
   const loadDocs = useCallback(async () => {
     setDocsLoading(true);
     const res = await api.get('/documents');
@@ -125,8 +225,56 @@ export function ProfileView() {
     setDocsLoading(false);
   }, []);
 
+  // Load company details
+  const loadCompany = async () => {
+    if (!user?.companyId) return;
+    setCompanyLoading(true);
+    const res = await api.get(`/companies/${user.companyId}`);
+    if (res.success) {
+      setCompanyData(res.data);
+    }
+    setCompanyLoading(false);
+  };
+
+  // Load team members (for super_admin and team_admin)
+  const loadTeamMembers = async () => {
+    if (!isSuperAdmin && !isTeamAdmin) return;
+    setTeamLoading(true);
+    try {
+      if (user?.companyId) {
+        const res = await api.get(`/companies/${user.companyId}`);
+        if (res.success && res.data.users) {
+          setTeamMembers(res.data.users);
+        }
+      } else if (isSuperAdmin) {
+        // Super admin without company can see all users via profiles
+        const res = await api.get('/profiles');
+        if (res.success) {
+          const members: TeamMember[] = res.data.map((p: { user: { id: string; email: string; role: UserRole; status: string; createdAt: string }; fullName: string; jobTitle?: string }) => ({
+            id: p.user.id,
+            email: p.user.email,
+            role: p.user.role,
+            status: p.user.status,
+            createdAt: p.user.createdAt,
+            profile: { fullName: p.fullName, jobTitle: p.jobTitle },
+          }));
+          setTeamMembers(members);
+        }
+      }
+    } catch {
+      // Silently fail
+    }
+    setTeamLoading(false);
+  };
+
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadDocs(); }, [loadDocs]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (user?.companyId && !companyData) loadCompany(); }, [user?.companyId, companyData]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadTeamMembers(); }, [isSuperAdmin, isTeamAdmin, user?.companyId]);
 
   const handleSave = async () => {
     const profileId = user?.profile?.id;
@@ -162,11 +310,18 @@ export function ProfileView() {
     } else toast.error(res.error || 'Upload failed');
   };
 
-  const profile = user?.profile;
-  const isVerified = profile?.verified ?? false;
-  const completeness = getProfileCompleteness(profile);
-  const approvedDocs = documents.filter(d => d.status === 'approved').length;
-  const pendingDocs = documents.filter(d => d.status === 'pending').length;
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    if (!isSuperAdmin) return;
+    setChangingRole(userId);
+    const res = await api.patch(`/users/${userId}/role`, { role: newRole });
+    if (res.success) {
+      toast.success('Role updated successfully');
+      loadTeamMembers();
+    } else {
+      toast.error(res.error || 'Failed to update role');
+    }
+    setChangingRole(null);
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto view-enter">
@@ -181,7 +336,7 @@ export function ProfileView() {
             <h2 className="text-2xl font-bold tracking-tight">
               <span className="text-gradient-emerald">My Profile</span>
             </h2>
-            <p className="text-muted-foreground text-sm mt-0.5">Manage your personal information and verification status</p>
+            <p className="text-muted-foreground text-sm mt-0.5">Manage your profile, company info, and access level</p>
           </div>
         </div>
         {!editing ? (
@@ -211,8 +366,191 @@ export function ProfileView() {
         )}
       </motion.div>
 
-      {/* Profile Header Card */}
+      {/* ==========================================
+          COMPANY SECTION (top of profile)
+          ========================================== */}
       <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-teal-500/10">
+                <Building className="h-3.5 w-3.5 text-teal-600" />
+              </div>
+              Company
+              {companyData?.verified && (
+                <Badge className="text-[10px] px-1.5 py-0 border-0 bg-emerald-50 text-emerald-700 ml-1">
+                  <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> Verified
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {companyLoading ? (
+              <div className="space-y-3">
+                <div className="h-10 bg-muted/50 rounded-lg animate-pulse" />
+                <div className="h-10 bg-muted/50 rounded-lg animate-pulse w-2/3" />
+              </div>
+            ) : hasCompany && companyData ? (
+              <div className="space-y-4">
+                {/* Company header */}
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+                    <Building className="h-5 w-5 text-teal-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-bold text-foreground">{companyData.name}</h4>
+                      {companyData.verified && (
+                        <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{companyData.industry}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-lg text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setView('admin', { tab: 'companies' })}
+                  >
+                    View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+                  </Button>
+                </div>
+
+                {/* Company details grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {companyData.city && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <MapPinned className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
+                        <p className="text-xs font-medium">{companyData.city}{companyData.country ? `, ${companyData.country}` : ''}</p>
+                      </div>
+                    </div>
+                  )}
+                  {companyData.tinNumber && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <Hash className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">TIN Number</p>
+                        <p className="text-xs font-medium">{companyData.tinNumber}</p>
+                      </div>
+                    </div>
+                  )}
+                  {companyData.registrationNo && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <FileText className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Registration No.</p>
+                        <p className="text-xs font-medium">{companyData.registrationNo}</p>
+                      </div>
+                    </div>
+                  )}
+                  {companyData.industry && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <Briefcase className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Industry</p>
+                        <p className="text-xs font-medium">{companyData.industry}</p>
+                      </div>
+                    </div>
+                  )}
+                  {companyData.phone && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <Phone className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Phone</p>
+                        <p className="text-xs font-medium">{companyData.phone}</p>
+                      </div>
+                    </div>
+                  )}
+                  {companyData.website && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <Globe className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
+                        <p className="text-xs font-medium truncate max-w-[200px]">{companyData.website}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                  <Building className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground">No company associated</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
+                  Set up your company to access team management, create tenders, and more.
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4 rounded-xl border-dashed"
+                  onClick={() => setView('admin', { tab: 'companies' })}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" /> Set Up Your Company
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ==========================================
+          ROLE & ACCESS SECTION
+          ========================================== */}
+      <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible">
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-orange-500/10">
+                <Shield className="h-3.5 w-3.5 text-orange-600" />
+              </div>
+              Role & Access Level
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Role Badge */}
+            <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-xl">
+              <div className={`p-2.5 rounded-xl ${roleConfig.badgeClass}`}>
+                <roleConfig.icon className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold">{roleConfig.label}</span>
+                  <Badge className={`text-[10px] px-2 py-0 border-0 font-semibold ${roleConfig.badgeClass}`}>
+                    {roleConfig.description}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {user?.email}
+                </p>
+              </div>
+            </div>
+
+            {/* Permissions Checklist */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Permissions</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {roleConfig.permissions.map((perm) => {
+                  const PermIcon = perm.icon;
+                  return (
+                    <div key={perm.label} className="flex items-center gap-2 px-3 py-2 bg-muted/20 rounded-lg">
+                      <PermIcon className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                      <span className="text-xs font-medium text-foreground">{perm.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ==========================================
+          PROFILE HEADER CARD
+          ========================================== */}
+      <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible">
         <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
@@ -228,7 +566,6 @@ export function ProfileView() {
                     <CheckCircle className="w-4 h-4 text-white" strokeWidth={2.5} />
                   </span>
                 )}
-                {/* Camera overlay for edit mode */}
                 {editing && (
                   <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                     <Camera className="h-5 w-5 text-white" />
@@ -240,7 +577,8 @@ export function ProfileView() {
               <div className="flex-1 text-center sm:text-left">
                 <h3 className="text-xl font-bold text-foreground">{profile?.fullName || 'Complete your profile'}</h3>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {profile?.type === 'company' ? profile.companyName : 'Individual Professional'}
+                  {profile?.jobTitle || (hasCompany ? 'Team Member' : 'Individual Professional')}
+                  {companyData ? ` at ${companyData.name}` : ''}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 mt-3 justify-center sm:justify-start">
                   <Badge className={`text-xs px-3 py-1 border-0 font-semibold ${
@@ -251,10 +589,16 @@ export function ProfileView() {
                     <Shield className="h-3 w-3 mr-1.5" />
                     {isVerified ? 'Verified' : 'Pending Verification'}
                   </Badge>
-                  <Badge className="text-xs px-3 py-1 border-0 font-semibold bg-emerald-50 text-emerald-700 capitalize">
-                    <Briefcase className="h-3 w-3 mr-1.5" />
-                    {user?.role?.replace('_', ' ')}
+                  <Badge className={`text-xs px-3 py-1 border-0 font-semibold ${roleConfig.badgeClass}`}>
+                    <roleConfig.icon className="h-3 w-3 mr-1.5" />
+                    {roleConfig.label}
                   </Badge>
+                  {hasCompany && (
+                    <Badge className="text-xs px-3 py-1 border-0 font-semibold bg-teal-50 text-teal-700">
+                      <Building className="h-3 w-3 mr-1.5" />
+                      {companyData?.name}
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -300,8 +644,10 @@ export function ProfileView() {
         </Card>
       </motion.div>
 
-      {/* Personal Information Section */}
-      <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible">
+      {/* ==========================================
+          PERSONAL INFORMATION
+          ========================================== */}
+      <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -334,6 +680,16 @@ export function ProfileView() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                  <Briefcase className="h-3 w-3 text-emerald-500" /> Job Title
+                </Label>
+                {editing ? (
+                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.jobTitle} onChange={e => setForm(d => ({ ...d, jobTitle: e.target.value }))} placeholder="e.g. Senior Engineer, Project Manager" />
+                ) : (
+                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.jobTitle || '-'}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
                   <Phone className="h-3 w-3 text-emerald-500" /> Phone
                 </Label>
                 {editing ? (
@@ -342,6 +698,9 @@ export function ProfileView() {
                   <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.phone || '-'}</p>
                 )}
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
                   <MapPin className="h-3 w-3 text-emerald-500" /> Location
@@ -352,85 +711,25 @@ export function ProfileView() {
                   <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.location || '-'}</p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                  <MapPin className="h-3 w-3 text-emerald-500" /> Address
+                </Label>
+                {editing ? (
+                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.address} onChange={e => setForm(d => ({ ...d, address: e.target.value }))} />
+                ) : (
+                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.address || '-'}</p>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Company Information Section (conditional) */}
-      {profile?.type === 'company' && (
-        <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible">
-          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <div className="p-1.5 rounded-lg gradient-teal">
-                  <Building className="h-3.5 w-3.5 text-white" />
-                </div>
-                Company Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-                    <Building className="h-3 w-3 text-teal-500" /> Company Name
-                  </Label>
-                  {editing ? (
-                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.companyName} onChange={e => setForm(d => ({ ...d, companyName: e.target.value }))} />
-                  ) : (
-                    <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.companyName || '-'}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-                    <FileText className="h-3 w-3 text-teal-500" /> TIN Number
-                  </Label>
-                  {editing ? (
-                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.tinNumber} onChange={e => setForm(d => ({ ...d, tinNumber: e.target.value }))} />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium flex-1">{profile?.tinNumber || '-'}</p>
-                      {profile?.tinNumber && (
-                        <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700">TIN</Badge>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-                    <Award className="h-3 w-3 text-teal-500" /> License Number
-                  </Label>
-                  {editing ? (
-                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.licenseNumber} onChange={e => setForm(d => ({ ...d, licenseNumber: e.target.value }))} />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium flex-1">{profile?.licenseNumber || '-'}</p>
-                      {profile?.licenseNumber && (
-                        <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700">License</Badge>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-                    <MapPin className="h-3 w-3 text-teal-500" /> Address
-                  </Label>
-                  {editing ? (
-                    <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.address} onChange={e => setForm(d => ({ ...d, address: e.target.value }))} />
-                  ) : (
-                    <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.address || '-'}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* Skills Section */}
-      <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
+      {/* ==========================================
+          SKILLS SECTION
+          ========================================== */}
+      <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -486,8 +785,10 @@ export function ProfileView() {
         </Card>
       </motion.div>
 
-      {/* Bio Section */}
-      <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible">
+      {/* ==========================================
+          BIO SECTION
+          ========================================== */}
+      <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -515,8 +816,10 @@ export function ProfileView() {
         </Card>
       </motion.div>
 
-      {/* Document Upload & Verification Section */}
-      <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible">
+      {/* ==========================================
+          VERIFICATION DOCUMENTS
+          ========================================== */}
+      <motion.div custom={7} variants={sectionVariants} initial="hidden" animate="visible">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -659,6 +962,121 @@ export function ProfileView() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* ==========================================
+          TEAM MANAGEMENT (super_admin & team_admin)
+          ========================================== */}
+      {(isSuperAdmin || isTeamAdmin) && (
+        <motion.div custom={8} variants={sectionVariants} initial="hidden" animate="visible">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-slate-500/10">
+                  <Users className="h-3.5 w-3.5 text-slate-600" />
+                </div>
+                Team Members
+                {!teamLoading && teamMembers.length > 0 && (
+                  <Badge className="text-[10px] px-1.5 py-0 bg-slate-50 text-slate-700 border-0 font-medium ml-1">
+                    {teamMembers.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {teamLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-16 bg-muted/50 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : teamMembers.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+                  <AnimatePresence>
+                    {teamMembers.map((member) => {
+                      const memberRole = member.role as UserRole;
+                      const memberConfig = ROLE_CONFIG[memberRole];
+                      const MemberIcon = memberConfig.icon;
+                      const isChanging = changingRole === member.id;
+
+                      return (
+                        <motion.div
+                          key={member.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors gap-3"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className={`p-2 rounded-lg ${memberConfig.badgeClass} flex-shrink-0`}>
+                              <MemberIcon className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {member.profile?.fullName || member.email}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {member.profile?.jobTitle && `${member.profile.jobTitle} · `}{member.email}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Role badge (non-editable for non-super_admin) */}
+                            {isSuperAdmin && member.id !== user?.id ? (
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  value={memberRole}
+                                  onValueChange={(value) => handleRoleChange(member.id, value as UserRole)}
+                                  disabled={isChanging}
+                                >
+                                  <SelectTrigger className="h-8 w-[130px] rounded-lg text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="super_admin">
+                                      <span className="flex items-center gap-1.5">
+                                        <Shield className="h-3 w-3 text-orange-500" /> Super Admin
+                                      </span>
+                                    </SelectItem>
+                                    <SelectItem value="team_admin">
+                                      <span className="flex items-center gap-1.5">
+                                        <Users className="h-3 w-3 text-slate-500" /> Team Admin
+                                      </span>
+                                    </SelectItem>
+                                    <SelectItem value="user">
+                                      <span className="flex items-center gap-1.5">
+                                        <UserCircle className="h-3 w-3 text-gray-500" /> User
+                                      </span>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {isChanging && (
+                                  <div className="h-4 w-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                                )}
+                              </div>
+                            ) : (
+                              <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg font-semibold ${memberConfig.badgeClass}`}>
+                                <MemberIcon className="h-2.5 w-2.5 mr-0.5" />
+                                {memberConfig.label}
+                              </Badge>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <Users className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    {hasCompany ? 'No team members found' : 'Set up a company to manage team members'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -41,9 +41,12 @@ export async function GET(
             profile: {
               select: {
                 fullName: true,
-                companyName: true,
+                jobTitle: true,
                 profilePhoto: true,
               },
+            },
+            company: {
+              select: { id: true, name: true },
             },
           },
         },

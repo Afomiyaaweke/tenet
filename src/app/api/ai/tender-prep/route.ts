@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 **Description:** ${description}
 ${additionalNotes ? `**Additional Notes:** ${additionalNotes}` : ''}
 
-**Requester Context:** ${user!.profile?.fullName || user!.email}, ${user!.profile?.companyName ? `Company: ${user!.profile.companyName}` : 'Individual'}
+**Requester Context:** ${user!.profile?.fullName || user!.email}, ${user!.company?.name ? `Company: ${user!.company.name}` : 'Individual'}
 ${user!.profile?.skillTags ? `**Related Skills:** ${user!.profile.skillTags}` : ''}
 
 Please generate the complete tender document in the required JSON format.`;

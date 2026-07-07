@@ -39,7 +39,7 @@ export async function PUT(
       location,
       address,
       type,
-      companyName,
+      jobTitle,
       tinNumber,
       licenseNumber,
       skillTags,
@@ -55,7 +55,7 @@ export async function PUT(
     if (location !== undefined) updateData.location = location;
     if (address !== undefined) updateData.address = address;
     if (type !== undefined) updateData.type = type;
-    if (companyName !== undefined) updateData.companyName = companyName;
+    if (jobTitle !== undefined) updateData.jobTitle = jobTitle;
     if (tinNumber !== undefined) updateData.tinNumber = tinNumber;
     if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber;
     if (skillTags !== undefined) updateData.skillTags = skillTags;

@@ -552,8 +552,8 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">{b.user?.profile?.fullName || b.user?.email || 'Contractor'}</p>
-            {b.user?.profile?.companyName && (
-              <p className="text-[10px] text-muted-foreground truncate">{b.user.profile.companyName}</p>
+            {b.user?.company?.name && (
+              <p className="text-[10px] text-muted-foreground truncate">{b.user.company.name}</p>
             )}
           </div>
         </div>
@@ -740,8 +740,8 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold truncate">{bid.user?.profile?.fullName || bid.user?.email || 'Contractor'}</p>
-                          {bid.user?.profile?.companyName && (
-                            <p className="text-[10px] text-muted-foreground truncate">{bid.user.profile.companyName}</p>
+                          {bid.user?.company?.name && (
+                            <p className="text-[10px] text-muted-foreground truncate">{bid.user.company.name}</p>
                           )}
                           <div className="flex items-center gap-2 mt-2">
                             <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
@@ -800,8 +800,8 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold truncate">{bid.user?.profile?.fullName || 'Contractor'}</p>
-                            {bid.user?.profile?.companyName && (
-                              <p className="text-[10px] text-muted-foreground truncate">{bid.user.profile.companyName}</p>
+                            {bid.user?.company?.name && (
+                              <p className="text-[10px] text-muted-foreground truncate">{bid.user.company.name}</p>
                             )}
                           </div>
                         </div>

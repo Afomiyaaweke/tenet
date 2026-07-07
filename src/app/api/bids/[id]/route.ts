@@ -20,7 +20,7 @@ export async function GET(
       where: { id },
       include: {
         tender: { select: { id: true, title: true, scope: true, status: true, deadline: true } },
-        user: { select: { id: true, email: true, profile: { select: { fullName: true, companyName: true, verified: true } } } },
+        user: { select: { id: true, email: true, profile: { select: { fullName: true, jobTitle: true, verified: true } }, company: { select: { id: true, name: true } } } },
       },
     });
 

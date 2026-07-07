@@ -86,8 +86,12 @@ type UserSearchResult = {
   email: string;
   profile?: {
     fullName: string;
-    companyName?: string;
+    jobTitle?: string;
     profilePhoto?: string;
+  };
+  company?: {
+    id: string;
+    name: string;
   };
 };
 

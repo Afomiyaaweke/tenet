@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         take: limit,
         include: {
           tender: { select: { id: true, title: true, status: true } },
-          user: { select: { id: true, email: true, profile: { select: { fullName: true, companyName: true } } } },
+          user: { select: { id: true, email: true, profile: { select: { fullName: true, jobTitle: true } }, company: { select: { id: true, name: true } } } },
         },
       }),
       db.bid.count({ where }),

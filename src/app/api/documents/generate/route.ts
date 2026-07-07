@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     let userContext = `\n\n## User/Company Information:\n`;
     if (user!.profile) {
       userContext += `- Full Name: ${user!.profile.fullName}\n`;
-      userContext += `- Company: ${user!.profile.companyName || 'N/A'}\n`;
+      userContext += `- Company: ${user!.company?.name || 'N/A'}\n`;
       userContext += `- Location: ${user!.profile.location}\n`;
       userContext += `- Phone: ${user!.profile.phone}\n`;
       userContext += `- TIN Number: ${user!.profile.tinNumber || 'N/A'}\n`;

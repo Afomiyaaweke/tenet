@@ -6,7 +6,7 @@ import { requireAuth } from '@/lib/auth';
  * GET /api/users/search?q=...
  * Search users by email or profile.fullName (case-insensitive, contains).
  * Limited to 10 results. Excludes the current user.
- * Returns { id, email, profile: { fullName, companyName, profilePhoto } }.
+ * Returns { id, email, profile: { fullName, jobTitle, profilePhoto }, company: { id, name } }.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -38,8 +38,14 @@ export async function GET(request: NextRequest) {
         profile: {
           select: {
             fullName: true,
-            companyName: true,
+            jobTitle: true,
             profilePhoto: true,
+          },
+        },
+        company: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },

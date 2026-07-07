@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         bids: {
           include: {
             user: {
-              include: { profile: true },
+              include: { profile: true, company: true },
             },
           },
         },
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     const bidsData = tender.bids.map(bid => ({
       id: bid.id,
       bidderName: bid.user?.profile?.fullName || bid.user?.email || 'Unknown',
-      company: bid.user?.profile?.companyName || 'Individual',
+      company: bid.user?.company?.name || 'Individual',
       skills: bid.user?.profile?.skillTags || '',
       verified: bid.user?.profile?.verified || false,
       technicalProposal: bid.technicalProposal,

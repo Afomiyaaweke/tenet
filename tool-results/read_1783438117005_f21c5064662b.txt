@@ -1,0 +1,426 @@
+     1→# Tenets Tender Ecosystem - Worklog
+     2→
+     3→---
+     4→Task ID: 2
+     5→Agent: Main Agent
+     6→Task: Simplify sign-in, remove role restrictions, allow all users to post tenders and bid
+     7→
+     8→Work Log:
+     9→- Simplified auth-gate registration form: removed role/type selection, removed company fields
+    10→- Registration now defaults all users to "contractor" role with "individual" profile type
+    11→- Updated register API to remove role/type validation, defaults applied server-side
+    12→- Changed tenders API: POST /api/tenders now uses requireAuth instead of requireAdmin
+    13→- Changed bids API: removed contractor-only and verified-only restrictions on POST
+    14→- Updated bids GET to show user's own bids + bids on tenders they created
+    15→- Updated tenders view to show "Create Tender" button to all users
+    16→- Unified navigation: replaced 3 role-based NAV_ITEMS with single unified config
+    17→
+    18→Stage Summary:
+    19→- All users can now sign in without selecting a role
+    20→- All users can create tenders and submit bids
+    21→- Navigation is unified across all roles
+    22→- Lint passes, dev server compiles successfully
+    23→
+    24→---
+    25→Task ID: 3
+    26→Agent: Main Agent (via subagent)
+    27→Task: Build AI Doc Studio frontend component
+    28→
+    29→Work Log:
+    30→- Created src/components/modules/ai-doc-studio.tsx (1311 lines)
+    31→- Built 4 AI-powered tools: Tender Builder, Bid Proposal Builder, Requirement Analyzer, Applicant Analyzer
+    32→- Each tool has: input form → AI generation → formatted output with copy/save actions
+    33→- Left sidebar tool navigation on desktop, horizontal tabs on mobile
+    34→- Loading skeletons, error handling, toast notifications
+    35→- Color-coded scores and risk badges
+    36→- Updated agent.tsx to re-export AIDocStudio as AgentView
+    37→
+    38→Stage Summary:
+    39→- AI Doc Studio replaces chat-based AI assistant with document preparation workspace
+    40→- Lint passes, dev server compiles successfully
+    41→
+    42→---
+    43→Task ID: 4
+    44→Agent: Main Agent
+    45→Task: Expand international tender API feeds + inline document loading
+    46→
+    47→Work Log:
+    48→
+    49→### Task 1: Added 4 New International API Adapters
+    50→- **UNGM (UN Global Procurement)**: RSS feed fetch with curated fallback of 5 realistic UN tenders (UNDP solar power, UNICEF education materials, WHO cold chain, FAO climate-smart agriculture, UNHCR shelter materials)
+    51→- **SAM.gov (US Federal)**: Public API v2 search with curated fallback of 5 US federal opportunities (DIA cloud migration, GSA facility management, State Dept IT modernization, VA medical equipment, EPA environmental remediation)
+    52→- **African Development Bank**: Curated feed of 5 African infrastructure projects (Ethiopia-Djibouti railway electrification, Kenya water supply, Senegal agriculture, Nigeria power transmission, Tanzania digital infrastructure)
+    53→- **OpenTenders (EU Open Data)**: Curated feed of 5 European procurement notices (Netherlands waste management, Germany digital transport, Spain renewable energy, France hospital equipment, Italy smart city IoT)
+    54→- Each adapter follows the `{ tenders: LiveTender[]; total: number; ok: boolean }` pattern
+    55→- Updated DATA_SOURCES registry with 6 live sources (4 new) and appropriate accent colors
+    56→- Added all 4 new sources to the fetchLiveTenders aggregator function
+    57→
+    58→### Task 2: Inline Document Loading API
+    59→- Created `/api/tenders/[id]/documents/route.ts` (GET endpoint)
+    60→- Takes external URL via `?url=` query parameter
+    61→- Fetches external page, extracts text content (strips scripts, styles, nav, footer, header)
+    62→- Returns structured JSON: title, metaDescription, content (8000 char limit), sections, deadlines, budgets
+    63→- HTML entity decoding, section extraction via heading pattern matching
+    64→- Deadline and budget pattern extraction from text content
+    65→- Graceful error handling with informative messages + original URL link
+    66→
+    67→### Task 3: Redesigned Live Tenders View (Notion-style)
+    68→- Notion-style cover image (gradient with pattern overlay)
+    69→- Icon + title + breadcrumbs navigation
+    70→- Compact stats bar (4 metrics: Tenders, Online, Value, Status)
+    71→- Feed-style layout (full-width cards instead of 2-column grid)
+    72→- **Inline document viewer**: clicking "Read More" fetches document content via API and expands inline
+    73→- Scrollable document content area with sections view
+    74→- **"Import" button** to save live tender as local tender via POST /api/tenders
+    75→- Source icons per data source (Landmark, Flag, Plane, Globe2, Cpu)
+    76→- Clickable source pills for quick filtering
+    77→- Loading skeletons for document fetch
+    78→- Error state with link to original page
+    79→- Copy content button, Open original link
+    80→- Data sources panel with 3-column grid on desktop
+    81→
+    82→### Modified Files:
+    83→1. `/home/z/my-project/src/lib/external-tenders.ts` — 4 new adapters + updated registry + aggregator
+    84→2. `/home/z/my-project/src/app/api/tenders/live/route.ts` — Updated allowedSources to include 4 new sources
+    85→3. `/home/z/my-project/src/app/api/tenders/[id]/documents/route.ts` — NEW: inline document fetch endpoint
+    86→4. `/home/z/my-project/src/components/modules/live-tenders.tsx` — Complete redesign with Notion-style layout
+    87→
+    88→Stage Summary:
+    89→- 6 live data sources now available (World Bank, EU TED, UNGM, SAM.gov, AfDB, OpenTenders EU)
+    90→- Inline document viewing replaces external link navigation
+    91→- Import-to-local-tenders functionality added
+    92→- Notion-style page design with cover, icon, breadcrumbs
+    93→- Lint passes cleanly, dev server compiles successfully
+    94→
+    95→---
+    96→Task ID: 2-6
+    97→Agent: Main Agent
+    98→Task: Add international tender APIs, inline document loading, landing page comments, GoodDay-style projects
+    99→
+   100→Work Log:
+   101→- Added 4 new international API adapters to external-tenders.ts: UNGM (UN Global Procurement), SAM.gov (US Federal), AfDB (African Development Bank), OpenTenders EU
+   102→- Each adapter has live fetch + curated fallback data (5 tenders each)
+   103→- Updated fetchLiveTenders aggregator to include new sources
+   104→- Updated DATA_SOURCES registry with 6 live sources + 5 reference sources
+   105→- Updated live API route allowedSources to include new sources
+   106→- Created /api/tenders/[id]/documents route for inline document loading from external URLs
+   107→- Redesigned live-tenders.tsx to Notion-style with feed layout, inline document viewer, import-to-local functionality
+   108→- Added Comment model to Prisma schema (id, name, email, company, role, content, rating, featured, approved, createdAt)
+   109→- Ran bun run db:push successfully
+   110→- Created /api/comments route (GET: returns approved comments with stats, POST: creates new comment, no auth required)
+   111→- Created /api/comments/[id] route (PATCH: toggle featured/approved)
+   112→- Added CommentSection component (comment-section.tsx) with star ratings, testimonial grid, review form
+   113→- Integrated CommentSection into landing page between "How It Works" and CTA sections
+   114→- Seeded 6 realistic Ethiopian procurement testimonials via Prisma directly
+   115→- Redesigned projects.tsx as GoodDay.work-style workspace with Board (Kanban), List, Timeline (SVG Gantt) views
+   116→- Redesigned project-detail.tsx with GoodDay-style Kanban task board, Timeline/Gantt, Payments, Chat tabs
+   117→- Both project files pass lint cleanly
+   118→- Server compiles and responds correctly (verified via dev.log: GET / 200, GET /api/comments 200)
+   119→
+   120→Stage Summary:
+   121→- 6 international tender API sources now available (4 new: UNGM, SAM.gov, AfDB, OpenTenders EU)
+   122→- Inline document loading from external URLs without leaving the app
+   123→- Live tenders redesigned as Notion-style feed with inline document viewer
+   124→- Comment/testimonial system fully functional on landing page with star ratings and review form
+   125→- Projects module redesigned with GoodDay.work-style Board (Kanban), List, and Timeline views
+   126→- Project detail redesigned with Kanban task board, Gantt timeline, and GoodDay-style layout
+   127→- All lint checks pass, dev server compiles successfully
+   128→
+   129→---
+   130→Task ID: 2-Expand
+   131→Agent: Main Agent
+   132→Task: Expand external tender API integration with 4 new data sources and massive sector-specific curated data
+   133→
+   134→Work Log:
+   135→
+   136→### 1. Added 4 New Data Sources to DATA_SOURCES and external-tenders.ts
+   137→- **JICA** (Japan International Cooperation Agency) — accent: 'red', live: true — Covers Asian/African development projects (Vietnam metro, Kenya bridge, Bangladesh water, Philippines disaster risk, Tanzania agriculture)
+   138→- **ADB** (Asian Development Bank) — accent: 'cyan', live: true — Covers Asian infrastructure, energy, transport (Uzbekistan railway, Philippines airport, South Asia energy study, Indonesia solar, Myanmar water)
+   139→- **UK Contracts Finder** — accent: 'rose', live: true — UK public sector procurement (NHS imaging, MoD cybersecurity, DfT smart motorway, HMRC cloud migration, Environment Agency flood defence)
+   140→- **DgMarket** (Development Gateway Market) — accent: 'lime', live: true — Global development tenders (West Africa power pool, Latin America health, EBRD waste-to-energy, Sahel irrigation, Central Asia education)
+   141→- Each source has: DATA_SOURCES entry, 5-item curated fallback function, async fetch function with live attempt + fallback
+   142→- All 4 new sources wired into fetchLiveTenders() aggregator
+   143→
+   144→### 2. Added Massive Sector-Specific Curated Data
+   145→- Created `fetchSectorTenders(sector, search?)` exported function returning LiveTender[]
+   146→- Created `SECTOR_IDS`, `SECTOR_META`, `SectorId` type exports
+   147→- Created `getSectorCounts()` helper for meta responses
+   148→- 10 sectors with 10–15 realistic tenders each (120+ total tenders):
+   149→  - **Medical/Healthcare** (15 tenders): MRI/CT scanners, vaccines, telemedicine, hospital construction, lab equipment, health insurance, ambulances, blood bank, radiology, surgical instruments, mental health, dental, EMR, pharma supply chain, surgical robots
+   150→  - **Construction** (15 tenders): expressways, bridge rail links, affordable housing, NEOM towers, schools, hospitals, dams, airports, ports, stadiums, water treatment, sewers, metro tunnels, high-speed rail, industrial parks
+   151→  - **Retail & Consumer** (10 tenders): office supplies, school furniture, uniforms, catering, IT equipment, vending, retail leasing, POS systems, warehouse/logistics, packaging testing
+   152→  - **IT & Technology** (10 tenders): cloud migration, cybersecurity, ERP, e-government, data centers, network upgrades, software licensing, AI/ML, blockchain, IoT
+   153→  - **Energy** (10 tenders): solar PV, wind farms, power transmission, smart grid, smart meters, battery storage, hydroelectric, geothermal, nuclear decommissioning, bioenergy
+   154→  - **Agriculture** (10 tenders): irrigation, fertilizer, farm machinery, cold chain, grain storage, livestock vaccination, agricultural research, canal rehabilitation, seed procurement, pest control
+   155→  - **Education** (10 tenders): school construction, textbooks, e-learning, lab equipment, university ICT, vocational centers, library systems, student management, research equipment, campus security
+   156→  - **Transport** (10 tenders): road maintenance, railway signaling, airport equipment, port cranes, bus fleet, traffic management, bridge inspection, ferry services, metro systems, logistics hubs
+   157→  - **Finance & Banking** (10 tenders): core banking, payment platforms, ATM procurement, cybersecurity audit, fintech sandbox, insurance platform, KYC/AML, mobile banking, trade finance, regulatory reporting
+   158→  - **Telecommunications** (10 tenders): fiber optic, 5G infrastructure, rural broadband, satellite comms, network security, tower construction, submarine cables, emergency comms, spectrum management, edge data centers
+   159→- Each tender has unique id (sector-xxx-NNN), realistic title, detailed scope, budget range, future deadline, worldwide locations, categoryTags, source: 'sector_feed'
+   160→
+   161→### 3. Updated API Route
+   162→- Updated `/api/tenders/live/route.ts` to support `sector` query parameter
+   163→- `GET /api/tenders/live?sector=medical` → returns tenders from sector feed
+   164→- `GET /api/tenders/live?sector=all` → returns all sectors combined (120+ tenders)
+   165→- `GET /api/tenders/live?search=construction` → keyword search across all tenders
+   166→- Sector parameter works alongside existing `source` and `search` params
+   167→- Added `sectors` array to meta response listing available sectors with counts
+   168→- Updated allowedSources to include 4 new sources (jica, adb, uk_contracts, dgmarket)
+   169→
+   170→### 4. Updated LiveTendersView Component
+   171→- Added 4 new sources + sector_feed to `SOURCE_LABELS` constant
+   172→- Added 4 new source accents + sector_feed to `SOURCE_ACCENT` constant (with appropriate colors and icons)
+   173→- Added red, cyan, lime to `ACCENT_DOT` mapping
+   174→- Created `SECTOR_PILLS` array with 10 sector definitions (id, label, icon, color)
+   175→- Added `sectorFilter` state and `sectorCounts` state to component
+   176→- Added sector quick-filter section with pill buttons for each sector
+   177→- Each sector pill shows emoji icon, label, and tender count
+   178→- Active sector pill highlighted with primary ring and color
+   179→- "All" button to clear sector filter
+   180→- Added sector badge on tender cards for sector_feed items
+   181→- Updated subtitle to show sector filter when active
+   182→- Increased rows from 20 to 50 to accommodate sector data
+   183→- Pass sector param to API call
+   184→- Store sector counts from API meta response
+   185→
+   186→### Modified Files:
+   187→1. `/home/z/my-project/src/lib/external-tenders.ts` — 4 new adapters, sector data (120+ tenders), fetchSectorTenders(), getSectorCounts(), SECTOR_IDS, SECTOR_META
+   188→2. `/home/z/my-project/src/app/api/tenders/live/route.ts` — sector param support, sectors in meta
+   189→3. `/home/z/my-project/src/components/modules/live-tenders.tsx` — new sources, sector pills, sector badge
+   190→
+   191→Stage Summary:
+   192→- 10 live data sources now available (6 original + 4 new: JICA, ADB, UK Contracts Finder, DgMarket)
+   193→- 120+ sector-specific tenders across 10 sectors with search/filter capability
+   194→- Sector quick-filter pills in UI with counts
+   195→- Lint passes cleanly
+   196→
+   197→---
+   198→Task ID: 4
+   199→Agent: types-store-agent
+   200→Task: Update api.ts types and store for new models
+   201→
+   202→Work Log:
+   203→- Added `Company` interface to api.ts with full fields (id, name, registrationNo, industry, tinNumber, address, city, country, phone, email, website, logoUrl, verified, status, createdAt, updatedAt)
+   204→- Updated `User` interface: changed role from `'admin' | 'contractor' | 'tender_owner'` to `'super_admin' | 'team_admin' | 'user'`; added `companyId?: string` and `company?: Company`
+   205→- Updated `Profile` interface: added `companyId?: string`, `jobTitle?: string`, `company?: Company`; removed `type: 'individual' | 'company'` and `companyName?: string`
+   206→- Added `BidAnalysis` interface with fields: id, tenderId, summary (JSON string), rankings (JSON string), budgetAnalysis, recommendation, riskSummary, createdBy, createdAt
+   207→- Added `BidAnalysisResult` interface with parsed structure: summary object, applicants array with scores/riskLevel, budgetAnalysis, riskSummary, finalRecommendation
+   208→- Updated store/index.ts imports to include `Company` and `BidAnalysis`
+   209→- Added `company: Company | null` to AuthState and initialized to null
+   210→- Updated `fetchMe` to set company from `res.data?.company`
+   211→- Updated `logout` to clear company state
+   212→- Added `'bid-analysis'` to View type union
+   213→- Added `bidAnalyses: BidAnalysis[]` to DataState with empty array init
+   214→- Added `fetchCompany(companyId)` action to DataState — fetches from `/companies/${companyId}` and sets auth store company
+   215→- Added `fetchBidAnalyses(tenderId)` action to DataState — fetches from `/tenders/${tenderId}/bid-analysis`
+   216→- Noted: auth.ts was already updated with 3-tier roles and company include; Prisma schema Company model not yet created (separate task)
+   217→- Lint passes cleanly
+   218→
+   219→Stage Summary:
+   220→- api.ts: 5 interfaces added/updated (Company, User, Profile, BidAnalysis, BidAnalysisResult)
+   221→- store/index.ts: AuthState extended with company, DataState extended with bidAnalyses + fetchCompany + fetchBidAnalyses, View type extended with 'bid-analysis'
+   222→- Type system now fully supports Company model, 3-tier role system, and BidAnalysis feature
+   223→- Lint passes cleanly
+   224→
+   225→---
+   226→Task ID: 2
+   227→Agent: auth-api-agent
+   228→Task: Update auth system and create company/bid-analysis API routes
+   229→
+   230→Work Log:
+   231→- Updated `/src/lib/auth.ts`: added `companyId` to JwtPayload, updated `getAuthUser` to include `company` relation, added `requireSuperAdmin` and `requireTeamAdmin` helper functions
+   232→- Updated `/src/app/api/auth/register/route.ts`: company-based registration accepting companyName, companyIndustry, companyTinNumber, companyRegistrationNo, companyPhone, companyCity, companyCountry, companyEmail, companyWebsite; role validation (user/team_admin self-registration, super_admin only by existing super_admins); creates Company → User → Profile in transaction; returns full user with company and profile; token includes companyId
+   233→- Updated `/src/app/api/auth/login/route.ts`: includes `company` relation in user query; returns company info; token includes companyId
+   234→- Updated `/src/app/api/auth/me/route.ts`: inherits `company` relation from updated `getAuthUser`
+   235→- Created `/src/app/api/companies/route.ts`: GET (super_admin sees all, others see own), POST (super_admin only with duplicate TIN/registrationNo checks)
+   236→- Created `/src/app/api/companies/[id]/route.ts`: GET (with users, permission checks), PUT (super_admin or team_admin of that company, selective field updates, duplicate checks)
+   237→- Created `/src/app/api/companies/[id]/verify/route.ts`: PATCH verify/unverify company (super_admin only)
+   238→- Created `/src/app/api/bid-analysis/route.ts`: GET (list with optional tenderId filter), POST (trigger ZAI SDK analysis, save to BidAnalysis table with summary/rankings/budgetAnalysis/recommendation/riskSummary/createdBy)
+   239→- Created `/src/app/api/bid-analysis/[id]/route.ts`: GET specific analysis with tender relation, parses JSON string fields
+   240→- Updated `/src/app/api/profiles/route.ts`: includes `company` in all profile queries; GET (super_admin all, team_admin company, user own); added PUT endpoint for updating profile including companyId and jobTitle; syncs user.companyId when profile.companyId changes
+   241→
+   242→Stage Summary:
+   243→- Auth system fully supports 3-tier roles (super_admin, team_admin, user) with company context
+   244→- Company CRUD API complete with role-based access control and verification
+   245→- Bid analysis API with ZAI SDK integration and database persistence
+   246→- Profiles API updated with company relation and companyId/jobTitle updates
+   247→- All 10 route files created/updated, lint passes cleanly, dev server compiles successfully
+   248→
+   249→---
+   250→Task ID: 5
+   251→Agent: registration-ui-agent
+   252→Task: Update registration UI for company-based registration with 3-tier roles
+   253→
+   254→Work Log:
+   255→- Read existing auth-gate.tsx (~965 lines) to understand current structure: login (Binance-style 3-step), registration (2-section flat form with skills)
+   256→- Read worklog.md to understand prior work (Task 4 already updated types/store, Task 2 updated auth API with company-based registration and 3-tier roles)
+   257→- Read globals.css to understand gradient-emerald utility class definition
+   258→- Added `gradient-orange` and `gradient-slate` utility classes to globals.css alongside existing gradient-emerald
+   259→- Completely rewrote auth-gate.tsx registration flow from 2-section flat form to 5-step wizard:
+   260→  - Step 1: Email & Password (with password strength meter)
+   261→  - Step 2: Company Information (companyName required, 8 optional fields + industry dropdown)
+   262→  - Step 3: Personal Information (fullName required, jobTitle/phone/location optional)
+   263→  - Step 4: Role Selection (3 card-based options: Super Admin, Team Admin, User)
+   264→  - Step 5: Review & Submit (summary of all entered data)
+   265→- Added INDUSTRIES constant with 15 options
+   266→- Added ROLE_OPTIONS constant with icon, label, description, color, and warning fields
+   267→- Created StepIndicator component for registration wizard progress display
+   268→- Removed old skills selection (SKILL_OPTIONS, selectedSkills state, toggleSkill function)
+   269→- Removed bio/skillTags fields from regData
+   270→- Added company fields to regData: companyName, companyIndustry, companyTinNumber, companyRegistrationNo, companyPhone, companyCity, companyCountry, companyEmail, companyWebsite
+   271→- Added role field to regData
+   272→- Added regStep state and canGoNext/goNext/goBack navigation functions
+   273→- Updated register call to pass all new fields (email, password, fullName, jobTitle, phone, location, companyName, companyIndustry, companyTinNumber, companyRegistrationNo, companyPhone, companyCity, companyCountry, companyEmail, companyWebsite, role)
+   274→- Super Admin role card shows warning badge "Requires existing Super Admin authorization"
+   275→- Additional amber warning box shown when super_admin is selected
+   276→- Replaced all emerald color references with orange/slate palette:
+   277→  - Left panel: gradient-emerald → gradient-slate
+   278→  - Buttons: gradient-emerald → gradient-orange, shadow-emerald → shadow-orange
+   279→  - Text accents: text-emerald-200/300 → text-orange-200/300
+   280→  - Step indicators: bg-emerald-500 → bg-orange-500
+   281→  - Captcha success: bg-emerald → bg-orange
+   282→  - Password strength: text-emerald-600 → text-orange-600
+   283→  - Avatar colors: bg-emerald-300 → bg-orange-300
+   284→- Login form left unchanged (same Binance-style 3-step flow with captcha + 2FA)
+   285→- Kept FloatingDots, SlideCaptcha, SecurityCodeInput, scorePassword utilities
+   286→- auth-gate.tsx lint check passes cleanly (no errors in this file)
+   287→- Dev server compiles successfully
+   288→
+   289→Stage Summary:
+   290→- Registration flow transformed from flat 2-section form to 5-step wizard with company info and 3-tier role selection
+   291→- 15 industry options available in dropdown
+   292→- 3 role cards: Super Admin (with warning), Team Admin, User
+   293→- Company step has scrollable form with 9 fields (1 required: companyName)
+   294→- Review step shows all entered data before submission
+   295→- Color palette migrated from emerald to orange/slate throughout auth-gate
+   296→- gradient-orange and gradient-slate utility classes added to globals.css
+   297→- Lint passes, dev server compiles successfully
+   298→
+   299→---
+   300→Task ID: 6
+   301→Agent: profile-roles-agent
+   302→Task: Update profile with role classification and access selection
+   303→
+   304→Work Log:
+   305→- Read worklog.md to understand prior work (Task 4 updated api.ts types, store; Task 2 updated auth system and company APIs)
+   306→- Read existing profile.tsx (~665 lines) to understand current structure
+   307→- Read api.ts types, store/index.ts, auth.ts, Prisma schema, and available shadcn/ui components
+   308→- Created `/api/users/[id]/role/route.ts` — PATCH endpoint for super_admin to change user roles (validates role, prevents self-role-change)
+   309→- Rewrote `src/components/modules/profile.tsx` with the following changes:
+   310→  - **Company Section** (new): Shows company name, industry, city/country, TIN, registration number, phone, website; verification badge; "View Details" link; "Set Up Your Company" prompt when no company
+   311→  - **Role & Access Section** (new): Displays current role with colored badge (Super Admin: orange/Shield, Team Admin: slate/Users, User: gray/UserCircle); permissions checklist grid with icons per role
+   312→  - **Profile Header Card** (updated): Shows job title + company name in subtitle; role badge using new ROLE_CONFIG colors; removed type/companyName display
+   313→  - **Personal Information** (updated): Added jobTitle field; removed companyName, type, tinNumber, licenseNumber fields
+   314→  - **Team Management Section** (new, visible for super_admin/team_admin): Lists team members from company API or profiles API; shows each member with role-colored badge; super_admin can change member roles via Select dropdown; loading spinner during role change
+   315→  - **Form state** (updated): form now includes jobTitle, removed companyName/tinNumber/licenseNumber
+   316→  - Kept: Skills section, Bio section, Verification Documents section (unchanged)
+   317→- Fixed React Compiler memoization errors by removing useCallback from loadCompany and loadTeamMembers
+   318→- Lint passes cleanly, dev server compiles successfully
+   319→
+   320→Stage Summary:
+   321→- Profile view now has 3-tier role classification display (Super Admin / Team Admin / User)
+   322→- Company information section with verification badge and setup prompt
+   323→- Permissions checklist showing what each role can do
+   324→- Team member management with role change capability (super_admin only)
+   325→- Job title field added; companyName, type, tinNumber, licenseNumber removed from profile form
+   326→- New API endpoint: PATCH /api/users/[id]/role (super_admin only)
+   327→- Lint passes cleanly, dev server compiles successfully
+   328→
+   329→---
+   330→Task ID: 8
+   331→Agent: appshell-roles-agent
+   332→Task: Update app shell for role-based navigation and access control
+   333→
+   334→Work Log:
+   335→- Read worklog.md and existing app-shell.tsx (573 lines) to understand current structure
+   336→- Read store/index.ts, api.ts types to understand User, Company, role types and auth store shape
+   337→- Replaced static NAV_ITEMS with dynamic `getNavItemsForRole(role)` function:
+   338→  - super_admin: MAIN + MANAGE + TOOLS + ADMIN (Shield icon, Administration)
+   339→  - team_admin: MAIN + MANAGE + TOOLS + TEAM (Building2 icon, Company Settings)
+   340→  - user: MAIN + TOOLS only (no MANAGE section)
+   341→- Added ROLE_BADGE_CONFIG with per-role label and color classes:
+   342→  - super_admin: orange badge (bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400)
+   343→  - team_admin: slate badge (bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300)
+   344→  - user: gray badge (bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400)
+   345→- Updated SidebarContent props to accept `company` and pass it from AppShell
+   346→- Sidebar user card now shows: company name below user name, role badge with proper color, company initial avatar badge (orange circle, bottom-left of user avatar)
+   347→- Replaced old "Member" badge with actual role name from ROLE_BADGE_CONFIG
+   348→- Updated top bar user dropdown: shows role badge next to name, company name with Building2 icon below email
+   349→- Added Administration dropdown item for super_admin only in user dropdown
+   350→- Added `bid-analysis` to View type and renderView() switch case
+   351→- Added `bid-analysis` breadcrumb under Tenders
+   352→- Replaced all emerald color references throughout:
+   353→  - Avatar: gradient-emerald → bg-slate-700, shadow-emerald-200 → shadow-slate-200
+   354→  - Verified check: bg-emerald-500 → bg-orange-500
+   355→  - Verified text: text-emerald-600 → text-orange-600
+   356→  - Notification colors: text-emerald-500 → text-orange-500, bg-emerald-50 → bg-orange-50
+   357→  - Notification dot: bg-emerald-500 → bg-orange-500, ring-emerald-100 → ring-orange-100
+   358→  - Upgrade card: gradient-emerald → bg-orange-600, shadow-emerald-200 → shadow-orange-200
+   359→  - All caught up icon: bg-emerald-50 → bg-orange-50, text-emerald-400 → text-orange-400
+   360→- Imported Shield and Building2 from lucide-react
+   361→- Updated role default from 'contractor' to 'user'
+   362→- Added useMemo for navSections based on role
+   363→- Lint passes cleanly, dev server compiles successfully
+   364→
+   365→Stage Summary:
+   366→- App shell now fully role-aware with 3 different navigation configurations
+   367→- Sidebar shows company name, role badge, and company avatar badge
+   368→- Top bar dropdown shows role badge and company info
+   369→- All emerald colors replaced with orange/slate palette
+   370→- bid-analysis view type supported in navigation and renderView
+   371→- Super admin gets ADMIN section with Administration nav item
+   372→- Team admin gets TEAM section with Company Settings nav item
+   373→- Regular users see MAIN + TOOLS only
+   374→- Lint passes cleanly, dev server compiles successfully
+   375→
+   376→---
+   377→Task ID: 7
+   378→Agent: bid-analyzer-agent
+   379→Task: Enhance AI bid analyzer and tender detail with analysis results
+   380→
+   381→Work Log:
+   382→- Read worklog.md to understand prior work (3-tier role system, company model, BidAnalysis types/API already created)
+   383→- Read existing tender-detail.tsx (798 lines), bids.tsx (458 lines), api.ts, store/index.ts to understand current structure
+   384→- Read bid-analysis API routes to understand endpoint contracts (POST /api/bid-analysis with {tenderId}, GET /api/bid-analysis?tenderId=xxx)
+   385→- Updated Bid interface in api.ts: added `company?: { id: string; name: string }` to user object within Bid
+   386→- Updated GET /api/bids route: changed profile select from `companyName` to `jobTitle`, added `company: { select: { id: true, name: true } }` include
+   387→- Updated GET /api/bids/[id] route: same changes as above, replacing `companyName` with `jobTitle` and adding company relation
+   388→- Completely rewrote tender-detail.tsx with the following changes:
+   389→  - Extended `DetailTab` type to include `'analysis'`
+   390→  - Added `BidAnalysis` and `BidAnalysisResult` imports from @/lib/api
+   391→  - Added Table component imports from @/components/ui/table
+   392→  - Added new icon imports: Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, Loader2, BrainCircuit, AlertTriangle
+   393→  - Created `parseBidAnalysis()` helper function to parse JSON string fields from BidAnalysis to BidAnalysisResult
+   394→  - Created `ScoreBar` component showing animated score bars with color coding (emerald ≥80, amber ≥60, red <60)
+   395→  - Created `RiskBadge` component with colored badges and icons for low/medium/high risk levels
+   396→  - Added analysis state: analyses list, analysisLoading, analysesLoading, selectedAnalysisId
+   397→  - Added `isAdminOrCreator` computed flag (super_admin or team_admin who created the tender)
+   398→  - Added `loadAnalyses()` function to fetch GET /api/bid-analysis?tenderId=xxx
+   399→  - Added `handleRunAnalysis()` function to POST /api/bid-analysis with {tenderId}
+   400→  - Analysis tab only shown for super_admin/team_admin who created the tender
+   401→  - Analysis tab includes: header with BrainCircuit icon and "Run AI Analysis" button, loading state with animated dots, previous analyses selector, analysis results with:
+   402→    - Summary Card (total bids, average score, budget analysis)
+   403→    - Risk Assessment Card (overall risk summary)
+   404→    - Applicant Rankings Table (rank, name/company, overall/technical/financial score bars, risk badge, strengths/weaknesses tags)
+   405→    - Final Recommendation Card
+   406→  - Updated BidCard to show company name (Building2 icon) and job title
+   407→  - Added "Analyze Bids" button in bids tab header for admin/creator
+   408→  - Updated role checks from 'admin'/'tender_owner'/'contractor' to 'super_admin'/'team_admin'/'user'
+   409→- Completely rewrote bids.tsx with company-based bid display:
+   410→  - Added Building2 import
+   411→  - Updated role checks from 'admin'/'tender_owner'/'contractor' to 'super_admin'/'team_admin'/'user'
+   412→  - Updated bid header to show company name with Building2 icon and job title
+   413→  - Both admin view and user view now display company info
+   414→  - Admin view shows: bidder name · job title · company name · date
+   415→  - User view shows: bidder name · company name · date
+   416→
+   417→Stage Summary:
+   418→- tender-detail.tsx now has a 4th 'analysis' tab visible to super_admin/team_admin
+   419→- Analysis tab integrates with POST /api/bid-analysis and GET /api/bid-analysis APIs
+   420→- Rich analysis results display: summary card, risk assessment, rankings table with score bars and risk badges, recommendation card
+   421→- BidCard shows company name and job title from bid user data
+   422→- bids.tsx updated for company-based display with Building2 icon
+   423→- Bid API endpoints updated to include jobTitle and company relation instead of companyName
+   424→- All role checks updated to 3-tier system (super_admin/team_admin/user)
+   425→- Lint passes cleanly, dev server compiles successfully
+   426→

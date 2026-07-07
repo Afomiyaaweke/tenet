@@ -73,12 +73,34 @@ class ApiClient {
 export const api = new ApiClient();
 
 // Types
+
+export interface Company {
+  id: string;
+  name: string;
+  registrationNo?: string;
+  industry: string;
+  tinNumber?: string;
+  address?: string;
+  city?: string;
+  country: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logoUrl?: string;
+  verified: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'contractor' | 'tender_owner';
+  role: 'super_admin' | 'team_admin' | 'user';
+  companyId?: string;
   status: string;
   emailVerified: boolean;
+  company?: Company;
   profile?: Profile;
   createdAt: string;
 }
@@ -86,9 +108,9 @@ export interface User {
 export interface Profile {
   id: string;
   userId: string;
-  type: 'individual' | 'company';
+  companyId?: string;
   fullName: string;
-  companyName?: string;
+  jobTitle?: string;
   phone: string;
   location: string;
   address?: string;
@@ -99,6 +121,38 @@ export interface Profile {
   logoUrl?: string;
   profilePhoto?: string;
   verified: boolean;
+  company?: Company;
+}
+
+export interface BidAnalysis {
+  id: string;
+  tenderId: string;
+  summary: string; // JSON string
+  rankings: string; // JSON string of array
+  budgetAnalysis: string;
+  recommendation: string;
+  riskSummary: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface BidAnalysisResult {
+  summary: { totalBids: number; averageScore: number };
+  applicants: Array<{
+    rank: number;
+    name: string;
+    company: string;
+    overallScore: number;
+    technicalScore: number;
+    financialScore: number;
+    strengths: string[];
+    weaknesses: string[];
+    recommendation: string;
+    riskLevel: 'low' | 'medium' | 'high';
+  }>;
+  budgetAnalysis: string;
+  riskSummary: string;
+  finalRecommendation: string;
 }
 
 export interface Document {
@@ -175,7 +229,7 @@ export interface Bid {
   rejectionNote?: string;
   createdAt: string;
   tender?: { id: string; title: string; status: string };
-  user?: { id: string; email: string; profile?: { fullName: string; companyName: string } };
+  user?: { id: string; email: string; profile?: { fullName: string; jobTitle?: string }; company?: { id: string; name: string } };
 }
 
 export interface Project {
@@ -236,7 +290,7 @@ export interface Chat {
     id: string;
     status: string;
     tender?: { id: string; title: string };
-    bid?: { user?: { id: string; email: string; profile?: { fullName: string; companyName: string } } };
+    bid?: { user?: { id: string; email: string; profile?: { fullName: string; jobTitle?: string } } };
   };
   _count?: { messages: number };
 }
@@ -296,7 +350,7 @@ export interface ConversationMember {
     email: string;
     profile?: {
       fullName: string;
-      companyName?: string;
+      jobTitle?: string;
       profilePhoto?: string;
     };
   };
