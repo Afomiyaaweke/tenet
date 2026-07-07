@@ -101,13 +101,18 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
   const [hasBid, setHasBid] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
 
-  // Analysis state
+  // Bid Analysis state (for tender creators)
   const [analyses, setAnalyses] = useState<BidAnalysis[]>([]);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysesLoading, setAnalysesLoading] = useState(false);
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
 
+  // Requirements Analysis state (for applicants)
+  const [reqAnalysis, setReqAnalysis] = useState<Record<string, unknown> | null>(null);
+  const [reqAnalysisLoading, setReqAnalysisLoading] = useState(false);
+
   const isAdminOrCreator = user?.role === 'super_admin' || (user?.role === 'team_admin' && tender?.createdBy === user.id);
+  const isApplicant = !isAdminOrCreator;
 
   const loadTender = useCallback(async () => {
     setLoading(true);
@@ -153,7 +158,6 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
       const res = await api.post('/bid-analysis', { tenderId });
       if (res.success) {
         toast.success('AI analysis completed successfully!');
-        // Reload analyses and select the new one
         const analysesRes = await api.get('/bid-analysis', { tenderId });
         if (analysesRes.success) {
           setAnalyses(analysesRes.data);
@@ -168,6 +172,27 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
       toast.error('Failed to run AI analysis. Please try again.');
     }
     setAnalysisLoading(false);
+  };
+
+  const handleAnalyzeRequirements = async () => {
+    if (!tenderId) return;
+    setReqAnalysisLoading(true);
+    try {
+      const res = await api.post('/ai/analyze-requirements', {
+        tenderId,
+        userName: user?.profile?.fullName || '',
+        userSkills: user?.profile?.skillTags || '',
+      });
+      if (res.success) {
+        setReqAnalysis(res.data);
+        toast.success('Requirements analyzed!');
+      } else {
+        toast.error(res.error || 'Failed to analyze requirements');
+      }
+    } catch {
+      toast.error('Failed to analyze requirements. Please try again.');
+    }
+    setReqAnalysisLoading(false);
   };
 
   const handleSubmitBid = async () => {
@@ -634,6 +659,170 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                       </Badge>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* AI Requirements Analyzer — only for applicants */}
+            {isApplicant && tender.status === 'open' && (
+              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-orange-400 to-amber-400" />
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-orange-50">
+                        <Sparkles className="h-3.5 w-3.5 text-orange-600" />
+                      </div>
+                      AI Requirements Analyzer
+                    </CardTitle>
+                    <Button
+                      size="sm"
+                      className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl transition-all hover:-translate-y-0.5 text-xs"
+                      onClick={handleAnalyzeRequirements}
+                      disabled={reqAnalysisLoading}
+                    >
+                      {reqAnalysisLoading ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Analyzing...</>
+                      ) : reqAnalysis ? (
+                        <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Re-Analyze</>
+                      ) : (
+                        <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Analyze Requirements</>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Let AI break down the tender requirements, evaluate your fit, and give you preparation tips</p>
+                </CardHeader>
+                <CardContent>
+                  {reqAnalysisLoading && !reqAnalysis && (
+                    <div className="text-center py-8 space-y-4">
+                      <div className="relative w-14 h-14 mx-auto">
+                        <div className="absolute inset-0 rounded-2xl bg-orange-100 opacity-20 animate-pulse" />
+                        <div className="absolute inset-2 rounded-xl bg-orange-500 flex items-center justify-center">
+                          <Sparkles className="h-5 w-5 text-white animate-pulse" />
+                        </div>
+                      </div>
+                      <h3 className="text-sm font-semibold">Analyzing tender requirements...</h3>
+                      <p className="text-muted-foreground text-xs">AI is evaluating requirements, your skills match, and risk factors</p>
+                      <div className="flex items-center justify-center gap-1.5 pt-2">
+                        {[0, 1, 2].map(i => (
+                          <motion.div
+                            key={i}
+                            className="h-2 w-2 rounded-full bg-orange-500"
+                            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {reqAnalysis && !reqAnalysisLoading && (
+                    <motion.div
+                      variants={containerVariants}
+                      initial="hidden"
+                      animate="show"
+                      className="space-y-4"
+                    >
+                      {/* Match Score + Competitiveness */}
+                      <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
+                        <div className="bg-orange-50/60 rounded-xl p-4 text-center">
+                          <Target className="h-5 w-5 text-orange-600 mx-auto mb-1" />
+                          <p className={`text-2xl font-bold ${
+                            (reqAnalysis.matchScore as number) >= 70 ? 'text-emerald-700' : (reqAnalysis.matchScore as number) >= 40 ? 'text-amber-700' : 'text-red-700'
+                          }`}>{reqAnalysis.matchScore as number}</p>
+                          <p className="text-[10px] text-muted-foreground">Your Match Score</p>
+                        </div>
+                        <div className="bg-amber-50/60 rounded-xl p-4 text-center">
+                          <TrendingUp className="h-5 w-5 text-amber-600 mx-auto mb-1" />
+                          <p className={`text-lg font-bold ${
+                            reqAnalysis.competitivenessAssessment === 'High' ? 'text-red-700' : reqAnalysis.competitivenessAssessment === 'Medium' ? 'text-amber-700' : 'text-emerald-700'
+                          }`}>{reqAnalysis.competitivenessAssessment as string}</p>
+                          <p className="text-[10px] text-muted-foreground">Competition Level</p>
+                        </div>
+                      </motion.div>
+
+                      {/* Requirements Summary */}
+                      {reqAnalysis.requirementSummary && (
+                        <motion.div variants={itemVariants} className="bg-muted/30 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                            <ListChecks className="h-3.5 w-3.5 text-orange-600" /> Requirements Summary
+                          </p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.requirementSummary as string}</p>
+                        </motion.div>
+                      )}
+
+                      {/* Mandatory Requirements */}
+                      {reqAnalysis.mandatoryRequirements && (
+                        <motion.div variants={itemVariants} className="bg-red-50/50 dark:bg-red-950/20 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5 flex items-center gap-1.5">
+                            <ShieldAlert className="h-3.5 w-3.5" /> Mandatory Requirements
+                          </p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.mandatoryRequirements as string}</p>
+                        </motion.div>
+                      )}
+
+                      {/* Preferred Qualifications */}
+                      {reqAnalysis.preferredQualifications && (
+                        <motion.div variants={itemVariants} className="bg-teal-50/50 dark:bg-teal-950/20 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-teal-700 dark:text-teal-400 mb-1.5 flex items-center gap-1.5">
+                            <Award className="h-3.5 w-3.5" /> Preferred Qualifications
+                          </p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preferredQualifications as string}</p>
+                        </motion.div>
+                      )}
+
+                      {/* Risk Factors */}
+                      {reqAnalysis.riskFactors && (
+                        <motion.div variants={itemVariants} className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5 flex items-center gap-1.5">
+                            <AlertTriangle className="h-3.5 w-3.5" /> Risk Factors
+                          </p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.riskFactors as string}</p>
+                        </motion.div>
+                      )}
+
+                      {/* Preparation Tips */}
+                      {reqAnalysis.preparationTips && (
+                        <motion.div variants={itemVariants} className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5 flex items-center gap-1.5">
+                            <CheckCircle className="h-3.5 w-3.5" /> Preparation Tips
+                          </p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preparationTips as string}</p>
+                        </motion.div>
+                      )}
+
+                      {/* Recommended Actions */}
+                      {reqAnalysis.recommendedActions && (
+                        <motion.div variants={itemVariants} className="bg-orange-50/50 dark:bg-orange-950/20 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-1.5 flex items-center gap-1.5">
+                            <Sparkles className="h-3.5 w-3.5" /> Recommended Actions
+                          </p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.recommendedActions as string}</p>
+                        </motion.div>
+                      )}
+
+                      {/* Evaluation Breakdown */}
+                      {reqAnalysis.evaluationBreakdown && (
+                        <motion.div variants={itemVariants} className="bg-muted/30 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                            <BarChart3 className="h-3.5 w-3.5 text-orange-600" /> Evaluation Breakdown
+                          </p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.evaluationBreakdown as string}</p>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  )}
+                  {!reqAnalysis && !reqAnalysisLoading && (
+                    <div className="text-center py-6">
+                      <div className="relative w-12 h-12 mx-auto mb-3">
+                        <div className="absolute inset-0 rounded-2xl bg-orange-100 opacity-30" />
+                        <div className="absolute inset-2 rounded-xl bg-orange-500/80 flex items-center justify-center">
+                          <BrainCircuit className="h-5 w-5 text-white" />
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium text-foreground">Get AI-powered insights</p>
+                      <p className="text-xs text-muted-foreground mt-1">Analyze requirements, evaluate your match, and get preparation tips</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

@@ -67,10 +67,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get user's company and profile skills
+    const fullUser = await db.user.findUnique({
+      where: { id: user!.id },
+      include: { profile: true, company: true },
+    });
+
     const bidderContext = [
-      userName ? `Bidder: ${userName}` : '',
+      userName || fullUser?.profile?.fullName ? `Bidder: ${userName || fullUser?.profile?.fullName}` : '',
+      fullUser?.company?.name ? `Company: ${fullUser.company.name}` : '',
+      fullUser?.company?.industry ? `Company Industry: ${fullUser.company.industry}` : '',
+      fullUser?.profile?.jobTitle ? `Job Title: ${fullUser.profile.jobTitle}` : '',
       skills ? `Selected Skills: ${skills}` : '',
-      userSkills ? `Profile Skills: ${userSkills}` : '',
+      userSkills || fullUser?.profile?.skillTags ? `Profile Skills: ${userSkills || fullUser?.profile?.skillTags}` : '',
     ].filter(Boolean).join('\n');
 
     const manualContext = !tenderId ? `
