@@ -17,7 +17,6 @@ import {
   Users,
   Zap,
   ChevronRight,
-  Star,
 } from 'lucide-react';
 
 /* ───────────────────────── Animated Background ───────────────────────── */
@@ -124,42 +123,6 @@ function StatCard({ value, label, delay }: { value: string; label: string; delay
   );
 }
 
-/* ───────────────────────── Testimonial ───────────────────────── */
-function TestimonialCard({
-  name,
-  role,
-  quote,
-  delay,
-}: {
-  name: string;
-  role: string;
-  quote: string;
-  delay: string;
-}) {
-  return (
-    <div
-      className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 transition-all duration-300 animate-[fadeUp_0.6s_ease-out_both]"
-      style={{ animationDelay: delay }}
-    >
-      <div className="flex items-center gap-1 mb-3">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-        ))}
-      </div>
-      <p className="text-sm text-muted-foreground leading-relaxed mb-4">&ldquo;{quote}&rdquo;</p>
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center">
-          <span className="text-white text-xs font-bold">{name[0]}</span>
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-foreground">{name}</p>
-          <p className="text-xs text-muted-foreground">{role}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ───────────────────────── Main Component ───────────────────────── */
 export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
   return (
@@ -260,7 +223,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
       <section className="border-y border-border bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <StatCard value="New" label="Platform" delay="0s" />
+            <StatCard value="10+" label="Data Sources" delay="0s" />
             <StatCard value="AI" label="Powered" delay="0.1s" />
             <StatCard value="Smart" label="Matching" delay="0.2s" />
             <StatCard value="Secure" label="Platform" delay="0.3s" />
@@ -375,7 +338,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Ready to Transform Your Tender Workflow?
             </h2>
             <p className="text-slate-300/80 text-lg mb-10 max-w-xl mx-auto">
-              Join hundreds of organizations already using Tenets to discover, prepare, and win tenders with AI-powered tools.
+              Start discovering, preparing, and winning tenders with AI-powered tools.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
@@ -428,11 +391,9 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <div>
               <h4 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-4">Company</h4>
               <ul className="space-y-2.5">
-                {['About Us', 'Careers', 'Blog', 'Contact'].map((item) => (
-                  <li key={item}>
-                    <span className="text-sm text-gray-400">{item}</span>
-                  </li>
-                ))}
+                <li><a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">About Us</a></li>
+                <li><a href="#community" className="text-sm text-gray-400 hover:text-white transition-colors">Community</a></li>
+                <li><a href="#how-it-works" className="text-sm text-gray-400 hover:text-white transition-colors">How It Works</a></li>
               </ul>
             </div>
 
@@ -440,11 +401,8 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <div>
               <h4 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-4">Legal</h4>
               <ul className="space-y-2.5">
-                {['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'GDPR'].map((item) => (
-                  <li key={item}>
-                    <span className="text-sm text-gray-400">{item}</span>
-                  </li>
-                ))}
+                <li><span className="text-sm text-gray-400">Privacy Policy</span></li>
+                <li><span className="text-sm text-gray-400">Terms of Service</span></li>
               </ul>
             </div>
           </div>
@@ -454,7 +412,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Users className="w-4 h-4" />
-                <span className="text-xs font-medium">Growing community</span>
+                <span className="text-xs font-medium">Community driven</span>
               </div>
               <div className="flex items-center gap-1.5 text-gray-500">
                 <ShieldCheck className="w-4 h-4" />

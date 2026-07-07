@@ -201,7 +201,7 @@ function truncate(text: string, n: number): string {
   return text.length > n ? text.slice(0, n) + '…' : text;
 }
 
-const msgVariants: Variants = {
+const msgVariants = {
   hidden: { opacity: 0, y: 12, scale: 0.97 },
   visible: (isOwn: boolean) => ({
     opacity: 1,
@@ -211,7 +211,7 @@ const msgVariants: Variants = {
   }),
 };
 
-const chatItemVariants: Variants = {
+const chatItemVariants = {
   hidden: { opacity: 0, x: -12 },
   visible: (i: number) => ({
     opacity: 1,
@@ -817,7 +817,6 @@ function ConversationListItem({
  >
       {active && (
         <div
- layoutId="activeConvBar"
  className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full gradient-emerald"
  />
       )}

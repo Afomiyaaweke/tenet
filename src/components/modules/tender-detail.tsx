@@ -96,15 +96,16 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
 
   // Requirements Analysis state (for applicants)
-  const [reqAnalysis, setReqAnalysis] = useState<Record<string, unknown> | null>(null);
+  const [reqAnalysis, setReqAnalysis] = useState<any>(null);
   const [reqAnalysisLoading, setReqAnalysisLoading] = useState(false);
 
   // AI Overview state (for all users)
-  const [aiOverview, setAiOverview] = useState<Record<string, unknown> | null>(null);
+  const [aiOverview, setAiOverview] = useState<any>(null);
   const [aiOverviewLoading, setAiOverviewLoading] = useState(false);
 
   const isAdminOrCreator = user?.role === 'super_admin' || (user?.role === 'team_admin' && tender?.createdBy === user.id);
   const isCreatorOrSuperAdmin = user?.role === 'super_admin' || tender?.createdBy === user?.id;
+  const isApplicant = !isCreatorOrSuperAdmin;
 
   const loadTender = useCallback(async () => {
     setLoading(true);
@@ -718,15 +719,15 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         <div className="bg-orange-50/60 rounded-xl p-4 text-center">
                           <Target className="h-5 w-5 text-orange-600 mx-auto mb-1" />
                           <p className={`text-2xl font-bold ${
-                            (reqAnalysis.matchScore as number) >= 70 ? 'text-emerald-700' : (reqAnalysis.matchScore as number) >= 40 ? 'text-amber-700' : 'text-red-700'
-                          }`}>{reqAnalysis.matchScore as number}</p>
+                            reqAnalysis.matchScore >= 70 ? 'text-emerald-700' : reqAnalysis.matchScore >= 40 ? 'text-amber-700' : 'text-red-700'
+                          }`}>{reqAnalysis.matchScore}</p>
                           <p className="text-[10px] text-muted-foreground">Your Match Score</p>
                         </div>
                         <div className="bg-amber-50/60 rounded-xl p-4 text-center">
                           <TrendingUp className="h-5 w-5 text-amber-600 mx-auto mb-1" />
                           <p className={`text-lg font-bold ${
                             reqAnalysis.competitivenessAssessment === 'High' ? 'text-red-700' : reqAnalysis.competitivenessAssessment === 'Medium' ? 'text-amber-700' : 'text-emerald-700'
-                          }`}>{reqAnalysis.competitivenessAssessment as string}</p>
+                          }`}>{reqAnalysis.competitivenessAssessment}</p>
                           <p className="text-[10px] text-muted-foreground">Competition Level</p>
                         </div>
                       </div>
@@ -737,7 +738,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
                             <ListChecks className="h-3.5 w-3.5 text-orange-600" /> Requirements Summary
                           </p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.requirementSummary as string}</p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{String(reqAnalysis.requirementSummary)}</p>
                         </div>
                       )}
 
@@ -747,7 +748,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5 flex items-center gap-1.5">
                             <ShieldAlert className="h-3.5 w-3.5" /> Mandatory Requirements
                           </p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.mandatoryRequirements as string}</p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.mandatoryRequirements}</p>
                         </div>
                       )}
 
@@ -757,7 +758,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           <p className="text-xs font-semibold text-teal-700 dark:text-teal-400 mb-1.5 flex items-center gap-1.5">
                             <Award className="h-3.5 w-3.5" /> Preferred Qualifications
                           </p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preferredQualifications as string}</p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preferredQualifications}</p>
                         </div>
                       )}
 
@@ -767,7 +768,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5 flex items-center gap-1.5">
                             <AlertTriangle className="h-3.5 w-3.5" /> Risk Factors
                           </p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.riskFactors as string}</p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.riskFactors}</p>
                         </div>
                       )}
 
@@ -777,7 +778,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5 flex items-center gap-1.5">
                             <CheckCircle className="h-3.5 w-3.5" /> Preparation Tips
                           </p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preparationTips as string}</p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preparationTips}</p>
                         </div>
                       )}
 
@@ -787,7 +788,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           <p className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-1.5 flex items-center gap-1.5">
                             <Sparkles className="h-3.5 w-3.5" /> Recommended Actions
                           </p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.recommendedActions as string}</p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.recommendedActions}</p>
                         </div>
                       )}
 
@@ -797,7 +798,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                           <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
                             <BarChart3 className="h-3.5 w-3.5 text-orange-600" /> Evaluation Breakdown
                           </p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.evaluationBreakdown as string}</p>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.evaluationBreakdown}</p>
                         </div>
                       )}
                     </div>
@@ -1029,7 +1030,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             {aiOverview && !aiOverviewLoading && (
               <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
                 {/* Summary */}
-                {(aiOverview.summary as string) && (
+                {(aiOverview.summary) && (
                   <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                     <div className="h-1 bg-gradient-to-r from-violet-400 to-purple-500" />
                     <CardHeader className="pb-3">
@@ -1041,7 +1042,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-xl p-4">{aiOverview.summary as string}</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-xl p-4">{aiOverview.summary}</p>
                     </CardContent>
                   </Card>
                 )}
@@ -1106,7 +1107,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 {/* Budget Analysis & Timeline - side by side */}
                 <div className="grid md:grid-cols-2 gap-4">
                   {/* Budget Analysis */}
-                  {(aiOverview.budgetAnalysis as string) && (
+                  {(aiOverview.budgetAnalysis) && (
                     <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                       <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
                       <CardHeader className="pb-3">
@@ -1118,13 +1119,13 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-emerald-50/30 dark:bg-emerald-950/20 rounded-xl p-4">{aiOverview.budgetAnalysis as string}</p>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-emerald-50/30 dark:bg-emerald-950/20 rounded-xl p-4">{aiOverview.budgetAnalysis}</p>
                       </CardContent>
                     </Card>
                   )}
 
                   {/* Timeline */}
-                  {(aiOverview.timeline as string) && (
+                  {(aiOverview.timeline) && (
                     <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                       <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
                       <CardHeader className="pb-3">
@@ -1136,7 +1137,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-amber-50/30 dark:bg-amber-950/20 rounded-xl p-4">{aiOverview.timeline as string}</p>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-amber-50/30 dark:bg-amber-950/20 rounded-xl p-4">{aiOverview.timeline}</p>
                       </CardContent>
                     </Card>
                   )}

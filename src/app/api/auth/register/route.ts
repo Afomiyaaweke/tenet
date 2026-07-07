@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     // Create Company + User + Profile in a transaction
     const result = await db.$transaction(async (tx) => {
       // Create Company first if companyName is provided
-      let company = null;
+      let company: { id: string; name: string; [key: string]: unknown } | null = null;
       if (companyName) {
         company = await tx.company.create({
           data: {

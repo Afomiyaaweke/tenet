@@ -141,7 +141,7 @@ const docStatusDot = (status: string) => {
   }
 };
 
-function getProfileCompleteness(profile: Record<string, unknown> | undefined): { pct: number; missing: string[] } {
+function getProfileCompleteness(profile: Record<string, unknown> | undefined | null): { pct: number; missing: string[] } {
   if (!profile) return { pct: 0, missing: ['Full Name', 'Phone', 'Location', 'Skills', 'Bio'] };
   const checks: [string, boolean][] = [
     ['Full Name', !!(profile.fullName as string)],
@@ -211,7 +211,7 @@ export function ProfileView() {
   const isSuperAdmin = userRole === 'super_admin';
   const isTeamAdmin = userRole === 'team_admin';
   const hasCompany = !!(user?.companyId || companyData);
-  const completeness = getProfileCompleteness(profile);
+  const completeness = getProfileCompleteness(profile as Record<string, unknown> | undefined | null);
   const approvedDocs = documents.filter(d => d.status === 'approved').length;
   const pendingDocs = documents.filter(d => d.status === 'pending').length;
 
