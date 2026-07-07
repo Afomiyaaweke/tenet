@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, useNavStore } from '@/store';
 import { api, Bid } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,15 +13,6 @@ import {
   Briefcase, X, Eye, RotateCcw, Filter, Target,
   CircleDot, Building2,
 } from 'lucide-react';
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.07 } },
-};
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-};
 
 type BidTab = 'all' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected';
 
@@ -103,12 +93,9 @@ export function BidsView() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto view-enter">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
+      <div
+ className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]"
+ >
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-2xl gradient-amber shadow-md flex-shrink-0">
             <Gavel className="h-6 w-6 text-white" />
@@ -122,23 +109,20 @@ export function BidsView() {
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Stats Summary */}
       {!loading && bids.length > 0 && (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
-        >
+        <div
+ className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]"
+ >
           {[
             { label: 'Pending', count: stats.pending, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
             { label: 'Shortlisted', count: stats.shortlisted, icon: Award, bg: 'bg-teal-50', color: 'text-teal-600' },
             { label: 'Awarded', count: stats.awarded, icon: CheckCircle, bg: 'bg-emerald-50', color: 'text-emerald-600' },
             { label: 'Rejected', count: stats.rejected, icon: AlertCircle, bg: 'bg-rose-50', color: 'text-rose-600' },
           ].map(stat => (
-            <motion.div key={stat.label} variants={itemVariants}>
+            <div key={stat.label}>
               <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
@@ -150,18 +134,15 @@ export function BidsView() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       )}
 
       {/* Tab Navigation */}
       {!loading && bids.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.15 }}
-        >
+        <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
           <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-1.5">
               <div className="flex gap-1 overflow-x-auto">
@@ -189,7 +170,7 @@ export function BidsView() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       )}
 
       {/* Bids List */}
@@ -203,7 +184,7 @@ export function BidsView() {
           ))}
         </div>
       ) : bids.length === 0 ? (
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+        <div className="animate-[fadeIn_0.3s_ease-out]">
           <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-16 text-center">
               <div className="relative w-20 h-20 mx-auto mb-6">
@@ -227,9 +208,9 @@ export function BidsView() {
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       ) : filteredBids.length === 0 ? (
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+        <div className="animate-[fadeIn_0.3s_ease-out]">
           <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-12 text-center">
               <div className="p-3 rounded-2xl bg-muted/50 w-fit mx-auto mb-4">
@@ -239,16 +220,12 @@ export function BidsView() {
               <p className="text-muted-foreground text-sm mt-1">Try selecting a different tab</p>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       ) : (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="space-y-4"
-        >
-          <AnimatePresence mode="popLayout">
-            {filteredBids.map(bid => {
+        <div
+ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+ >
+          {filteredBids.map(bid => {
               const sInfo = statusIcon(bid.status);
               const SIcon = sInfo.icon;
               const isExpanded = expandedId === bid.id;
@@ -256,14 +233,9 @@ export function BidsView() {
               const jobTitle = bid.user?.profile?.jobTitle;
 
               return (
-                <motion.div
-                  key={bid.id}
-                  variants={itemVariants}
-                  layout
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  whileHover={{ y: -2 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <div className="hover:-translate-y-[2px] transition-all duration-200"
+ key={bid.id}
+ >
                   <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                     {/* Status accent strip */}
                     <div className={`h-1 ${
@@ -348,15 +320,10 @@ export function BidsView() {
                       </div>
 
                       {/* Expanded Content */}
-                      <AnimatePresence>
-                        {isExpanded && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.25 }}
-                            className="overflow-hidden"
-                          >
+                      {isExpanded && (
+                          <div
+ className="overflow-hidden animate-[fadeIn_0.3s_ease-out]"
+ >
                             <div className="px-5 pb-5 pt-3 border-t border-border/40 space-y-4">
                               {/* Technical Proposal */}
                               <div>
@@ -467,16 +434,14 @@ export function BidsView() {
                                 )}
                               </div>
                             </div>
-                          </motion.div>
+                          </div>
                         )}
-                      </AnimatePresence>
-                    </CardContent>
+</CardContent>
                   </Card>
-                </motion.div>
+                </div>
               );
             })}
-          </AnimatePresence>
-        </motion.div>
+</div>
       )}
     </div>
   );

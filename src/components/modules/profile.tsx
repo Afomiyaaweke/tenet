@@ -24,8 +24,6 @@ import {
   Globe, MapPinned, Hash, ExternalLink, Plus, ChevronRight,
   Lock, Eye, PenTool, Settings, FileCheck, ClipboardList,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
 // ==========================================
 // Constants
 // ==========================================
@@ -326,8 +324,8 @@ export function ProfileView() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto view-enter">
       {/* Header */}
-      <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible"
-        className="flex items-center justify-between">
+      <div
+ className="flex items-center justify-between animate-[fadeIn_0.3s_ease-out]">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-2xl gradient-emerald flex-shrink-0 shadow-md shadow-emerald-200/50">
             <User className="h-6 w-6 text-white" />
@@ -364,12 +362,12 @@ export function ProfileView() {
             </Button>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* ==========================================
           COMPANY SECTION (top of profile)
           ========================================== */}
-      <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible">
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -494,12 +492,12 @@ export function ProfileView() {
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* ==========================================
           ROLE & ACCESS SECTION
           ========================================== */}
-      <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible">
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -545,12 +543,12 @@ export function ProfileView() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* ==========================================
           PROFILE HEADER CARD
           ========================================== */}
-      <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible">
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
@@ -621,16 +619,13 @@ export function ProfileView() {
                     </span>
                   </div>
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${completeness.pct}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                      className={`h-full rounded-full ${
-                        completeness.pct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
-                        completeness.pct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
-                        'bg-gradient-to-r from-rose-400 to-rose-600'
-                      }`}
-                    />
+                    <div
+ className={`h-full rounded-full ${
+ completeness.pct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
+ completeness.pct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
+ 'bg-gradient-to-r from-rose-400 to-rose-600'
+ } transition-[width] duration-700`} style={{ width: `${completeness.pct}%` }}
+ />
                   </div>
                   {completeness.missing.length > 0 && !editing && (
                     <p className="text-[10px] text-muted-foreground mt-1">
@@ -642,12 +637,12 @@ export function ProfileView() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* ==========================================
           PERSONAL INFORMATION
           ========================================== */}
-      <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -724,12 +719,12 @@ export function ProfileView() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* ==========================================
           SKILLS SECTION
           ========================================== */}
-      <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible">
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -750,18 +745,17 @@ export function ProfileView() {
                 {SKILL_OPTIONS.map(skill => {
                   const isSelected = selectedSkills.includes(skill);
                   return (
-                    <motion.button
-                      key={skill}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => toggleSkill(skill)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
-                        isSelected
-                          ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50 hover:bg-emerald-600'
-                          : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-emerald-700 border border-border/60'
-                      }`}
-                    >
+                    <button
+ key={skill}
+ onClick={() => toggleSkill(skill)}
+ className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+ isSelected
+ ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50 hover:bg-emerald-600'
+ : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-emerald-700 border border-border/60'
+ } active:scale-95 transition-transform`}
+ >
                       {skill}
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
@@ -783,12 +777,12 @@ export function ProfileView() {
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* ==========================================
           BIO SECTION
           ========================================== */}
-      <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible">
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -814,12 +808,12 @@ export function ProfileView() {
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* ==========================================
           VERIFICATION DOCUMENTS
           ========================================== */}
-      <motion.div custom={7} variants={sectionVariants} initial="hidden" animate="visible">
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -921,17 +915,14 @@ export function ProfileView() {
               </div>
             ) : documents.length > 0 ? (
               <div className="space-y-2">
-                <AnimatePresence>
-                  {documents.map(doc => {
+                {documents.map(doc => {
                     const dtConfig = docTypeConfig(doc.docType);
                     const DtIcon = dtConfig.icon;
                     return (
-                      <motion.div
-                        key={doc.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors"
-                      >
+                      <div
+ key={doc.id}
+ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
+ >
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-lg ${dtConfig.bg} flex-shrink-0`}>
                             <DtIcon className={`h-4 w-4 ${dtConfig.color}`} />
@@ -951,23 +942,22 @@ export function ProfileView() {
                           {doc.status === 'pending' && <Clock className="h-2.5 w-2.5 mr-0.5" />}
                           {doc.status}
                         </Badge>
-                      </motion.div>
+                      </div>
                     );
                   })}
-                </AnimatePresence>
-              </div>
+</div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-3">No documents uploaded yet</p>
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* ==========================================
           TEAM MANAGEMENT (super_admin & team_admin)
           ========================================== */}
       {(isSuperAdmin || isTeamAdmin) && (
-        <motion.div custom={8} variants={sectionVariants} initial="hidden" animate="visible">
+        <div className="animate-[fadeIn_0.3s_ease-out]">
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -991,20 +981,17 @@ export function ProfileView() {
                 </div>
               ) : teamMembers.length > 0 ? (
                 <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
-                  <AnimatePresence>
-                    {teamMembers.map((member) => {
+                  {teamMembers.map((member) => {
                       const memberRole = member.role as UserRole;
                       const memberConfig = ROLE_CONFIG[memberRole];
                       const MemberIcon = memberConfig.icon;
                       const isChanging = changingRole === member.id;
 
                       return (
-                        <motion.div
-                          key={member.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors gap-3"
-                        >
+                        <div
+ key={member.id}
+ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors gap-3 animate-[fadeIn_0.3s_ease-out]"
+ >
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div className={`p-2 rounded-lg ${memberConfig.badgeClass} flex-shrink-0`}>
                               <MemberIcon className="h-4 w-4" />
@@ -1060,11 +1047,10 @@ export function ProfileView() {
                               </Badge>
                             )}
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
-                  </AnimatePresence>
-                </div>
+</div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-6 text-center">
                   <Users className="h-8 w-8 text-muted-foreground/40 mb-2" />
@@ -1075,7 +1061,7 @@ export function ProfileView() {
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       )}
     </div>
   );

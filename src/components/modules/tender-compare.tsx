@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, useNavStore } from '@/store';
 import { api, Tender, Bid } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,15 +14,6 @@ import {
   Briefcase, GitCompareArrows, Zap, Eye, Building2, CircleCheck,
   BarChart3, Scale, FileStack,
 } from 'lucide-react';
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
-};
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
-};
 
 function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -206,12 +196,9 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
+      <div
+ className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]"
+ >
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
             <GitCompareArrows className="h-6 w-6 text-white" />
@@ -227,14 +214,11 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
           className="rounded-xl hover:text-emerald-700 hover:bg-primary/10 transition-colors">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
         </Button>
-      </motion.div>
+      </div>
 
       {/* Quick Insights */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-      >
+      <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400" />
           <CardContent className="p-4">
@@ -280,14 +264,11 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Comparison Table */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
-      >
+      <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-400" />
           <ScrollArea className="w-full">
@@ -317,12 +298,11 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
 
               {/* Comparison Rows */}
               {comparisonFields.map((field, idx) => (
-                <motion.div
-                  key={field.label}
-                  variants={itemVariants}
-                  className="grid border-b border-border/30 hover:bg-muted/20 transition-colors"
-                  style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}
-                >
+                <div
+ key={field.label}
+ className="grid border-b border-border/30 hover:bg-muted/20 transition-colors"
+ style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}
+ >
                   <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-card">
                     <div className="p-1 rounded bg-muted/50">
                       <field.icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -334,15 +314,14 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
                       {field.render(tender)}
                     </div>
                   ))}
-                </motion.div>
+                </div>
               ))}
 
               {/* Scope Row */}
-              <motion.div
-                variants={itemVariants}
-                className="grid"
-                style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}
-              >
+              <div
+ className="grid"
+ style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}
+ >
                 <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-card">
                   <div className="p-1 rounded bg-muted/50">
                     <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
@@ -354,18 +333,15 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
                     <p className="text-xs text-muted-foreground line-clamp-4 leading-relaxed">{tender.scope}</p>
                   </div>
                 ))}
-              </motion.div>
+              </div>
             </div>
           </ScrollArea>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Visual Budget Comparison Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.3 }}
-      >
+      <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-amber-400" />
           <CardHeader className="pb-3">
@@ -405,14 +381,11 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
             })}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Deadline Comparison */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.35 }}
-      >
+      <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-amber-400 to-teal-400" />
           <CardHeader className="pb-3">
@@ -456,15 +429,12 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
             })}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Action Buttons */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.4 }}
-        className="flex flex-wrap gap-3"
-      >
+      <div
+ className="flex flex-wrap gap-3 animate-[fadeIn_0.3s_ease-out]"
+ >
         {tenders.map(tender => (
           <Button
             key={tender.id}
@@ -476,11 +446,10 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
             View: {tender.title.length > 20 ? tender.title.slice(0, 20) + '...' : tender.title}
           </Button>
         ))}
-      </motion.div>
+      </div>
     </div>
   );
 }
-
 
 /* ────────────── Bid Comparison View ────────────── */
 
@@ -628,12 +597,9 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
+      <div
+ className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]"
+ >
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => setView('tender-detail', { id: tenderId || '' })}
             className="hover:text-emerald-700 hover:bg-primary/10 transition-colors rounded-xl p-2">
@@ -651,11 +617,11 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Tender Summary */}
       {tender && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
+        <div className="animate-[fadeIn_0.3s_ease-out]">
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-400" />
             <CardContent className="p-4">
@@ -679,11 +645,11 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       )}
 
       {/* Bid Selection */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
+      <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
           <CardHeader className="pb-3">
@@ -769,17 +735,12 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Comparison Table */}
-      <AnimatePresence>
-        {compareMode && comparedBids.length >= 2 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.4 }}
-          >
+      {compareMode && comparedBids.length >= 2 && (
+          <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
             <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
               <div className="h-2 bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400" />
               <ScrollArea className="w-full">
@@ -881,17 +842,12 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
                 </div>
               </div>
             </Card>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-
-      {/* Financial Comparison Chart */}
+{/* Financial Comparison Chart */}
       {comparedBids.length >= 2 && compareMode && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-        >
+        <div className="animate-[fadeIn_0.3s_ease-out]"
+ >
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-amber-400" />
             <CardHeader className="pb-3">
@@ -934,7 +890,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
               })}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       )}
     </div>
   );

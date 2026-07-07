@@ -15,33 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { motion } from 'framer-motion';
 import {
   FolderKanban, DollarSign, CheckCircle2, Clock,
   AlertTriangle, Sparkles, Calendar, Target,
   TrendingUp, LayoutGrid, List, GanttChart, GripVertical,
   ArrowUp, ArrowDown, ArrowUpDown, ChevronRight,
 } from 'lucide-react';
-
-// ─── Animation Variants ─────────────────────────────────────────────
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] } },
-};
-
-const cardHover = {
-  y: -3,
-  transition: { duration: 0.2, ease: 'easeOut' },
-};
-
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatETB(amount: number): string {
   if (amount >= 1_000_000) return `ETB ${(amount / 1_000_000).toFixed(1)}M`;
@@ -159,7 +138,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
   const nextMilestone = getNextMilestone(project);
 
   return (
-    <motion.div whileHover={cardHover} className="cursor-pointer" onClick={onClick}>
+    <div className="cursor-pointer hover:-translate-y-[3px] transition-all duration-200" onClick={onClick}>
       <Card className="rounded-xl border border-border/60 bg-card shadow-sm hover:shadow-md transition-shadow group">
         <CardContent className="p-4 space-y-3">
           {/* Title row */}
@@ -188,13 +167,10 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
               <span className="text-[10px] font-bold" style={{ color: sc.bar }}>{doneTasks}/{totalTasks}</span>
             </div>
             <div className={`h-1.5 ${sc.barBg} rounded-full overflow-hidden`}>
-              <motion.div
-                className="h-full rounded-full"
-                style={{ backgroundColor: sc.bar }}
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
-              />
+              <div
+ className="h-full rounded-full transition-[width] duration-700"
+ style={{ width: `${progress}%`, backgroundColor: sc.bar }}
+ />
             </div>
           </div>
 
@@ -215,7 +191,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </div>
   );
 }
 
@@ -498,14 +474,11 @@ export function ProjectsView() {
   const onHoldCount = projects.filter(p => p.status === 'on_hold').length;
 
   return (
-    <motion.div
-      className="space-y-0 max-w-6xl mx-auto"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <div
+ className="space-y-0 max-w-6xl mx-auto animate-[fadeIn_0.3s_ease-out]"
+ >
       {/* Notion-style Cover */}
-      <motion.div variants={itemVariants} className="relative h-32 sm:h-40 rounded-t-none overflow-hidden -mx-4 md:-mx-6 -mt-4 md:-mt-6">
+      <div className="relative h-32 sm:h-40 rounded-t-none overflow-hidden -mx-4 md:-mx-6 -mt-4 md:-mt-6">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-teal-500 to-emerald-700" />
         <div className="absolute inset-0 opacity-20" style={{
           backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.15) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.1) 0%, transparent 40%)',
@@ -513,10 +486,10 @@ export function ProjectsView() {
         <div className="absolute inset-0" style={{
           backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 30px, rgba(255,255,255,0.02) 30px, rgba(255,255,255,0.02) 60px)',
         }} />
-      </motion.div>
+      </div>
 
       {/* Page Header */}
-      <motion.div variants={itemVariants} className="px-4 md:px-6 -mt-8 relative z-10">
+      <div className="px-4 md:px-6 -mt-8 relative z-10">
         <div className="flex items-end gap-4">
           <div className="w-16 h-16 rounded-2xl bg-white dark:bg-card shadow-lg flex items-center justify-center border-4 border-white dark:border-card">
             <span className="text-3xl">📁</span>
@@ -526,11 +499,11 @@ export function ProjectsView() {
             <p className="text-sm text-muted-foreground mt-0.5">Track and manage your project portfolio</p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       <div className="px-4 md:px-6 space-y-5 mt-5">
         {/* Stats Bar */}
-        <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border/60 shadow-sm">
             <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
               <Target className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -567,10 +540,10 @@ export function ProjectsView() {
               <p className="text-[10px] text-muted-foreground font-medium">Total Value</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* View Switcher */}
-        <motion.div variants={itemVariants} className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'board' | 'list' | 'timeline')}>
             <TabsList className="bg-muted/50 h-9 p-0.5">
               <TabsTrigger value="board" className="text-xs px-3 py-1.5 data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-md">
@@ -589,7 +562,7 @@ export function ProjectsView() {
               {projects.length} project{projects.length !== 1 ? 's' : ''}
             </Badge>
           </div>
-        </motion.div>
+        </div>
 
         {/* Content */}
         {loading ? (
@@ -606,7 +579,7 @@ export function ProjectsView() {
             ))}
           </div>
         ) : projects.length === 0 ? (
-          <motion.div variants={itemVariants}>
+          <div>
             <Card className="rounded-xl border border-border/60 bg-card">
               <CardContent className="p-12 text-center">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
@@ -624,21 +597,21 @@ export function ProjectsView() {
                 </Button>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         ) : activeView === 'board' ? (
-          <motion.div variants={itemVariants}>
+          <div>
             <BoardView projects={projects} onCardClick={handleNavigate} />
-          </motion.div>
+          </div>
         ) : activeView === 'list' ? (
-          <motion.div variants={itemVariants}>
+          <div>
             <ListView projects={projects} onRowClick={handleNavigate} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-          </motion.div>
+          </div>
         ) : (
-          <motion.div variants={itemVariants}>
+          <div>
             <TimelineView projects={projects} onBarClick={handleNavigate} />
-          </motion.div>
+          </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

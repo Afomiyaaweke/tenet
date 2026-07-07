@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { api, LiveTender, DataSource } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,15 +21,6 @@ import {
 /* ─────────────────────────────────────────────────────────────────────
  * Constants
  * ───────────────────────────────────────────────────────────────────── */
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.04 } },
-};
-const itemVariants = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' as const } },
-};
 
 const SOURCE_LABELS: Record<string, string> = {
   worldbank: 'World Bank',
@@ -233,13 +223,9 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="overflow-hidden"
-    >
+    <div
+ className="overflow-hidden animate-[fadeIn_0.3s_ease-out]"
+ >
       <div className="border-t border-border bg-gradient-to-b from-muted/30 to-background">
         <div className="p-4 md:p-6 space-y-4">
           {/* Document header */}
@@ -321,7 +307,7 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -694,14 +680,10 @@ export function LiveTendersView() {
             </CardContent>
           </Card>
         ) : (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="space-y-3"
-          >
-            <AnimatePresence mode="popLayout">
-              {tenders.map((t) => {
+          <div
+ className="space-y-3 animate-[fadeIn_0.3s_ease-out]"
+ >
+            {tenders.map((t) => {
                 const accent = SOURCE_ACCENT[t.source] || SOURCE_ACCENT.default;
                 const days = daysUntil(t.deadline);
                 const isExpanded = expandedId === t.id;
@@ -711,7 +693,7 @@ export function LiveTendersView() {
                 const SourceIcon = accent.icon;
 
                 return (
-                  <motion.div key={t.id} variants={itemVariants} layout>
+                  <div key={t.id}>
                     <Card className={`bg-card border-border transition-all ${accent.ring} ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
                       <CardContent className="p-0">
                         {/* Main card content */}
@@ -845,27 +827,20 @@ export function LiveTendersView() {
                         </div>
 
                         {/* Inline document viewer */}
-                        <AnimatePresence>
-                          {isExpanded && (
+                        {isExpanded && (
                             <>
                               {isLoadingDoc && (
-                                <motion.div
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  exit={{ opacity: 0 }}
-                                  className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground"
-                                >
+                                <div
+ className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground animate-[fadeIn_0.3s_ease-out]"
+ >
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                   Fetching document content…
-                                </motion.div>
+                                </div>
                               )}
                               {docErr && !isLoadingDoc && (
-                                <motion.div
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  exit={{ opacity: 0 }}
-                                  className="border-t border-border p-6"
-                                >
+                                <div
+ className="border-t border-border p-6 animate-[fadeIn_0.3s_ease-out]"
+ >
                                   <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
                                     <ServerCrash className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                                     <div>
@@ -886,7 +861,7 @@ export function LiveTendersView() {
                                       </p>
                                     </div>
                                   </div>
-                                </motion.div>
+                                </div>
                               )}
                               {doc && !isLoadingDoc && (
                                 <InlineDocumentViewer
@@ -896,14 +871,12 @@ export function LiveTendersView() {
                               )}
                             </>
                           )}
-                        </AnimatePresence>
-                      </CardContent>
+</CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 );
               })}
-            </AnimatePresence>
-          </motion.div>
+</div>
         )}
 
         {/* ───────────────── Data Sources panel ───────────────── */}

@@ -1,0 +1,942 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { useAuthStore, useNavStore } from '@/store';
+     6→import { api, Tender, Bid } from '@/lib/api';
+     7→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     8→import { Badge } from '@/components/ui/badge';
+     9→import { Button } from '@/components/ui/button';
+    10→import { ScrollArea } from '@/components/ui/scroll-area';
+    11→import { toast } from 'sonner';
+    12→import {
+    13→  ArrowLeft, MapPin, Calendar, DollarSign, Tag, FileText, Gavel, Clock, Users,
+    14→  ChevronRight, TrendingUp, Timer, Target, Award, CheckCircle, X,
+    15→  Briefcase, GitCompareArrows, Zap, Eye, Building2, CircleCheck,
+    16→  BarChart3, Scale, FileStack,
+    17→} from 'lucide-react';
+    18→
+    19→const containerVariants = {
+    20→  hidden: { opacity: 0 },
+    21→  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+    22→};
+    23→const itemVariants = {
+    24→  hidden: { opacity: 0, y: 12 },
+    25→  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+    26→};
+    27→
+    28→function daysUntil(dateStr: string): number {
+    29→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    30→}
+    31→
+    32→function formatETB(amount: number): string {
+    33→  return `ETB ${amount.toLocaleString()}`;
+    34→}
+    35→
+    36→/* ────────────── Tender Comparison View ────────────── */
+    37→
+    38→export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
+    39→  const { user } = useAuthStore();
+    40→  const { setView } = useNavStore();
+    41→  const [tenders, setTenders] = useState<Tender[]>([]);
+    42→  const [loading, setLoading] = useState(true);
+    43→
+    44→  const ids = useMemo(() => {
+    45→    if (!tenderIds) return [];
+    46→    return tenderIds.split(',').filter(Boolean);
+    47→  }, [tenderIds]);
+    48→
+    49→  const loadTenders = useCallback(async () => {
+    50→    if (ids.length === 0) { setLoading(false); return; }
+    51→    setLoading(true);
+    52→    const loaded: Tender[] = [];
+    53→    for (const id of ids) {
+    54→      const res = await api.get(`/tenders/${id}`);
+    55→      if (res.success) loaded.push(res.data);
+    56→    }
+    57→    setTenders(loaded);
+    58→    setLoading(false);
+    59→  }, [ids]);
+    60→
+    61→  /* eslint-disable react-hooks/set-state-in-effect */
+    62→  useEffect(() => { loadTenders(); }, [loadTenders]);
+    63→  /* eslint-enable react-hooks/set-state-in-effect */
+    64→
+    65→  if (loading) {
+    66→    return (
+    67→      <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto view-enter">
+    68→        <div className="h-8 bg-muted/50 rounded-xl w-1/3 animate-pulse" />
+    69→        <div className="grid grid-cols-2 gap-4">
+    70→          {[1, 2].map(i => (
+    71→            <div key={i} className="h-96 bg-muted/50 rounded-xl animate-pulse premium-shadow" />
+    72→          ))}
+    73→        </div>
+    74→      </div>
+    75→    );
+    76→  }
+    77→
+    78→  if (tenders.length === 0) {
+    79→    return (
+    80→      <div className="p-6 text-center view-enter">
+    81→        <div className="relative w-20 h-20 mx-auto mb-6">
+    82→          <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20" />
+    83→          <div className="absolute inset-2 rounded-xl gradient-emerald flex items-center justify-center">
+    84→            <GitCompareArrows className="h-8 w-8 text-white" />
+    85→          </div>
+    86→        </div>
+    87→        <h3 className="text-lg font-semibold">No tenders to compare</h3>
+    88→        <p className="text-muted-foreground text-sm mt-2">Go back to tenders and select at least 2 to compare</p>
+    89→        <Button variant="outline" onClick={() => setView('tenders')} className="mt-4 rounded-xl">
+    90→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
+    91→        </Button>
+    92→      </div>
+    93→    );
+    94→  }
+    95→
+    96→  // Comparison rows
+    97→  const comparisonFields = [
+    98→    {
+    99→      label: 'Status',
+   100→      icon: CircleCheck,
+   101→      render: (t: Tender) => {
+   102→        const colors: Record<string, string> = {
+   103→          open: 'bg-emerald-100 text-emerald-700',
+   104→          closed: 'bg-rose-100 text-rose-700',
+   105→          awarded: 'bg-teal-100 text-teal-700',
+   106→          cancelled: 'bg-muted text-muted-foreground',
+   107→          draft: 'bg-muted text-muted-foreground',
+   108→        };
+   109→        return (
+   110→          <Badge className={`text-xs px-2.5 py-1 border-0 rounded-lg ${colors[t.status] || 'bg-muted text-muted-foreground'}`}>
+   111→            {t.status}
+   112→          </Badge>
+   113→        );
+   114→      },
+   115→    },
+   116→    {
+   117→      label: 'Budget Range',
+   118→      icon: DollarSign,
+   119→      render: (t: Tender) => (
+   120→        <div className="space-y-1">
+   121→          <p className="text-sm font-bold text-emerald-700">{formatETB(t.budgetMin)} – {formatETB(t.budgetMax)}</p>
+   122→          <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+   123→            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style={{ width: '100%' }} />
+   124→          </div>
+   125→        </div>
+   126→      ),
+   127→    },
+   128→    {
+   129→      label: 'Deadline',
+   130→      icon: Timer,
+   131→      render: (t: Tender) => {
+   132→        const days = daysUntil(t.deadline);
+   133→        return (
+   134→          <div>
+   135→            <p className="text-sm font-semibold">{new Date(t.deadline).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</p>
+   136→            <p className={`text-xs font-medium ${days <= 0 ? 'text-rose-600' : days <= 3 ? 'text-rose-600' : days <= 7 ? 'text-amber-600' : 'text-emerald-600'}`}>
+   137→              {days <= 0 ? 'Expired' : days === 1 ? '1 day left' : `${days} days left`}
+   138→            </p>
+   139→          </div>
+   140→        );
+   141→      },
+   142→    },
+   143→    {
+   144→      label: 'Location',
+   145→      icon: MapPin,
+   146→      render: (t: Tender) => <p className="text-sm font-medium">{t.location}</p>,
+   147→    },
+   148→    {
+   149→      label: 'Categories',
+   150→      icon: Tag,
+   151→      render: (t: Tender) => (
+   152→        <div className="flex flex-wrap gap-1">
+   153→          {t.categoryTags.split(',').filter(Boolean).map(tag => (
+   154→            <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
+   155→              {tag.trim()}
+   156→            </Badge>
+   157→          ))}
+   158→        </div>
+   159→      ),
+   160→    },
+   161→    {
+   162→      label: 'Total Bids',
+   163→      icon: Users,
+   164→      render: (t: Tender) => <p className="text-sm font-bold">{t._count?.bids || 0}</p>,
+   165→    },
+   166→    {
+   167→      label: 'Match Score',
+   168→      icon: Target,
+   169→      render: (t: Tender) => {
+   170→        if (t.matchScore === undefined) return <p className="text-xs text-muted-foreground">N/A</p>;
+   171→        const barColor = t.matchScore >= 70 ? 'from-emerald-400 to-emerald-600' : t.matchScore >= 40 ? 'from-amber-400 to-amber-600' : 'from-muted to-muted-foreground/50';
+   172→        const textColor = t.matchScore >= 70 ? 'text-emerald-700' : t.matchScore >= 40 ? 'text-amber-700' : 'text-muted-foreground';
+   173→        return (
+   174→          <div className="space-y-1">
+   175→            <p className={`text-sm font-bold ${textColor}`}>{t.matchScore}%</p>
+   176→            <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+   177→              <div className={`h-full rounded-full bg-gradient-to-r ${barColor}`} style={{ width: `${t.matchScore}%` }} />
+   178→            </div>
+   179→          </div>
+   180→        );
+   181→      },
+   182→    },
+   183→    {
+   184→      label: 'Required Documents',
+   185→      icon: FileStack,
+   186→      render: (t: Tender) => {
+   187→        const docs = t.requiredDocs?.split(',').filter(Boolean) || [];
+   188→        if (docs.length === 0) return <p className="text-xs text-muted-foreground">None specified</p>;
+   189→        return (
+   190→          <div className="space-y-1">
+   191→            {docs.map(doc => (
+   192→              <p key={doc} className="text-xs font-medium">• {doc.trim()}</p>
+   193→            ))}
+   194→          </div>
+   195→        );
+   196→      },
+   197→    },
+   198→  ];
+   199→
+   200→  // Find the "best" values for highlighting
+   201→  const bestBudget = tenders.reduce((best, t) => t.budgetMax > (best?.budgetMax || 0) ? t : best, tenders[0]);
+   202→  const mostDays = tenders.reduce((best, t) => daysUntil(t.deadline) > daysUntil(best.deadline) ? t : best, tenders[0]);
+   203→  const mostBids = tenders.reduce((best, t) => (t._count?.bids || 0) > (best._count?.bids || 0) ? t : best, tenders[0]);
+   204→  const bestMatch = tenders.reduce((best, t) => (t.matchScore || 0) > (best.matchScore || 0) ? t : best, tenders[0]);
+   205→
+   206→  return (
+   207→    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
+   208→      {/* Header */}
+   209→      <motion.div
+   210→        initial={{ opacity: 0, y: -10 }}
+   211→        animate={{ opacity: 1, y: 0 }}
+   212→        transition={{ duration: 0.4 }}
+   213→        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+   214→      >
+   215→        <div className="flex items-center gap-4">
+   216→          <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
+   217→            <GitCompareArrows className="h-6 w-6 text-white" />
+   218→          </div>
+   219→          <div>
+   220→            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   221→              <span className="text-gradient-emerald">Compare</span> Tenders
+   222→            </h2>
+   223→            <p className="text-muted-foreground text-sm mt-0.5">Side-by-side comparison of {tenders.length} tenders</p>
+   224→          </div>
+   225→        </div>
+   226→        <Button variant="outline" onClick={() => setView('tenders')}
+   227→          className="rounded-xl hover:text-emerald-700 hover:bg-primary/10 transition-colors">
+   228→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
+   229→        </Button>
+   230→      </motion.div>
+   231→
+   232→      {/* Quick Insights */}
+   233→      <motion.div
+   234→        initial={{ opacity: 0, y: 8 }}
+   235→        animate={{ opacity: 1, y: 0 }}
+   236→        transition={{ duration: 0.4, delay: 0.1 }}
+   237→      >
+   238→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   239→          <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400" />
+   240→          <CardContent className="p-4">
+   241→            <div className="flex items-center gap-2 mb-3">
+   242→              <div className="p-1.5 rounded-lg gradient-emerald">
+   243→                <Zap className="h-3.5 w-3.5 text-white" />
+   244→              </div>
+   245→              <h3 className="text-sm font-bold">Quick Insights</h3>
+   246→            </div>
+   247→            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   248→              <div className="bg-emerald-50/60 rounded-xl p-3">
+   249→                <div className="flex items-center gap-1.5 mb-1">
+   250→                  <DollarSign className="h-3 w-3 text-emerald-600" />
+   251→                  <span className="text-[10px] text-emerald-600 font-medium">Highest Budget</span>
+   252→                </div>
+   253→                <p className="text-xs font-bold text-emerald-700 truncate">{bestBudget?.title}</p>
+   254→                <p className="text-[10px] text-emerald-600">{formatETB(bestBudget?.budgetMax || 0)}</p>
+   255→              </div>
+   256→              <div className="bg-amber-50/60 rounded-xl p-3">
+   257→                <div className="flex items-center gap-1.5 mb-1">
+   258→                  <Timer className="h-3 w-3 text-amber-600" />
+   259→                  <span className="text-[10px] text-amber-600 font-medium">Most Time</span>
+   260→                </div>
+   261→                <p className="text-xs font-bold text-amber-700 truncate">{mostDays?.title}</p>
+   262→                <p className="text-[10px] text-amber-600">{daysUntil(mostDays?.deadline || '')} days left</p>
+   263→              </div>
+   264→              <div className="bg-teal-50/60 rounded-xl p-3">
+   265→                <div className="flex items-center gap-1.5 mb-1">
+   266→                  <Users className="h-3 w-3 text-teal-600" />
+   267→                  <span className="text-[10px] text-teal-600 font-medium">Most Bids</span>
+   268→                </div>
+   269→                <p className="text-xs font-bold text-teal-700 truncate">{mostBids?.title}</p>
+   270→                <p className="text-[10px] text-teal-600">{mostBids?._count?.bids || 0} bids</p>
+   271→              </div>
+   272→              <div className="bg-purple-50/60 rounded-xl p-3">
+   273→                <div className="flex items-center gap-1.5 mb-1">
+   274→                  <Target className="h-3 w-3 text-purple-600" />
+   275→                  <span className="text-[10px] text-purple-600 font-medium">Best Match</span>
+   276→                </div>
+   277→                <p className="text-xs font-bold text-purple-700 truncate">{bestMatch?.title}</p>
+   278→                <p className="text-[10px] text-purple-600">{bestMatch?.matchScore || 0}% match</p>
+   279→              </div>
+   280→            </div>
+   281→          </CardContent>
+   282→        </Card>
+   283→      </motion.div>
+   284→
+   285→      {/* Comparison Table */}
+   286→      <motion.div
+   287→        variants={containerVariants}
+   288→        initial="hidden"
+   289→        animate="show"
+   290→      >
+   291→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   292→          <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-400" />
+   293→          <ScrollArea className="w-full">
+   294→            <div className="min-w-[600px]">
+   295→              {/* Header Row */}
+   296→              <div className="grid border-b border-border/50" style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}>
+   297→                <div className="p-4 bg-muted/30 flex items-center gap-2 sticky left-0 z-10 bg-card">
+   298→                  <Scale className="h-4 w-4 text-emerald-600" />
+   299→                  <span className="text-sm font-bold">Attributes</span>
+   300→                </div>
+   301→                {tenders.map((tender, i) => (
+   302→                  <div key={tender.id} className="p-4 border-l border-border/30">
+   303→                    <div className="flex items-start gap-3">
+   304→                      <div className="flex-1 min-w-0">
+   305→                        <h4 className="text-sm font-bold truncate">{tender.title}</h4>
+   306→                        <p className="text-xs text-muted-foreground mt-0.5">ID: {tender.id.slice(0, 8)}...</p>
+   307→                      </div>
+   308→                      <Button size="sm" variant="ghost"
+   309→                        className="h-7 w-7 p-0 rounded-lg hover:bg-primary/10 hover:text-emerald-700 flex-shrink-0"
+   310→                        onClick={() => setView('tender-detail', { id: tender.id })}>
+   311→                        <Eye className="h-3.5 w-3.5" />
+   312→                      </Button>
+   313→                    </div>
+   314→                  </div>
+   315→                ))}
+   316→              </div>
+   317→
+   318→              {/* Comparison Rows */}
+   319→              {comparisonFields.map((field, idx) => (
+   320→                <motion.div
+   321→                  key={field.label}
+   322→                  variants={itemVariants}
+   323→                  className="grid border-b border-border/30 hover:bg-muted/20 transition-colors"
+   324→                  style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}
+   325→                >
+   326→                  <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-card">
+   327→                    <div className="p-1 rounded bg-muted/50">
+   328→                      <field.icon className="h-3.5 w-3.5 text-muted-foreground" />
+   329→                    </div>
+   330→                    <span className="text-xs font-semibold text-muted-foreground">{field.label}</span>
+   331→                  </div>
+   332→                  {tenders.map(tender => (
+   333→                    <div key={tender.id} className="p-3 border-l border-border/20">
+   334→                      {field.render(tender)}
+   335→                    </div>
+   336→                  ))}
+   337→                </motion.div>
+   338→              ))}
+   339→
+   340→              {/* Scope Row */}
+   341→              <motion.div
+   342→                variants={itemVariants}
+   343→                className="grid"
+   344→                style={{ gridTemplateColumns: `200px repeat(${tenders.length}, 1fr)` }}
+   345→              >
+   346→                <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-card">
+   347→                  <div className="p-1 rounded bg-muted/50">
+   348→                    <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+   349→                  </div>
+   350→                  <span className="text-xs font-semibold text-muted-foreground">Scope</span>
+   351→                </div>
+   352→                {tenders.map(tender => (
+   353→                  <div key={tender.id} className="p-3 border-l border-border/20">
+   354→                    <p className="text-xs text-muted-foreground line-clamp-4 leading-relaxed">{tender.scope}</p>
+   355→                  </div>
+   356→                ))}
+   357→              </motion.div>
+   358→            </div>
+   359→          </ScrollArea>
+   360→        </Card>
+   361→      </motion.div>
+   362→
+   363→      {/* Visual Budget Comparison Chart */}
+   364→      <motion.div
+   365→        initial={{ opacity: 0, y: 8 }}
+   366→        animate={{ opacity: 1, y: 0 }}
+   367→        transition={{ duration: 0.4, delay: 0.3 }}
+   368→      >
+   369→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   370→          <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-amber-400" />
+   371→          <CardHeader className="pb-3">
+   372→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   373→              <div className="p-1.5 rounded-lg gradient-emerald">
+   374→                <BarChart3 className="h-3.5 w-3.5 text-white" />
+   375→              </div>
+   376→              Budget Comparison
+   377→            </CardTitle>
+   378→          </CardHeader>
+   379→          <CardContent className="space-y-4">
+   380→            {tenders.map((tender, i) => {
+   381→              const maxBudget = Math.max(...tenders.map(t => t.budgetMax));
+   382→              const minPercent = (tender.budgetMin / maxBudget) * 100;
+   383→              const maxPercent = (tender.budgetMax / maxBudget) * 100;
+   384→              const colors = ['from-emerald-400 to-emerald-600', 'from-teal-400 to-teal-600', 'from-amber-400 to-amber-600', 'from-purple-400 to-purple-600', 'from-rose-400 to-rose-600'];
+   385→              const barColor = colors[i % colors.length];
+   386→              return (
+   387→                <div key={tender.id} className="space-y-1.5">
+   388→                  <div className="flex items-center justify-between">
+   389→                    <p className="text-xs font-medium truncate max-w-[200px]">{tender.title}</p>
+   390→                    <p className="text-xs font-bold text-emerald-700">{formatETB(tender.budgetMin)} – {formatETB(tender.budgetMax)}</p>
+   391→                  </div>
+   392→                  <div className="relative h-6 bg-muted/30 rounded-lg overflow-hidden">
+   393→                    <div
+   394→                      className={`absolute top-0 h-full rounded-lg bg-gradient-to-r ${barColor} opacity-80`}
+   395→                      style={{ left: `${minPercent}%`, width: `${maxPercent - minPercent}%` }}
+   396→                    />
+   397→                    <div className="absolute inset-0 flex items-center justify-center">
+   398→                      <span className="text-[10px] font-bold text-foreground/80 drop-shadow-sm">
+   399→                        {formatETB(tender.budgetMax)}
+   400→                      </span>
+   401→                    </div>
+   402→                  </div>
+   403→                </div>
+   404→              );
+   405→            })}
+   406→          </CardContent>
+   407→        </Card>
+   408→      </motion.div>
+   409→
+   410→      {/* Deadline Comparison */}
+   411→      <motion.div
+   412→        initial={{ opacity: 0, y: 8 }}
+   413→        animate={{ opacity: 1, y: 0 }}
+   414→        transition={{ duration: 0.4, delay: 0.35 }}
+   415→      >
+   416→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   417→          <div className="h-1.5 bg-gradient-to-r from-amber-400 to-teal-400" />
+   418→          <CardHeader className="pb-3">
+   419→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   420→              <div className="p-1.5 rounded-lg gradient-amber">
+   421→                <Timer className="h-3.5 w-3.5 text-white" />
+   422→              </div>
+   423→              Deadline Comparison
+   424→            </CardTitle>
+   425→          </CardHeader>
+   426→          <CardContent className="space-y-4">
+   427→            {tenders.map((tender, i) => {
+   428→              const days = daysUntil(tender.deadline);
+   429→              const maxDays = Math.max(...tenders.map(t => Math.max(daysUntil(t.deadline), 1)));
+   430→              const percent = Math.max(5, (Math.max(days, 0) / maxDays) * 100);
+   431→              const urgency = days <= 0 ? 'bg-muted' : days <= 3 ? 'from-rose-400 to-rose-500' : days <= 7 ? 'from-amber-400 to-amber-500' : 'from-emerald-400 to-emerald-500';
+   432→              return (
+   433→                <div key={tender.id} className="space-y-1.5">
+   434→                  <div className="flex items-center justify-between">
+   435→                    <p className="text-xs font-medium truncate max-w-[200px]">{tender.title}</p>
+   436→                    <div className="flex items-center gap-2">
+   437→                      <span className="text-xs text-muted-foreground">{new Date(tender.deadline).toLocaleDateString()}</span>
+   438→                      <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${
+   439→                        days <= 0 ? 'bg-muted text-muted-foreground' :
+   440→                        days <= 3 ? 'bg-rose-100 text-rose-700' :
+   441→                        days <= 7 ? 'bg-amber-100 text-amber-700' :
+   442→                        'bg-emerald-100 text-emerald-700'
+   443→                      }`}>
+   444→                        {days <= 0 ? 'Expired' : `${days}d left`}
+   445→                      </Badge>
+   446→                    </div>
+   447→                  </div>
+   448→                  <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+   449→                    <div
+   450→                      className={`h-full rounded-full ${urgency.includes('from-') ? `bg-gradient-to-r ${urgency}` : urgency}`}
+   451→                      style={{ width: `${percent}%` }}
+   452→                    />
+   453→                  </div>
+   454→                </div>
+   455→              );
+   456→            })}
+   457→          </CardContent>
+   458→        </Card>
+   459→      </motion.div>
+   460→
+   461→      {/* Action Buttons */}
+   462→      <motion.div
+   463→        initial={{ opacity: 0, y: 8 }}
+   464→        animate={{ opacity: 1, y: 0 }}
+   465→        transition={{ duration: 0.4, delay: 0.4 }}
+   466→        className="flex flex-wrap gap-3"
+   467→      >
+   468→        {tenders.map(tender => (
+   469→          <Button
+   470→            key={tender.id}
+   471→            variant="outline"
+   472→            className="rounded-xl hover:text-emerald-700 hover:bg-primary/10 transition-all hover:-translate-y-0.5"
+   473→            onClick={() => setView('tender-detail', { id: tender.id })}
+   474→          >
+   475→            <Eye className="h-4 w-4 mr-2" />
+   476→            View: {tender.title.length > 20 ? tender.title.slice(0, 20) + '...' : tender.title}
+   477→          </Button>
+   478→        ))}
+   479→      </motion.div>
+   480→    </div>
+   481→  );
+   482→}
+   483→
+   484→
+   485→/* ────────────── Bid Comparison View ────────────── */
+   486→
+   487→export function BidCompareView({ tenderId }: { tenderId?: string }) {
+   488→  const { user } = useAuthStore();
+   489→  const { setView } = useNavStore();
+   490→  const [tender, setTender] = useState<Tender | null>(null);
+   491→  const [bids, setBids] = useState<Bid[]>([]);
+   492→  const [loading, setLoading] = useState(true);
+   493→  const [selectedBids, setSelectedBids] = useState<string[]>([]);
+   494→  const [compareMode, setCompareMode] = useState(false);
+   495→
+   496→  const loadData = useCallback(async () => {
+   497→    if (!tenderId) return;
+   498→    setLoading(true);
+   499→    const [tenderRes, bidsRes] = await Promise.all([
+   500→      api.get(`/tenders/${tenderId}`),
+   501→      api.get('/bids', { tenderId }),
+   502→    ]);
+   503→    if (tenderRes.success) setTender(tenderRes.data);
+   504→    if (bidsRes.success) setBids(bidsRes.data);
+   505→    setLoading(false);
+   506→  }, [tenderId]);
+   507→
+   508→  /* eslint-disable react-hooks/set-state-in-effect */
+   509→  useEffect(() => { loadData(); }, [loadData]);
+   510→  /* eslint-enable react-hooks/set-state-in-effect */
+   511→
+   512→  const toggleBid = (bidId: string) => {
+   513→    setSelectedBids(prev =>
+   514→      prev.includes(bidId) ? prev.filter(id => id !== bidId) : [...prev, bidId].slice(-4)
+   515→    );
+   516→  };
+   517→
+   518→  const comparedBids = useMemo(() =>
+   519→    bids.filter(b => selectedBids.includes(b.id)),
+   520→    [bids, selectedBids]
+   521→  );
+   522→
+   523→  const handleStatusUpdate = async (bidId: string, status: string) => {
+   524→    const res = await api.patch(`/bids/${bidId}/status`, { status });
+   525→    if (res.success) {
+   526→      toast.success(`Bid ${status}`);
+   527→      loadData();
+   528→    } else {
+   529→      toast.error(res.error || 'Failed to update bid');
+   530→    }
+   531→  };
+   532→
+   533→  if (loading) {
+   534→    return (
+   535→      <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto view-enter">
+   536→        <div className="h-8 bg-muted/50 rounded-xl w-1/3 animate-pulse" />
+   537→        <div className="h-40 bg-muted/50 rounded-xl animate-pulse premium-shadow" />
+   538→      </div>
+   539→    );
+   540→  }
+   541→
+   542→  const bidComparisonFields = [
+   543→    {
+   544→      label: 'Contractor',
+   545→      icon: Building2,
+   546→      render: (b: Bid) => (
+   547→        <div className="flex items-center gap-2">
+   548→          <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center flex-shrink-0">
+   549→            <span className="text-white font-semibold text-xs">
+   550→              {(b.user?.profile?.fullName || 'U')[0].toUpperCase()}
+   551→            </span>
+   552→          </div>
+   553→          <div className="min-w-0">
+   554→            <p className="text-sm font-medium truncate">{b.user?.profile?.fullName || b.user?.email || 'Contractor'}</p>
+   555→            {b.user?.company?.name && (
+   556→              <p className="text-[10px] text-muted-foreground truncate">{b.user.company.name}</p>
+   557→            )}
+   558→          </div>
+   559→        </div>
+   560→      ),
+   561→    },
+   562→    {
+   563→      label: 'Financial Proposal',
+   564→      icon: DollarSign,
+   565→      highlight: 'lowest',
+   566→      render: (b: Bid) => {
+   567→        const isLowest = comparedBids.length > 1 && b.financialProposal === Math.min(...comparedBids.map(x => x.financialProposal));
+   568→        return (
+   569→          <div className="space-y-1">
+   570→            <div className="flex items-center gap-1.5">
+   571→              <p className="text-sm font-bold text-emerald-700">{formatETB(b.financialProposal)}</p>
+   572→              {isLowest && (
+   573→                <Badge className="text-[9px] px-1 py-0 border-0 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+   574→                  Lowest
+   575→                </Badge>
+   576→              )}
+   577→            </div>
+   578→            {tender && (
+   579→              <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+   580→                <div
+   581→                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+   582→                  style={{ width: `${Math.min(100, (b.financialProposal / tender.budgetMax) * 100)}%` }}
+   583→                />
+   584→              </div>
+   585→            )}
+   586→          </div>
+   587→        );
+   588→      },
+   589→    },
+   590→    {
+   591→      label: 'Proposed Timeline',
+   592→      icon: Clock,
+   593→      render: (b: Bid) => <p className="text-sm font-medium">{b.timeline}</p>,
+   594→    },
+   595→    {
+   596→      label: 'Status',
+   597→      icon: CircleCheck,
+   598→      render: (b: Bid) => {
+   599→        const colors: Record<string, string> = {
+   600→          pending_review: 'bg-amber-100 text-amber-700',
+   601→          shortlisted: 'bg-teal-100 text-teal-700',
+   602→          awarded: 'bg-emerald-100 text-emerald-700',
+   603→          rejected: 'bg-rose-100 text-rose-700',
+   604→        };
+   605→        return (
+   606→          <Badge className={`text-xs px-2.5 py-1 border-0 rounded-lg ${colors[b.status] || 'bg-muted text-muted-foreground'}`}>
+   607→            {b.status.replace('_', ' ')}
+   608→          </Badge>
+   609→        );
+   610→      },
+   611→    },
+   612→    {
+   613→      label: 'Submitted',
+   614→      icon: Calendar,
+   615→      render: (b: Bid) => (
+   616→        <p className="text-xs text-muted-foreground">{new Date(b.createdAt).toLocaleDateString()}</p>
+   617→      ),
+   618→    },
+   619→    {
+   620→      label: 'Technical Proposal',
+   621→      icon: FileText,
+   622→      render: (b: Bid) => (
+   623→        <p className="text-xs text-muted-foreground line-clamp-5 leading-relaxed whitespace-pre-wrap">{b.technicalProposal}</p>
+   624→      ),
+   625→    },
+   626→  ];
+   627→
+   628→  return (
+   629→    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
+   630→      {/* Header */}
+   631→      <motion.div
+   632→        initial={{ opacity: 0, y: -10 }}
+   633→        animate={{ opacity: 1, y: 0 }}
+   634→        transition={{ duration: 0.4 }}
+   635→        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+   636→      >
+   637→        <div className="flex items-center gap-4">
+   638→          <Button variant="ghost" onClick={() => setView('tender-detail', { id: tenderId || '' })}
+   639→            className="hover:text-emerald-700 hover:bg-primary/10 transition-colors rounded-xl p-2">
+   640→            <ArrowLeft className="h-4 w-4" />
+   641→          </Button>
+   642→          <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
+   643→            <Gavel className="h-6 w-6 text-white" />
+   644→          </div>
+   645→          <div>
+   646→            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   647→              <span className="text-gradient-emerald">Compare</span> Bids
+   648→            </h2>
+   649→            <p className="text-muted-foreground text-sm mt-0.5">
+   650→              {tender ? `For: ${tender.title}` : 'Side-by-side bid comparison'}
+   651→            </p>
+   652→          </div>
+   653→        </div>
+   654→      </motion.div>
+   655→
+   656→      {/* Tender Summary */}
+   657→      {tender && (
+   658→        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
+   659→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   660→            <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-400" />
+   661→            <CardContent className="p-4">
+   662→              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   663→                <div className="bg-emerald-50/60 rounded-xl p-3 text-center">
+   664→                  <p className="text-[10px] text-emerald-600 font-medium">Budget Range</p>
+   665→                  <p className="text-xs font-bold text-emerald-700 mt-1">{formatETB(tender.budgetMin)} – {formatETB(tender.budgetMax)}</p>
+   666→                </div>
+   667→                <div className="bg-amber-50/60 rounded-xl p-3 text-center">
+   668→                  <p className="text-[10px] text-amber-600 font-medium">Deadline</p>
+   669→                  <p className="text-xs font-bold text-amber-700 mt-1">{new Date(tender.deadline).toLocaleDateString()}</p>
+   670→                </div>
+   671→                <div className="bg-teal-50/60 rounded-xl p-3 text-center">
+   672→                  <p className="text-[10px] text-teal-600 font-medium">Total Bids</p>
+   673→                  <p className="text-xs font-bold text-teal-700 mt-1">{bids.length}</p>
+   674→                </div>
+   675→                <div className="bg-purple-50/60 rounded-xl p-3 text-center">
+   676→                  <p className="text-[10px] text-purple-600 font-medium">Status</p>
+   677→                  <p className="text-xs font-bold text-purple-700 mt-1 capitalize">{tender.status}</p>
+   678→                </div>
+   679→              </div>
+   680→            </CardContent>
+   681→          </Card>
+   682→        </motion.div>
+   683→      )}
+   684→
+   685→      {/* Bid Selection */}
+   686→      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
+   687→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   688→          <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+   689→          <CardHeader className="pb-3">
+   690→            <div className="flex items-center justify-between">
+   691→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   692→                <div className="p-1.5 rounded-lg gradient-amber">
+   693→                  <Award className="h-3.5 w-3.5 text-white" />
+   694→                </div>
+   695→                Select Bids to Compare
+   696→                <Badge className="bg-amber-50 text-amber-700 border-0 rounded-lg text-[10px] hover:bg-amber-50">
+   697→                  {selectedBids.length} / 4 selected
+   698→                </Badge>
+   699→              </CardTitle>
+   700→              {selectedBids.length >= 2 && (
+   701→                <Button
+   702→                  size="sm"
+   703→                  className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+   704→                  onClick={() => setCompareMode(!compareMode)}
+   705→                >
+   706→                  <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" />
+   707→                  {compareMode ? 'Hide Comparison' : 'Compare Now'}
+   708→                </Button>
+   709→              )}
+   710→            </div>
+   711→          </CardHeader>
+   712→          <CardContent>
+   713→            {bids.length === 0 ? (
+   714→              <div className="text-center py-8">
+   715→                <div className="p-3 rounded-2xl bg-muted/50 w-fit mx-auto mb-4">
+   716→                  <Gavel className="h-8 w-8 text-muted-foreground" />
+   717→                </div>
+   718→                <h3 className="text-sm font-semibold">No bids submitted yet</h3>
+   719→                <p className="text-muted-foreground text-xs mt-1">Bids will appear here once contractors submit proposals</p>
+   720→              </div>
+   721→            ) : (
+   722→              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   723→                {bids.map(bid => {
+   724→                  const isSelected = selectedBids.includes(bid.id);
+   725→                  return (
+   726→                    <button
+   727→                      key={bid.id}
+   728→                      onClick={() => toggleBid(bid.id)}
+   729→                      className={`text-left p-4 rounded-xl border-2 transition-all duration-200 ${
+   730→                        isSelected
+   731→                          ? 'border-emerald-400 bg-emerald-50/50 shadow-md shadow-emerald-100'
+   732→                          : 'border-transparent bg-muted/30 hover:bg-muted/50 hover:border-muted'
+   733→                      }`}
+   734→                    >
+   735→                      <div className="flex items-start gap-3">
+   736→                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
+   737→                          isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-muted-foreground/30'
+   738→                        }`}>
+   739→                          {isSelected && <CheckCircle className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+   740→                        </div>
+   741→                        <div className="flex-1 min-w-0">
+   742→                          <p className="text-sm font-semibold truncate">{bid.user?.profile?.fullName || bid.user?.email || 'Contractor'}</p>
+   743→                          {bid.user?.company?.name && (
+   744→                            <p className="text-[10px] text-muted-foreground truncate">{bid.user.company.name}</p>
+   745→                          )}
+   746→                          <div className="flex items-center gap-2 mt-2">
+   747→                            <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
+   748→                              <DollarSign className="h-2.5 w-2.5 mr-0.5" /> {formatETB(bid.financialProposal)}
+   749→                            </Badge>
+   750→                            <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-50">
+   751→                              <Clock className="h-2.5 w-2.5 mr-0.5" /> {bid.timeline}
+   752→                            </Badge>
+   753→                          </div>
+   754→                          <div className="flex items-center gap-1.5 mt-1.5">
+   755→                            <span className={`h-1.5 w-1.5 rounded-full ${
+   756→                              bid.status === 'awarded' ? 'bg-emerald-500' :
+   757→                              bid.status === 'rejected' ? 'bg-rose-500' :
+   758→                              bid.status === 'shortlisted' ? 'bg-teal-500' :
+   759→                              'bg-amber-500'
+   760→                            }`} />
+   761→                            <span className="text-[10px] text-muted-foreground capitalize">{bid.status.replace('_', ' ')}</span>
+   762→                          </div>
+   763→                        </div>
+   764→                      </div>
+   765→                    </button>
+   766→                  );
+   767→                })}
+   768→              </div>
+   769→            )}
+   770→          </CardContent>
+   771→        </Card>
+   772→      </motion.div>
+   773→
+   774→      {/* Comparison Table */}
+   775→      <AnimatePresence>
+   776→        {compareMode && comparedBids.length >= 2 && (
+   777→          <motion.div
+   778→            initial={{ opacity: 0, y: 12 }}
+   779→            animate={{ opacity: 1, y: 0 }}
+   780→            exit={{ opacity: 0, y: -12 }}
+   781→            transition={{ duration: 0.4 }}
+   782→          >
+   783→            <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
+   784→              <div className="h-2 bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400" />
+   785→              <ScrollArea className="w-full">
+   786→                <div className="min-w-[500px]">
+   787→                  {/* Header Row */}
+   788→                  <div className="grid border-b border-border/50" style={{ gridTemplateColumns: `180px repeat(${comparedBids.length}, 1fr)` }}>
+   789→                    <div className="p-4 bg-muted/30 flex items-center gap-2 sticky left-0 z-10 bg-card">
+   790→                      <Scale className="h-4 w-4 text-emerald-600" />
+   791→                      <span className="text-sm font-bold">Criteria</span>
+   792→                    </div>
+   793→                    {comparedBids.map(bid => (
+   794→                      <div key={bid.id} className="p-4 border-l border-border/30">
+   795→                        <div className="flex items-center gap-2">
+   796→                          <div className="w-8 h-8 rounded-lg gradient-emerald flex items-center justify-center flex-shrink-0">
+   797→                            <span className="text-white font-semibold text-xs">
+   798→                              {(bid.user?.profile?.fullName || 'U')[0].toUpperCase()}
+   799→                            </span>
+   800→                          </div>
+   801→                          <div className="min-w-0">
+   802→                            <p className="text-sm font-bold truncate">{bid.user?.profile?.fullName || 'Contractor'}</p>
+   803→                            {bid.user?.company?.name && (
+   804→                              <p className="text-[10px] text-muted-foreground truncate">{bid.user.company.name}</p>
+   805→                            )}
+   806→                          </div>
+   807→                        </div>
+   808→                      </div>
+   809→                    ))}
+   810→                  </div>
+   811→
+   812→                  {/* Comparison Rows */}
+   813→                  {bidComparisonFields.map(field => (
+   814→                    <div
+   815→                      key={field.label}
+   816→                      className="grid border-b border-border/30 hover:bg-muted/10 transition-colors"
+   817→                      style={{ gridTemplateColumns: `180px repeat(${comparedBids.length}, 1fr)` }}
+   818→                    >
+   819→                      <div className="p-3 flex items-center gap-2 sticky left-0 z-10 bg-card">
+   820→                        <div className="p-1 rounded bg-muted/50">
+   821→                          <field.icon className="h-3.5 w-3.5 text-muted-foreground" />
+   822→                        </div>
+   823→                        <span className="text-xs font-semibold text-muted-foreground">{field.label}</span>
+   824→                      </div>
+   825→                      {comparedBids.map(bid => (
+   826→                        <div key={bid.id} className="p-3 border-l border-border/20">
+   827→                          {field.render(bid)}
+   828→                        </div>
+   829→                      ))}
+   830→                    </div>
+   831→                  ))}
+   832→                </div>
+   833→              </ScrollArea>
+   834→
+   835→              {/* Action Buttons */}
+   836→              <div className="p-4 border-t border-border/50 bg-muted/20">
+   837→                <div className="grid gap-3" style={{ gridTemplateColumns: `180px repeat(${comparedBids.length}, 1fr)` }}>
+   838→                  <div className="flex items-center">
+   839→                    <span className="text-xs font-semibold text-muted-foreground">Actions</span>
+   840→                  </div>
+   841→                  {comparedBids.map(bid => (
+   842→                    <div key={bid.id} className="border-l border-border/20 pl-3">
+   843→                      <div className="flex flex-wrap gap-2">
+   844→                        {bid.status === 'pending_review' && (
+   845→                          <>
+   846→                            <Button size="sm" className="gradient-teal text-white rounded-lg text-[11px] h-7 px-2.5 hover:opacity-90"
+   847→                              onClick={() => handleStatusUpdate(bid.id, 'shortlisted')}>
+   848→                              <Award className="h-3 w-3 mr-1" /> Shortlist
+   849→                            </Button>
+   850→                            <Button size="sm" variant="outline" className="rounded-lg text-[11px] h-7 px-2.5 border-rose-200 text-rose-600 hover:bg-rose-50"
+   851→                              onClick={() => handleStatusUpdate(bid.id, 'rejected')}>
+   852→                              <X className="h-3 w-3 mr-1" /> Reject
+   853→                            </Button>
+   854→                          </>
+   855→                        )}
+   856→                        {bid.status === 'shortlisted' && (
+   857→                          <>
+   858→                            <Button size="sm" className="gradient-emerald text-white rounded-lg text-[11px] h-7 px-2.5 hover:opacity-90"
+   859→                              onClick={() => handleStatusUpdate(bid.id, 'awarded')}>
+   860→                              <CheckCircle className="h-3 w-3 mr-1" /> Award
+   861→                            </Button>
+   862→                            <Button size="sm" variant="outline" className="rounded-lg text-[11px] h-7 px-2.5 border-rose-200 text-rose-600 hover:bg-rose-50"
+   863→                              onClick={() => handleStatusUpdate(bid.id, 'rejected')}>
+   864→                              <X className="h-3 w-3 mr-1" /> Reject
+   865→                            </Button>
+   866→                          </>
+   867→                        )}
+   868→                        {bid.status === 'awarded' && (
+   869→                          <Badge className="bg-emerald-100 text-emerald-700 border-0 rounded-lg text-[10px] hover:bg-emerald-100 py-1.5 px-3">
+   870→                            <CheckCircle className="h-3 w-3 mr-1" /> Awarded
+   871→                          </Badge>
+   872→                        )}
+   873→                        {bid.status === 'rejected' && (
+   874→                          <Badge className="bg-rose-100 text-rose-700 border-0 rounded-lg text-[10px] hover:bg-rose-100 py-1.5 px-3">
+   875→                            <X className="h-3 w-3 mr-1" /> Rejected
+   876→                          </Badge>
+   877→                        )}
+   878→                      </div>
+   879→                    </div>
+   880→                  ))}
+   881→                </div>
+   882→              </div>
+   883→            </Card>
+   884→          </motion.div>
+   885→        )}
+   886→      </AnimatePresence>
+   887→
+   888→      {/* Financial Comparison Chart */}
+   889→      {comparedBids.length >= 2 && compareMode && (
+   890→        <motion.div
+   891→          initial={{ opacity: 0, y: 8 }}
+   892→          animate={{ opacity: 1, y: 0 }}
+   893→          transition={{ duration: 0.4, delay: 0.1 }}
+   894→        >
+   895→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   896→            <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-amber-400" />
+   897→            <CardHeader className="pb-3">
+   898→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   899→                <div className="p-1.5 rounded-lg gradient-emerald">
+   900→                  <BarChart3 className="h-3.5 w-3.5 text-white" />
+   901→                </div>
+   902→                Financial Proposal Comparison
+   903→              </CardTitle>
+   904→            </CardHeader>
+   905→            <CardContent className="space-y-4">
+   906→              {comparedBids.map((bid, i) => {
+   907→                const maxProposal = Math.max(...comparedBids.map(b => b.financialProposal));
+   908→                const isLowest = bid.financialProposal === Math.min(...comparedBids.map(b => b.financialProposal));
+   909→                const percent = (bid.financialProposal / maxProposal) * 100;
+   910→                const colors = ['from-emerald-400 to-emerald-600', 'from-teal-400 to-teal-600', 'from-amber-400 to-amber-600', 'from-purple-400 to-purple-600'];
+   911→                const barColor = colors[i % colors.length];
+   912→                return (
+   913→                  <div key={bid.id} className="space-y-1.5">
+   914→                    <div className="flex items-center justify-between">
+   915→                      <p className="text-xs font-medium truncate max-w-[180px]">
+   916→                        {bid.user?.profile?.fullName || 'Contractor'}
+   917→                        {isLowest && <span className="text-emerald-600 ml-1">★ Lowest</span>}
+   918→                      </p>
+   919→                      <p className="text-xs font-bold text-emerald-700">{formatETB(bid.financialProposal)}</p>
+   920→                    </div>
+   921→                    <div className="relative h-7 bg-muted/30 rounded-lg overflow-hidden">
+   922→                      <div
+   923→                        className={`absolute top-0 h-full rounded-lg bg-gradient-to-r ${barColor} opacity-80 transition-all duration-500`}
+   924→                        style={{ width: `${percent}%` }}
+   925→                      />
+   926→                      <div className="absolute inset-0 flex items-center px-3">
+   927→                        <span className="text-[10px] font-bold text-white drop-shadow-sm">
+   928→                          {((bid.financialProposal / (tender?.budgetMax || bid.financialProposal)) * 100).toFixed(0)}% of max budget
+   929→                        </span>
+   930→                      </div>
+   931→                    </div>
+   932→                  </div>
+   933→                );
+   934→              })}
+   935→            </CardContent>
+   936→          </Card>
+   937→        </motion.div>
+   938→      )}
+   939→    </div>
+   940→  );
+   941→}
+   942→

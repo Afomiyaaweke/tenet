@@ -62,6 +62,11 @@ export async function GET(request: NextRequest) {
       where.tenderId = tenderId;
     }
 
+    // Non-super_admin users can only see analyses for tenders they created
+    if (user!.role !== 'super_admin') {
+      where.tender = { createdBy: user!.id };
+    }
+
     const analyses = await db.bidAnalysis.findMany({
       where,
       include: {
@@ -70,6 +75,7 @@ export async function GET(request: NextRequest) {
             id: true,
             title: true,
             status: true,
+            createdBy: true,
           },
         },
       },
@@ -126,6 +132,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Tender not found' },
         { status: 404 }
+      );
+    }
+
+    // Permission check: only the tender creator or super_admin can trigger bid analysis
+    if (tender.createdBy !== user!.id && user!.role !== 'super_admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Only the tender creator or super admin can analyze bids' },
+        { status: 403 }
       );
     }
 

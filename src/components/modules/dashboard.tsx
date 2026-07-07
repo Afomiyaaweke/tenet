@@ -19,7 +19,6 @@ import {
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
 } from 'recharts';
-import { motion } from 'framer-motion';
 import {
   FileSearch, Gavel, FolderKanban, DollarSign, Users, FileCheck,
   Shield, GraduationCap, Bell, CheckCircle, AlertCircle,
@@ -76,26 +75,6 @@ const NOTIFICATION_COLORS: Record<string, string> = {
   alert: 'text-rose-500',
   info: 'text-teal-500',
 };
-
-// ─── Animation Variants ─────────────────────────────────────────────
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.07, delayChildren: 0.1 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] } },
-};
-
-const cardHover = {
-  y: -4,
-  transition: { duration: 0.2, ease: 'easeOut' },
-};
-
 // ─── Time Greeting ──────────────────────────────────────────────────
 function getGreeting(): { text: string; icon: React.ElementType } {
   const h = new Date().getHours();
@@ -179,7 +158,7 @@ function StatCard({
   onClick?: () => void;
 }) {
   return (
-    <motion.div whileHover={cardHover} className="cursor-pointer">
+    <div className="cursor-pointer hover:-translate-y-[3px] transition-all duration-200">
       <Card
         className="bg-card premium-shadow rounded-xl border-0 transition-all duration-300 group h-full"
         onClick={onClick}
@@ -205,7 +184,7 @@ function StatCard({
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </div>
   );
 }
 
@@ -224,12 +203,10 @@ function QuickAction({
   onClick: () => void;
 }) {
   return (
-    <motion.button
-      whileHover={{ y: -3, transition: { duration: 0.2 } }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className="group flex items-center gap-3.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-gradient-to-br hover:from-card hover:to-muted/50 premium-shadow transition-all duration-200 text-left w-full"
-    >
+    <button
+ onClick={onClick}
+ className="group flex items-center gap-3.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-gradient-to-br hover:from-card hover:to-muted/50 premium-shadow transition-all duration-200 text-left w-full hover:-translate-y-[3px] transition-all duration-200 active:scale-[0.98] transition-transform"
+ >
       <div className={`p-2.5 rounded-xl ${gradientClass} flex-shrink-0 shadow-sm`}>
         <Icon className="h-5 w-5 text-white" />
       </div>
@@ -238,7 +215,7 @@ function QuickAction({
         <p className="text-[11px] text-muted-foreground truncate">{description}</p>
       </div>
       <ArrowRight className="h-4 w-4 ml-auto text-muted-foreground/0 group-hover:text-emerald-500 transition-all duration-200 translate-x-0 group-hover:translate-x-1 flex-shrink-0" />
-    </motion.button>
+    </button>
   );
 }
 
@@ -466,16 +443,13 @@ export function DashboardView() {
   );
 
   return (
-    <motion.div
-      className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <div
+ className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto animate-[fadeIn_0.3s_ease-out]"
+ >
       {/* ═══════════════════════════════════════════════════════════════
           1. WELCOME HERO SECTION
           ═══════════════════════════════════════════════════════════════ */}
-      <motion.div variants={itemVariants}>
+      <div>
         <div className="relative rounded-2xl overflow-hidden premium-shadow-lg">
           {/* Background gradient */}
           <div className="absolute inset-0 gradient-emerald opacity-[0.06]" />
@@ -539,12 +513,12 @@ export function DashboardView() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════
           2. KPI STATS CARDS (4 cards in a row)
           ═══════════════════════════════════════════════════════════════ */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={FileSearch}
           label="Open Tenders"
@@ -593,14 +567,14 @@ export function DashboardView() {
           trendLabel="growth"
           onClick={() => setView('projects')}
         />
-      </motion.div>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════
           3. CHARTS SECTION (2 columns)
           ═══════════════════════════════════════════════════════════════ */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* Bid Status Donut Chart */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -649,10 +623,10 @@ export function DashboardView() {
               <DonutLegend />
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Monthly Activity Bar Chart */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -685,7 +659,7 @@ export function DashboardView() {
               </ChartContainer>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -693,7 +667,7 @@ export function DashboardView() {
           ═══════════════════════════════════════════════════════════════ */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* Activity Timeline */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -723,13 +697,10 @@ export function DashboardView() {
                       {timelineItems.map((item) => {
                         const Icon = item.icon;
                         return (
-                          <motion.div
-                            key={item.id}
-                            initial={{ opacity: 0, x: -8 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="relative flex items-start gap-3"
-                          >
+                          <div
+ key={item.id}
+ className="relative flex items-start gap-3 animate-[fadeIn_0.3s_ease-out]"
+ >
                             {/* Icon dot on line */}
                             <div className="absolute -left-7 top-0.5 flex items-center justify-center">
                               <div className={`h-[22px] w-[22px] rounded-full ${item.iconBg} border-2 border-card shadow-sm flex items-center justify-center z-10`}>
@@ -741,7 +712,7 @@ export function DashboardView() {
                               <p className="text-xs text-muted-foreground truncate">{item.description}</p>
                               <p className="text-[10px] text-muted-foreground/50 mt-0.5">{timeAgo(item.time)}</p>
                             </div>
-                          </motion.div>
+                          </div>
                         );
                       })}
                     </div>
@@ -750,10 +721,10 @@ export function DashboardView() {
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Top Tenders */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -778,14 +749,11 @@ export function DashboardView() {
                 <ScrollArea className="max-h-[340px]">
                   <div className="space-y-2">
                     {topTenders.map((t, idx) => (
-                      <motion.button
-                        key={t.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05, duration: 0.3 }}
-                        onClick={() => setView('tender-detail', { id: t.id })}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:border-emerald-200 hover:bg-emerald-50/20 transition-all duration-200 text-left group"
-                      >
+                      <button
+ key={t.id}
+ onClick={() => setView('tender-detail', { id: t.id })}
+ className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:border-emerald-200 hover:bg-emerald-50/20 transition-all duration-200 text-left group animate-[fadeIn_0.3s_ease-out]"
+ >
                         <div className="p-2 rounded-lg bg-emerald-50 flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
                           <FileSearch className="h-4 w-4 text-emerald-600" />
                         </div>
@@ -827,20 +795,20 @@ export function DashboardView() {
                             </span>
                           )}
                         </div>
-                      </motion.button>
+                      </button>
                     ))}
                   </div>
                 </ScrollArea>
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
           5. QUICK ACTIONS GRID
           ═══════════════════════════════════════════════════════════════ */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -865,13 +833,13 @@ export function DashboardView() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════
           6. UPCOMING DEADLINES
           ═══════════════════════════════════════════════════════════════ */}
       {upcomingDeadlines.length > 0 && (
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -892,14 +860,11 @@ export function DashboardView() {
                   {upcomingDeadlines.map((t, idx) => {
                     const days = daysUntil(t.deadline);
                     return (
-                      <motion.button
-                        key={t.id}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05, duration: 0.3 }}
-                        onClick={() => setView('tender-detail', { id: t.id })}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:bg-muted/50 transition-all duration-200 text-left group"
-                      >
+                      <button
+ key={t.id}
+ onClick={() => setView('tender-detail', { id: t.id })}
+ className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:bg-muted/50 transition-all duration-200 text-left group animate-[fadeIn_0.3s_ease-out]"
+ >
                         <div className={`p-2.5 rounded-xl flex-shrink-0 ${deadlineBg(days)}`}>
                           <Calendar className={`h-4 w-4 ${deadlineColor(days)}`} />
                         </div>
@@ -914,15 +879,15 @@ export function DashboardView() {
                         >
                           {days < 0 ? 'Expired' : `${days} day${days !== 1 ? 's' : ''} left`}
                         </Badge>
-                      </motion.button>
+                      </button>
                     );
                   })}
                 </div>
               </ScrollArea>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 }

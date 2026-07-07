@@ -1,0 +1,1083 @@
+     1→'use client';
+     2→
+     3→import { useState, useRef, useCallback, useEffect } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api, Document, Company } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Textarea } from '@/components/ui/textarea';
+    11→import { Label } from '@/components/ui/label';
+    12→import {
+    13→  Select,
+    14→  SelectContent,
+    15→  SelectItem,
+    16→  SelectTrigger,
+    17→  SelectValue,
+    18→} from '@/components/ui/select';
+    19→import { toast } from 'sonner';
+    20→import {
+    21→  User, Mail, Phone, MapPin, Building, Shield, Edit2, Save, X,
+    22→  CheckCircle, Briefcase, FileText, Upload, Clock, XCircle,
+    23→  Award, Receipt, FolderOpen, File, Camera, Users, UserCircle,
+    24→  Globe, MapPinned, Hash, ExternalLink, Plus, ChevronRight,
+    25→  Lock, Eye, PenTool, Settings, FileCheck, ClipboardList,
+    26→} from 'lucide-react';
+    27→import { motion, AnimatePresence } from 'framer-motion';
+    28→
+    29→// ==========================================
+    30→// Constants
+    31→// ==========================================
+    32→
+    33→const SKILL_OPTIONS = [
+    34→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    35→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Landscaping',
+    36→  'Interior Design', 'Project Management', 'Logistics', 'Manufacturing',
+    37→  'Healthcare', 'Education', 'Finance', 'Legal', 'Agriculture', 'Telecommunications'
+    38→];
+    39→
+    40→const SKILL_COLORS: Record<string, string> = {
+    41→  'Construction': 'bg-amber-50 text-amber-700 border-amber-200/60',
+    42→  'IT': 'bg-blue-50 text-blue-700 border-blue-200/60',
+    43→  'Supply': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    44→  'Consulting': 'bg-purple-50 text-purple-700 border-purple-200/60',
+    45→  'Engineering': 'bg-teal-50 text-teal-700 border-teal-200/60',
+    46→  'Architecture': 'bg-rose-50 text-rose-700 border-rose-200/60',
+    47→  'Electrical': 'bg-yellow-50 text-yellow-700 border-yellow-200/60',
+    48→  'Plumbing': 'bg-cyan-50 text-cyan-700 border-cyan-200/60',
+    49→  'HVAC': 'bg-orange-50 text-orange-700 border-orange-200/60',
+    50→  'Landscaping': 'bg-lime-50 text-lime-700 border-lime-200/60',
+    51→  'Interior Design': 'bg-pink-50 text-pink-700 border-pink-200/60',
+    52→  'Project Management': 'bg-indigo-50 text-indigo-700 border-indigo-200/60',
+    53→  'Logistics': 'bg-sky-50 text-sky-700 border-sky-200/60',
+    54→  'Manufacturing': 'bg-stone-50 text-stone-700 border-stone-200/60',
+    55→  'Healthcare': 'bg-red-50 text-red-700 border-red-200/60',
+    56→  'Education': 'bg-violet-50 text-violet-700 border-violet-200/60',
+    57→  'Finance': 'bg-green-50 text-green-700 border-green-200/60',
+    58→  'Legal': 'bg-slate-50 text-slate-700 border-slate-200/60',
+    59→  'Agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    60→  'Telecommunications': 'bg-blue-50 text-blue-700 border-blue-200/60',
+    61→};
+    62→
+    63→// Role configuration
+    64→type UserRole = 'super_admin' | 'team_admin' | 'user';
+    65→
+    66→interface RoleConfig {
+    67→  label: string;
+    68→  description: string;
+    69→  icon: typeof Shield;
+    70→  badgeClass: string;
+    71→  permissions: { label: string; icon: typeof Eye }[];
+    72→}
+    73→
+    74→const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
+    75→  super_admin: {
+    76→    label: 'Super Admin',
+    77→    description: 'Full system access',
+    78→    icon: Shield,
+    79→    badgeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400',
+    80→    permissions: [
+    81→      { label: 'Manage all companies', icon: Building },
+    82→      { label: 'Verify organizations', icon: CheckCircle },
+    83→      { label: 'Manage all users & roles', icon: Users },
+    84→      { label: 'Create & manage tenders', icon: ClipboardList },
+    85→      { label: 'Review & award bids', icon: FileCheck },
+    86→      { label: 'Access all projects', icon: FolderOpen },
+    87→      { label: 'System configuration', icon: Settings },
+    88→    ],
+    89→  },
+    90→  team_admin: {
+    91→    label: 'Team Admin',
+    92→    description: 'Company management',
+    93→    icon: Users,
+    94→    badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    95→    permissions: [
+    96→      { label: 'Create tenders', icon: ClipboardList },
+    97→      { label: 'Review bids', icon: FileCheck },
+    98→      { label: 'Manage team members', icon: Users },
+    99→      { label: 'Company settings', icon: Settings },
+   100→      { label: 'Submit bids', icon: PenTool },
+   101→      { label: 'View tenders', icon: Eye },
+   102→      { label: 'Manage own profile & documents', icon: User },
+   103→    ],
+   104→  },
+   105→  user: {
+   106→    label: 'User',
+   107→    description: 'Standard access',
+   108→    icon: UserCircle,
+   109→    badgeClass: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+   110→    permissions: [
+   111→      { label: 'Submit bids', icon: PenTool },
+   112→      { label: 'View tenders', icon: Eye },
+   113→      { label: 'Manage own profile', icon: User },
+   114→      { label: 'Upload documents', icon: FileText },
+   115→    ],
+   116→  },
+   117→};
+   118→
+   119→// Document helpers
+   120→const docTypeConfig = (type: string) => {
+   121→  switch (type) {
+   122→    case 'business_license': return { icon: Briefcase, bg: 'bg-emerald-50', color: 'text-emerald-600', label: 'Business License' };
+   123→    case 'tax_clearance': return { icon: Receipt, bg: 'bg-amber-50', color: 'text-amber-600', label: 'Tax Clearance' };
+   124→    case 'portfolio': return { icon: FolderOpen, bg: 'bg-teal-50', color: 'text-teal-600', label: 'Portfolio' };
+   125→    case 'certificate': return { icon: Award, bg: 'bg-purple-50', color: 'text-purple-600', label: 'Certificate' };
+   126→    default: return { icon: File, bg: 'bg-muted/50', color: 'text-muted-foreground', label: type.replace('_', ' ') };
+   127→  }
+   128→};
+   129→
+   130→const docStatusBadge = (status: string) => {
+   131→  switch (status) {
+   132→    case 'approved': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   133→    case 'rejected': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   134→    default: return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
+   135→  }
+   136→};
+   137→
+   138→const docStatusDot = (status: string) => {
+   139→  switch (status) {
+   140→    case 'approved': return 'bg-emerald-500';
+   141→    case 'rejected': return 'bg-rose-500';
+   142→    default: return 'bg-amber-500';
+   143→  }
+   144→};
+   145→
+   146→function getProfileCompleteness(profile: Record<string, unknown> | undefined): { pct: number; missing: string[] } {
+   147→  if (!profile) return { pct: 0, missing: ['Full Name', 'Phone', 'Location', 'Skills', 'Bio'] };
+   148→  const checks: [string, boolean][] = [
+   149→    ['Full Name', !!(profile.fullName as string)],
+   150→    ['Phone', !!(profile.phone as string)],
+   151→    ['Location', !!(profile.location as string)],
+   152→    ['Skills', !!(profile.skillTags as string)],
+   153→    ['Bio', !!(profile.bio as string)],
+   154→  ];
+   155→  const completed = checks.filter(([, v]) => v).length;
+   156→  const missing = checks.filter(([, v]) => !v).map(([label]) => label);
+   157→  return { pct: Math.round((completed / checks.length) * 100), missing };
+   158→}
+   159→
+   160→const sectionVariants = {
+   161→  hidden: { opacity: 0, y: 20 },
+   162→  visible: (i: number) => ({
+   163→    opacity: 1,
+   164→    y: 0,
+   165→    transition: { delay: i * 0.08, duration: 0.35, ease: 'easeOut' },
+   166→  }),
+   167→};
+   168→
+   169→// Team member type for the role management section
+   170→interface TeamMember {
+   171→  id: string;
+   172→  email: string;
+   173→  role: UserRole;
+   174→  status: string;
+   175→  createdAt: string;
+   176→  profile?: { fullName: string; jobTitle?: string };
+   177→}
+   178→
+   179→// ==========================================
+   180→// Main Component
+   181→// ==========================================
+   182→
+   183→export function ProfileView() {
+   184→  const { user, setUser, company } = useAuthStore();
+   185→  const { setView } = useNavStore();
+   186→  const [editing, setEditing] = useState(false);
+   187→  const [form, setForm] = useState(() => ({
+   188→    fullName: user?.profile?.fullName || '',
+   189→    jobTitle: user?.profile?.jobTitle || '',
+   190→    phone: user?.profile?.phone || '',
+   191→    location: user?.profile?.location || '',
+   192→    address: user?.profile?.address || '',
+   193→    bio: user?.profile?.bio || '',
+   194→    skillTags: user?.profile?.skillTags || '',
+   195→  }));
+   196→  const [selectedSkills, setSelectedSkills] = useState<string[]>(
+   197→    () => (user?.profile?.skillTags || '').split(',').map(s => s.trim()).filter(Boolean)
+   198→  );
+   199→  const [documents, setDocuments] = useState<Document[]>([]);
+   200→  const [docType, setDocType] = useState('business_license');
+   201→  const [docsLoading, setDocsLoading] = useState(false);
+   202→  const [companyData, setCompanyData] = useState<Company | null>(company || null);
+   203→  const [companyLoading, setCompanyLoading] = useState(false);
+   204→  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+   205→  const [teamLoading, setTeamLoading] = useState(false);
+   206→  const [changingRole, setChangingRole] = useState<string | null>(null);
+   207→  const fileRef = useRef<HTMLInputElement>(null);
+   208→
+   209→  const profile = user?.profile;
+   210→  const isVerified = profile?.verified ?? false;
+   211→  const userRole = (user?.role || 'user') as UserRole;
+   212→  const roleConfig = ROLE_CONFIG[userRole];
+   213→  const isSuperAdmin = userRole === 'super_admin';
+   214→  const isTeamAdmin = userRole === 'team_admin';
+   215→  const hasCompany = !!(user?.companyId || companyData);
+   216→  const completeness = getProfileCompleteness(profile);
+   217→  const approvedDocs = documents.filter(d => d.status === 'approved').length;
+   218→  const pendingDocs = documents.filter(d => d.status === 'pending').length;
+   219→
+   220→  // Load documents
+   221→  const loadDocs = useCallback(async () => {
+   222→    setDocsLoading(true);
+   223→    const res = await api.get('/documents');
+   224→    if (res.success) setDocuments(res.data);
+   225→    setDocsLoading(false);
+   226→  }, []);
+   227→
+   228→  // Load company details
+   229→  const loadCompany = async () => {
+   230→    if (!user?.companyId) return;
+   231→    setCompanyLoading(true);
+   232→    const res = await api.get(`/companies/${user.companyId}`);
+   233→    if (res.success) {
+   234→      setCompanyData(res.data);
+   235→    }
+   236→    setCompanyLoading(false);
+   237→  };
+   238→
+   239→  // Load team members (for super_admin and team_admin)
+   240→  const loadTeamMembers = async () => {
+   241→    if (!isSuperAdmin && !isTeamAdmin) return;
+   242→    setTeamLoading(true);
+   243→    try {
+   244→      if (user?.companyId) {
+   245→        const res = await api.get(`/companies/${user.companyId}`);
+   246→        if (res.success && res.data.users) {
+   247→          setTeamMembers(res.data.users);
+   248→        }
+   249→      } else if (isSuperAdmin) {
+   250→        // Super admin without company can see all users via profiles
+   251→        const res = await api.get('/profiles');
+   252→        if (res.success) {
+   253→          const members: TeamMember[] = res.data.map((p: { user: { id: string; email: string; role: UserRole; status: string; createdAt: string }; fullName: string; jobTitle?: string }) => ({
+   254→            id: p.user.id,
+   255→            email: p.user.email,
+   256→            role: p.user.role,
+   257→            status: p.user.status,
+   258→            createdAt: p.user.createdAt,
+   259→            profile: { fullName: p.fullName, jobTitle: p.jobTitle },
+   260→          }));
+   261→          setTeamMembers(members);
+   262→        }
+   263→      }
+   264→    } catch {
+   265→      // Silently fail
+   266→    }
+   267→    setTeamLoading(false);
+   268→  };
+   269→
+   270→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   271→  useEffect(() => { loadDocs(); }, [loadDocs]);
+   272→
+   273→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   274→  useEffect(() => { if (user?.companyId && !companyData) loadCompany(); }, [user?.companyId, companyData]);
+   275→
+   276→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   277→  useEffect(() => { loadTeamMembers(); }, [isSuperAdmin, isTeamAdmin, user?.companyId]);
+   278→
+   279→  const handleSave = async () => {
+   280→    const profileId = user?.profile?.id;
+   281→    if (!profileId) return;
+   282→    const res = await api.put(`/profiles/${profileId}`, {
+   283→      ...form,
+   284→      skillTags: selectedSkills.join(','),
+   285→    });
+   286→    if (res.success) {
+   287→      toast.success('Profile updated!');
+   288→      setEditing(false);
+   289→      // Refresh user data
+   290→      const meRes = await api.get('/auth/me');
+   291→      if (meRes.success) setUser(meRes.data);
+   292→    } else toast.error(res.error || 'Failed to update profile');
+   293→  };
+   294→
+   295→  const toggleSkill = (skill: string) => {
+   296→    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+   297→  };
+   298→
+   299→  const handleDocUpload = async () => {
+   300→    const file = fileRef.current?.files?.[0];
+   301→    if (!file) return;
+   302→    const formData = new FormData();
+   303→    formData.append('file', file);
+   304→    formData.append('docType', docType);
+   305→    formData.append('userId', user?.id || '');
+   306→    const res = await api.upload('/documents', formData);
+   307→    if (res.success) {
+   308→      toast.success('Document uploaded for verification');
+   309→      loadDocs();
+   310→    } else toast.error(res.error || 'Upload failed');
+   311→  };
+   312→
+   313→  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+   314→    if (!isSuperAdmin) return;
+   315→    setChangingRole(userId);
+   316→    const res = await api.patch(`/users/${userId}/role`, { role: newRole });
+   317→    if (res.success) {
+   318→      toast.success('Role updated successfully');
+   319→      loadTeamMembers();
+   320→    } else {
+   321→      toast.error(res.error || 'Failed to update role');
+   322→    }
+   323→    setChangingRole(null);
+   324→  };
+   325→
+   326→  return (
+   327→    <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto view-enter">
+   328→      {/* Header */}
+   329→      <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible"
+   330→        className="flex items-center justify-between">
+   331→        <div className="flex items-center gap-4">
+   332→          <div className="p-3 rounded-2xl gradient-emerald flex-shrink-0 shadow-md shadow-emerald-200/50">
+   333→            <User className="h-6 w-6 text-white" />
+   334→          </div>
+   335→          <div>
+   336→            <h2 className="text-2xl font-bold tracking-tight">
+   337→              <span className="text-gradient-emerald">My Profile</span>
+   338→            </h2>
+   339→            <p className="text-muted-foreground text-sm mt-0.5">Manage your profile, company info, and access level</p>
+   340→          </div>
+   341→        </div>
+   342→        {!editing ? (
+   343→          <Button
+   344→            variant="outline"
+   345→            onClick={() => setEditing(true)}
+   346→            className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-primary/10 hover:text-emerald-800 transition-colors"
+   347→          >
+   348→            <Edit2 className="h-4 w-4 mr-2" /> Edit Profile
+   349→          </Button>
+   350→        ) : (
+   351→          <div className="flex gap-2">
+   352→            <Button
+   353→              variant="outline"
+   354→              onClick={() => setEditing(false)}
+   355→              className="rounded-xl"
+   356→            >
+   357→              <X className="h-4 w-4 mr-1" /> Cancel
+   358→            </Button>
+   359→            <Button
+   360→              className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+   361→              onClick={handleSave}
+   362→            >
+   363→              <Save className="h-4 w-4 mr-1" /> Save
+   364→            </Button>
+   365→          </div>
+   366→        )}
+   367→      </motion.div>
+   368→
+   369→      {/* ==========================================
+   370→          COMPANY SECTION (top of profile)
+   371→          ========================================== */}
+   372→      <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible">
+   373→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   374→          <CardHeader className="pb-3">
+   375→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   376→              <div className="p-1.5 rounded-lg bg-teal-500/10">
+   377→                <Building className="h-3.5 w-3.5 text-teal-600" />
+   378→              </div>
+   379→              Company
+   380→              {companyData?.verified && (
+   381→                <Badge className="text-[10px] px-1.5 py-0 border-0 bg-emerald-50 text-emerald-700 ml-1">
+   382→                  <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> Verified
+   383→                </Badge>
+   384→              )}
+   385→            </CardTitle>
+   386→          </CardHeader>
+   387→          <CardContent>
+   388→            {companyLoading ? (
+   389→              <div className="space-y-3">
+   390→                <div className="h-10 bg-muted/50 rounded-lg animate-pulse" />
+   391→                <div className="h-10 bg-muted/50 rounded-lg animate-pulse w-2/3" />
+   392→              </div>
+   393→            ) : hasCompany && companyData ? (
+   394→              <div className="space-y-4">
+   395→                {/* Company header */}
+   396→                <div className="flex items-start gap-4">
+   397→                  <div className="w-12 h-12 rounded-xl bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+   398→                    <Building className="h-5 w-5 text-teal-600" />
+   399→                  </div>
+   400→                  <div className="flex-1 min-w-0">
+   401→                    <div className="flex items-center gap-2 flex-wrap">
+   402→                      <h4 className="text-sm font-bold text-foreground">{companyData.name}</h4>
+   403→                      {companyData.verified && (
+   404→                        <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+   405→                      )}
+   406→                    </div>
+   407→                    <p className="text-xs text-muted-foreground mt-0.5">{companyData.industry}</p>
+   408→                  </div>
+   409→                  <Button
+   410→                    variant="ghost"
+   411→                    size="sm"
+   412→                    className="rounded-lg text-xs text-muted-foreground hover:text-foreground"
+   413→                    onClick={() => setView('admin', { tab: 'companies' })}
+   414→                  >
+   415→                    View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+   416→                  </Button>
+   417→                </div>
+   418→
+   419→                {/* Company details grid */}
+   420→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   421→                  {companyData.city && (
+   422→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   423→                      <MapPinned className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   424→                      <div>
+   425→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
+   426→                        <p className="text-xs font-medium">{companyData.city}{companyData.country ? `, ${companyData.country}` : ''}</p>
+   427→                      </div>
+   428→                    </div>
+   429→                  )}
+   430→                  {companyData.tinNumber && (
+   431→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   432→                      <Hash className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   433→                      <div>
+   434→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">TIN Number</p>
+   435→                        <p className="text-xs font-medium">{companyData.tinNumber}</p>
+   436→                      </div>
+   437→                    </div>
+   438→                  )}
+   439→                  {companyData.registrationNo && (
+   440→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   441→                      <FileText className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   442→                      <div>
+   443→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Registration No.</p>
+   444→                        <p className="text-xs font-medium">{companyData.registrationNo}</p>
+   445→                      </div>
+   446→                    </div>
+   447→                  )}
+   448→                  {companyData.industry && (
+   449→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   450→                      <Briefcase className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   451→                      <div>
+   452→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Industry</p>
+   453→                        <p className="text-xs font-medium">{companyData.industry}</p>
+   454→                      </div>
+   455→                    </div>
+   456→                  )}
+   457→                  {companyData.phone && (
+   458→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   459→                      <Phone className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   460→                      <div>
+   461→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Phone</p>
+   462→                        <p className="text-xs font-medium">{companyData.phone}</p>
+   463→                      </div>
+   464→                    </div>
+   465→                  )}
+   466→                  {companyData.website && (
+   467→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   468→                      <Globe className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   469→                      <div>
+   470→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
+   471→                        <p className="text-xs font-medium truncate max-w-[200px]">{companyData.website}</p>
+   472→                      </div>
+   473→                    </div>
+   474→                  )}
+   475→                </div>
+   476→              </div>
+   477→            ) : (
+   478→              <div className="flex flex-col items-center justify-center py-8 text-center">
+   479→                <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+   480→                  <Building className="h-6 w-6 text-muted-foreground" />
+   481→                </div>
+   482→                <p className="text-sm font-medium text-foreground">No company associated</p>
+   483→                <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
+   484→                  Set up your company to access team management, create tenders, and more.
+   485→                </p>
+   486→                <Button
+   487→                  variant="outline"
+   488→                  className="mt-4 rounded-xl border-dashed"
+   489→                  onClick={() => setView('admin', { tab: 'companies' })}
+   490→                >
+   491→                  <Plus className="h-4 w-4 mr-1.5" /> Set Up Your Company
+   492→                </Button>
+   493→              </div>
+   494→            )}
+   495→          </CardContent>
+   496→        </Card>
+   497→      </motion.div>
+   498→
+   499→      {/* ==========================================
+   500→          ROLE & ACCESS SECTION
+   501→          ========================================== */}
+   502→      <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible">
+   503→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   504→          <CardHeader className="pb-3">
+   505→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   506→              <div className="p-1.5 rounded-lg bg-orange-500/10">
+   507→                <Shield className="h-3.5 w-3.5 text-orange-600" />
+   508→              </div>
+   509→              Role & Access Level
+   510→            </CardTitle>
+   511→          </CardHeader>
+   512→          <CardContent className="space-y-4">
+   513→            {/* Role Badge */}
+   514→            <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-xl">
+   515→              <div className={`p-2.5 rounded-xl ${roleConfig.badgeClass}`}>
+   516→                <roleConfig.icon className="h-5 w-5" />
+   517→              </div>
+   518→              <div className="flex-1">
+   519→                <div className="flex items-center gap-2">
+   520→                  <span className="text-sm font-bold">{roleConfig.label}</span>
+   521→                  <Badge className={`text-[10px] px-2 py-0 border-0 font-semibold ${roleConfig.badgeClass}`}>
+   522→                    {roleConfig.description}
+   523→                  </Badge>
+   524→                </div>
+   525→                <p className="text-xs text-muted-foreground mt-0.5">
+   526→                  {user?.email}
+   527→                </p>
+   528→              </div>
+   529→            </div>
+   530→
+   531→            {/* Permissions Checklist */}
+   532→            <div>
+   533→              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Permissions</p>
+   534→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   535→                {roleConfig.permissions.map((perm) => {
+   536→                  const PermIcon = perm.icon;
+   537→                  return (
+   538→                    <div key={perm.label} className="flex items-center gap-2 px-3 py-2 bg-muted/20 rounded-lg">
+   539→                      <PermIcon className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+   540→                      <span className="text-xs font-medium text-foreground">{perm.label}</span>
+   541→                    </div>
+   542→                  );
+   543→                })}
+   544→              </div>
+   545→            </div>
+   546→          </CardContent>
+   547→        </Card>
+   548→      </motion.div>
+   549→
+   550→      {/* ==========================================
+   551→          PROFILE HEADER CARD
+   552→          ========================================== */}
+   553→      <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible">
+   554→        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
+   555→          <CardContent className="p-6">
+   556→            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+   557→              {/* Avatar */}
+   558→              <div className="relative flex-shrink-0 group">
+   559→                <div className="w-20 h-20 rounded-2xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-200/40">
+   560→                  <span className="text-white font-bold text-3xl">
+   561→                    {(profile?.fullName || 'U')[0].toUpperCase()}
+   562→                  </span>
+   563→                </div>
+   564→                {isVerified && (
+   565→                  <span className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-xl border-3 border-white flex items-center justify-center shadow-md shadow-emerald-200">
+   566→                    <CheckCircle className="w-4 h-4 text-white" strokeWidth={2.5} />
+   567→                  </span>
+   568→                )}
+   569→                {editing && (
+   570→                  <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+   571→                    <Camera className="h-5 w-5 text-white" />
+   572→                  </div>
+   573→                )}
+   574→              </div>
+   575→
+   576→              {/* Info */}
+   577→              <div className="flex-1 text-center sm:text-left">
+   578→                <h3 className="text-xl font-bold text-foreground">{profile?.fullName || 'Complete your profile'}</h3>
+   579→                <p className="text-sm text-muted-foreground mt-0.5">
+   580→                  {profile?.jobTitle || (hasCompany ? 'Team Member' : 'Individual Professional')}
+   581→                  {companyData ? ` at ${companyData.name}` : ''}
+   582→                </p>
+   583→                <div className="flex flex-wrap items-center gap-2 mt-3 justify-center sm:justify-start">
+   584→                  <Badge className={`text-xs px-3 py-1 border-0 font-semibold ${
+   585→                    isVerified
+   586→                      ? 'bg-emerald-100 text-emerald-700'
+   587→                      : 'bg-amber-100 text-amber-700'
+   588→                  }`}>
+   589→                    <Shield className="h-3 w-3 mr-1.5" />
+   590→                    {isVerified ? 'Verified' : 'Pending Verification'}
+   591→                  </Badge>
+   592→                  <Badge className={`text-xs px-3 py-1 border-0 font-semibold ${roleConfig.badgeClass}`}>
+   593→                    <roleConfig.icon className="h-3 w-3 mr-1.5" />
+   594→                    {roleConfig.label}
+   595→                  </Badge>
+   596→                  {hasCompany && (
+   597→                    <Badge className="text-xs px-3 py-1 border-0 font-semibold bg-teal-50 text-teal-700">
+   598→                      <Building className="h-3 w-3 mr-1.5" />
+   599→                      {companyData?.name}
+   600→                    </Badge>
+   601→                  )}
+   602→                </div>
+   603→              </div>
+   604→
+   605→              {/* Verification Status & Completeness */}
+   606→              <div className="hidden sm:flex flex-col items-end gap-3">
+   607→                <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl ${
+   608→                  isVerified ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'
+   609→                }`}>
+   610→                  <div className={`w-3 h-3 rounded-full ${isVerified ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+   611→                  <span className={`text-xs font-semibold ${isVerified ? 'text-emerald-700' : 'text-amber-700'}`}>
+   612→                    {isVerified ? 'Identity Verified' : 'Verification Pending'}
+   613→                  </span>
+   614→                </div>
+   615→                {/* Profile Completeness */}
+   616→                <div className="w-40">
+   617→                  <div className="flex items-center justify-between mb-1">
+   618→                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Profile</span>
+   619→                    <span className={`text-xs font-bold ${completeness.pct >= 80 ? 'text-emerald-600' : completeness.pct >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>
+   620→                      {completeness.pct}%
+   621→                    </span>
+   622→                  </div>
+   623→                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+   624→                    <motion.div
+   625→                      initial={{ width: 0 }}
+   626→                      animate={{ width: `${completeness.pct}%` }}
+   627→                      transition={{ duration: 0.8, ease: 'easeOut' }}
+   628→                      className={`h-full rounded-full ${
+   629→                        completeness.pct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
+   630→                        completeness.pct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
+   631→                        'bg-gradient-to-r from-rose-400 to-rose-600'
+   632→                      }`}
+   633→                    />
+   634→                  </div>
+   635→                  {completeness.missing.length > 0 && !editing && (
+   636→                    <p className="text-[10px] text-muted-foreground mt-1">
+   637→                      Add: {completeness.missing.slice(0, 2).join(', ')}{completeness.missing.length > 2 ? '...' : ''}
+   638→                    </p>
+   639→                  )}
+   640→                </div>
+   641→              </div>
+   642→            </div>
+   643→          </CardContent>
+   644→        </Card>
+   645→      </motion.div>
+   646→
+   647→      {/* ==========================================
+   648→          PERSONAL INFORMATION
+   649→          ========================================== */}
+   650→      <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
+   651→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   652→          <CardHeader className="pb-3">
+   653→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   654→              <div className="p-1.5 rounded-lg gradient-emerald">
+   655→                <User className="h-3.5 w-3.5 text-white" />
+   656→              </div>
+   657→              Personal Information
+   658→            </CardTitle>
+   659→          </CardHeader>
+   660→          <CardContent className="space-y-4">
+   661→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   662→              <div className="space-y-2">
+   663→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   664→                  <User className="h-3 w-3 text-emerald-500" /> Full Name
+   665→                </Label>
+   666→                {editing ? (
+   667→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.fullName} onChange={e => setForm(d => ({ ...d, fullName: e.target.value }))} />
+   668→                ) : (
+   669→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.fullName || '-'}</p>
+   670→                )}
+   671→              </div>
+   672→              <div className="space-y-2">
+   673→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   674→                  <Mail className="h-3 w-3 text-emerald-500" /> Email
+   675→                </Label>
+   676→                <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{user?.email}</p>
+   677→              </div>
+   678→            </div>
+   679→
+   680→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   681→              <div className="space-y-2">
+   682→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   683→                  <Briefcase className="h-3 w-3 text-emerald-500" /> Job Title
+   684→                </Label>
+   685→                {editing ? (
+   686→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.jobTitle} onChange={e => setForm(d => ({ ...d, jobTitle: e.target.value }))} placeholder="e.g. Senior Engineer, Project Manager" />
+   687→                ) : (
+   688→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.jobTitle || '-'}</p>
+   689→                )}
+   690→              </div>
+   691→              <div className="space-y-2">
+   692→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   693→                  <Phone className="h-3 w-3 text-emerald-500" /> Phone
+   694→                </Label>
+   695→                {editing ? (
+   696→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.phone} onChange={e => setForm(d => ({ ...d, phone: e.target.value }))} />
+   697→                ) : (
+   698→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.phone || '-'}</p>
+   699→                )}
+   700→              </div>
+   701→            </div>
+   702→
+   703→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   704→              <div className="space-y-2">
+   705→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   706→                  <MapPin className="h-3 w-3 text-emerald-500" /> Location
+   707→                </Label>
+   708→                {editing ? (
+   709→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.location} onChange={e => setForm(d => ({ ...d, location: e.target.value }))} />
+   710→                ) : (
+   711→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.location || '-'}</p>
+   712→                )}
+   713→              </div>
+   714→              <div className="space-y-2">
+   715→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   716→                  <MapPin className="h-3 w-3 text-emerald-500" /> Address
+   717→                </Label>
+   718→                {editing ? (
+   719→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.address} onChange={e => setForm(d => ({ ...d, address: e.target.value }))} />
+   720→                ) : (
+   721→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.address || '-'}</p>
+   722→                )}
+   723→              </div>
+   724→            </div>
+   725→          </CardContent>
+   726→        </Card>
+   727→      </motion.div>
+   728→
+   729→      {/* ==========================================
+   730→          SKILLS SECTION
+   731→          ========================================== */}
+   732→      <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible">
+   733→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   734→          <CardHeader className="pb-3">
+   735→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   736→              <div className="p-1.5 rounded-lg gradient-amber">
+   737→                <Briefcase className="h-3.5 w-3.5 text-white" />
+   738→              </div>
+   739→              Skills & Expertise
+   740→              {selectedSkills.length > 0 && (
+   741→                <Badge className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-0 font-medium ml-1">
+   742→                  {selectedSkills.length}
+   743→                </Badge>
+   744→              )}
+   745→            </CardTitle>
+   746→          </CardHeader>
+   747→          <CardContent>
+   748→            {editing ? (
+   749→              <div className="flex flex-wrap gap-2">
+   750→                {SKILL_OPTIONS.map(skill => {
+   751→                  const isSelected = selectedSkills.includes(skill);
+   752→                  return (
+   753→                    <motion.button
+   754→                      key={skill}
+   755→                      whileTap={{ scale: 0.95 }}
+   756→                      onClick={() => toggleSkill(skill)}
+   757→                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+   758→                        isSelected
+   759→                          ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50 hover:bg-emerald-600'
+   760→                          : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-emerald-700 border border-border/60'
+   761→                      }`}
+   762→                    >
+   763→                      {skill}
+   764→                    </motion.button>
+   765→                  );
+   766→                })}
+   767→              </div>
+   768→            ) : (
+   769→              <div className="flex flex-wrap gap-2">
+   770→                {profile?.skillTags?.split(',').filter(Boolean).length ? (
+   771→                  profile.skillTags.split(',').filter(Boolean).map(tag => (
+   772→                    <span
+   773→                      key={tag}
+   774→                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border ${SKILL_COLORS[tag.trim()] || 'bg-emerald-50 text-emerald-700 border-emerald-200/60'}`}
+   775→                    >
+   776→                      {tag.trim()}
+   777→                    </span>
+   778→                  ))
+   779→                ) : (
+   780→                  <p className="text-sm text-muted-foreground">No skills listed</p>
+   781→                )}
+   782→              </div>
+   783→            )}
+   784→          </CardContent>
+   785→        </Card>
+   786→      </motion.div>
+   787→
+   788→      {/* ==========================================
+   789→          BIO SECTION
+   790→          ========================================== */}
+   791→      <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible">
+   792→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   793→          <CardHeader className="pb-3">
+   794→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   795→              <div className="p-1.5 rounded-lg gradient-rose">
+   796→                <FileText className="h-3.5 w-3.5 text-white" />
+   797→              </div>
+   798→              Bio & Portfolio
+   799→            </CardTitle>
+   800→          </CardHeader>
+   801→          <CardContent>
+   802→            {editing ? (
+   803→              <Textarea
+   804→                className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50 min-h-[120px]"
+   805→                value={form.bio}
+   806→                onChange={e => setForm(d => ({ ...d, bio: e.target.value }))}
+   807→                rows={4}
+   808→                placeholder="Write a brief description about yourself or your company..."
+   809→              />
+   810→            ) : (
+   811→              <p className="text-sm p-3 bg-muted/50 rounded-lg whitespace-pre-wrap leading-relaxed">
+   812→                {profile?.bio || 'No bio provided'}
+   813→              </p>
+   814→            )}
+   815→          </CardContent>
+   816→        </Card>
+   817→      </motion.div>
+   818→
+   819→      {/* ==========================================
+   820→          VERIFICATION DOCUMENTS
+   821→          ========================================== */}
+   822→      <motion.div custom={7} variants={sectionVariants} initial="hidden" animate="visible">
+   823→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   824→          <CardHeader className="pb-3">
+   825→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   826→              <div className="p-1.5 rounded-lg gradient-teal">
+   827→                <Shield className="h-3.5 w-3.5 text-white" />
+   828→              </div>
+   829→              Verification Documents
+   830→              {!docsLoading && documents.length > 0 && (
+   831→                <Badge className="text-[10px] px-1.5 py-0 bg-teal-50 text-teal-700 border-0 font-medium ml-1">
+   832→                  {documents.length}
+   833→                </Badge>
+   834→              )}
+   835→            </CardTitle>
+   836→          </CardHeader>
+   837→          <CardContent className="space-y-5">
+   838→            {/* Verification Progress */}
+   839→            {!isVerified && (
+   840→              <div className="bg-amber-50/60 border border-amber-200/60 rounded-xl p-4">
+   841→                <div className="flex items-center gap-2 mb-3">
+   842→                  <div className="p-1 rounded-md bg-amber-100">
+   843→                    <Clock className="h-3.5 w-3.5 text-amber-600" />
+   844→                  </div>
+   845→                  <p className="text-sm font-semibold text-amber-800">Verification Progress</p>
+   846→                </div>
+   847→                <div className="flex items-center gap-4">
+   848→                  <div className="flex items-center gap-2">
+   849→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   850→                      profile?.fullName ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   851→                    }`}>
+   852→                      {profile?.fullName ? <CheckCircle className="h-3 w-3" /> : '1'}
+   853→                    </div>
+   854→                    <span className="text-xs text-muted-foreground">Profile</span>
+   855→                  </div>
+   856→                  <div className="flex-1 h-px bg-border/60" />
+   857→                  <div className="flex items-center gap-2">
+   858→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   859→                      documents.length > 0 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   860→                    }`}>
+   861→                      {documents.length > 0 ? <CheckCircle className="h-3 w-3" /> : '2'}
+   862→                    </div>
+   863→                    <span className="text-xs text-muted-foreground">Documents</span>
+   864→                  </div>
+   865→                  <div className="flex-1 h-px bg-border/60" />
+   866→                  <div className="flex items-center gap-2">
+   867→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   868→                      approvedDocs > 0 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   869→                    }`}>
+   870→                      {approvedDocs > 0 ? <CheckCircle className="h-3 w-3" /> : '3'}
+   871→                    </div>
+   872→                    <span className="text-xs text-muted-foreground">Approval</span>
+   873→                  </div>
+   874→                </div>
+   875→                {pendingDocs > 0 && (
+   876→                  <p className="text-xs text-amber-700 mt-3">
+   877→                    {pendingDocs} document{pendingDocs > 1 ? 's' : ''} pending review. Admin will verify your documents shortly.
+   878→                  </p>
+   879→                )}
+   880→              </div>
+   881→            )}
+   882→
+   883→            {/* Upload area */}
+   884→            <div className="border-2 border-dashed border-emerald-200/60 rounded-xl p-5 hover:border-emerald-300 transition-colors bg-emerald-50/20">
+   885→              <div className="flex flex-col sm:flex-row gap-3 items-end">
+   886→                <div className="flex-1 space-y-2">
+   887→                  <Label className="text-sm font-medium">Document Type</Label>
+   888→                  <select
+   889→                    className="w-full h-9 rounded-xl border border-border/60 bg-card px-3 text-sm focus:ring-primary/20 focus:outline-none"
+   890→                    value={docType}
+   891→                    onChange={e => setDocType(e.target.value)}
+   892→                  >
+   893→                    <option value="business_license">Business License</option>
+   894→                    <option value="tax_clearance">Tax Clearance</option>
+   895→                    <option value="portfolio">Portfolio</option>
+   896→                    <option value="certificate">Certificate</option>
+   897→                    <option value="other">Other</option>
+   898→                  </select>
+   899→                </div>
+   900→                <div className="flex-1 space-y-2">
+   901→                  <Label className="text-sm font-medium">Select File</Label>
+   902→                  <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png"
+   903→                    className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 file:cursor-pointer file:transition-colors" />
+   904→                </div>
+   905→                <Button
+   906→                  className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 whitespace-nowrap"
+   907→                  onClick={handleDocUpload}
+   908→                >
+   909→                  <Upload className="h-4 w-4 mr-1.5" /> Upload
+   910→                </Button>
+   911→              </div>
+   912→              <p className="text-[10px] text-muted-foreground/60 mt-2">Accepted formats: PDF, JPEG, PNG &middot; Max size: 10MB</p>
+   913→            </div>
+   914→
+   915→            {/* Documents list */}
+   916→            {docsLoading ? (
+   917→              <div className="space-y-2">
+   918→                {[1, 2].map(i => (
+   919→                  <div key={i} className="h-14 bg-muted/50 rounded-xl animate-pulse" />
+   920→                ))}
+   921→              </div>
+   922→            ) : documents.length > 0 ? (
+   923→              <div className="space-y-2">
+   924→                <AnimatePresence>
+   925→                  {documents.map(doc => {
+   926→                    const dtConfig = docTypeConfig(doc.docType);
+   927→                    const DtIcon = dtConfig.icon;
+   928→                    return (
+   929→                      <motion.div
+   930→                        key={doc.id}
+   931→                        initial={{ opacity: 0, y: 8 }}
+   932→                        animate={{ opacity: 1, y: 0 }}
+   933→                        className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors"
+   934→                      >
+   935→                        <div className="flex items-center gap-3">
+   936→                          <div className={`p-2 rounded-lg ${dtConfig.bg} flex-shrink-0`}>
+   937→                            <DtIcon className={`h-4 w-4 ${dtConfig.color}`} />
+   938→                          </div>
+   939→                          <div>
+   940→                            <div className="flex items-center gap-1.5">
+   941→                              <span className={`h-1.5 w-1.5 rounded-full ${docStatusDot(doc.status)}`} />
+   942→                              <p className="text-sm font-medium">{dtConfig.label}</p>
+   943→                            </div>
+   944→                            <p className="text-xs text-muted-foreground">{doc.fileName} &middot; {new Date(doc.createdAt).toLocaleDateString()}</p>
+   945→                            {doc.reviewNotes && <p className="text-xs text-amber-600 mt-0.5">{doc.reviewNotes}</p>}
+   946→                          </div>
+   947→                        </div>
+   948→                        <Badge className={`text-[10px] px-2 py-0 border-0 rounded-lg ${docStatusBadge(doc.status)}`}>
+   949→                          {doc.status === 'approved' && <CheckCircle className="h-2.5 w-2.5 mr-0.5" />}
+   950→                          {doc.status === 'rejected' && <XCircle className="h-2.5 w-2.5 mr-0.5" />}
+   951→                          {doc.status === 'pending' && <Clock className="h-2.5 w-2.5 mr-0.5" />}
+   952→                          {doc.status}
+   953→                        </Badge>
+   954→                      </motion.div>
+   955→                    );
+   956→                  })}
+   957→                </AnimatePresence>
+   958→              </div>
+   959→            ) : (
+   960→              <p className="text-sm text-muted-foreground text-center py-3">No documents uploaded yet</p>
+   961→            )}
+   962→          </CardContent>
+   963→        </Card>
+   964→      </motion.div>
+   965→
+   966→      {/* ==========================================
+   967→          TEAM MANAGEMENT (super_admin & team_admin)
+   968→          ========================================== */}
+   969→      {(isSuperAdmin || isTeamAdmin) && (
+   970→        <motion.div custom={8} variants={sectionVariants} initial="hidden" animate="visible">
+   971→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   972→            <CardHeader className="pb-3">
+   973→              <CardTitle className="text-base font-bold flex items-center gap-2">
+   974→                <div className="p-1.5 rounded-lg bg-slate-500/10">
+   975→                  <Users className="h-3.5 w-3.5 text-slate-600" />
+   976→                </div>
+   977→                Team Members
+   978→                {!teamLoading && teamMembers.length > 0 && (
+   979→                  <Badge className="text-[10px] px-1.5 py-0 bg-slate-50 text-slate-700 border-0 font-medium ml-1">
+   980→                    {teamMembers.length}
+   981→                  </Badge>
+   982→                )}
+   983→              </CardTitle>
+   984→            </CardHeader>
+   985→            <CardContent>
+   986→              {teamLoading ? (
+   987→                <div className="space-y-2">
+   988→                  {[1, 2, 3].map(i => (
+   989→                    <div key={i} className="h-16 bg-muted/50 rounded-xl animate-pulse" />
+   990→                  ))}
+   991→                </div>
+   992→              ) : teamMembers.length > 0 ? (
+   993→                <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+   994→                  <AnimatePresence>
+   995→                    {teamMembers.map((member) => {
+   996→                      const memberRole = member.role as UserRole;
+   997→                      const memberConfig = ROLE_CONFIG[memberRole];
+   998→                      const MemberIcon = memberConfig.icon;
+   999→                      const isChanging = changingRole === member.id;
+  1000→
+  1001→                      return (
+  1002→                        <motion.div
+  1003→                          key={member.id}
+  1004→                          initial={{ opacity: 0, y: 8 }}
+  1005→                          animate={{ opacity: 1, y: 0 }}
+  1006→                          className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors gap-3"
+  1007→                        >
+  1008→                          <div className="flex items-center gap-3 min-w-0 flex-1">
+  1009→                            <div className={`p-2 rounded-lg ${memberConfig.badgeClass} flex-shrink-0`}>
+  1010→                              <MemberIcon className="h-4 w-4" />
+  1011→                            </div>
+  1012→                            <div className="min-w-0">
+  1013→                              <p className="text-sm font-medium truncate">
+  1014→                                {member.profile?.fullName || member.email}
+  1015→                              </p>
+  1016→                              <p className="text-xs text-muted-foreground truncate">
+  1017→                                {member.profile?.jobTitle && `${member.profile.jobTitle} · `}{member.email}
+  1018→                              </p>
+  1019→                            </div>
+  1020→                          </div>
+  1021→
+  1022→                          <div className="flex items-center gap-2 flex-shrink-0">
+  1023→                            {/* Role badge (non-editable for non-super_admin) */}
+  1024→                            {isSuperAdmin && member.id !== user?.id ? (
+  1025→                              <div className="flex items-center gap-2">
+  1026→                                <Select
+  1027→                                  value={memberRole}
+  1028→                                  onValueChange={(value) => handleRoleChange(member.id, value as UserRole)}
+  1029→                                  disabled={isChanging}
+  1030→                                >
+  1031→                                  <SelectTrigger className="h-8 w-[130px] rounded-lg text-xs">
+  1032→                                    <SelectValue />
+  1033→                                  </SelectTrigger>
+  1034→                                  <SelectContent>
+  1035→                                    <SelectItem value="super_admin">
+  1036→                                      <span className="flex items-center gap-1.5">
+  1037→                                        <Shield className="h-3 w-3 text-orange-500" /> Super Admin
+  1038→                                      </span>
+  1039→                                    </SelectItem>
+  1040→                                    <SelectItem value="team_admin">
+  1041→                                      <span className="flex items-center gap-1.5">
+  1042→                                        <Users className="h-3 w-3 text-slate-500" /> Team Admin
+  1043→                                      </span>
+  1044→                                    </SelectItem>
+  1045→                                    <SelectItem value="user">
+  1046→                                      <span className="flex items-center gap-1.5">
+  1047→                                        <UserCircle className="h-3 w-3 text-gray-500" /> User
+  1048→                                      </span>
+  1049→                                    </SelectItem>
+  1050→                                  </SelectContent>
+  1051→                                </Select>
+  1052→                                {isChanging && (
+  1053→                                  <div className="h-4 w-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+  1054→                                )}
+  1055→                              </div>
+  1056→                            ) : (
+  1057→                              <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg font-semibold ${memberConfig.badgeClass}`}>
+  1058→                                <MemberIcon className="h-2.5 w-2.5 mr-0.5" />
+  1059→                                {memberConfig.label}
+  1060→                              </Badge>
+  1061→                            )}
+  1062→                          </div>
+  1063→                        </motion.div>
+  1064→                      );
+  1065→                    })}
+  1066→                  </AnimatePresence>
+  1067→                </div>
+  1068→              ) : (
+  1069→                <div className="flex flex-col items-center justify-center py-6 text-center">
+  1070→                  <Users className="h-8 w-8 text-muted-foreground/40 mb-2" />
+  1071→                  <p className="text-sm text-muted-foreground">
+  1072→                    {hasCompany ? 'No team members found' : 'Set up a company to manage team members'}
+  1073→                  </p>
+  1074→                </div>
+  1075→              )}
+  1076→            </CardContent>
+  1077→          </Card>
+  1078→        </motion.div>
+  1079→      )}
+  1080→    </div>
+  1081→  );
+  1082→}
+  1083→

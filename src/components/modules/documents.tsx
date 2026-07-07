@@ -8,32 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Upload, CheckCircle2, Clock, XCircle, Shield,
   Briefcase, Receipt, FolderOpen, Award, File, ArrowRight,
   Search, Filter, CloudUpload, FileUp, Trash2, Eye,
 } from 'lucide-react';
-
-// ─── Animation Variants ─────────────────────────────────────────────
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.08 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
-};
-
-const cardHover = {
-  y: -3,
-  transition: { duration: 0.2, ease: 'easeOut' },
-};
-
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -163,14 +142,11 @@ export function DocumentsView() {
   });
 
   return (
-    <motion.div
-      className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <div
+ className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto animate-[fadeIn_0.3s_ease-out]"
+ >
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center gap-4">
+      <div className="flex items-center gap-4">
         <div className="p-3 rounded-2xl gradient-teal shadow-md flex-shrink-0 shadow-teal-200/40">
           <FileText className="h-6 w-6 text-white" />
         </div>
@@ -180,10 +156,10 @@ export function DocumentsView() {
           </h2>
           <p className="text-muted-foreground text-sm mt-0.5">Upload and manage your verification documents</p>
         </div>
-      </motion.div>
+      </div>
 
       {/* Verification Status */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card className="premium-shadow-lg rounded-xl border-0 bg-card">
           <CardContent className="p-5 flex items-center gap-4">
             <div className={`p-3 rounded-2xl flex-shrink-0 ${user?.profile?.verified ? 'gradient-emerald' : 'gradient-amber'}`}>
@@ -210,17 +186,17 @@ export function DocumentsView() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Stats Summary */}
       {!loading && documents.length > 0 && (
-        <motion.div variants={itemVariants} className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {[
             { count: pendingCount, label: 'Pending', icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600', dot: 'bg-amber-500' },
             { count: approvedCount, label: 'Approved', icon: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600', dot: 'bg-emerald-500' },
             { count: rejectedCount, label: 'Rejected', icon: XCircle, bg: 'bg-rose-50', color: 'text-rose-600', dot: 'bg-rose-500' },
           ].map(stat => (
-            <motion.div key={stat.label} whileHover={cardHover}>
+            <div className="hover:-translate-y-[3px] transition-all duration-200" key={stat.label}>
               <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200 h-full">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
@@ -232,13 +208,13 @@ export function DocumentsView() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       )}
 
       {/* Upload Section with Drag-Drop */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -288,11 +264,9 @@ export function DocumentsView() {
 
             {/* Selected file preview */}
             {selectedFile && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100"
-              >
+              <div
+ className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 animate-[fadeIn_0.3s_ease-out]"
+ >
                 <div className="p-2 rounded-lg bg-emerald-100 flex-shrink-0">
                   <FileText className="h-4 w-4 text-emerald-600" />
                 </div>
@@ -308,7 +282,7 @@ export function DocumentsView() {
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
-              </motion.div>
+              </div>
             )}
 
             {/* Type selector + Upload button */}
@@ -340,10 +314,10 @@ export function DocumentsView() {
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Documents List */}
-      <motion.div variants={itemVariants}>
+      <div>
         <Card className="premium-shadow rounded-xl border-0 bg-card">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -406,18 +380,14 @@ export function DocumentsView() {
                 )}
               </div>
             ) : (
-              <AnimatePresence>
-                {filteredDocs.map((doc, idx) => {
+              filteredDocs.map((doc, idx) => {
                   const dtConfig = docTypeConfig(doc.docType);
                   const DtIcon = dtConfig.icon;
                   return (
-                    <motion.div
-                      key={doc.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.04, duration: 0.25 }}
-                      className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors"
-                    >
+                    <div
+ key={doc.id}
+ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
+ >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={`p-2 rounded-lg ${dtConfig.bg} flex-shrink-0`}>
                           <DtIcon className={`h-4 w-4 ${dtConfig.color}`} />
@@ -444,14 +414,13 @@ export function DocumentsView() {
                         </div>
                       </div>
                       <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${statusBadge(doc.status)} flex-shrink-0 ml-2`}>{doc.status}</Badge>
-                    </motion.div>
+                    </div>
                   );
-                })}
-              </AnimatePresence>
+                })
             )}
           </CardContent>
         </Card>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

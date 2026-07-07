@@ -1,22 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useAuthStore, useNavStore, useDataStore } from '@/store';
 import { api } from '@/lib/api';
-import { DashboardView } from '@/components/modules/dashboard';
-import { TendersView } from '@/components/modules/tenders';
-import { LiveTendersView } from '@/components/modules/live-tenders';
-import { TenderDetailView } from '@/components/modules/tender-detail';
-import { TenderCompareView, BidCompareView } from '@/components/modules/tender-compare';
-import { BidsView } from '@/components/modules/bids';
-import { ProjectsView } from '@/components/modules/projects';
-import { ProjectDetailView } from '@/components/modules/project-detail';
-import { ChatView } from '@/components/modules/chat';
-import { EventsView } from '@/components/modules/events';
-import { ProfileView } from '@/components/modules/profile';
-import { DocumentsView } from '@/components/modules/documents';
-import { AdminView } from '@/components/modules/admin';
-import { AgentView } from '@/components/modules/agent';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,6 +19,37 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetsLogo } from '@/components/logo';
+
+/* ──────────────────────────── Dynamic imports (lazy load modules) ──────────────────────────── */
+
+const DashboardView = dynamic(() => import('@/components/modules/dashboard').then(m => ({ default: m.DashboardView })), { ssr: false });
+const TendersView = dynamic(() => import('@/components/modules/tenders').then(m => ({ default: m.TendersView })), { ssr: false });
+const LiveTendersView = dynamic(() => import('@/components/modules/live-tenders').then(m => ({ default: m.LiveTendersView })), { ssr: false });
+const TenderDetailView = dynamic(() => import('@/components/modules/tender-detail').then(m => ({ default: m.TenderDetailView })), { ssr: false });
+const TenderCompareView = dynamic(() => import('@/components/modules/tender-compare').then(m => ({ default: m.TenderCompareView })), { ssr: false });
+const BidCompareView = dynamic(() => import('@/components/modules/tender-compare').then(m => ({ default: m.BidCompareView })), { ssr: false });
+const BidsView = dynamic(() => import('@/components/modules/bids').then(m => ({ default: m.BidsView })), { ssr: false });
+const ProjectsView = dynamic(() => import('@/components/modules/projects').then(m => ({ default: m.ProjectsView })), { ssr: false });
+const ProjectDetailView = dynamic(() => import('@/components/modules/project-detail').then(m => ({ default: m.ProjectDetailView })), { ssr: false });
+const ChatView = dynamic(() => import('@/components/modules/chat').then(m => ({ default: m.ChatView })), { ssr: false });
+const EventsView = dynamic(() => import('@/components/modules/events').then(m => ({ default: m.EventsView })), { ssr: false });
+const ProfileView = dynamic(() => import('@/components/modules/profile').then(m => ({ default: m.ProfileView })), { ssr: false });
+const DocumentsView = dynamic(() => import('@/components/modules/documents').then(m => ({ default: m.DocumentsView })), { ssr: false });
+const AdminView = dynamic(() => import('@/components/modules/admin').then(m => ({ default: m.AdminView })), { ssr: false });
+const AgentView = dynamic(() => import('@/components/modules/agent').then(m => ({ default: m.AgentView })), { ssr: false });
+
+/* ──────────────────────────── Loading spinner ──────────────────────────── */
+
+function ViewLoader() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
 
 /* ──────────────────────────── constants ──────────────────────────── */
 
@@ -653,7 +671,9 @@ export function AppShell() {
         {/* ── Content Area ── */}
         <main className="flex-1 overflow-auto">
           <div key={view} className="view-enter">
-            {renderView()}
+            <Suspense fallback={<ViewLoader />}>
+              {renderView()}
+            </Suspense>
           </div>
         </main>
       </div>
