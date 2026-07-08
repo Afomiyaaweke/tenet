@@ -47,7 +47,7 @@ export async function GET(
   try {
     const res = await fetch(externalUrl, {
       headers: {
-        'User-Agent': 'Tenets-Tender-Ecosystem/1.0 (+https://tenets.app)',
+        'User-Agent': 'Tenet-Tender-Ecosystem/1.0 (+https://tenet.app)',
         Accept: 'text/html,application/xhtml+xml,text/plain,*/*',
       },
       signal: AbortSignal.timeout(10000),

@@ -39,3 +39,17 @@ Stage Summary:
 - Contact Us page with form, FAQ, and contact info
 - Privacy Policy page with full content from Termly.pdf and PDF download
 - All new sidebar items properly integrated for all user roles
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix preview, rename Tenets to Tenet, remove Z AI tags, add stamp/signature, favicon, security audit
+
+Work Log:
+- Renamed Tenets to Tenet across 21+ files
+- Created favicon.svg matching Tenet logo
+- Replaced all space-z.ai URLs with tenet.app
+- Created shared stamp-signature.tsx with useStampSignature hook
+- Added stamp/signature to Profile, Tender Detail, Bids, Documents, AI Doc Studio
+- Security audit: JWT, rate limiting, security headers, password validation
+- Lint passes, server runs correctly
+

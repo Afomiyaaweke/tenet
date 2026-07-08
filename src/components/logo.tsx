@@ -2,13 +2,13 @@
 
 import { useTheme } from 'next-themes';
 
-interface TenetsLogoProps {
+interface TenetLogoProps {
   size?: 'sm' | 'md' | 'lg';
   iconOnly?: boolean;
   className?: string;
 }
 
-export function TenetsLogo({ size = 'md', iconOnly = false, className = '' }: TenetsLogoProps) {
+export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: TenetLogoProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
@@ -61,7 +61,7 @@ export function TenetsLogo({ size = 'md', iconOnly = false, className = '' }: Te
       {!iconOnly && (
         <span className={`${s.text} font-bold tracking-tight whitespace-nowrap`}>
           <span style={{ color: darkColor }}>Ten</span>
-          <span style={{ color: lightColor }}>ets</span>
+          <span style={{ color: lightColor }}>et</span>
         </span>
       )}
     </div>

@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import ZAI from 'z-ai-web-dev-sdk';
 
-const OVERVIEW_SYSTEM_PROMPT = `You are the Tenets Tender Ecosystem AI Overview Assistant. You help bidders/applicants understand tender requirements and prepare competitive bids.
+const OVERVIEW_SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Overview Assistant. You help bidders/applicants understand tender requirements and prepare competitive bids.
 
 ## Your Task
 Analyze the given tender and generate a comprehensive AI overview that helps potential bidders understand the tender and prepare strong applications.

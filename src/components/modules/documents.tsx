@@ -12,7 +12,9 @@ import {
   FileText, Upload, CheckCircle2, Clock, XCircle, Shield,
   Briefcase, Receipt, FolderOpen, Award, File, ArrowRight,
   Search, Filter, CloudUpload, FileUp, Trash2, Eye,
+  Stamp, FileSignature, X,
 } from 'lucide-react';
+import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -37,6 +39,10 @@ export function DocumentsView() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [stampSelectorOpen, setStampSelectorOpen] = useState(false);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [docStamps, setDocStamps] = useState<Record<string, SavedSignature[]>>({});
+  const stampSigHook = useStampSignature();
 
   const loadDocs = useCallback(async () => {
     setLoading(true);
@@ -384,8 +390,8 @@ export function DocumentsView() {
                   const dtConfig = docTypeConfig(doc.docType);
                   const DtIcon = dtConfig.icon;
                   return (
+                    <div key={doc.id}>
                     <div
- key={doc.id}
  className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
  >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -413,7 +419,41 @@ export function DocumentsView() {
                           )}
                         </div>
                       </div>
-                      <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${statusBadge(doc.status)} flex-shrink-0 ml-2`}>{doc.status}</Badge>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Sign & Stamp button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
+                          onClick={(e) => { e.stopPropagation(); setSelectedDocId(doc.id); setStampSelectorOpen(true); }}
+                        >
+                          <Stamp className="h-3 w-3 mr-1" /> Sign & Stamp
+                        </Button>
+                        <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${statusBadge(doc.status)} flex-shrink-0`}>{doc.status}</Badge>
+                      </div>
+                    </div>
+                    {/* Applied stamps for this document */}
+                    {docStamps[doc.id] && docStamps[doc.id].length > 0 && (
+                      <div className="flex items-center gap-2 mt-1 ml-11">
+                        {docStamps[doc.id].map((stamp, sIdx) => (
+                          <div key={`${stamp.id}-${sIdx}`} className="flex items-center gap-1.5 p-1 bg-orange-50/50 border border-orange-100 rounded-lg">
+                            <div className="w-6 h-5 bg-white rounded overflow-hidden p-0.5">
+                              <img src={stamp.dataUrl} alt={stamp.label} className="max-w-full max-h-full object-contain" />
+                            </div>
+                            <span className="text-[9px] text-orange-700 font-medium">{stamp.label}</span>
+                            <button
+                              className="h-3.5 w-3.5 rounded-full hover:bg-orange-100 flex items-center justify-center"
+                              onClick={() => setDocStamps(prev => ({
+                                ...prev,
+                                [doc.id]: (prev[doc.id] || []).filter((_, i) => i !== sIdx),
+                              }))}
+                            >
+                              <X className="h-2.5 w-2.5 text-orange-400" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     </div>
                   );
                 })
@@ -421,6 +461,24 @@ export function DocumentsView() {
           </CardContent>
         </Card>
       </div>
+      {/* Stamp & Signature Selector Dialog */}
+      <StampSignatureSelector
+        hook={stampSigHook}
+        open={stampSelectorOpen}
+        onClose={() => { setStampSelectorOpen(false); setSelectedDocId(null); }}
+        onSelect={(item) => {
+          if (selectedDocId) {
+            setDocStamps(prev => ({
+              ...prev,
+              [selectedDocId]: [...(prev[selectedDocId] || []), item],
+            }));
+            toast.success(`${item.label} applied to document`);
+          }
+          setStampSelectorOpen(false);
+          setSelectedDocId(null);
+        }}
+        title="Select Stamp or Signature for Document"
+      />
     </div>
   );
 }

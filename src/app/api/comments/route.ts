@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/comments — Create a new comment (public, no auth required)
+// POST /api/comments — Create a new comment (public, requires admin approval)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json(
         { success: false, error: 'Valid email is required' },
         { status: 400 }
@@ -87,25 +87,34 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (content.length > 2000) {
+      return NextResponse.json(
+        { success: false, error: 'Comment must be under 2000 characters' },
+        { status: 400 }
+      );
+    }
     const validRating = Math.min(Math.max(Math.round(rating || 5), 1), 5);
-    const validRole = ['user', 'team_admin', 'other'].includes(role)
+    const validRole = ['contractor', 'tender_owner', 'admin', 'other'].includes(role)
       ? role
-      : 'user';
+      : 'other';
 
     const comment = await db.comment.create({
       data: {
-        name: name.trim(),
-        email: email.trim(),
-        company: company?.trim() || null,
+        name: name.trim().slice(0, 100),
+        email: email.trim().slice(0, 200),
+        company: company?.trim()?.slice(0, 200) || null,
         role: validRole,
-        content: content.trim(),
+        content: content.trim().slice(0, 2000),
         rating: validRating,
-        approved: true, // auto-approve
+        approved: false, // Requires admin approval — prevents spam/abuse
         featured: false,
       },
     });
 
-    return NextResponse.json({ success: true, data: comment }, { status: 201 });
+    return NextResponse.json(
+      { success: true, data: comment, message: 'Your comment has been submitted and is awaiting review.' },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('POST /api/comments error:', error);
     return NextResponse.json(

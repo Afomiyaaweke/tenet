@@ -1,14 +1,14 @@
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireTeamAdmin } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-// PATCH /api/comments/[id] — Toggle featured/approved status (requires auth)
+// PATCH /api/comments/[id] — Toggle featured/approved status (requires admin role)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, error } = await requireAuth(request);
+    const { user, error } = await requireTeamAdmin(request);
     if (error) return error;
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

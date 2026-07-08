@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { TenetsLogo } from '@/components/logo';
+import { TenetLogo } from '@/components/logo';
 import { CommentSection } from '@/components/comment-section';
 import {
   ShieldCheck,
@@ -132,7 +132,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <TenetsLogo size="sm" />
+            <TenetLogo size="sm" />
 
             {/* Nav Links (desktop) */}
             <nav className="hidden md:flex items-center gap-8">
@@ -243,7 +243,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Everything You Need to Win Tenders
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              From discovery to award, Tenets streamlines every step of your procurement journey with AI-powered tools.
+              From discovery to award, Tenet streamlines every step of your procurement journey with AI-powered tools.
             </p>
           </div>
 
@@ -369,7 +369,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
             {/* Brand */}
             <div className="sm:col-span-2 lg:col-span-1">
-              <TenetsLogo size="sm" className="mb-4" />
+              <TenetLogo size="sm" className="mb-4" />
               <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
                 Transforming procurement through intelligent technology. Connect, prepare, and win with AI.
               </p>
@@ -408,7 +408,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
 
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-500">&copy; 2025 Tenets &middot; Transforming Procurement Through Technology</p>
+            <p className="text-xs text-gray-500">&copy; 2025 Tenet &middot; Transforming Procurement Through Technology</p>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Users className="w-4 h-4" />

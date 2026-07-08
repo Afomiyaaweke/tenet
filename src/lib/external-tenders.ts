@@ -260,7 +260,7 @@ export async function fetchWorldBankTenders(opts: {
   try {
     const res = await fetch(url, {
       signal: ctrl.signal,
-      headers: { Accept: 'application/json', 'User-Agent': 'Tenets-Tender-Ecosystem/1.0' },
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
       cache: 'no-store',
     });
     clearTimeout(timer);
@@ -397,7 +397,7 @@ export async function fetchUngmTenders(opts: {
   try {
     const res = await fetch('https://www.ungm.org/Public/Notice/RSS', {
       signal: ctrl.signal,
-      headers: { 'User-Agent': 'Tenets-Tender-Ecosystem/1.0', Accept: 'application/rss+xml, text/xml, */*' },
+      headers: { 'User-Agent': 'Tenet-Tender-Ecosystem/1.0', Accept: 'application/rss+xml, text/xml, */*' },
       cache: 'no-store',
     });
     clearTimeout(timer);
@@ -467,7 +467,7 @@ export async function fetchSamGovTenders(opts: {
   try {
     const res = await fetch(url, {
       signal: ctrl.signal,
-      headers: { Accept: 'application/json', 'User-Agent': 'Tenets-Tender-Ecosystem/1.0' },
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
       cache: 'no-store',
     });
     clearTimeout(timer);

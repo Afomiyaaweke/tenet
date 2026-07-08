@@ -7,7 +7,7 @@ async function main() {
   // Create a default super_admin company and user
   const company = await db.company.create({
     data: {
-      name: 'Tenets Admin',
+      name: 'Tenet Admin',
       industry: 'Technology',
       country: 'Ethiopia',
       city: 'Addis Ababa',
@@ -20,7 +20,7 @@ async function main() {
 
   const admin = await db.user.create({
     data: {
-      email: 'admin@tenets.app',
+      email: 'admin@tenet.app',
       passwordHash,
       role: 'super_admin',
       companyId: company.id,

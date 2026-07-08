@@ -18,7 +18,7 @@ import {
   Search, Verified, Globe2, Shield, Building2, Users, Mail, Lock,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { TenetsLogo } from '@/components/logo';
+import { TenetLogo } from '@/components/logo';
 
 /* ──────────────────────────── Dynamic imports (lazy load modules) ──────────────────────────── */
 
@@ -238,7 +238,7 @@ function SidebarContent({
       {/* ── Logo ── */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <TenetsLogo size="sm" />
+          <TenetLogo size="sm" />
           <div className="min-w-0">
             <p className="text-[11px] text-muted-foreground font-medium">Tender Ecosystem</p>
           </div>

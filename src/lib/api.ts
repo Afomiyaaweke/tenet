@@ -1,4 +1,4 @@
-// API client for the Tenets Tender Ecosystem
+// API client for the Tenet Tender Ecosystem
 
 const API_BASE = '/api';
 

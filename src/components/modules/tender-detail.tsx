@@ -21,8 +21,9 @@ import {
   ListChecks, FileStack, CircleCheck, Target, Ban, GitCompareArrows,
   Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion,
   TrendingDown, Loader2, BrainCircuit, AlertTriangle, Lightbulb,
-  FileCheck, Wallet, Clock3, ClipboardCheck,
+  FileCheck, Wallet, Clock3, ClipboardCheck, Stamp, FileSignature,
 } from 'lucide-react';
+import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 
 type DetailTab = 'overview' | 'bids' | 'documents' | 'ai-overview' | 'analysis';
 
@@ -88,6 +89,9 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
   });
   const [hasBid, setHasBid] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [stampSelectorOpen, setStampSelectorOpen] = useState(false);
+  const [appliedStamps, setAppliedStamps] = useState<SavedSignature[]>([]);
+  const stampSigHook = useStampSignature();
 
   // Bid Analysis state (for tender creators)
   const [analyses, setAnalyses] = useState<BidAnalysis[]>([]);
@@ -927,12 +931,22 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg gradient-teal">
-                    <FileStack className="h-3.5 w-3.5 text-white" />
-                  </div>
-                  Tender Documents
-                </CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg gradient-teal">
+                      <FileStack className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    Tender Documents
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl text-xs border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 transition-all"
+                    onClick={() => setStampSelectorOpen(true)}
+                  >
+                    <Stamp className="h-3.5 w-3.5 mr-1.5" /> Add Stamp / Sign
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {tender.requiredDocs ? (
@@ -965,6 +979,53 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 )}
               </CardContent>
             </Card>
+
+            {/* Applied Stamps & Signatures */}
+            {appliedStamps.length > 0 && (
+              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+                <div className="h-1 bg-gradient-to-r from-orange-400 to-amber-500" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-orange-500/10">
+                      <FileSignature className="h-3.5 w-3.5 text-orange-600" />
+                    </div>
+                    Applied Stamps & Signatures
+                    <Badge className="text-[10px] px-1.5 py-0 bg-orange-50 text-orange-700 border-0 font-medium">
+                      {appliedStamps.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {appliedStamps.map((item, idx) => (
+                      <div key={`${item.id}-${idx}`} className="flex flex-col items-center gap-2 p-3 border border-border/60 rounded-xl bg-muted/20">
+                        <div className="w-full h-16 flex items-center justify-center bg-white rounded-lg overflow-hidden p-1">
+                          <img src={item.dataUrl} alt={item.label} className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs font-medium">{item.label}</p>
+                          <Badge className={`text-[8px] px-1 py-0 border-0 rounded ${
+                            item.type === 'signature'
+                              ? 'bg-emerald-50 text-emerald-600'
+                              : 'bg-orange-50 text-orange-600'
+                          }`}>
+                            {item.type}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[10px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                          onClick={() => setAppliedStamps(prev => prev.filter((_, i) => i !== idx))}
+                        >
+                          <X className="h-3 w-3 mr-1" /> Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
@@ -982,7 +1043,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">AI Tender Overview</h3>
-                  <p className="text-xs text-muted-foreground">Powered by Tenets AI — understand requirements &amp; prepare a winning bid</p>
+                  <p className="text-xs text-muted-foreground">Powered by Tenet AI — understand requirements &amp; prepare a winning bid</p>
                 </div>
               </div>
               <Button
@@ -1237,7 +1298,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">AI Bid Analysis</h3>
-                  <p className="text-xs text-muted-foreground">Powered by Tenets AI — rank, score, and evaluate bids automatically</p>
+                  <p className="text-xs text-muted-foreground">Powered by Tenet AI — rank, score, and evaluate bids automatically</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1561,6 +1622,19 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
             )}
           </div>
         )}
+        
+        {/* Stamp & Signature Selector Dialog */}
+        <StampSignatureSelector
+          hook={stampSigHook}
+          open={stampSelectorOpen}
+          onClose={() => setStampSelectorOpen(false)}
+          onSelect={(item) => {
+            setAppliedStamps(prev => [...prev, item]);
+            toast.success(`${item.label} applied to tender`);
+            setStampSelectorOpen(false);
+          }}
+          title="Select Stamp or Signature for Tender"
+        />
 </div>
   );
 }
