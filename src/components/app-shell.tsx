@@ -16,6 +16,7 @@ import {
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Verified, Globe2, Shield, Building2, Users, Mail, Lock,
+  BarChart3,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
@@ -40,6 +41,7 @@ const AgentView = dynamic(() => import('@/components/modules/agent').then(m => (
 const StaffView = dynamic(() => import('@/components/modules/staff').then(m => ({ default: m.StaffView })), { ssr: false });
 const ContactUsView = dynamic(() => import('@/components/modules/contact-us').then(m => ({ default: m.ContactUsView })), { ssr: false });
 const PrivacyPolicyView = dynamic(() => import('@/components/modules/privacy-policy').then(m => ({ default: m.PrivacyPolicyView })), { ssr: false });
+const AuditView = dynamic(() => import('@/components/modules/audit').then(m => ({ default: m.AuditView })), { ssr: false });
 
 /* ──────────────────────────── Loading spinner ──────────────────────────── */
 
@@ -134,6 +136,12 @@ function getNavItemsForRole(role: string): NavSection[] {
       tools,
       support,
       {
+        label: 'OWNER',
+        items: [
+          { id: 'audit', label: 'Site Audit', icon: BarChart3 },
+        ],
+      },
+      {
         label: 'ADMIN',
         items: [
           { id: 'admin', label: 'Administration', icon: Shield },
@@ -180,7 +188,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'audit';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -548,6 +556,8 @@ export function AppShell() {
         return <ContactUsView />;
       case 'privacy-policy':
         return <PrivacyPolicyView />;
+      case 'audit':
+        return <AuditView />;
       default:
         return <DashboardView />;
     }
