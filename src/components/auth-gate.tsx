@@ -305,6 +305,14 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [loginStep, setLoginStep] = useState<'credentials' | 'captcha'>('credentials');
   const [captchaVerified, setCaptchaVerified] = useState(false);
 
+  // Forgot / Reset password state
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
+
   const handleCredentialsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginData.email || !loginData.password) return;
@@ -328,6 +336,60 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const resetLogin = () => {
     setLoginStep('credentials');
     setCaptchaVerified(false);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setLoading(true);
+    try {
+      const { api } = await import('@/lib/api');
+      const res = await api.post('/auth/forgot-password', { email: forgotEmail });
+      if (res.success) {
+        toast.success('Reset link generated! Check below to reset your password.');
+        // In development, the API returns the token directly
+        if (res.resetToken) {
+          setResetToken(res.resetToken);
+          setAuthMode('reset-password');
+        }
+      } else {
+        toast.error(res.error || 'Failed to process request');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    }
+    setLoading(false);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetToken || !newPassword || !confirmPassword) return;
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { api } = await import('@/lib/api');
+      const res = await api.post('/auth/reset-password', {
+        token: resetToken,
+        newPassword,
+        confirmPassword,
+      });
+      if (res.success) {
+        setResetSuccess(true);
+        toast.success('Password reset successfully! You can now sign in.');
+      } else {
+        toast.error(res.error || 'Failed to reset password');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    }
+    setLoading(false);
   };
 
   /* ─── Registration step navigation ─── */
@@ -473,7 +535,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                 </button>
               )}
 
-              {/* Tab switcher */}
+              {/* Tab switcher - hidden when in forgot/reset mode */}
+              {authMode === 'login' && (
               <div className="mb-8">
                 <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
                   <button
@@ -500,6 +563,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                   </button>
                 </div>
               </div>
+              )}
 
               {/* ─── LOGIN FORM (Binance-style multi-step) ─── */}
               {activeTab === 'login' && (
@@ -579,6 +643,17 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
+                        </div>
+
+                        {/* Forgot Password link */}
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => { setAuthMode('forgot-password'); setForgotEmail(loginData.email); }}
+                            className="text-xs text-primary hover:underline font-medium"
+                          >
+                            Forgot Password?
+                          </button>
                         </div>
 
                         <Button

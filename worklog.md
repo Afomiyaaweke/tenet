@@ -78,3 +78,28 @@ Stage Summary:
 - No "Tenets" (with 's') found - already "Tenet" everywhere
 - No user-visible Z AI branding found - only backend SDK usage (correct)
 - Stamp/signature feature already comprehensively implemented across app
+## Task 1-a: Audit/Analytics API Routes
+
+**Date:** 2026-07-08T13:18:03+00:00
+**Status:** ✅ Completed
+
+### Files Created:
+1. `/home/z/my-project/src/app/api/audit/log/route.ts` — POST handler for logging audit events
+2. `/home/z/my-project/src/app/api/audit/stats/route.ts` — GET handler for super_admin analytics dashboard
+
+### Implementation Details:
+- **audit/log**: Uses `requireAuth` to authenticate users, extracts IP from `x-forwarded-for`/`x-real-ip` headers, stores user-agent, serializes metadata as JSON string, creates AuditLog entry with userId and companyId from auth context.
+- **audit/stats**: Uses `requireSuperAdmin` for access control, returns comprehensive analytics: overview counts (users, companies, tenders, bids, projects, documents), activity timeline (30-day grouped), user/company growth, tender/bid status breakdowns, action type breakdown, top 10 companies by user count, recent 50 audit logs with user info, and active user counts (24h/7d).
+- Lint passes with zero errors.
+
+
+
+## Task 2-a: Password Reset API Routes — Wed Jul  8 13:18:09 UTC 2026
+
+### Created Files:
+1. `/src/app/api/auth/forgot-password/route.ts` — POST handler: accepts email, normalizes it, checks user existence (returns success regardless to prevent enumeration), invalidates prior unused tokens, generates a 64-char hex token via crypto.randomBytes(32), stores PasswordReset record with 1h expiry, returns token in dev mode.
+2. `/src/app/api/auth/reset-password/route.ts` — POST handler: validates token/newPassword/confirmPassword, checks password match & min-length (8), looks up PasswordReset record, validates not used and not expired, hashes new password with bcrypt (12 rounds), updates user.passwordHash, marks token as used.
+3. `/src/app/api/auth/validate-reset-token/route.ts` — GET handler: accepts ?token= query param, looks up PasswordReset record, returns {valid, error} or {valid, email (masked)} for valid tokens.
+
+### Lint: PASS (no errors)
+
