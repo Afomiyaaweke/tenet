@@ -26,8 +26,6 @@ import {
   Puzzle,
   CheckCircle2,
   XCircle,
-  Smartphone,
-  KeyRound,
   AlertTriangle,
   Shield,
   Users,
@@ -247,57 +245,6 @@ function SlideCaptcha({ onVerified }: { onVerified: () => void }) {
   );
 }
 
-/* ───────────────────────── 6-digit Security Code Input ───────────────────────── */
-function SecurityCodeInput({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
-  const inputsRef = React.useRef<(HTMLInputElement | null)[]>([]);
-  const chars = value.split('');
-
-  const setChar = (i: number, c: string) => {
-    const sanitized = c.replace(/\D/g, '').slice(-1);
-    const arr = value.split('');
-    arr[i] = sanitized || ' ';
-    const next = arr.join('').replace(/ /g, '');
-    const padded = (next + '      ').slice(0, 6).replace(/\s/g, '');
-    onChange(padded);
-    if (sanitized && i < 5) inputsRef.current[i + 1]?.focus();
-  };
-
-  const onKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !chars[i] && i > 0) {
-      inputsRef.current[i - 1]?.focus();
-    }
-  };
-
-  const onPaste = (e: React.ClipboardEvent) => {
-    const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (text) {
-      e.preventDefault();
-      onChange(text);
-      inputsRef.current[Math.min(text.length, 5)]?.focus();
-    }
-  };
-
-  return (
-    <div className="flex justify-between gap-2" onPaste={onPaste}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <input
-          key={i}
-          ref={(el) => { inputsRef.current[i] = el; }}
-          type="text"
-          inputMode="numeric"
-          maxLength={1}
-          disabled={disabled}
-          value={chars[i] || ''}
-          onChange={(e) => setChar(i, e.target.value)}
-          onKeyDown={(e) => onKeyDown(i, e)}
-          className="w-11 h-13 sm:w-12 sm:h-14 text-center text-xl font-bold rounded-xl border-2 bg-muted/30 focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-          style={{ aspectRatio: '1 / 1.15' }}
-        />
-      ))}
-    </div>
-  );
-}
-
 /* ───────────────────────── Step Indicator ───────────────────────── */
 function StepIndicator({ currentStep, totalSteps = 5 }: { currentStep: RegStep; totalSteps?: number }) {
   return (
@@ -334,7 +281,6 @@ function StepIndicator({ currentStep, totalSteps = 5 }: { currentStep: RegStep; 
 }
 
 /* ───────────────────────── Main Component ───────────────────────── */
-type LoginStep = 'credentials' | 'captcha' | 'code';
 
 export function AuthGate({ onBack }: { onBack?: () => void }) {
   const { login, register } = useAuthStore();
@@ -355,13 +301,9 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [showPassword, setShowPassword] = useState(false);
   const [regStep, setRegStep] = useState<RegStep>(1);
 
-  // Binance-style multi-step login state
-  const [loginStep, setLoginStep] = useState<LoginStep>('credentials');
+  // Login flow state
+  const [loginStep, setLoginStep] = useState<'credentials' | 'captcha'>('credentials');
   const [captchaVerified, setCaptchaVerified] = useState(false);
-  const [securityCode, setSecurityCode] = useState('');
-  const [sentCode] = useState(() => String(Math.floor(100000 + Math.random() * 900000)));
-  const [codeError, setCodeError] = useState('');
-  const [attempts, setAttempts] = useState(0);
 
   const handleCredentialsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -371,43 +313,21 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
   const handleCaptchaVerified = () => {
     setCaptchaVerified(true);
-    setLoginStep('code');
-    toast.success('Verification passed — enter the security code sent to your device.');
-  };
-
-  const handleFinalLogin = async () => {
-    if (securityCode.length !== 6) {
-      setCodeError('Please enter the 6-digit code');
-      return;
-    }
-    if (securityCode !== sentCode) {
-      const next = attempts + 1;
-      setAttempts(next);
-      if (next >= 5) {
-        toast.error('Too many failed attempts. Please start over.');
-        resetLogin();
-        return;
-      }
-      setCodeError(`Incorrect code. ${5 - next} attempt${5 - next === 1 ? '' : 's'} remaining`);
-      setSecurityCode('');
-      return;
-    }
-    setCodeError('');
+    toast.success('Verification passed — signing you in…');
+    // After captcha verification, proceed directly to login (no fake 2FA)
     setLoading(true);
-    const ok = await login(loginData.email, loginData.password);
-    if (!ok) {
-      toast.error('Invalid credentials');
-      resetLogin();
-    }
-    setLoading(false);
+    login(loginData.email, loginData.password).then(ok => {
+      if (!ok) {
+        toast.error('Invalid credentials');
+        resetLogin();
+      }
+      setLoading(false);
+    });
   };
 
   const resetLogin = () => {
     setLoginStep('credentials');
     setCaptchaVerified(false);
-    setSecurityCode('');
-    setCodeError('');
-    setAttempts(0);
   };
 
   /* ─── Registration step navigation ─── */
@@ -704,7 +624,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         <SlideCaptcha onVerified={handleCaptchaVerified} />
                         {captchaVerified && (
                           <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400 font-medium animate-[viewEnter_0.3s_ease-out]">
-                            <CheckCircle2 className="w-4 h-4" /> Verification complete — proceeding…
+                            <Loader2 className="w-4 h-4 animate-spin" /> Verification complete — signing in…
                           </div>
                         )}
                       </div>
@@ -712,70 +632,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                         <ShieldCheck className="w-3.5 h-3.5" />
                         <span>Protected by Tenet Shield — encrypted &amp; bot-resistant</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ─── STEP 3: 6-digit Security Code (simulated 2FA) ─── */}
-                  {loginStep === 'code' && (
-                    <div className="animate-[viewEnter_0.3s_ease-out]">
-                      <div className="mb-5">
-                        <button
-                          type="button"
-                          onClick={() => setLoginStep('captcha')}
-                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
-                        >
-                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-                          Back
-                        </button>
-                        <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                          <Smartphone className="w-5 h-5 text-primary" /> Security Code
-                        </h2>
-                        <p className="text-muted-foreground text-sm mt-1">
-                          Enter the 6-digit code sent to your registered device.
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        <SecurityCodeInput value={securityCode} onChange={setSecurityCode} disabled={loading} />
-
-                        {codeError && (
-                          <div className="flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400">
-                            <XCircle className="w-4 h-4 shrink-0" /> {codeError}
-                          </div>
-                        )}
-
-                        <Button
-                          type="button"
-                          onClick={handleFinalLogin}
-                          disabled={loading || securityCode.length !== 6}
-                          className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
-                        >
-                          {loading ? (
-                            <span className="flex items-center gap-2">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Authenticating...
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-2">
-                              <KeyRound className="w-4 h-4" />
-                              Sign In Securely
-                            </span>
-                          )}
-                        </Button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setSecurityCode(''); setCodeError(''); toast.info('A new code has been sent.'); }}
-                          className="w-full text-center text-xs text-primary hover:underline"
-                        >
-                          Didn&apos;t receive a code? Resend
-                        </button>
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>Account locks after 5 failed attempts for your protection</span>
                       </div>
                     </div>
                   )}
@@ -903,7 +759,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                             <Building2 className="w-3 h-3" /> Company Name *
                           </Label>
                           <Input
-                            placeholder="Acme Corp"
+                            placeholder="e.g. ABC Construction PLC"
                             required
                             value={regData.companyName}
                             onChange={e => setRegData(d => ({ ...d, companyName: e.target.value }))}

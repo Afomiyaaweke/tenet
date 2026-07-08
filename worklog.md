@@ -53,3 +53,28 @@ Work Log:
 - Security audit: JWT, rate limiting, security headers, password validation
 - Lint passes, server runs correctly
 
+---
+Task ID: 1
+Agent: main
+Task: Fix preview functionality and security issues
+
+Work Log:
+- Identified root cause: auth gate had fake 2FA security code step that generated random 6-digit code but never showed it to user, blocking all logins
+- Fixed auth-gate.tsx: removed fake 2FA step, after captcha verification now directly proceeds to login
+- Removed SecurityCodeInput component and unused state variables (securityCode, sentCode, codeError, attempts)
+- Fixed placeholder "Acme Corp" → "e.g. ABC Construction PLC" in registration form
+- Updated favicon.svg to match full Tenet logo with satellite nodes
+- Fixed SSRF vulnerability in /api/tenders/[id]/documents route - added private IP blocklist and response size limits
+- Fixed companyId reassignment vulnerability in /api/profiles PUT route - removed companyId from user-settable fields
+- Fixed CSP headers - removed 'unsafe-inline' and 'unsafe-eval' from script-src
+- Fixed Comment schema default - changed approved from @default(true) to @default(false)
+- Verified login/register APIs work correctly
+- Verified dashboard loads with authenticated user
+
+Stage Summary:
+- Preview fix: Auth gate no longer blocks with fake 2FA - users can now log in after captcha
+- Security fixes: SSRF protection, companyId reassignment prevention, CSP hardening, comment approval default
+- Favicon updated to match Tenet logo
+- No "Tenets" (with 's') found - already "Tenet" everywhere
+- No user-visible Z AI branding found - only backend SDK usage (correct)
+- Stamp/signature feature already comprehensively implemented across app

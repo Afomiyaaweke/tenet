@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 
 /**
+ * Deny-list of hostnames that should never be fetched server-side
+ * to prevent SSRF attacks (internal IPs, cloud metadata, etc.)
+ */
+const BLOCKED_HOSTNAMES = [
+  'localhost', '127.0.0.1', '0.0.0.0', '::1',
+  '169.254.169.254', // AWS/GCP metadata
+  'metadata.google.internal',
+  'metadata.azure.com',
+];
+
+function isBlockedHostname(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  // Check exact matches
+  if (BLOCKED_HOSTNAMES.includes(lower)) return true;
+  // Block private IP ranges (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+  if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(lower)) return true;
+  // Block link-local
+  if (/^169\.254\./.test(lower)) return true;
+  return false;
+}
+
+/** Max response size: 1 MB */
+const MAX_RESPONSE_SIZE = 1_000_000;
+
+/**
  * GET /api/tenders/[id]/documents?url=<externalUrl>
  *
  * Fetches the external tender page content and returns it as
@@ -28,12 +53,18 @@ export async function GET(
     );
   }
 
-  // Basic URL validation
+  // URL validation + SSRF protection
   try {
     const parsed = new URL(externalUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       return NextResponse.json(
         { success: false, error: 'Only HTTP(S) URLs are supported' },
+        { status: 400 },
+      );
+    }
+    if (isBlockedHostname(parsed.hostname)) {
+      return NextResponse.json(
+        { success: false, error: 'This URL is not allowed' },
         { status: 400 },
       );
     }
@@ -53,6 +84,15 @@ export async function GET(
       signal: AbortSignal.timeout(10000),
       cache: 'no-store' as RequestCache,
     });
+
+    // Check content length before reading
+    const contentLength = res.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
+      return NextResponse.json(
+        { success: false, error: 'Document too large (max 1MB)' },
+        { status: 413 },
+      );
+    }
 
     if (!res.ok) {
       return NextResponse.json(
