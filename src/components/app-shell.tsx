@@ -15,7 +15,7 @@ import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
-  Search, Verified, Globe2, Shield, Building2,
+  Search, Verified, Globe2, Shield, Building2, Users, Mail, Lock,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetsLogo } from '@/components/logo';
@@ -37,6 +37,9 @@ const ProfileView = dynamic(() => import('@/components/modules/profile').then(m 
 const DocumentsView = dynamic(() => import('@/components/modules/documents').then(m => ({ default: m.DocumentsView })), { ssr: false });
 const AdminView = dynamic(() => import('@/components/modules/admin').then(m => ({ default: m.AdminView })), { ssr: false });
 const AgentView = dynamic(() => import('@/components/modules/agent').then(m => ({ default: m.AgentView })), { ssr: false });
+const StaffView = dynamic(() => import('@/components/modules/staff').then(m => ({ default: m.StaffView })), { ssr: false });
+const ContactUsView = dynamic(() => import('@/components/modules/contact-us').then(m => ({ default: m.ContactUsView })), { ssr: false });
+const PrivacyPolicyView = dynamic(() => import('@/components/modules/privacy-policy').then(m => ({ default: m.PrivacyPolicyView })), { ssr: false });
 
 /* ──────────────────────────── Loading spinner ──────────────────────────── */
 
@@ -116,15 +119,25 @@ function getNavItemsForRole(role: string): NavSection[] {
     ],
   };
 
+  const support: NavSection = {
+    label: 'SUPPORT',
+    items: [
+      { id: 'contact-us', label: 'Contact Us', icon: Mail },
+      { id: 'privacy-policy', label: 'Privacy Policy', icon: Lock },
+    ],
+  };
+
   if (role === 'super_admin') {
     return [
       main,
       manage,
       tools,
+      support,
       {
         label: 'ADMIN',
         items: [
           { id: 'admin', label: 'Administration', icon: Shield },
+          { id: 'staff', label: 'Staff', icon: Users },
         ],
       },
     ];
@@ -135,9 +148,11 @@ function getNavItemsForRole(role: string): NavSection[] {
       main,
       manage,
       tools,
+      support,
       {
         label: 'TEAM',
         items: [
+          { id: 'staff', label: 'Staff', icon: Users },
           { id: 'profile', label: 'Company Settings', icon: Building2 },
         ],
       },
@@ -145,7 +160,7 @@ function getNavItemsForRole(role: string): NavSection[] {
   }
 
   // Regular user
-  return [main, tools];
+  return [main, tools, support];
 }
 
 /* ──────────────────── Role badge config ──────────────────── */
@@ -165,7 +180,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -527,6 +542,12 @@ export function AppShell() {
         return <AdminView />;
       case 'agent':
         return <AgentView />;
+      case 'staff':
+        return <StaffView />;
+      case 'contact-us':
+        return <ContactUsView />;
+      case 'privacy-policy':
+        return <PrivacyPolicyView />;
       default:
         return <DashboardView />;
     }

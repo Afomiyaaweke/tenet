@@ -19,7 +19,7 @@ export async function GET(
     const bid = await db.bid.findUnique({
       where: { id },
       include: {
-        tender: { select: { id: true, title: true, scope: true, status: true, deadline: true } },
+        tender: { select: { id: true, title: true, scope: true, status: true, deadline: true, companyId: true } },
         user: { select: { id: true, email: true, profile: { select: { fullName: true, jobTitle: true, verified: true } }, company: { select: { id: true, name: true } } } },
       },
     });
@@ -31,8 +31,18 @@ export async function GET(
       );
     }
 
-    // Non-admin users can only see their own bids
-    if (user!.role !== 'super_admin' && user!.role !== 'team_admin' && bid.userId !== user!.id) {
+    // Non-admin users can only see their own bids; team_admin can see bids on their company's tenders
+    if (user!.role === 'super_admin') {
+      // Super admin can see all bids
+    } else if (user!.role === 'team_admin' && user!.companyId) {
+      // Team admin can see bids on their company's tenders
+      if (bid.tender.companyId !== user!.companyId) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: You can only view bids on your own company\'s tenders' },
+          { status: 403 }
+        );
+      }
+    } else if (bid.userId !== user!.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view your own bids' },
         { status: 403 }

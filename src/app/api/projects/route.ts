@@ -26,12 +26,9 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
-    // Standard users only see projects where their bid was awarded
-    if (user!.role === 'user') {
-      where.bid = { userId: user!.id };
-    } else if (user!.role === 'team_admin') {
-      // Team admins see projects for tenders they created
-      where.tender = { createdBy: user!.id };
+    // Company isolation: non-super_admin users only see projects from their own company
+    if (user!.role !== 'super_admin' && user!.companyId) {
+      where.companyId = user!.companyId;
     }
 
     const [projects, total] = await Promise.all([

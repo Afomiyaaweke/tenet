@@ -62,9 +62,9 @@ export async function GET(request: NextRequest) {
       where.tenderId = tenderId;
     }
 
-    // Non-super_admin users can only see analyses for tenders they created
-    if (user!.role !== 'super_admin') {
-      where.tender = { createdBy: user!.id };
+    // Company isolation: filter analyses by company's tenders
+    if (user!.role !== 'super_admin' && user!.companyId) {
+      where.tender = { companyId: user!.companyId };
     }
 
     const analyses = await db.bidAnalysis.findMany({
@@ -135,10 +135,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Permission check: only the tender creator or super_admin can trigger bid analysis
-    if (tender.createdBy !== user!.id && user!.role !== 'super_admin') {
+    // Permission check: only the tender creator's company members or super_admin can trigger bid analysis
+    if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Only the tender creator or super admin can analyze bids' },
+        { success: false, error: 'Forbidden: Only members of the tender company or super admin can analyze bids' },
         { status: 403 }
       );
     }

@@ -11,7 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requireAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const { id: projectId } = await params;
@@ -22,6 +22,14 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: 'Project not found' },
         { status: 404 }
+      );
+    }
+
+    // Company isolation: non-super_admin can only create tasks in their own company's projects
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only create tasks in your own company\'s projects' },
+        { status: 403 }
       );
     }
 
@@ -43,6 +51,7 @@ export async function POST(
         status: status || 'todo',
         dueDate: dueDate ? new Date(dueDate) : null,
         order: order || 0,
+        companyId: project.companyId || null,
       },
     });
 
@@ -76,7 +85,6 @@ export async function GET(
     // Check project exists
     const project = await db.project.findUnique({
       where: { id: projectId },
-      include: { bid: { select: { userId: true } } },
     });
 
     if (!project) {
@@ -86,10 +94,10 @@ export async function GET(
       );
     }
 
-    // Standard users can only view tasks for their own projects
-    if (user!.role === 'user' && project.bid.userId !== user!.id) {
+    // Company isolation: non-super_admin can only view tasks in their own company's projects
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: You can only view tasks for your own projects' },
+        { success: false, error: 'Forbidden: You do not have access to this project\'s tasks' },
         { status: 403 }
       );
     }

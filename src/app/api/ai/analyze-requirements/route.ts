@@ -55,6 +55,13 @@ export async function POST(request: NextRequest) {
     if (tenderId) {
       const tender = await db.tender.findUnique({ where: { id: tenderId } });
       if (tender) {
+        // Company isolation: non-super_admin can only access their own company's tenders or open tenders
+        if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
+          return NextResponse.json(
+            { success: false, error: 'Forbidden: You do not have access to this tender' },
+            { status: 403 }
+          );
+        }
         tenderContext = `
 **Tender Details (from database):**
 - Title: ${tender.title}

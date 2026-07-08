@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requireAuth(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
 
     const { id } = await params;
@@ -26,6 +26,14 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: 'Tender not found' },
         { status: 404 }
+      );
+    }
+
+    // Company access check: non-super_admin can only see their own company's tenders or open tenders
+    if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You do not have access to this tender' },
+        { status: 403 }
       );
     }
 
@@ -51,7 +59,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requireAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const { id } = await params;
@@ -60,6 +68,14 @@ export async function PUT(
       return NextResponse.json(
         { success: false, error: 'Tender not found' },
         { status: 404 }
+      );
+    }
+
+    // Company access check: non-super_admin can only update their own company's tenders
+    if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only update tenders from your own company' },
+        { status: 403 }
       );
     }
 

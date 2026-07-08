@@ -32,6 +32,14 @@ export async function POST(
       );
     }
 
+    // Company isolation: non-super_admin can only log payments in their own company's projects
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only log payments for your own company\'s projects' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { amount, paymentMethod, referenceNumber, notes, paymentDate } = body;
 
@@ -90,7 +98,6 @@ export async function GET(
 
     const project = await db.project.findUnique({
       where: { id: projectId },
-      include: { bid: { select: { userId: true } } },
     });
 
     if (!project) {
@@ -100,10 +107,10 @@ export async function GET(
       );
     }
 
-    // Standard users can only view payments for their own projects
-    if (user!.role === 'user' && project.bid.userId !== user!.id) {
+    // Company isolation: non-super_admin can only view payments in their own company's projects
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: You can only view payments for your own projects' },
+        { success: false, error: 'Forbidden: You do not have access to this project\'s payments' },
         { status: 403 }
       );
     }

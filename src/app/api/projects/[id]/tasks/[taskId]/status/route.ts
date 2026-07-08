@@ -19,7 +19,6 @@ export async function PATCH(
     // Check project and task exist
     const project = await db.project.findUnique({
       where: { id: projectId },
-      include: { bid: { select: { userId: true } } },
     });
 
     if (!project) {
@@ -37,12 +36,12 @@ export async function PATCH(
       );
     }
 
-    // Check access
-    const isProjectOwner = user!.role === 'user' && project.bid.userId === user!.id;
-    const isAdmin = user!.role === 'super_admin' || user!.role === 'team_admin';
-    if (!isAdmin && !isProjectOwner) {
+    // Company isolation: check company access
+    const isSuperAdmin = user!.role === 'super_admin';
+    const isCompanyMember = user!.companyId && project.companyId === user!.companyId;
+    if (!isSuperAdmin && !isCompanyMember) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: You cannot update tasks for this project' },
+        { success: false, error: 'Forbidden: You do not have access to this task' },
         { status: 403 }
       );
     }

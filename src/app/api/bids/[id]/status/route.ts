@@ -19,7 +19,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requireAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const { id } = await params;
@@ -32,6 +32,14 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: 'Bid not found' },
         { status: 404 }
+      );
+    }
+
+    // Company isolation: non-super_admin can only update bids on their own company's tenders
+    if (user!.role !== 'super_admin' && user!.companyId && bid.tender.companyId !== user!.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only update bids on your own company\'s tenders' },
+        { status: 403 }
       );
     }
 
@@ -63,13 +71,14 @@ export async function PATCH(
           data: { status, rejectionNote: rejectionNote || null },
         });
 
-        // Create Project
+        // Create Project with companyId from the tender
         const project = await tx.project.create({
           data: {
             tenderId: bid.tenderId,
             bidId: bid.id,
             status: 'active',
             contractValue: bid.financialProposal,
+            companyId: bid.tender.companyId || null,
           },
         });
 

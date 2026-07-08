@@ -44,18 +44,10 @@ export async function GET(
       );
     }
 
-    // Standard users can only see their own projects
-    if (user!.role === 'user' && project.bid.userId !== user!.id) {
+    // Company isolation: non-super_admin can only see projects from their own company
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: You can only view your own projects' },
-        { status: 403 }
-      );
-    }
-
-    // Team admins can only see projects for tenders they created
-    if (user!.role === 'team_admin' && project.tender.createdBy !== user!.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden: You can only view projects for tenders you created' },
+        { success: false, error: 'Forbidden: You do not have access to this project' },
         { status: 403 }
       );
     }
@@ -82,7 +74,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requireAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const { id } = await params;
@@ -91,6 +83,14 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: 'Project not found' },
         { status: 404 }
+      );
+    }
+
+    // Company isolation: non-super_admin can only update projects from their own company
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only update projects from your own company' },
+        { status: 403 }
       );
     }
 
