@@ -173,12 +173,17 @@ export async function POST(request: NextRequest) {
           }
         }
       } else if (user!.role === 'super_admin' || user!.role === 'team_admin') {
+        // Company isolation: team_admin only sees their own company's data
+        const companyFilter = user!.role === 'super_admin' ? {} : (user!.companyId ? { companyId: user!.companyId } : {});
+        const tenderCompanyFilter = user!.role === 'super_admin' ? {} : (user!.companyId ? { tender: { companyId: user!.companyId } } : {});
+        const docCompanyFilter = user!.role === 'super_admin' ? {} : (user!.companyId ? { companyId: user!.companyId } : {});
+
         const [userCount, pendingBids, pendingDocs, openTenders, activeProjects] = await Promise.all([
-          db.user.count(),
-          db.bid.count({ where: { status: 'pending_review' } }),
-          db.document.count({ where: { status: 'pending' } }),
+          db.user.count(user!.role !== 'super_admin' && user!.companyId ? { where: { companyId: user!.companyId } } : {}),
+          db.bid.count({ where: { status: 'pending_review', ...tenderCompanyFilter } }),
+          db.document.count({ where: { status: 'pending', ...docCompanyFilter } }),
           db.tender.count({ where: { status: 'open' } }),
-          db.project.count({ where: { status: 'active' } }),
+          db.project.count({ where: { status: 'active', ...companyFilter } }),
         ]);
         contextPrompt += `\n\n## Platform Stats (Live)`;
         contextPrompt += `\n- Total users: ${userCount}`;

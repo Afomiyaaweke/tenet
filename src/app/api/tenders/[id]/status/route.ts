@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requireAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const { id } = await params;
@@ -20,6 +20,14 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: 'Tender not found' },
         { status: 404 }
+      );
+    }
+
+    // Company isolation: non-super_admin can only update their own company's tenders
+    if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only update tenders from your own company' },
+        { status: 403 }
       );
     }
 

@@ -1,21 +1,41 @@
 ---
 Task ID: 1
-Agent: Main
-Task: Fix preview not working and remove placeholder content
+Agent: Main Agent
+Task: Company-scoped data isolation, Staff Management, Contact Us, Privacy Policy modules
 
 Work Log:
-- Investigated dev server stability - server gets OOM killed due to 4GB RAM limit
-- Fixed comment section toasts: replaced `useToast` (shadcn/ui) with `toast` from sonner
-- Fixed admin panel data mismatch: Profile[] vs User[] - now correctly accesses nested user.email and user.role
-- Fixed external tender stubs: added "Coming Soon" error messages for 6 unimplemented adapters
-- Updated live tenders UI to show "Coming Soon" badge for unavailable sources
-- Verified lint passes and code compiles
-- Both Next.js (port 3000) and chat service (port 3003) are running
-- Caddy gateway (port 81) correctly proxies to Next.js
-- Preview returns correct page: <title>Tenets - Tender Ecosystem</title>
+- Updated Prisma schema: added `companyId` to Tender, Project, Task models
+- Added `assigneeId` to Task for task assignment within company
+- Added relations: Company→tenders, Company→projects, Company→tasks, User→assignedTasks
+- Ran `db:push` to apply schema changes
+- Updated 22+ API routes for company-scoped data isolation:
+  - Tenders: company filter + open tenders visible to all
+  - Projects: filtered by user's companyId
+  - Tasks: filtered by user's companyId
+  - Bids: team_admin sees company bids, user sees own bids
+  - Bid Analysis: filtered by company's tenders
+  - AI routes: company access checks
+  - Agent route: company-isolated stats
+- Created Staff Management module:
+  - API: GET /api/staff (list company users), PATCH /api/staff/[id] (update role/status)
+  - Component: StaffView with stats cards, member table, role badges, search/filter, actions dropdown
+  - Added to sidebar for team_admin and super_admin
+- Created Contact Us module:
+  - Component: ContactUsView with form, FAQ accordion, contact info cards
+  - API: POST /api/contact (stores messages)
+  - Added to SUPPORT sidebar section for all roles
+- Created Privacy Policy module:
+  - Component: PrivacyPolicyView with 16 sections, sticky sidebar nav, PDF download
+  - API: GET /api/privacy-policy/pdf (serves Termly.pdf)
+  - Added to SUPPORT sidebar section for all roles
+- Fixed missing JWT_SECRET in .env file
+- Updated navigation: added Staff (TEAM/ADMIN), Contact Us (SUPPORT), Privacy Policy (SUPPORT)
+- Updated store: added 'staff', 'contact-us', 'privacy-policy' to View type
+- All lint checks pass, dev server compiles without errors
 
 Stage Summary:
-- Runtime bugs fixed: comment toasts, admin data access, external tender stubs
-- Preview works via Caddy gateway on port 81
-- Dev server may be killed by OOM in low-memory conditions; restarts needed
-- Production build available for lower memory usage
+- Company isolation fully implemented across all data models and API routes
+- Staff Management module complete with role management and search/filter
+- Contact Us page with form, FAQ, and contact info
+- Privacy Policy page with full content from Termly.pdf and PDF download
+- All new sidebar items properly integrated for all user roles

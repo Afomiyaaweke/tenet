@@ -32,6 +32,9 @@ model Company {
   users     User[]
   profiles  Profile[]
   documents Document[]
+  tenders   Tender[]
+  projects  Project[]
+  tasks     Task[]
 }
 
 // ==========================================
@@ -58,6 +61,7 @@ model User {
   conversationMemberships ConversationMember[]
   chatMessages ChatMessage[]
   messageReactions MessageReaction[]
+  assignedTasks Task[]
 }
 
 // ==========================================
@@ -123,12 +127,16 @@ model Tender {
   requiredDocs  String   @default("") // comma-separated doc types
   status        String   @default("open") // draft, open, closed, awarded, cancelled
   createdBy     String   // admin user id
+  companyId     String?  // company isolation: which company created this tender
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   bids          Bid[]
   project       Project?
   bidAnalysis   BidAnalysis[]
+  company       Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
 }
 
 // ==========================================
@@ -181,6 +189,7 @@ model Project {
   id          String   @id @default(cuid())
   tenderId    String   @unique
   bidId       String   @unique
+  companyId   String?  // company isolation: which company owns this project
   status      String   @default("active") // active, completed, on_hold, cancelled
   contractValue Float  // from bid financial proposal
   createdAt   DateTime @default(now())
@@ -188,10 +197,13 @@ model Project {
 
   tender    Tender    @relation(fields: [tenderId], references: [id])
   bid       Bid       @relation(fields: [bidId], references: [id])
+  company   Company?  @relation(fields: [companyId], references: [id])
   tasks     Task[]
   payments  Payment[]
   chat      Chat?
   milestones Milestone[]
+
+  @@index([companyId])
 }
 
 // ==========================================
@@ -201,15 +213,22 @@ model Project {
 model Task {
   id          String   @id @default(cuid())
   projectId   String
+  companyId   String?  // company isolation: inherited from project
   title       String
   description String?
   status      String   @default("todo") // todo, in_progress, done
+  assigneeId  String?  // user id of assigned team member
   dueDate     DateTime?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company  Company? @relation(fields: [companyId], references: [id])
+  assignee User?    @relation(fields: [assigneeId], references: [id])
+
+  @@index([companyId])
+  @@index([assigneeId])
 }
 
 // ==========================================

@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; milestoneId: string }> }
 ) {
   try {
-    const { error } = await requireAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const { id: projectId, milestoneId } = await params;
@@ -21,6 +21,14 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: 'Project not found' },
         { status: 404 }
+      );
+    }
+
+    // Company isolation: non-super_admin can only update milestones in their own company's projects
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only update milestones in your own company\'s projects' },
+        { status: 403 }
       );
     }
 

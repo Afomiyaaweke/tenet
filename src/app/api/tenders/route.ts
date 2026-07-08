@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
         requiredDocs: requiredDocs || '',
         status: status || 'open',
         createdBy: user!.id,
+        companyId: user!.companyId || null,
       },
     });
 
@@ -91,12 +92,30 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: Record<string, unknown> = {};
 
-    if (search) {
+    // Company isolation: non-super_admin users see their own company's tenders + open tenders from other companies
+    if (user!.role !== 'super_admin' && user!.companyId) {
       where.OR = [
+        { companyId: user!.companyId },
+        { status: 'open' },
+      ];
+    }
+
+    if (search) {
+      const searchConditions = [
         { title: { contains: search } },
         { scope: { contains: search } },
         { location: { contains: search } },
       ];
+      // If we already have an OR (from company filter), we need to combine with AND
+      if (where.OR) {
+        where.AND = where.OR.map((cond: Record<string, unknown>) => ({
+          ...cond,
+          OR: searchConditions,
+        }));
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
     }
 
     if (category) {

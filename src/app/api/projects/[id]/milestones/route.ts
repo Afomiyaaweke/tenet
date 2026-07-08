@@ -11,7 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requireAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const { id: projectId } = await params;
@@ -21,6 +21,14 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: 'Project not found' },
         { status: 404 }
+      );
+    }
+
+    // Company isolation: non-super_admin can only create milestones in their own company's projects
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only create milestones in your own company\'s projects' },
+        { status: 403 }
       );
     }
 
@@ -71,7 +79,6 @@ export async function GET(
 
     const project = await db.project.findUnique({
       where: { id: projectId },
-      include: { bid: { select: { userId: true } } },
     });
 
     if (!project) {
@@ -81,10 +88,10 @@ export async function GET(
       );
     }
 
-    // Standard user access check
-    if (user!.role === 'user' && project.bid.userId !== user!.id) {
+    // Company isolation: non-super_admin can only view milestones in their own company's projects
+    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: You can only view milestones for your own projects' },
+        { success: false, error: 'Forbidden: You do not have access to this project\'s milestones' },
         { status: 403 }
       );
     }
