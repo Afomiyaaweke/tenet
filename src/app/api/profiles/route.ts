@@ -90,7 +90,6 @@ export async function PUT(request: NextRequest) {
       licenseNumber,
       skillTags,
       bio,
-      companyId,
     } = body;
 
     // Verify profile exists
@@ -105,18 +104,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Validate companyId if being updated
-    if (companyId !== undefined && companyId !== null) {
-      const company = await db.company.findUnique({ where: { id: companyId } });
-      if (!company) {
-        return NextResponse.json(
-          { success: false, error: 'Company not found' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Build update data
+    // Build update data (companyId is NOT user-settable — prevents company reassignment attacks)
     const updateData: Record<string, unknown> = {};
     if (fullName !== undefined) updateData.fullName = fullName;
     if (jobTitle !== undefined) updateData.jobTitle = jobTitle || null;
@@ -127,7 +115,6 @@ export async function PUT(request: NextRequest) {
     if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber || null;
     if (skillTags !== undefined) updateData.skillTags = skillTags;
     if (bio !== undefined) updateData.bio = bio || null;
-    if (companyId !== undefined) updateData.companyId = companyId || null;
 
     const updatedProfile = await db.profile.update({
       where: { userId: user!.id },
@@ -137,14 +124,6 @@ export async function PUT(request: NextRequest) {
         company: { select: { id: true, name: true, industry: true, verified: true } },
       },
     });
-
-    // Also update user's companyId if profile companyId changed
-    if (companyId !== undefined && user!.companyId !== companyId) {
-      await db.user.update({
-        where: { id: user!.id },
-        data: { companyId: companyId || null },
-      });
-    }
 
     return NextResponse.json({
       success: true,
