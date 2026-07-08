@@ -17,14 +17,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate email format
+    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { success: false, error: 'Valid email is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate lengths to prevent abuse
+    if (typeof name !== 'string' || name.trim().length < 2 || name.length > 100) {
+      return NextResponse.json(
+        { success: false, error: 'Name must be between 2 and 100 characters' },
+        { status: 400 }
+      );
+    }
+    if (typeof message !== 'string' || message.trim().length < 10 || message.length > 5000) {
+      return NextResponse.json(
+        { success: false, error: 'Message must be between 10 and 5000 characters' },
+        { status: 400 }
+      );
+    }
+
     // Store as a comment/testimonial for now (can be migrated to a dedicated ContactMessage model later)
     const contactMessage = await db.comment.create({
       data: {
-        name,
-        email,
-        company: subject || 'Contact Form',
+        name: name.trim().slice(0, 100),
+        email: email.trim().slice(0, 200),
+        company: (subject || 'Contact Form').slice(0, 200),
         role: 'other',
-        content: message,
+        content: message.trim().slice(0, 5000),
         rating: 5,
         featured: false,
         approved: false, // Needs admin review before publishing

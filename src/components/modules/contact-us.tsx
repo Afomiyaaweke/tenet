@@ -55,8 +55,8 @@ const CONTACT_INFO = [
   {
     icon: Globe,
     label: 'Website',
-    value: 'preview-chat-a088b4be-1390-42d4-93af-93ceb3d81549.space-z.ai',
-    href: 'https://preview-chat-a088b4be-1390-42d4-93af-93ceb3d81549.space-z.ai',
+    value: 'tenet.app',
+    href: 'https://tenet.app',
     color: 'text-slate-600 dark:text-slate-400',
     bg: 'bg-slate-50 dark:bg-slate-900/40',
   },

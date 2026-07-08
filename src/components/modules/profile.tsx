@@ -24,6 +24,7 @@ import {
   Globe, MapPinned, Hash, ExternalLink, Plus, ChevronRight,
   Lock, Eye, PenTool, Settings, FileCheck, ClipboardList,
 } from 'lucide-react';
+import { StampSignatureManager } from '@/components/stamp-signature';
 // ==========================================
 // Constants
 // ==========================================
@@ -1063,6 +1064,18 @@ export function ProfileView() {
           </Card>
         </div>
       )}
+
+      {/* ==========================================
+          SIGNATURE & STAMP SECTION
+          ========================================== */}
+      <div className="animate-[fadeIn_0.3s_ease-out]">
+        <StampSignatureManager
+          showDraw={true}
+          showUpload={true}
+          showStampTemplates={true}
+          showGallery={true}
+        />
+      </div>
     </div>
   );
 }

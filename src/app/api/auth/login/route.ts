@@ -16,6 +16,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Input length validation to prevent abuse
+    if (typeof email !== 'string' || email.length > 200 || typeof password !== 'string' || password.length > 200) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid input' },
+        { status: 400 }
+      );
+    }
+
     // Find user by email with company relation
     const user = await db.user.findUnique({
       where: { email },

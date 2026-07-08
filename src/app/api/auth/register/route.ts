@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { generateToken, requireSuperAdmin } from '@/lib/auth';
+import { generateToken, requireTeamAdmin } from '@/lib/auth';
+
+// ── Input validation helpers ──
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_MIN_LENGTH = 8;
+
+function validatePassword(password: string): string | null {
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters long`;
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one uppercase letter';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one lowercase letter';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least one number';
+  }
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,13 +54,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate role - only allow "user" or "team_admin" for self-registration
+    // Validate email format
+    if (!EMAIL_REGEX.test(email)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+
+    // Validate password strength
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return NextResponse.json(
+        { success: false, error: passwordError },
+        { status: 400 }
+      );
+    }
+
+    // Validate role - self-registration only allows "user" role
+    // Admin roles require existing admin authorization
     let assignedRole = 'user';
     if (role) {
       if (role === 'super_admin') {
         // Only existing super_admins can create super_admin users
-        const adminCheck = await requireSuperAdmin(request);
+        const adminCheck = await requireTeamAdmin(request);
         if (adminCheck.error) {
+          return NextResponse.json(
+            { success: false, error: 'Forbidden: Only super admins can create super admin accounts' },
+            { status: 403 }
+          );
+        }
+        // Even team_admin cannot create super_admin, double-check
+        if (adminCheck.user!.role !== 'super_admin') {
           return NextResponse.json(
             { success: false, error: 'Forbidden: Only super admins can create super admin accounts' },
             { status: 403 }
@@ -48,12 +93,20 @@ export async function POST(request: NextRequest) {
         }
         assignedRole = 'super_admin';
       } else if (role === 'team_admin') {
+        // Only existing admins can create team_admin accounts
+        const adminCheck = await requireTeamAdmin(request);
+        if (adminCheck.error) {
+          return NextResponse.json(
+            { success: false, error: 'Forbidden: Only admins can create team admin accounts. Please register as a regular user.' },
+            { status: 403 }
+          );
+        }
         assignedRole = 'team_admin';
       } else if (role === 'user') {
         assignedRole = 'user';
       } else {
         return NextResponse.json(
-          { success: false, error: 'Invalid role. Allowed values: user, team_admin' },
+          { success: false, error: 'Invalid role. Allowed values: user, team_admin, super_admin' },
           { status: 400 }
         );
       }

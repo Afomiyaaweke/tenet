@@ -11,8 +11,9 @@ import {
   Gavel, Clock, DollarSign, FileSearch, Award, AlertCircle,
   CheckCircle, ChevronDown, ChevronUp, ArrowRight, TrendingUp,
   Briefcase, X, Eye, RotateCcw, Filter, Target,
-  CircleDot, Building2,
+  CircleDot, Building2, FileSignature, Stamp,
 } from 'lucide-react';
+import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 
 type BidTab = 'all' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected';
 
@@ -24,6 +25,10 @@ export function BidsView() {
   const [statusFilter, setStatusFilter] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BidTab>('all');
+  const [stampSelectorOpen, setStampSelectorOpen] = useState(false);
+  const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
+  const [bidSignatures, setBidSignatures] = useState<Record<string, SavedSignature>>({});
+  const stampSigHook = useStampSignature();
 
   const loadBids = useCallback(async () => {
     setLoading(true);
@@ -387,6 +392,15 @@ export function BidsView() {
                                   </>
                                 )}
 
+                                {/* Sign Bid - available to all */}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 transition-all"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedBidId(bid.id); setStampSelectorOpen(true); }}>
+                                  <FileSignature className="h-3.5 w-3.5 mr-1.5" /> {bidSignatures[bid.id] ? 'Signed' : 'Sign Bid'}
+                                </Button>
+
                                 {/* View Tender link */}
                                 {bid.tender && (
                                   <Button
@@ -409,7 +423,28 @@ export function BidsView() {
                                   </Button>
                                 )}
 
-                                {/* Status tracking for user */}
+                              {/* Applied Signature Preview */}
+                              {bidSignatures[bid.id] && (
+                                <div className="flex items-center gap-2 mt-2 p-2 bg-orange-50/50 border border-orange-100 rounded-xl">
+                                  <div className="w-10 h-8 bg-white rounded overflow-hidden p-0.5 flex-shrink-0">
+                                    <img src={bidSignatures[bid.id].dataUrl} alt="signature" className="max-w-full max-h-full object-contain" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-medium text-orange-700 truncate">{bidSignatures[bid.id].label}</p>
+                                    <p className="text-[9px] text-orange-500">Applied to bid</p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0 text-muted-foreground hover:text-rose-600 rounded"
+                                    onClick={(e) => { e.stopPropagation(); setBidSignatures(prev => { const next = { ...prev }; delete next[bid.id]; return next; }); }}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
+
+                              {/* Status tracking for user */}
                                 {user?.role === 'user' && (
                                   <div className="flex items-center gap-2 ml-auto">
                                     <div className="flex items-center gap-1.5">
@@ -443,6 +478,22 @@ export function BidsView() {
             })}
 </div>
       )}
+
+      {/* Stamp & Signature Selector Dialog */}
+      <StampSignatureSelector
+        hook={stampSigHook}
+        open={stampSelectorOpen}
+        onClose={() => { setStampSelectorOpen(false); setSelectedBidId(null); }}
+        onSelect={(item) => {
+          if (selectedBidId) {
+            setBidSignatures(prev => ({ ...prev, [selectedBidId]: item }));
+            toast.success(`${item.label} applied to bid`);
+          }
+          setStampSelectorOpen(false);
+          setSelectedBidId(null);
+        }}
+        title="Select Signature for Bid"
+      />
     </div>
   );
 }

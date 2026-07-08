@@ -38,6 +38,7 @@ import {
   Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
   Award, Zap, AlertTriangle, CheckCircle2, XCircle,
 } from 'lucide-react';
+import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
 /* ══════════════════════════════════════════════════════════════
    TYPES
    ══════════════════════════════════════════════════════════════ */
@@ -57,12 +58,7 @@ interface TenderOption {
   _count?: { bids: number };
 }
 
-interface SavedSignature {
-  id: string;
-  dataUrl: string;
-  label: string;
-  type: 'signature' | 'stamp';
-}
+// SavedSignature type is imported from shared stamp-signature component
 
 /* ══════════════════════════════════════════════════════════════
    CONSTANTS
@@ -96,29 +92,13 @@ const AI_TOOLS: { id: AITool; label: string; icon: React.ElementType }[] = [
   { id: 'applicant-analyzer', label: 'Applicant Rank', icon: Users },
 ];
 
-const STAMP_TEMPLATES = [
-  { text: 'APPROVED', label: 'Approved' },
-  { text: 'VERIFIED', label: 'Verified' },
-  { text: 'CONFIDENTIAL', label: 'Confidential' },
-];
+// STAMP_TEMPLATES imported from shared stamp-signature component
 
 /* ══════════════════════════════════════════════════════════════
    HELPERS
    ══════════════════════════════════════════════════════════════ */
 
-function generateSeal(text: string, date: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-    <circle cx="60" cy="60" r="55" fill="none" stroke="#dc2626" stroke-width="3"/>
-    <circle cx="60" cy="60" r="48" fill="none" stroke="#dc2626" stroke-width="1.5"/>
-    <path id="topArc" d="M 15,60 A 45,45 0 0,1 105,60" fill="none"/>
-    <text font-size="10" fill="#dc2626" font-weight="bold" letter-spacing="3">
-      <textPath href="#topArc" startOffset="50%" text-anchor="middle">${text}</textPath>
-    </text>
-    <text x="60" y="68" text-anchor="middle" font-size="9" fill="#dc2626">${date}</text>
-    <text x="60" y="80" text-anchor="middle" font-size="7" fill="#dc2626">TENETS</text>
-  </svg>`;
-  return 'data:image/svg+xml;base64,' + btoa(svg);
-}
+// generateSeal is now handled by useStampSignature hook's generateStamp method
 
 function formatAIResultToHTML(data: Record<string, unknown>): string {
   let html = '';
@@ -141,18 +121,7 @@ function formatAIResultToHTML(data: Record<string, unknown>): string {
   return html;
 }
 
-function loadSignatures(): SavedSignature[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem('tenets_signatures');
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function saveSignaturesToStorage(sigs: SavedSignature[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('tenets_signatures', JSON.stringify(sigs));
-}
+// Signature loading/saving is now handled by useStampSignature hook
 
 /* ══════════════════════════════════════════════════════════════
    SKILL TAG SELECTOR
@@ -200,10 +169,11 @@ export function AIDocStudio() {
   const [activeAITool, setActiveAITool] = useState<AITool>('tender-builder');
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Sign panel
+  // Sign panel - use shared hook
+  const stampSigHook = useStampSignature();
+  const { savedItems: savedSignatures, addSignature, removeItem: deleteSignature, uploadFromFile, generateStamp } = stampSigHook;
   const [drawDialogOpen, setDrawDialogOpen] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>(loadSignatures());
   const [placementMode, setPlacementMode] = useState(false);
   const [placementDataUrl, setPlacementDataUrl] = useState('');
 
@@ -346,15 +316,8 @@ export function AIDocStudio() {
   const saveDrawnSignature = () => {
     const dataUrl = canvasRef.current?.toDataURL('image/png');
     if (dataUrl) {
-      const newSig: SavedSignature = {
-        id: Date.now().toString(),
-        dataUrl,
-        label: `Signature ${savedSignatures.filter(s => s.type === 'signature').length + 1}`,
-        type: 'signature',
-      };
-      const updated = [...savedSignatures, newSig];
-      setSavedSignatures(updated);
-      saveSignaturesToStorage(updated);
+      const sigCount = savedSignatures.filter(s => s.type === 'signature').length + 1;
+      addSignature(dataUrl, `Signature ${sigCount}`, 'signature');
       toast.success('Signature saved');
       setDrawDialogOpen(false);
       clearCanvas();
@@ -362,43 +325,12 @@ export function AIDocStudio() {
   };
 
   const uploadSignature = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        const newSig: SavedSignature = {
-          id: Date.now().toString(),
-          dataUrl,
-          label: `Uploaded Sig ${savedSignatures.filter(s => s.type === 'signature').length + 1}`,
-          type: 'signature',
-        };
-        const updated = [...savedSignatures, newSig];
-        setSavedSignatures(updated);
-        saveSignaturesToStorage(updated);
-        toast.success('Signature uploaded');
-      };
-      reader.readAsDataURL(file);
-    };
-    input.click();
+    uploadFromFile('signature');
   };
 
   const addStamp = (text: string) => {
-    const dateStr = new Date().toLocaleDateString();
-    const dataUrl = generateSeal(text, dateStr);
-    const newSig: SavedSignature = {
-      id: Date.now().toString(),
-      dataUrl,
-      label: `${text} Stamp`,
-      type: 'stamp',
-    };
-    const updated = [...savedSignatures, newSig];
-    setSavedSignatures(updated);
-    saveSignaturesToStorage(updated);
+    const dataUrl = generateStamp(text);
+    addSignature(dataUrl, `${text} Stamp`, 'stamp');
     toast.success(`${text} stamp created`);
   };
 
@@ -441,12 +373,7 @@ export function AIDocStudio() {
     updateCounts();
   };
 
-  const deleteSignature = (id: string) => {
-    const updated = savedSignatures.filter(s => s.id !== id);
-    setSavedSignatures(updated);
-    saveSignaturesToStorage(updated);
-    toast.success('Signature/stamp removed');
-  };
+  // deleteSignature is now provided by useStampSignature hook as removeItem
 
   /* ── AI Generation ── */
   const setDocumentContent = (html: string) => {
@@ -1063,7 +990,7 @@ export function AIDocStudio() {
               {/* Document Header */}
               <div className="border-b-2 border-emerald-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
                 <div className="text-center">
-                  <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">Tenets Tender Ecosystem</p>
+                  <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">Tenet Tender Ecosystem</p>
                   <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
                 </div>
               </div>
