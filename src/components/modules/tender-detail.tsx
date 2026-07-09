@@ -21,9 +21,10 @@ import {
   ListChecks, FileStack, CircleCheck, Target, Ban, GitCompareArrows,
   Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion,
   TrendingDown, Loader2, BrainCircuit, AlertTriangle, Lightbulb,
-  FileCheck, Wallet, Clock3, ClipboardCheck, Stamp, FileSignature,
+  FileCheck, Wallet, Clock3, ClipboardCheck, Stamp, FileSignature, Languages,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
+import { InlineTranslator, TranslatorPanel } from '@/components/translator';
 
 type DetailTab = 'overview' | 'bids' | 'documents' | 'ai-overview' | 'analysis';
 
@@ -77,7 +78,7 @@ function RiskBadge({ level }: { level: 'low' | 'medium' | 'high' }) {
   );
 }
 
-export function TenderDetailView({ tenderId }: { tenderId?: string }) {
+export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; initialTab?: DetailTab }) {
   const { user } = useAuthStore();
   const { setView } = useNavStore();
   const [tender, setTender] = useState<Tender | null>(null);
@@ -88,7 +89,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
     technicalProposal: '', financialProposal: '', timeline: '',
   });
   const [hasBid, setHasBid] = useState(false);
-  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [activeTab, setActiveTab] = useState<DetailTab>(initialTab && initialTab !== 'overview' ? initialTab : 'overview');
   const [stampSelectorOpen, setStampSelectorOpen] = useState(false);
   const [appliedStamps, setAppliedStamps] = useState<SavedSignature[]>([]);
   const stampSigHook = useStampSignature();
@@ -491,6 +492,13 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                     <CheckCircle className="h-4 w-4 mr-1.5" /> Bid Submitted
                   </Badge>
                 )}
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-all"
+                  onClick={() => setActiveTab('ai-overview')}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" /> Review with AI
+                </Button>
                 {(user?.role === 'super_admin' || (user?.role === 'team_admin' && tender.createdBy === user.id)) && (
                   <div className="flex lg:flex-col gap-2">
                     {tender.status === 'open' && (
@@ -569,6 +577,7 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
               </CardHeader>
               <CardContent>
                 <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm bg-muted/30 rounded-xl p-4 leading-relaxed">{tender.scope}</div>
+                <InlineTranslator text={tender.scope} className="mt-3" />
               </CardContent>
             </Card>
 
@@ -1104,9 +1113,17 @@ export function TenderDetailView({ tenderId }: { tenderId?: string }) {
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-xl p-4">{aiOverview.summary}</p>
+                      <InlineTranslator text={String(aiOverview.summary || '')} className="mt-3" />
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Translate entire AI Overview */}
+                <TranslatorPanel
+                  text={JSON.stringify(aiOverview, null, 2)}
+                  title="Translate AI Overview"
+                  className="rounded-xl"
+                />
 
                 {/* Key Requirements & Eligibility Check - side by side */}
                 <div className="grid md:grid-cols-2 gap-4">

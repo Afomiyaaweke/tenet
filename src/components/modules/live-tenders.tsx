@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { api, LiveTender, DataSource } from '@/lib/api';
+import { useNavStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,8 +16,9 @@ import {
   Database, ServerCrash, Sparkles, ArrowUpRight,
   ChevronDown, ChevronUp, BookOpen, Download, Copy,
   Loader2, Clock, Landmark, Plane, Flag, Cpu,
-  CheckCircle2, ExternalLink, TrendingUp,
+  CheckCircle2, ExternalLink, TrendingUp, ChevronRight, Languages,
 } from 'lucide-react';
+import { InlineTranslator } from '@/components/translator';
 
 /* ─────────────────────────────────────────────────────────────────────
  * Constants
@@ -329,6 +331,10 @@ export function LiveTendersView() {
   const [sectorFilter, setSectorFilter] = useState('');
   const [sectorCounts, setSectorCounts] = useState<{ id: string; label: string; count: number }[]>([]);
 
+  // Pagination state
+  const [visibleCount, setVisibleCount] = useState(20);
+  const PAGE_SIZE = 20;
+
   // Inline document state
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [docLoading, setDocLoading] = useState<string | null>(null);
@@ -342,7 +348,7 @@ export function LiveTendersView() {
     async (isRefresh = false) => {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
-      const params: Record<string, string> = { rows: '50' };
+      const params: Record<string, string> = { rows: '500' };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
       if (sectorFilter) params.sector = sectorFilter;
@@ -689,10 +695,8 @@ export function LiveTendersView() {
             </CardContent>
           </Card>
         ) : (
-          <div
- className="space-y-3 animate-[fadeIn_0.3s_ease-out]"
- >
-            {tenders.map((t) => {
+          <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+            {tenders.slice(0, visibleCount).map((t) => {
                 const accent = SOURCE_ACCENT[t.source] || SOURCE_ACCENT.default;
                 const days = daysUntil(t.deadline);
                 const isExpanded = expandedId === t.id;
@@ -820,6 +824,17 @@ export function LiveTendersView() {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                className="gap-1.5 text-xs h-7 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                                onClick={() => {
+                                  useNavStore.getState().setView('tender-detail', { id: t.id, tab: 'ai-overview' });
+                                }}
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                Review with AI
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="gap-1.5 text-xs h-7 text-primary"
                                 onClick={() => importTender(t)}
                                 disabled={importing === t.id}
@@ -878,14 +893,35 @@ export function LiveTendersView() {
                                   onClose={() => setExpandedId(null)}
                                 />
                               )}
+                              {/* Translator for document content */}
+                              {(doc?.content || t.scope) && !isLoadingDoc && (
+                                <div className="border-t border-border px-4 py-2.5">
+                                  <InlineTranslator text={doc?.content || t.scope} />
+                                </div>
+                              )}
                             </>
                           )}
-</CardContent>
-                    </Card>
+                    </CardContent>
+                  </Card>
                   </div>
                 );
               })}
-</div>
+            </div>
+        )}
+
+        {/* See More button */}
+        {tenders.length > visibleCount && (
+          <div className="flex justify-center pt-4 pb-2">
+            <Button
+              variant="outline"
+              size="lg"
+              className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              onClick={() => setVisibleCount(prev => Math.min(prev + PAGE_SIZE, tenders.length))}
+            >
+              <ChevronDown className="h-4 w-4" />
+              See More ({tenders.length - visibleCount} remaining)
+            </Button>
+          </div>
         )}
 
         {/* ───────────────── Data Sources panel ───────────────── */}

@@ -129,3 +129,35 @@ Stage Summary:
 - JWT_SECRET restored in .env
 - All lint checks pass clean
 
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Add See More pagination, language translator, global live tenders, Review with AI button
+
+Work Log:
+- Created shared Translator component (/src/components/translator.tsx) with InlineTranslator and TranslatorPanel
+- Created translation API route (/src/app/api/ai/translate/route.ts) using ZAI SDK LLM
+- Added "See More" pagination buttons to Live Tenders, Tenders, and Bids lists (20-item pages)
+- Added "Review with AI" button on tender cards in Live Tenders, Tenders, and Bids views
+- Added "Review with AI" button prominently in tender detail action area
+- Added initialTab prop to TenderDetailView for AI Overview tab auto-navigation
+- Added InlineTranslator to: tender detail scope, AI overview summary, bid technical proposals
+- Added TranslatorPanel to: AI overview full translation, document items
+- Added InlineTranslator to: live tender expanded document viewer, AI Doc Studio generated documents
+- Added translate button to documents module with toggle inline translator
+- Expanded live tenders API row limit from 50 to 500 for more global data
+- Updated World Bank adapter row limit from 50 to 500
+- Updated Contact Us with proper Tenet info (phone, email, address, business hours, FAQ expansion)
+- Fixed pre-existing JSX parsing errors in bids.tsx, tenders.tsx, live-tenders.tsx (extra closing divs, malformed indentation)
+- Fixed @typescript-eslint/no-require-imports in live-tenders.tsx
+- Lint passes clean
+
+Stage Summary:
+- See More buttons on all 3 list views (Live Tenders, Tenders, Bids)
+- Language translator supporting 20 languages (Amharic, Afaan Oromoo, Tigrinya, Somali, Arabic, etc.)
+- Translator integrated into: documents, AI overview, tender scope, bid proposals, AI Doc Studio
+- Review with AI button on tender cards and bid detail views
+- Live tenders API expanded to fetch up to 500 records per source
+- Contact Us updated with proper business information
+- All lint errors fixed, server compiles and runs

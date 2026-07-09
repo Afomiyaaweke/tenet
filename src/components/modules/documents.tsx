@@ -12,9 +12,10 @@ import {
   FileText, Upload, CheckCircle2, Clock, XCircle, Shield,
   Briefcase, Receipt, FolderOpen, Award, File, ArrowRight,
   Search, Filter, CloudUpload, FileUp, Trash2, Eye,
-  Stamp, FileSignature, X,
+  Stamp, FileSignature, X, Languages,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
+import { InlineTranslator } from '@/components/translator';
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -43,6 +44,7 @@ export function DocumentsView() {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [docStamps, setDocStamps] = useState<Record<string, SavedSignature[]>>({});
   const stampSigHook = useStampSignature();
+  const [translateDocId, setTranslateDocId] = useState<string | null>(null);
 
   const loadDocs = useCallback(async () => {
     setLoading(true);
@@ -429,6 +431,14 @@ export function DocumentsView() {
                         >
                           <Stamp className="h-3 w-3 mr-1" /> Sign & Stamp
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
+                          onClick={(e) => { e.stopPropagation(); setTranslateDocId(translateDocId === doc.id ? null : doc.id); }}
+                        >
+                          <Languages className="h-3 w-3 mr-1" /> {translateDocId === doc.id ? 'Hide' : 'Translate'}
+                        </Button>
                         <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${statusBadge(doc.status)} flex-shrink-0`}>{doc.status}</Badge>
                       </div>
                     </div>
@@ -452,6 +462,12 @@ export function DocumentsView() {
                             </button>
                           </div>
                         ))}
+                      </div>
+                    )}
+                    {/* Inline translator for this document */}
+                    {translateDocId === doc.id && (
+                      <div className="ml-11 mt-2">
+                        <InlineTranslator text={`Document: ${doc.fileName}\nType: ${doc.docType}\nStatus: ${doc.status}${doc.reviewNotes ? '\nReview: ' + doc.reviewNotes : ''}`} />
                       </div>
                     )}
                     </div>

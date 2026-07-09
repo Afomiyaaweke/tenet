@@ -16,8 +16,9 @@ import {
   FileSearch, Plus, Search, MapPin, Calendar, DollarSign,
   Clock, ArrowRight, TrendingUp, ChevronRight, Zap, Timer,
   Users, Building2, Target, GitCompareArrows, CheckCircle, X as XIcon,
-  ClipboardList,
+  ClipboardList, ChevronDown, Sparkles,
 } from 'lucide-react';
+import { InlineTranslator } from '@/components/translator';
 
 const CATEGORIES = ['Construction', 'IT', 'Supply', 'Consulting', 'Engineering', 'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications'];
 
@@ -57,6 +58,8 @@ export function TendersView() {
   });
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
+  const [visibleCount, setVisibleCount] = useState(12);
+  const TENDER_PAGE_SIZE = 12;
 
   const loadTenders = useCallback(async () => {
     setLoading(true);
@@ -359,10 +362,8 @@ export function TendersView() {
           </Card>
         </div>
       ) : (
-        <div
- className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 animate-[fadeIn_0.3s_ease-out]"
- >
-          {tenders.map(tender => {
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 animate-[fadeIn_0.3s_ease-out]">
+          {tenders.slice(0, visibleCount).map(tender => {
               const days = daysUntil(tender.deadline);
               const dlColor = deadlineColor(days);
               const dlBg = deadlineBg(days);
@@ -503,8 +504,17 @@ export function TendersView() {
                         </div>
                       )}
 
-                      {/* View indicator */}
-                      <div className="flex items-center justify-end pt-1">
+                      {/* View indicator + Review with AI */}
+                      <div className="flex items-center justify-between pt-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
+                          onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Review with AI
+                        </Button>
                         <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                           View Details <ChevronRight className="h-3 w-3" />
                         </span>
@@ -514,7 +524,22 @@ export function TendersView() {
                 </div>
               );
             })}
-</div>
+          </div>
+      )}
+
+      {/* See More / Load More tenders */}
+      {!loading && tenders.length > visibleCount && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            size="lg"
+            className="gap-2 rounded-xl border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+            onClick={() => setVisibleCount(prev => Math.min(prev + TENDER_PAGE_SIZE, tenders.length))}
+          >
+            <ChevronDown className="h-4 w-4" />
+            See More ({tenders.length - visibleCount} remaining)
+          </Button>
+        </div>
       )}
 
       {/* Floating Compare Bar */}
