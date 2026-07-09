@@ -192,3 +192,46 @@ Stage Summary:
 - Forgot password flow fixed: always shows "Check Your Email" confirmation, properly handles non-existent emails
 - No confusing toast messages or silent failures
 - Browser-verified working correctly
+
+## Task 2-a: Remove super_admin from API Routes — $(date -u +"%a %b %d %H:%M:%S UTC %Y")
+
+**Status:** ✅ Completed
+
+### Summary
+Removed ALL references to `super_admin` from 20 API route files under `/src/app/api/`. The `super_admin` role no longer exists — only `team_admin` and `user` roles remain.
+
+### Files Modified (20 files):
+
+1. **`projects/[id]/milestones/route.ts`** — 2 company isolation checks: `super_admin` → `team_admin`
+2. **`projects/[id]/payments/route.ts`** — Permission check (`super_admin && team_admin` → `team_admin` only) + 2 company isolation checks: `super_admin` → `team_admin`
+3. **`projects/[id]/route.ts`** — 2 company isolation checks: `super_admin` → `team_admin`
+4. **`projects/[id]/tasks/[taskId]/status/route.ts`** — `isSuperAdmin` → `isTeamAdmin`, checking `team_admin` role
+5. **`projects/[id]/tasks/[taskId]/route.ts`** — `isSuperAdmin` → `isTeamAdmin`, checking `team_admin` role
+6. **`projects/[id]/tasks/route.ts`** — 2 company isolation checks: `super_admin` → `team_admin`
+7. **`projects/route.ts`** — Data filter: `super_admin` → `team_admin` (team_admin sees their company, not all)
+8. **`documents/route.ts`** — Permission check: `super_admin || team_admin` → `team_admin`; GET handler: super_admin saw ALL docs → team_admin now sees company-scoped docs
+9. **`ai/analyze-requirements/route.ts`** — Company isolation: `super_admin` → `team_admin`
+10. **`ai/analyze-applicants/route.ts`** — Company isolation: `super_admin` → `team_admin`
+11. **`ai/bid-prep/route.ts`** — Company isolation: `super_admin` → `team_admin`
+12. **`tenders/export/route.ts`** — Removed `super_admin` branch that exported ALL tenders; team_admin now always gets company-filtered data
+13. **`tenders/[id]/status/route.ts`** — Company isolation: `super_admin` → `team_admin`
+14. **`tenders/[id]/route.ts`** — 2 company access checks: `super_admin` → `team_admin`
+15. **`tenders/[id]/share/route.ts`** — Company isolation: `super_admin` → `team_admin`
+16. **`tenders/[id]/overview-ai/route.ts`** — Company isolation: `super_admin` → `team_admin`
+17. **`tenders/route.ts`** — Data filter: `super_admin` → `team_admin` (team_admin sees own company + open tenders)
+18. **`bid-analysis/route.ts`** — GET: removed super_admin bypass (all users now get company filter); POST: permission check now company-based only
+19. **`agent/route.ts`** — Critical: removed `super_admin` global access. team_admin now always gets company-scoped data (companyFilter, tenderCompanyFilter, docCompanyFilter). System prompt updated: `super_admin/team_admin` → `team_admin` with "Full access within company"
+20. **`bids/[id]/status/route.ts`** — Company isolation: `super_admin` → `team_admin`
+21. **`bids/[id]/route.ts`** — Removed `super_admin` branch (saw all bids) → team_admin now sees company-scoped bids
+22. **`bids/route.ts`** — Removed `super_admin` branch (saw all bids) → team_admin now sees company-scoped bids
+
+### Key Transformation Patterns:
+- **Company isolation checks**: `user!.role !== 'super_admin' && ...` → `user!.role !== 'team_admin' && ...`
+- **Permission checks**: `user!.role !== 'super_admin' && user!.role !== 'team_admin'` → `user!.role !== 'team_admin'`
+- **Access grants**: `user!.role === 'super_admin' || user!.role === 'team_admin'` → `user!.role === 'team_admin'`
+- **Data filters (global access)**: `user!.role === 'super_admin' ? {} : ...` → `(user!.companyId ? { companyId: user!.companyId } : {})` — NO ONE gets global access anymore
+- **Variable renames**: `isSuperAdmin` → `isTeamAdmin`
+- **Comments**: All `super_admin` references in comments updated to `team_admin`
+
+### Lint: PASS (0 errors in API routes; pre-existing auth-gate.tsx parsing error unrelated to this task)
+### Zero `super_admin` or `isSuperAdmin` references remain in `/src/app/api/`

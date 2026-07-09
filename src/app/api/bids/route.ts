@@ -100,9 +100,7 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {};
 
     // Company-based bid visibility
-    if (user!.role === 'super_admin') {
-      // Super admin sees all bids (no filter)
-    } else if (user!.role === 'team_admin' && user!.companyId) {
+    if (user!.role === 'team_admin' && user!.companyId) {
       // Team admin sees bids on their company's tenders
       where.tender = { companyId: user!.companyId };
     } else {

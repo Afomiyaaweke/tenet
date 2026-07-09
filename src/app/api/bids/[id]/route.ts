@@ -32,9 +32,7 @@ export async function GET(
     }
 
     // Non-admin users can only see their own bids; team_admin can see bids on their company's tenders
-    if (user!.role === 'super_admin') {
-      // Super admin can see all bids
-    } else if (user!.role === 'team_admin' && user!.companyId) {
+    if (user!.role === 'team_admin' && user!.companyId) {
       // Team admin can see bids on their company's tenders
       if (bid.tender.companyId !== user!.companyId) {
         return NextResponse.json(

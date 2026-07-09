@@ -88,7 +88,7 @@ export function BidsView() {
     }
   };
 
-  const isAdminOrOwner = user?.role === 'super_admin' || user?.role === 'team_admin';
+  const isAdminOrOwner = user?.role === 'team_admin';
 
   const tabs: { key: BidTab; label: string; icon: typeof Clock; count: number; color: string }[] = [
     { key: 'all', label: 'All', icon: Gavel, count: stats.total, color: 'emerald' },

@@ -37,9 +37,9 @@ export async function PUT(
     }
 
     // Company isolation: check company access
-    const isSuperAdmin = user!.role === 'super_admin';
+    const isTeamAdmin = user!.role === 'team_admin';
     const isCompanyMember = user!.companyId && project.companyId === user!.companyId;
-    if (!isSuperAdmin && !isCompanyMember) {
+    if (!isTeamAdmin && !isCompanyMember) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You do not have access to this task' },
         { status: 403 }

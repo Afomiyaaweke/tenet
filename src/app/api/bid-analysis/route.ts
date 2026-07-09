@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Company isolation: filter analyses by company's tenders
-    if (user!.role !== 'super_admin' && user!.companyId) {
+    if (user!.companyId) {
       where.tender = { companyId: user!.companyId };
     }
 
@@ -135,10 +135,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Permission check: only the tender creator's company members or super_admin can trigger bid analysis
-    if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId) {
+    // Permission check: only the tender creator's company members can trigger bid analysis
+    if (user!.companyId && tender.companyId !== user!.companyId) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Only members of the tender company or super admin can analyze bids' },
+        { success: false, error: 'Forbidden: Only members of the tender company can analyze bids' },
         { status: 403 }
       );
     }

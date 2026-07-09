@@ -60,7 +60,7 @@ interface StaffProfile {
 interface StaffMember {
   id: string;
   email: string;
-  role: 'super_admin' | 'team_admin' | 'user';
+  role: 'team_admin' | 'user';
   status: string;
   emailVerified: boolean;
   createdAt: string;
@@ -87,10 +87,6 @@ function formatDate(dateStr: string): string {
 }
 
 const ROLE_BADGE: Record<string, { label: string; className: string }> = {
-  super_admin: {
-    label: 'Super Admin',
-    className: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400 border-orange-200 dark:border-orange-800',
-  },
   team_admin: {
     label: 'Team Admin',
     className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
@@ -168,8 +164,7 @@ export function StaffView() {
   }>({ open: false, title: '', description: '', onConfirm: () => {} });
 
   const currentRole = currentUser?.role || 'user';
-  const isSuperAdmin = currentRole === 'super_admin';
-  const isTeamAdmin = currentRole === 'team_admin';
+  const isAdmin = currentRole === 'team_admin';
 
   // ── Fetch staff ──
   const fetchStaff = useCallback(async () => {
@@ -199,7 +194,7 @@ export function StaffView() {
   // ── Stats ──
   const stats = useMemo(() => {
     const total = staff.length;
-    const admins = staff.filter((s) => s.role === 'team_admin' || s.role === 'super_admin').length;
+    const admins = staff.filter((s) => s.role === 'team_admin').length;
     const active = staff.filter((s) => s.status === 'active').length;
     const pendingVerification = staff.filter((s) => s.profile && !s.profile.verified).length;
     return { total, admins, active, pendingVerification };
@@ -265,12 +260,7 @@ export function StaffView() {
   const getRoleOptions = (targetUser: StaffMember) => {
     const options: { value: string; label: string; icon: React.ElementType }[] = [];
 
-    if (isSuperAdmin) {
-      // super_admin can assign any role
-      options.push({ value: 'super_admin', label: 'Super Admin', icon: ShieldCheck });
-    }
-
-    // Both team_admin and super_admin can assign these
+    // team_admin can assign team_admin and user roles
     if (targetUser.role !== 'team_admin') {
       options.push({ value: 'team_admin', label: 'Team Admin', icon: Shield });
     }
@@ -352,7 +342,6 @@ export function StaffView() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="super_admin">Super Admin</SelectItem>
                 <SelectItem value="team_admin">Team Admin</SelectItem>
                 <SelectItem value="user">User</SelectItem>
               </SelectContent>
@@ -413,8 +402,8 @@ export function StaffView() {
                 <TableBody>
                   {staff.map((member) => {
                     const isSelf = member.id === currentUser?.id;
-                    const isTargetSuperAdmin = member.role === 'super_admin';
-                    const canManage = !isSelf && (isSuperAdmin || (isTeamAdmin && !isTargetSuperAdmin));
+                    const isTargetTeamAdmin = member.role === 'team_admin';
+                    const canManage = !isSelf && isAdmin;
                     const roleBadge = ROLE_BADGE[member.role] || ROLE_BADGE.user;
                     const statusBadge = STATUS_BADGE[member.status] || STATUS_BADGE.active;
                     const memberName = member.profile?.fullName || member.email;
@@ -523,7 +512,7 @@ export function StaffView() {
                                     }
                                     className="gap-2 text-sm"
                                   >
-                                    {opt.value === 'super_admin' || opt.value === 'team_admin' ? (
+                                    {opt.value === 'team_admin' ? (
                                       <ArrowUpRight className="h-3.5 w-3.5 text-orange-500" />
                                     ) : (
                                       <ArrowDownRight className="h-3.5 w-3.5 text-muted-foreground" />

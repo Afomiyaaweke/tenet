@@ -35,8 +35,8 @@ export async function PATCH(
       );
     }
 
-    // Company isolation: non-super_admin can only update bids on their own company's tenders
-    if (user!.role !== 'super_admin' && user!.companyId && bid.tender.companyId !== user!.companyId) {
+    // Company isolation: non-team_admin can only update bids on their own company's tenders
+    if (user!.role !== 'team_admin' && user!.companyId && bid.tender.companyId !== user!.companyId) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only update bids on your own company\'s tenders' },
         { status: 403 }

@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Company isolation: only the tender owner's company or super_admin can analyze applicants
-    if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId) {
+    // Company isolation: only the tender owner's company or team_admin can analyze applicants
+    if (user!.role !== 'team_admin' && user!.companyId && tender.companyId !== user!.companyId) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only analyze applicants for your own company\'s tenders' },
         { status: 403 }

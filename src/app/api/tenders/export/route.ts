@@ -24,14 +24,8 @@ export async function GET(request: NextRequest) {
       where.categoryTags = { contains: category };
     }
 
-    // Team admins/super admins can only export their own tenders
-    // Company isolation: non-super_admin users filter by their company
-    if (user!.role === 'super_admin') {
-      // Super admin can export all tenders, or filter by ownerOnly
-      if (ownerOnly) {
-        where.createdBy = user!.id;
-      }
-    } else if (user!.role === 'team_admin' && user!.companyId) {
+    // Company isolation: filter by user's company
+    if (user!.role === 'team_admin' && user!.companyId) {
       if (ownerOnly) {
         where.createdBy = user!.id;
       } else {

@@ -92,8 +92,8 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: Record<string, unknown> = {};
 
-    // Company isolation: non-super_admin users see their own company's tenders + open tenders from other companies
-    if (user!.role !== 'super_admin' && user!.companyId) {
+    // Company isolation: non-team_admin users see their own company's tenders + open tenders from other companies
+    if (user!.role !== 'team_admin' && user!.companyId) {
       where.OR = [
         { companyId: user!.companyId },
         { status: 'open' },

@@ -108,9 +108,9 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
   const [aiOverview, setAiOverview] = useState<any>(null);
   const [aiOverviewLoading, setAiOverviewLoading] = useState(false);
 
-  const isAdminOrCreator = user?.role === 'super_admin' || (user?.role === 'team_admin' && tender?.createdBy === user.id);
-  const isCreatorOrSuperAdmin = user?.role === 'super_admin' || tender?.createdBy === user?.id;
-  const isApplicant = !isCreatorOrSuperAdmin;
+  const isAdminOrCreator = user?.role === 'team_admin' && tender?.createdBy === user.id;
+  const isCreatorOrAdmin = tender?.createdBy === user?.id || (user?.role === 'team_admin' && tender?.createdBy === user.id);
+  const isApplicant = !isCreatorOrAdmin;
 
   const loadTender = useCallback(async () => {
     setLoading(true);
@@ -499,7 +499,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                 >
                   <Sparkles className="h-4 w-4 mr-2" /> Review with AI
                 </Button>
-                {(user?.role === 'super_admin' || (user?.role === 'team_admin' && tender.createdBy === user.id)) && (
+                {(user?.role === 'team_admin' && tender.createdBy === user.id) && (
                   <div className="flex lg:flex-col gap-2">
                     {tender.status === 'open' && (
                       <Button variant="outline" size="sm" onClick={() => handleStatusChange('closed')}
@@ -857,7 +857,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
               </div>
             )}
 
-            {(user?.role === 'super_admin' || user?.role === 'team_admin') && bids.length > 0 ? (
+            {user?.role === 'team_admin' && bids.length > 0 ? (
               <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
                 <CardHeader className="pb-3">
@@ -1754,7 +1754,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
               </div>
 
               {/* Admin Actions */}
-              {(user?.role === 'super_admin' || user?.role === 'team_admin') && bid.status === 'pending_review' && (
+              {(user?.role === 'team_admin') && bid.status === 'pending_review' && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button size="sm"
                     className="gradient-teal text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
@@ -1768,7 +1768,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
                   </Button>
                 </div>
               )}
-              {(user?.role === 'super_admin' || user?.role === 'team_admin') && bid.status === 'shortlisted' && (
+              {(user?.role === 'team_admin') && bid.status === 'shortlisted' && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button size="sm"
                     className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"

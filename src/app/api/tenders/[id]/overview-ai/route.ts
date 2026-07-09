@@ -64,8 +64,8 @@ export async function GET(
       );
     }
 
-    // Company isolation: non-super_admin can only view their own company's tenders or open tenders
-    if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
+    // Company isolation: non-team_admin can only view their own company's tenders or open tenders
+    if (user!.role !== 'team_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You do not have access to this tender' },
         { status: 403 }

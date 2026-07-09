@@ -60,7 +60,7 @@ const SKILL_COLORS: Record<string, string> = {
 };
 
 // Role configuration
-type UserRole = 'super_admin' | 'team_admin' | 'user';
+type UserRole = 'team_admin' | 'user';
 
 interface RoleConfig {
   label: string;
@@ -71,21 +71,6 @@ interface RoleConfig {
 }
 
 const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
-  super_admin: {
-    label: 'Super Admin',
-    description: 'Full system access',
-    icon: Shield,
-    badgeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400',
-    permissions: [
-      { label: 'Manage all companies', icon: Building },
-      { label: 'Verify organizations', icon: CheckCircle },
-      { label: 'Manage all users & roles', icon: Users },
-      { label: 'Create & manage tenders', icon: ClipboardList },
-      { label: 'Review & award bids', icon: FileCheck },
-      { label: 'Access all projects', icon: FolderOpen },
-      { label: 'System configuration', icon: Settings },
-    ],
-  },
   team_admin: {
     label: 'Team Admin',
     description: 'Company management',
@@ -209,7 +194,6 @@ export function ProfileView() {
   const isVerified = profile?.verified ?? false;
   const userRole = (user?.role || 'user') as UserRole;
   const roleConfig = ROLE_CONFIG[userRole];
-  const isSuperAdmin = userRole === 'super_admin';
   const isTeamAdmin = userRole === 'team_admin';
   const hasCompany = !!(user?.companyId || companyData);
   const completeness = getProfileCompleteness(profile as Record<string, unknown> | undefined | null);
@@ -235,9 +219,9 @@ export function ProfileView() {
     setCompanyLoading(false);
   };
 
-  // Load team members (for super_admin and team_admin)
+  // Load team members (for team_admin)
   const loadTeamMembers = async () => {
-    if (!isSuperAdmin && !isTeamAdmin) return;
+    if (!isTeamAdmin) return;
     setTeamLoading(true);
     try {
       if (user?.companyId) {
@@ -955,9 +939,9 @@ export function ProfileView() {
       </div>
 
       {/* ==========================================
-          TEAM MANAGEMENT (super_admin & team_admin)
+          TEAM MANAGEMENT (team_admin)
           ========================================== */}
-      {(isSuperAdmin || isTeamAdmin) && (
+      {isTeamAdmin && (
         <div className="animate-[fadeIn_0.3s_ease-out]">
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <CardHeader className="pb-3">
@@ -1008,8 +992,8 @@ export function ProfileView() {
                           </div>
 
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {/* Role badge (non-editable for non-super_admin) */}
-                            {isSuperAdmin && member.id !== user?.id ? (
+                            {/* Role badge (editable for team_admin) */}
+                            {isTeamAdmin && member.id !== user?.id ? (
                               <div className="flex items-center gap-2">
                                 <Select
                                   value={memberRole}
@@ -1020,11 +1004,6 @@ export function ProfileView() {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="super_admin">
-                                      <span className="flex items-center gap-1.5">
-                                        <Shield className="h-3 w-3 text-orange-500" /> Super Admin
-                                      </span>
-                                    </SelectItem>
                                     <SelectItem value="team_admin">
                                       <span className="flex items-center gap-1.5">
                                         <Users className="h-3 w-3 text-slate-500" /> Team Admin
