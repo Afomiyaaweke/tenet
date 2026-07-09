@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { generateToken, requireTeamAdmin } from '@/lib/auth';
+import { generateToken, requireAuth } from '@/lib/auth';
 
 // ── Input validation helpers ──
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -75,29 +75,12 @@ export async function POST(request: NextRequest) {
     // Admin roles require existing admin authorization
     let assignedRole = 'user';
     if (role) {
-      if (role === 'super_admin') {
-        // Only existing super_admins can create super_admin users
-        const adminCheck = await requireTeamAdmin(request);
-        if (adminCheck.error) {
-          return NextResponse.json(
-            { success: false, error: 'Forbidden: Only super admins can create super admin accounts' },
-            { status: 403 }
-          );
-        }
-        // Even team_admin cannot create super_admin, double-check
-        if (adminCheck.user!.role !== 'super_admin') {
-          return NextResponse.json(
-            { success: false, error: 'Forbidden: Only super admins can create super admin accounts' },
-            { status: 403 }
-          );
-        }
-        assignedRole = 'super_admin';
-      } else if (role === 'team_admin') {
+      if (role === 'team_admin') {
         // Only existing admins can create team_admin accounts
-        const adminCheck = await requireTeamAdmin(request);
-        if (adminCheck.error) {
+        const adminCheck = await requireAuth(request);
+        if (adminCheck.error || (adminCheck.user!.role !== 'team_admin')) {
           return NextResponse.json(
-            { success: false, error: 'Forbidden: Only admins can create team admin accounts. Please register as a regular user.' },
+            { success: false, error: 'Forbidden: Only team admins can create team admin accounts. Please register as a regular user.' },
             { status: 403 }
           );
         }
@@ -106,7 +89,7 @@ export async function POST(request: NextRequest) {
         assignedRole = 'user';
       } else {
         return NextResponse.json(
-          { success: false, error: 'Invalid role. Allowed values: user, team_admin, super_admin' },
+          { success: false, error: 'Invalid role. Allowed values: user, team_admin' },
           { status: 400 }
         );
       }

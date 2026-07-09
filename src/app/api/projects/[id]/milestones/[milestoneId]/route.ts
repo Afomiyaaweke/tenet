@@ -24,8 +24,8 @@ export async function PATCH(
       );
     }
 
-    // Company isolation: non-super_admin can only update milestones in their own company's projects
-    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+    // Company isolation: non-team_admin can only update milestones in their own company's projects
+    if (user!.role !== 'team_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only update milestones in your own company\'s projects' },
         { status: 403 }

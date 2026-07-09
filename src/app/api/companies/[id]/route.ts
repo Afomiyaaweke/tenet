@@ -41,8 +41,8 @@ export async function GET(
       );
     }
 
-    // Non-super-admin users can only view their own company
-    if (user!.role !== 'super_admin' && user!.companyId !== id) {
+    // Non-team-admin users can only view their own company
+    if (user!.role !== 'team_admin' && user!.companyId !== id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only view your own company' },
         { status: 403 }
@@ -64,7 +64,7 @@ export async function GET(
 
 /**
  * PUT /api/companies/[id]
- * Update company (super_admin or team_admin of that company)
+ * Update company (team_admin of that company)
  */
 export async function PUT(
   request: NextRequest,
@@ -76,8 +76,8 @@ export async function PUT(
 
     const { id } = await params;
 
-    // Check permission: super_admin can update any, team_admin can update own company
-    if (user!.role !== 'super_admin' && !(user!.role === 'team_admin' && user!.companyId === id)) {
+    // Check permission: team_admin can update own company
+    if (!(user!.role === 'team_admin' && user!.companyId === id)) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You do not have permission to update this company' },
         { status: 403 }
@@ -141,8 +141,8 @@ export async function PUT(
     if (email !== undefined) updateData.email = email || null;
     if (website !== undefined) updateData.website = website || null;
     if (address !== undefined) updateData.address = address || null;
-    // Only super_admin can change status
-    if (status !== undefined && user!.role === 'super_admin') {
+    // Only team_admin can change status
+    if (status !== undefined && user!.role === 'team_admin') {
       updateData.status = status;
     }
 

@@ -18,11 +18,11 @@ export async function GET(request: NextRequest) {
     if (user!.role === 'user') {
       // Standard users see chats for projects where their bid was awarded
       where.project = { bid: { userId: user!.id } };
-    } else if (user!.role === 'team_admin' || user!.role === 'super_admin') {
-      // Team admins/super admins see chats for tenders they created
+    } else if (user!.role === 'team_admin') {
+      // Team admins see chats for tenders they created
       where.tender = { createdBy: user!.id };
     }
-    // super_admin/team_admin sees all chats (no filter)
+    // team_admin sees all chats (no filter)
 
     const chats = await db.chat.findMany({
       where,

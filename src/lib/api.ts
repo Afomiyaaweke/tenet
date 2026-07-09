@@ -96,7 +96,7 @@ export interface Company {
 export interface User {
   id: string;
   email: string;
-  role: 'super_admin' | 'team_admin' | 'user';
+  role: 'team_admin' | 'user';
   companyId?: string;
   status: string;
   emailVerified: boolean;

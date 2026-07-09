@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth, requireSuperAdmin } from '@/lib/auth';
+import { requireAuth, requireAdmin } from '@/lib/auth';
 
 /**
  * GET /api/companies
- * Super admin sees all companies, others see their own company only
+ * Team admin sees all companies, others see their own company only
  */
 export async function GET(request: NextRequest) {
   try {
@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
 
     let companies;
 
-    if (user!.role === 'super_admin') {
-      // Super admin can see all companies
+    if (user!.role === 'team_admin') {
+      // Team admin can see all companies
       companies = await db.company.findMany({
         include: {
           _count: { select: { users: true, profiles: true } },
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
       });
     } else {
-      // Non-super-admin users can only see their own company
+      // Non-team-admin users can only see their own company
       if (!user!.companyId) {
         return NextResponse.json({
           success: true,
@@ -55,11 +55,11 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/companies
- * Create a new company (super_admin only)
+ * Create a new company (team_admin only)
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user, error } = await requireSuperAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const body = await request.json();

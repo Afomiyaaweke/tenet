@@ -5,10 +5,10 @@ import { requireTeamAdmin } from '@/lib/auth';
 /**
  * GET /api/staff
  * List all users in the same company as the authenticated user.
- * Requires team_admin or super_admin role.
+ * Requires team_admin role.
  * Query params:
  *   - search: filter by name or email
- *   - role: filter by role (super_admin, team_admin, user)
+ *   - role: filter by role (team_admin, user)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Role filter
-    if (roleFilter && ['super_admin', 'team_admin', 'user'].includes(roleFilter)) {
+    if (roleFilter && ['team_admin', 'user'].includes(roleFilter)) {
       where.role = roleFilter;
     }
 

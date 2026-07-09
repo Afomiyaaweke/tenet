@@ -4,7 +4,6 @@ import { requireAuth } from '@/lib/auth';
 
 /**
  * GET /api/profiles
- * Super admin: list all profiles
  * Team admin: list profiles in own company
  * User: own profile only
  */
@@ -18,18 +17,7 @@ export async function GET(request: NextRequest) {
       company: { select: { id: true, name: true, industry: true, verified: true } },
     };
 
-    if (user!.role === 'super_admin') {
-      // Super admin can see all profiles
-      const profiles = await db.profile.findMany({
-        include: includeRelations,
-        orderBy: { createdAt: 'desc' },
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: profiles,
-      });
-    } else if (user!.role === 'team_admin' && user!.companyId) {
+    if (user!.role === 'team_admin' && user!.companyId) {
       // Team admin can see profiles in their company
       const profiles = await db.profile.findMany({
         where: { companyId: user!.companyId },

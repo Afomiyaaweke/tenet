@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireSuperAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 
 /**
  * PATCH /api/users/[id]/role
- * Update a user's role (super_admin only)
- * Body: { role: 'super_admin' | 'team_admin' | 'user' }
+ * Update a user's role (team_admin only)
+ * Body: { role: 'team_admin' | 'user' }
  */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, error } = await requireSuperAdmin(request);
+    const { user, error } = await requireAdmin(request);
     if (error) return error;
 
     const { id } = await params;
@@ -29,10 +29,10 @@ export async function PATCH(
     const { role } = body;
 
     // Validate role
-    const validRoles = ['super_admin', 'team_admin', 'user'];
+    const validRoles = ['team_admin', 'user'];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid role. Must be one of: super_admin, team_admin, user' },
+        { success: false, error: 'Invalid role. Must be one of: team_admin, user' },
         { status: 400 }
       );
     }
