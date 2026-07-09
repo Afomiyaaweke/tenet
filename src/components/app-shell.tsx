@@ -15,8 +15,7 @@ import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
-  Search, Verified, Globe2, Shield, Building2, Users, Mail, Lock,
-  BarChart3,
+  Search, Verified, Globe2, Building2, Users, Mail, Lock,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
@@ -36,12 +35,10 @@ const ChatView = dynamic(() => import('@/components/modules/chat').then(m => ({ 
 const EventsView = dynamic(() => import('@/components/modules/events').then(m => ({ default: m.EventsView })), { ssr: false });
 const ProfileView = dynamic(() => import('@/components/modules/profile').then(m => ({ default: m.ProfileView })), { ssr: false });
 const DocumentsView = dynamic(() => import('@/components/modules/documents').then(m => ({ default: m.DocumentsView })), { ssr: false });
-const AdminView = dynamic(() => import('@/components/modules/admin').then(m => ({ default: m.AdminView })), { ssr: false });
 const AgentView = dynamic(() => import('@/components/modules/agent').then(m => ({ default: m.AgentView })), { ssr: false });
 const StaffView = dynamic(() => import('@/components/modules/staff').then(m => ({ default: m.StaffView })), { ssr: false });
 const ContactUsView = dynamic(() => import('@/components/modules/contact-us').then(m => ({ default: m.ContactUsView })), { ssr: false });
 const PrivacyPolicyView = dynamic(() => import('@/components/modules/privacy-policy').then(m => ({ default: m.PrivacyPolicyView })), { ssr: false });
-const AuditView = dynamic(() => import('@/components/modules/audit').then(m => ({ default: m.AuditView })), { ssr: false });
 
 /* ──────────────────────────── Loading spinner ──────────────────────────── */
 
@@ -129,28 +126,6 @@ function getNavItemsForRole(role: string): NavSection[] {
     ],
   };
 
-  if (role === 'super_admin') {
-    return [
-      main,
-      manage,
-      tools,
-      support,
-      {
-        label: 'OWNER',
-        items: [
-          { id: 'audit', label: 'Site Audit', icon: BarChart3 },
-        ],
-      },
-      {
-        label: 'ADMIN',
-        items: [
-          { id: 'admin', label: 'Administration', icon: Shield },
-          { id: 'staff', label: 'Staff', icon: Users },
-        ],
-      },
-    ];
-  }
-
   if (role === 'team_admin') {
     return [
       main,
@@ -174,10 +149,6 @@ function getNavItemsForRole(role: string): NavSection[] {
 /* ──────────────────── Role badge config ──────────────────── */
 
 const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = {
-  super_admin: {
-    label: 'Super Admin',
-    className: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400',
-  },
   team_admin: {
     label: 'Team Admin',
     className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
@@ -188,7 +159,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'admin' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'audit';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -546,8 +517,6 @@ export function AppShell() {
         return <ProfileView />;
       case 'documents':
         return <DocumentsView />;
-      case 'admin':
-        return <AdminView />;
       case 'agent':
         return <AgentView />;
       case 'staff':
@@ -556,8 +525,6 @@ export function AppShell() {
         return <ContactUsView />;
       case 'privacy-policy':
         return <PrivacyPolicyView />;
-      case 'audit':
-        return <AuditView />;
       default:
         return <DashboardView />;
     }
@@ -660,12 +627,6 @@ export function AppShell() {
                   <FileText className="mr-2 h-4 w-4" />
                   <span>Documents</span>
                 </DropdownMenuItem>
-                {role === 'super_admin' && (
-                  <DropdownMenuItem onClick={() => setView('admin' as View)} className="cursor-pointer">
-                    <Shield className="mr-2 h-4 w-4" />
-                    <span>Administration</span>
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30">
                   <LogOut className="mr-2 h-4 w-4" />

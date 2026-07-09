@@ -54,14 +54,6 @@ const REG_STEP_META: Record<RegStep, { label: string; icon: React.ElementType }>
 
 const ROLE_OPTIONS = [
   {
-    value: 'super_admin' as const,
-    label: 'Super Admin',
-    icon: Shield,
-    description: 'Full system control, manage all companies, verify organizations, manage users',
-    color: 'orange',
-    warning: 'Requires existing Super Admin authorization',
-  },
-  {
     value: 'team_admin' as const,
     label: 'Team Admin',
     icon: Users,

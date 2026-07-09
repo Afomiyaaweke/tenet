@@ -80,27 +80,13 @@ export async function requireAuth(request: NextRequest) {
 }
 
 /**
- * Require super_admin role - returns user or a JSON error response
- */
-export async function requireSuperAdmin(request: NextRequest) {
-  const authResult = await requireAuth(request);
-  if (authResult.error) return authResult;
-
-  if (authResult.user!.role !== 'super_admin') {
-    return { user: null, error: Response.json({ success: false, error: 'Forbidden: Super admin access required' }, { status: 403 }) };
-  }
-
-  return authResult;
-}
-
-/**
- * Require team_admin role (or super_admin, which overrides) - returns user or a JSON error response
+ * Require team_admin role - returns user or a JSON error response
  */
 export async function requireTeamAdmin(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult.error) return authResult;
 
-  if (authResult.user!.role !== 'team_admin' && authResult.user!.role !== 'super_admin') {
+  if (authResult.user!.role !== 'team_admin') {
     return { user: null, error: Response.json({ success: false, error: 'Forbidden: Team admin access required' }, { status: 403 }) };
   }
 
@@ -108,7 +94,7 @@ export async function requireTeamAdmin(request: NextRequest) {
 }
 
 /**
- * Require admin role (team_admin or super_admin) - alias for requireTeamAdmin
+ * Require admin role (team_admin) - alias for requireTeamAdmin
  * Used by routes that need admin-level access (create tenders, manage projects, etc.)
  */
 export const requireAdmin = requireTeamAdmin;

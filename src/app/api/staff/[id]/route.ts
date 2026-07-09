@@ -5,18 +5,16 @@ import { requireTeamAdmin } from '@/lib/auth';
 /**
  * PATCH /api/staff/[id]
  * Update a staff member's role or status.
- * Requires team_admin or super_admin role.
+ * Requires team_admin role.
  *
  * Body options:
- *   - { role: 'super_admin' | 'team_admin' | 'user' }   — change role
+ *   - { role: 'team_admin' | 'user' }                        — change role
  *   - { status: 'active' | 'suspended' }                 — change status
  *   - Both can be sent together
  *
  * Permission rules:
  *   - Cannot change own role
- *   - team_admin can only change role to 'user' or 'team_admin' (cannot assign super_admin)
- *   - team_admin cannot demote a super_admin
- *   - super_admin can change any role
+ *   - team_admin can assign 'user' or 'team_admin' roles
  *   - Cannot modify users outside your company
  */
 export async function PATCH(
@@ -66,27 +64,11 @@ export async function PATCH(
 
     // ── Role change ──
     if (role !== undefined) {
-      const validRoles = ['super_admin', 'team_admin', 'user'];
+      const validRoles = ['team_admin', 'user'];
       if (!validRoles.includes(role)) {
         return NextResponse.json(
-          { success: false, error: 'Invalid role. Must be one of: super_admin, team_admin, user' },
+          { success: false, error: 'Invalid role. Must be one of: team_admin, user' },
           { status: 400 }
-        );
-      }
-
-      // team_admin cannot assign super_admin role
-      if (currentUser!.role === 'team_admin' && role === 'super_admin') {
-        return NextResponse.json(
-          { success: false, error: 'Only super admins can assign the super_admin role' },
-          { status: 403 }
-        );
-      }
-
-      // team_admin cannot demote a super_admin
-      if (currentUser!.role === 'team_admin' && targetUser.role === 'super_admin') {
-        return NextResponse.json(
-          { success: false, error: 'You cannot change the role of a super admin' },
-          { status: 403 }
         );
       }
 
@@ -100,14 +82,6 @@ export async function PATCH(
         return NextResponse.json(
           { success: false, error: 'Invalid status. Must be one of: active, suspended' },
           { status: 400 }
-        );
-      }
-
-      // team_admin cannot suspend a super_admin
-      if (currentUser!.role === 'team_admin' && targetUser.role === 'super_admin') {
-        return NextResponse.json(
-          { success: false, error: 'You cannot change the status of a super admin' },
-          { status: 403 }
         );
       }
 
