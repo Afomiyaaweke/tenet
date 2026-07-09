@@ -185,7 +185,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [regStep, setRegStep] = useState<RegStep>(1);
 
   // Forgot / Reset password state
-  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password' | 'forgot-sent' | 'reset-password'>('login');
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -211,12 +211,11 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       const { api } = await import('@/lib/api');
       const res = await api.post('/auth/forgot-password', { email: forgotEmail });
       if (res.success) {
-        toast.success('Reset link generated! Check below to reset your password.');
-        // In development, the API returns the token directly
+        // Always show the confirmation screen to prevent email enumeration
         if (res.resetToken) {
           setResetToken(res.resetToken);
-          setAuthMode('reset-password');
         }
+        setAuthMode('forgot-sent');
       } else {
         toast.error(res.error || 'Failed to process request');
       }
@@ -483,12 +482,66 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       )}
                     </Button>
                   </form>
+                </div>
+              )}
 
-                  <div className="mt-5 flex items-start gap-2.5 p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50">
-                    <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                    <p className="text-xs text-blue-800 dark:text-blue-200/80 leading-relaxed">
-                      <span className="font-semibold">Note:</span> In production, a reset link will be sent to your email. For now, you&apos;ll be redirected directly to set a new password.
+              {/* ─── FORGOT PASSWORD SENT CONFIRMATION ─── */}
+              {authMode === 'forgot-sent' && (
+                <div className="animate-[viewEnter_0.3s_ease-out]">
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                      <Mail className="w-8 h-8 text-primary" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Check Your Email</h2>
+                    <p className="text-muted-foreground text-sm mb-1">
+                      If an account with <span className="font-semibold text-foreground">{forgotEmail}</span> exists, a password reset link has been sent.
                     </p>
+                    <p className="text-muted-foreground text-xs mb-6">
+                      Please check your inbox and spam folder. The link expires in 1 hour.
+                    </p>
+
+                    {resetToken ? (
+                      <div className="space-y-3">
+                        <Button
+                          type="button"
+                          onClick={() => setAuthMode('reset-password')}
+                          className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
+                        >
+                          <span className="flex items-center gap-2">
+                            Reset Password Now
+                            <ArrowRight className="w-4 h-4" />
+                          </span>
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          In development mode, you can reset your password directly.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Didn&apos;t receive the email? Make sure the email address is correct and check your spam folder.
+                        </p>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('forgot-password'); setResetToken(''); }}
+                      className="mt-4 text-sm text-primary hover:underline font-medium"
+                    >
+                      Try a different email
+                    </button>
+
+                    <div className="mt-6 pt-4 border-t border-border">
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode('login'); setResetToken(''); }}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto group"
+                      >
+                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                        Back to Sign In
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

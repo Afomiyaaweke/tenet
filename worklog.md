@@ -161,3 +161,34 @@ Stage Summary:
 - Live tenders API expanded to fetch up to 500 records per source
 - Contact Us updated with proper business information
 - All lint errors fixed, server compiles and runs
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Remove login verification (slide captcha) and fix forgot password flow
+
+Work Log:
+- Removed SlideCaptcha component entirely from auth-gate.tsx (~110 lines)
+- Removed loginStep state ('credentials' | 'captcha') and captchaVerified state
+- Replaced multi-step login (credentials → captcha → login) with direct login: email + password → Sign In
+- Changed handleCredentialsSubmit to handleLoginSubmit - directly calls login() API on form submit
+- Removed handleCaptchaVerified, resetLogin helper functions
+- Removed 3-step progress indicator (Credentials → Verify → Security Code)
+- Changed button text from "Continue" to "Sign In" with loading spinner
+- Added loading state to Sign In button (disabled while authenticating)
+- Removed unused imports: Puzzle, XCircle
+- Removed unused @keyframes shake CSS animation
+- Fixed forgot password flow: added 'forgot-sent' confirmation screen
+  - Non-existent emails now show "Check Your Email" screen WITHOUT reset button (no token returned)
+  - Existing emails show "Check Your Email" screen WITH "Reset Password Now" button (token returned in dev)
+  - Both flows show privacy-preserving message: "If an account with [email] exists..."
+  - Added "Try a different email" link and "Back to Sign In" link
+- Removed misleading "Note: In production..." box from forgot-password form (replaced by confirmation screen)
+- Lint passes clean
+- Verified with agent-browser: login form shows directly with no captcha, forgot password works for both existing and non-existent emails
+
+Stage Summary:
+- Login flow simplified: email → password → Sign In (no verification step)
+- Forgot password flow fixed: always shows "Check Your Email" confirmation, properly handles non-existent emails
+- No confusing toast messages or silent failures
+- Browser-verified working correctly
