@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -117,12 +117,11 @@ function MiniBarChart({ data, color = '#F97316' }: { data: { date: string; count
 export function AuditView() {
   const { user } = useAuthStore();
   const [stats, setStats] = useState<AuditStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [initialLoad, setInitialLoad] = useState(true);
 
-  const fetchStats = async () => {
-    setLoading(true);
-    setError('');
+  const fetchStats = useCallback(async () => {
     try {
       const res = await api.get('/audit/stats');
       if (res.success) {
@@ -132,15 +131,18 @@ export function AuditView() {
       }
     } catch {
       setError('Network error');
+    } finally {
+      setLoading(false);
+      setInitialLoad(false);
     }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchStats();
   }, []);
 
-  if (loading) {
+  useEffect(() => {
+    setLoading(true);
+    fetchStats();
+  }, [fetchStats]);
+
+  if (initialLoad || loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
@@ -157,7 +159,7 @@ export function AuditView() {
         <div className="flex flex-col items-center gap-3 text-center max-w-sm">
           <AlertCircle className="w-10 h-10 text-orange-500" />
           <p className="text-sm text-muted-foreground">{error}</p>
-          <Button variant="outline" onClick={fetchStats} className="gap-2">
+          <Button variant="outline" onClick={() => { setLoading(true); fetchStats(); }} className="gap-2">
             <RefreshCw className="w-4 h-4" /> Retry
           </Button>
         </div>
@@ -181,7 +183,7 @@ export function AuditView() {
             Platform engagement & activity overview — visible to owners only
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchStats} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => { setLoading(true); fetchStats(); }} className="gap-2">
           <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </Button>
       </div>

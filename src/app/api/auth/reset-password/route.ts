@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,6 +50,16 @@ export async function POST(request: NextRequest) {
       where: { id: resetRecord.id },
       data: { used: true },
     });
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        action: 'password_reset',
+        resource: 'user',
+        resourceId: resetRecord.email,
+        metadata: JSON.stringify({ email: resetRecord.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') }),
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

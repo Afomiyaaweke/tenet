@@ -41,6 +41,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Audit log (mask email to avoid logging full email in audit)
+    await db.auditLog.create({
+      data: {
+        action: 'forgot_password',
+        resource: 'user',
+        resourceId: normalizedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+        metadata: JSON.stringify({ email: normalizedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3') }),
+      },
+    }).catch(() => {});
+
     // In production, you would send an email with the reset link
     // For now, return the token so the frontend can use it
     return NextResponse.json({
