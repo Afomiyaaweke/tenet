@@ -1307,6 +1307,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                             })()}
                           </div>
                         </div>
+                      </div>
 
                       <Button
                         type="button"

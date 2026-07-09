@@ -235,3 +235,29 @@ Removed ALL references to `super_admin` from 20 API route files under `/src/app/
 
 ### Lint: PASS (0 errors in API routes; pre-existing auth-gate.tsx parsing error unrelated to this task)
 ### Zero `super_admin` or `isSuperAdmin` references remain in `/src/app/api/`
+
+---
+Task ID: 2 (continued)
+Agent: Main Agent
+Task: Complete super_admin removal across ALL remaining files + fix JSX parsing error
+
+Work Log:
+- Fixed JSX parsing error in auth-gate.tsx line 1330: missing closing </div> for the scrollable container in the register step 5 (Review & Submit) section
+- Removed all isSuperAdmin references from profile.tsx (3 locations):
+  - Line 232: `} else if (isSuperAdmin)` → `} else if (isTeamAdmin)` 
+  - Line 260: useEffect dependency `[isSuperAdmin, isTeamAdmin, ...]` → `[isTeamAdmin, ...]`
+  - Line 297: `if (!isSuperAdmin) return` → `if (!isTeamAdmin) return`
+- Updated Prisma schema comment: `// super_admin, team_admin, user` → `// team_admin, user`
+- Updated prisma/seed.ts: changed seed user from `super_admin` to `team_admin`, job title "Super Admin" → "Team Admin"
+- Updated database: `UPDATE User SET role = 'team_admin' WHERE role = 'super_admin'`
+- Verified: grep for super_admin across /src/ returns ZERO matches
+- Verified: TypeScript compilation shows zero super_admin-related errors
+- Verified: lint passes clean
+- Verified: agent-browser confirms login works, dashboard loads, staff page shows "Team Admin" role
+
+Stage Summary:
+- super_admin role COMPLETELY REMOVED from the entire codebase
+- Only 2 roles exist now: team_admin and user
+- No super_admin references in any source code, schema, or seed file
+- Database updated: any existing super_admin users changed to team_admin
+- App fully functional with team_admin as the highest role
