@@ -61,7 +61,7 @@ Tenet is a digital tender ecosystem designed for the Ethiopian procurement marke
 - Event statuses: Upcoming → Ongoing → Completed → Cancelled
 
 ## User Roles & Permissions
-- **Administrator (super_admin/team_admin)**: Full access, create tenders, verify users, review bids, manage all projects, log payments
+- **Administrator (team_admin)**: Full access within company, create tenders, verify users, review bids, manage all projects, log payments
 - **User/Supplier**: Browse tenders, submit bids (if verified), manage awarded projects, chat, attend events
 
 ## Key Business Rules
@@ -172,14 +172,14 @@ export async function POST(request: NextRequest) {
             });
           }
         }
-      } else if (user!.role === 'super_admin' || user!.role === 'team_admin') {
+      } else if (user!.role === 'team_admin') {
         // Company isolation: team_admin only sees their own company's data
-        const companyFilter = user!.role === 'super_admin' ? {} : (user!.companyId ? { companyId: user!.companyId } : {});
-        const tenderCompanyFilter = user!.role === 'super_admin' ? {} : (user!.companyId ? { tender: { companyId: user!.companyId } } : {});
-        const docCompanyFilter = user!.role === 'super_admin' ? {} : (user!.companyId ? { companyId: user!.companyId } : {});
+        const companyFilter = user!.companyId ? { companyId: user!.companyId } : {};
+        const tenderCompanyFilter = user!.companyId ? { tender: { companyId: user!.companyId } } : {};
+        const docCompanyFilter = user!.companyId ? { companyId: user!.companyId } : {};
 
         const [userCount, pendingBids, pendingDocs, openTenders, activeProjects] = await Promise.all([
-          db.user.count(user!.role !== 'super_admin' && user!.companyId ? { where: { companyId: user!.companyId } } : {}),
+          db.user.count(user!.companyId ? { where: { companyId: user!.companyId } } : {}),
           db.bid.count({ where: { status: 'pending_review', ...tenderCompanyFilter } }),
           db.document.count({ where: { status: 'pending', ...docCompanyFilter } }),
           db.tender.count({ where: { status: 'open' } }),

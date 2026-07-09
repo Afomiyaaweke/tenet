@@ -24,8 +24,8 @@ export async function POST(
       );
     }
 
-    // Company isolation: non-super_admin can only create milestones in their own company's projects
-    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+    // Company isolation: non-team_admin can only create milestones in their own company's projects
+    if (user!.role !== 'team_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only create milestones in your own company\'s projects' },
         { status: 403 }
@@ -88,8 +88,8 @@ export async function GET(
       );
     }
 
-    // Company isolation: non-super_admin can only view milestones in their own company's projects
-    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+    // Company isolation: non-team_admin can only view milestones in their own company's projects
+    if (user!.role !== 'team_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You do not have access to this project\'s milestones' },
         { status: 403 }

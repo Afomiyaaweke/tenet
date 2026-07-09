@@ -1140,15 +1140,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         })}
                       </div>
 
-                      {regData.role === 'super_admin' && (
-                        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 animate-[viewEnter_0.3s_ease-out]">
-                          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                          <p className="text-xs text-amber-800 dark:text-amber-200/80 leading-relaxed">
-                            <span className="font-semibold">Important:</span> Super Admin accounts can only be created by an existing Super Admin. Your registration will require authorization before activation.
-                          </p>
-                        </div>
-                      )}
-
                       <Button
                         type="button"
                         onClick={goNext}
@@ -1315,14 +1306,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                               );
                             })()}
                           </div>
-                          {regData.role === 'super_admin' && (
-                            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                              <AlertTriangle className="w-3 h-3" />
-                              Requires existing Super Admin authorization
-                            </div>
-                          )}
                         </div>
-                      </div>
 
                       <Button
                         type="button"

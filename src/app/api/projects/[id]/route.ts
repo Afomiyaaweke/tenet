@@ -44,8 +44,8 @@ export async function GET(
       );
     }
 
-    // Company isolation: non-super_admin can only see projects from their own company
-    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+    // Company isolation: non-team_admin can only see projects from their own company
+    if (user!.role !== 'team_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You do not have access to this project' },
         { status: 403 }
@@ -86,8 +86,8 @@ export async function PATCH(
       );
     }
 
-    // Company isolation: non-super_admin can only update projects from their own company
-    if (user!.role !== 'super_admin' && user!.companyId && project.companyId !== user!.companyId) {
+    // Company isolation: non-team_admin can only update projects from their own company
+    if (user!.role !== 'team_admin' && user!.companyId && project.companyId !== user!.companyId) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You can only update projects from your own company' },
         { status: 403 }

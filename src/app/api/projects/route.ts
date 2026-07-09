@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
-    // Company isolation: non-super_admin users only see projects from their own company
-    if (user!.role !== 'super_admin' && user!.companyId) {
+    // Company isolation: non-team_admin users only see projects from their own company
+    if (user!.role !== 'team_admin' && user!.companyId) {
       where.companyId = user!.companyId;
     }
 

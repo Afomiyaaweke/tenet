@@ -35,8 +35,8 @@ export async function POST(
       );
     }
 
-    // Company isolation: non-super_admin can only share tenders they have access to
-    if (user!.role !== 'super_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
+    // Company isolation: non-team_admin can only share tenders they have access to
+    if (user!.role !== 'team_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You do not have access to this tender' },
         { status: 403 }
