@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Create a default super_admin company and user
+  // Create a default team_admin company and user
   const company = await db.company.create({
     data: {
       name: 'Tenet Admin',
@@ -22,7 +22,7 @@ async function main() {
     data: {
       email: 'admin@tenet.app',
       passwordHash,
-      role: 'super_admin',
+      role: 'team_admin',
       companyId: company.id,
       status: 'active',
       emailVerified: true,
@@ -34,7 +34,7 @@ async function main() {
       userId: admin.id,
       companyId: company.id,
       fullName: 'System Administrator',
-      jobTitle: 'Super Admin',
+      jobTitle: 'Team Admin',
       phone: '+251900000000',
       location: 'Addis Ababa',
       verified: true,

@@ -229,8 +229,8 @@ export function ProfileView() {
         if (res.success && res.data.users) {
           setTeamMembers(res.data.users);
         }
-      } else if (isSuperAdmin) {
-        // Super admin without company can see all users via profiles
+      } else if (isTeamAdmin) {
+        // Team admin without company can see all users via profiles
         const res = await api.get('/profiles');
         if (res.success) {
           const members: TeamMember[] = res.data.map((p: { user: { id: string; email: string; role: UserRole; status: string; createdAt: string }; fullName: string; jobTitle?: string }) => ({
@@ -257,7 +257,7 @@ export function ProfileView() {
   useEffect(() => { if (user?.companyId && !companyData) loadCompany(); }, [user?.companyId, companyData]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadTeamMembers(); }, [isSuperAdmin, isTeamAdmin, user?.companyId]);
+  useEffect(() => { loadTeamMembers(); }, [isTeamAdmin, user?.companyId]);
 
   const handleSave = async () => {
     const profileId = user?.profile?.id;
@@ -294,7 +294,7 @@ export function ProfileView() {
   };
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
-    if (!isSuperAdmin) return;
+    if (!isTeamAdmin) return;
     setChangingRole(userId);
     const res = await api.patch(`/users/${userId}/role`, { role: newRole });
     if (res.success) {
