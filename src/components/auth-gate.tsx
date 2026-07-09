@@ -23,9 +23,7 @@ import {
   Mail,
   FileText,
   Fingerprint,
-  Puzzle,
   CheckCircle2,
-  XCircle,
   AlertTriangle,
   Shield,
   Users,
@@ -129,114 +127,6 @@ function scorePassword(pw: string): { score: number; label: string; color: strin
   return { score, label: labels[score], color: colors[score] };
 }
 
-/* ───────────────────────── Slide-to-Verify Captcha ───────────────────────── */
-function SlideCaptcha({ onVerified }: { onVerified: () => void }) {
-  const [offset, setOffset] = useState(0);
-  const [status, setStatus] = useState<'idle' | 'dragging' | 'success' | 'fail'>('idle');
-  const [target] = useState(() => 180 + Math.floor(Math.random() * 80));
-  const trackWidth = 320;
-  const handleWidth = 44;
-  const tolerance = 8;
-  const dragRef = React.useRef<{ start: number; startOffset: number } | null>(null);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (status === 'success') return;
-    setStatus('dragging');
-    dragRef.current = { start: e.clientX, startOffset: offset };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current || status !== 'dragging') return;
-    const delta = e.clientX - dragRef.current.start;
-    const next = Math.max(0, Math.min(trackWidth - handleWidth, dragRef.current.startOffset + delta));
-    setOffset(next);
-  };
-
-  const onPointerUp = () => {
-    if (status !== 'dragging') return;
-    dragRef.current = null;
-    if (Math.abs(offset - target) <= tolerance) {
-      setStatus('success');
-      setTimeout(() => onVerified(), 450);
-    } else {
-      setStatus('fail');
-      setTimeout(() => {
-        setStatus('idle');
-        setOffset(0);
-      }, 700);
-    }
-  };
-
-  const pieceColor = status === 'success' ? 'bg-orange-500' : status === 'fail' ? 'bg-rose-500' : 'bg-primary';
-  const ringColor = status === 'success' ? 'ring-orange-300' : status === 'fail' ? 'ring-rose-300' : 'ring-primary/40';
-
-  return (
-    <div className="space-y-3">
-      <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-        <Puzzle className="w-3.5 h-3.5" /> Security verification — slide to complete
-      </div>
-      {/* Puzzle canvas */}
-      <div className="relative h-12 rounded-xl overflow-hidden border border-border bg-muted/40 select-none">
-        {/* pattern background */}
-        <div
-          className="absolute inset-0 opacity-50"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(45deg, hsl(var(--muted-foreground) / 0.08) 0 6px, transparent 6px 12px), repeating-linear-gradient(-45deg, hsl(var(--muted-foreground) / 0.06) 0 6px, transparent 6px 12px)',
-          }}
-        />
-        {/* target cutout (notch) */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg border-2 border-dashed border-muted-foreground/40 bg-background/60"
-          style={{ left: target + 4 }}
-        />
-        {/* moving puzzle piece */}
-        <div
-          className={`absolute top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg ${pieceColor} shadow-lg ring-2 ${ringColor} flex items-center justify-center text-white transition-shadow ${status === 'fail' ? 'animate-[shake_0.4s_ease-in-out]' : ''}`}
-          style={{ left: 4 + offset, transition: status === 'dragging' ? 'none' : 'left 0.25s ease' }}
-        >
-          {status === 'success' ? <CheckCircle2 className="w-5 h-5" /> : status === 'fail' ? <XCircle className="w-5 h-5" /> : <Puzzle className="w-4 h-4" />}
-        </div>
-        {/* hint text */}
-        {status === 'idle' && (
-          <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground pointer-events-none">
-            Drag the slider below to fit the puzzle
-          </span>
-        )}
-        {status === 'success' && (
-          <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-orange-600 bg-orange-50/60 pointer-events-none">
-            Verified
-          </span>
-        )}
-      </div>
-      {/* Slider track */}
-      <div className="relative h-11 rounded-xl bg-muted border border-border overflow-hidden">
-        <div
-          className={`absolute inset-y-0 left-0 ${status === 'success' ? 'bg-orange-100 dark:bg-orange-950/40' : status === 'fail' ? 'bg-rose-100 dark:bg-rose-950/40' : 'bg-primary/10'} transition-all`}
-          style={{ width: offset + handleWidth }}
-        />
-        <div
-          className="absolute top-0 h-full flex items-center justify-center text-xs font-medium text-muted-foreground pointer-events-none"
-          style={{ left: handleWidth, right: 0 }}
-        >
-          {status === 'success' ? 'Verification complete' : status === 'fail' ? 'Verification failed, retrying…' : 'Slide right to verify'}
-        </div>
-        <div
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          className={`absolute top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-center text-white shadow-md ${pieceColor} ${status === 'success' ? 'cursor-default' : ''} touch-none`}
-          style={{ left: 4 + offset, transition: status === 'dragging' ? 'none' : 'left 0.25s ease' }}
-        >
-          {status === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <ArrowRight className="w-4 h-4" />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ───────────────────────── Step Indicator ───────────────────────── */
 function StepIndicator({ currentStep, totalSteps = 5 }: { currentStep: RegStep; totalSteps?: number }) {
   return (
@@ -289,13 +179,10 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     role: '' as string,
   });
   const [loading, setLoading] = useState(false);
+
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [regStep, setRegStep] = useState<RegStep>(1);
-
-  // Login flow state
-  const [loginStep, setLoginStep] = useState<'credentials' | 'captcha'>('credentials');
-  const [captchaVerified, setCaptchaVerified] = useState(false);
 
   // Forgot / Reset password state
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
@@ -305,29 +192,15 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  const handleCredentialsSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginData.email || !loginData.password) return;
-    setLoginStep('captcha');
-  };
-
-  const handleCaptchaVerified = () => {
-    setCaptchaVerified(true);
-    toast.success('Verification passed — signing you in…');
-    // After captcha verification, proceed directly to login (no fake 2FA)
     setLoading(true);
-    login(loginData.email, loginData.password).then(ok => {
-      if (!ok) {
-        toast.error('Invalid credentials');
-        resetLogin();
-      }
-      setLoading(false);
-    });
-  };
-
-  const resetLogin = () => {
-    setLoginStep('credentials');
-    setCaptchaVerified(false);
+    const ok = await login(loginData.email, loginData.password);
+    if (!ok) {
+      toast.error('Invalid email or password');
+    }
+    setLoading(false);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -420,7 +293,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   };
 
   const pwScore = scorePassword(regData.password);
-  const stepIndex = loginStep === 'credentials' ? 0 : loginStep === 'captcha' ? 1 : 2;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -725,153 +597,94 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                 </div>
               )}
 
-              {/* ─── LOGIN FORM (Binance-style multi-step) ─── */}
+              {/* ─── LOGIN FORM (direct sign in) ─── */}
               {authMode === 'login' && activeTab === 'login' && (
                 <div className="animate-[viewEnter_0.3s_ease-out]">
-                  {/* Step progress indicator */}
-                  <div className="flex items-center justify-center gap-2 mb-6">
-                    {['Credentials', 'Verify', 'Security Code'].map((label, i) => (
-                      <React.Fragment key={label}>
-                        <div className="flex items-center gap-1.5">
-                          <div
-                            className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                              i <= stepIndex
-                                ? 'gradient-orange text-white shadow-md shadow-orange-500/30'
-                                : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {i < stepIndex ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-                          </div>
-                          <span className={`text-xs font-medium hidden sm:inline ${i <= stepIndex ? 'text-foreground' : 'text-muted-foreground'}`}>
-                            {label}
-                          </span>
-                        </div>
-                        {i < 2 && <div className={`h-0.5 w-6 sm:w-10 rounded-full ${i < stepIndex ? 'bg-orange-500' : 'bg-muted'}`} />}
-                      </React.Fragment>
-                    ))}
+                  <div className="mb-5">
+                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                      <Fingerprint className="w-5 h-5 text-primary" /> Secure Sign In
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">Enter your credentials to continue</p>
                   </div>
 
-                  {/* ─── STEP 1: Credentials ─── */}
-                  {loginStep === 'credentials' && (
-                    <div className="animate-[viewEnter_0.3s_ease-out]">
-                      <div className="mb-5">
-                        <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                          <Fingerprint className="w-5 h-5 text-primary" /> Secure Sign In
-                        </h2>
-                        <p className="text-muted-foreground text-sm mt-1">Enter your credentials to continue</p>
-                      </div>
-
-                      <form onSubmit={handleCredentialsSubmit} className="space-y-5">
-                        <div className="space-y-2">
-                          <Label htmlFor="login-email" className="text-sm font-medium text-foreground flex items-center gap-2">
-                            <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                            Email Address
-                          </Label>
-                          <Input
-                            id="login-email"
-                            type="email"
-                            placeholder="you@example.com"
-                            value={loginData.email}
-                            onChange={e => setLoginData(d => ({ ...d, email: e.target.value }))}
-                            required
-                            autoComplete="username"
-                            className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="login-password" className="text-sm font-medium text-foreground flex items-center gap-2">
-                            <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                            Password
-                          </Label>
-                          <div className="relative">
-                            <Input
-                              id="login-password"
-                              type={showPassword ? 'text' : 'password'}
-                              placeholder="••••••••"
-                              value={loginData.password}
-                              onChange={e => setLoginData(d => ({ ...d, password: e.target.value }))}
-                              required
-                              autoComplete="current-password"
-                              className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 pr-10"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Forgot Password link */}
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => { setAuthMode('forgot-password'); setForgotEmail(loginData.email); }}
-                            className="text-xs text-primary hover:underline font-medium"
-                          >
-                            Forgot Password?
-                          </button>
-                        </div>
-
-                        <Button
-                          type="submit"
-                          className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
-                        >
-                          <span className="flex items-center gap-2">
-                            Continue
-                            <ArrowRight className="w-4 h-4" />
-                          </span>
-                        </Button>
-                      </form>
-
-                      {/* Anti-phishing security reminder */}
-                      <div className="mt-5 flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-800 dark:text-amber-200/80 leading-relaxed">
-                          <span className="font-semibold">Anti-Phishing Notice:</span> Tenet will never ask for your password or security code by email or phone. Always verify the URL before signing in.
-                        </p>
-                      </div>
+                  <form onSubmit={handleLoginSubmit} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email" className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                        Email Address
+                      </Label>
+                      <Input
+                        id="login-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={loginData.email}
+                        onChange={e => setLoginData(d => ({ ...d, email: e.target.value }))}
+                        required
+                        autoComplete="username"
+                        className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
+                      />
                     </div>
-                  )}
 
-                  {/* ─── STEP 2: Slide-to-Verify Captcha ─── */}
-                  {loginStep === 'captcha' && (
-                    <div className="animate-[viewEnter_0.3s_ease-out]">
-                      <div className="mb-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                        Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="login-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={loginData.password}
+                          onChange={e => setLoginData(d => ({ ...d, password: e.target.value }))}
+                          required
+                          autoComplete="current-password"
+                          className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 pr-10"
+                        />
                         <button
                           type="button"
-                          onClick={() => setLoginStep('credentials')}
-                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         >
-                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-                          Back
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
-                        <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                          <Puzzle className="w-5 h-5 text-primary" /> Security Verification
-                        </h2>
-                        <p className="text-muted-foreground text-sm mt-1">Complete the puzzle to prove you&apos;re human</p>
-                      </div>
-
-                      <div className="p-5 rounded-xl border border-border bg-card/50 space-y-4">
-                        <SlideCaptcha onVerified={handleCaptchaVerified} />
-                        {captchaVerified && (
-                          <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400 font-medium animate-[viewEnter_0.3s_ease-out]">
-                            <Loader2 className="w-4 h-4 animate-spin" /> Verification complete — signing in…
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>Protected by Tenet Shield — encrypted &amp; bot-resistant</span>
                       </div>
                     </div>
-                  )}
 
+                    {/* Forgot Password link */}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode('forgot-password'); setForgotEmail(loginData.email); }}
+                        className="text-xs text-primary hover:underline font-medium"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
 
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
+                    >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          Sign In
+                          <ArrowRight className="w-4 h-4" />
+                        </span>
+                      )}
+                    </Button>
+                  </form>
+
+                  {/* Anti-phishing security reminder */}
+                  <div className="mt-5 flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 dark:text-amber-200/80 leading-relaxed">
+                      <span className="font-semibold">Anti-Phishing Notice:</span> Tenet will never ask for your password or security code by email or phone. Always verify the URL before signing in.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -1525,13 +1338,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
         @keyframes slideInLeft {
           from { opacity: 0; transform: translateX(-20px); }
           to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes shake {
-          0%, 100% { transform: translate(-50%, -50%) translateX(0); }
-          20% { transform: translate(-50%, -50%) translateX(-6px); }
-          40% { transform: translate(-50%, -50%) translateX(6px); }
-          60% { transform: translate(-50%, -50%) translateX(-4px); }
-          80% { transform: translate(-50%, -50%) translateX(4px); }
         }
       `}</style>
     </div>
