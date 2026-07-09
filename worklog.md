@@ -103,3 +103,29 @@ Stage Summary:
 
 ### Lint: PASS (no errors)
 
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix preview — add Forgot Password UI, fix Audit page, add audit logging
+
+Work Log:
+- Diagnosed preview issue: Forgot Password form existed in logic but had no UI rendering
+- Added Forgot Password form UI to auth-gate.tsx (email input, Send Reset Link button, back to sign in)
+- Added Reset Password form UI to auth-gate.tsx (new/confirm password, success state with "Sign In Now" button)
+- Fixed rendering conditions: login/register forms now check `authMode === 'login'` to hide when in forgot/reset mode
+- Fixed bcrypt import error in reset-password route: `bcrypt` → `bcryptjs`
+- Fixed audit stats API error: removed `bids` from Company _count select (no bids relation exists)
+- Fixed audit.tsx lint error: restructured useEffect to avoid setState-in-effect pattern
+- Added JWT_SECRET to .env file (was missing, causing login to fail with 500)
+- Added audit logging to key API routes: login, register, forgot-password, reset-password
+- Verified full forgot password → reset password → login flow works end-to-end
+- Verified audit page renders correctly with stats cards, activity timeline, top companies
+- Updated test user (owner@tenet.app) to super_admin role for audit page access
+
+Stage Summary:
+- Forgot Password UI fully functional: click "Forgot Password?" → enter email → auto-redirect to Reset Password → enter new password → success → sign in
+- Audit page working: 8 overview stat cards, activity/user/company growth charts, tender/bid status breakdowns, top companies list, recent activity feed
+- Audit logging tracks: login, register, forgot_password, password_reset actions
+- JWT_SECRET restored in .env
+- All lint checks pass clean
+

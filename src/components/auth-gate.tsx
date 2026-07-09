@@ -565,8 +565,176 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
               </div>
               )}
 
+              {/* ─── FORGOT PASSWORD FORM ─── */}
+              {authMode === 'forgot-password' && (
+                <div className="animate-[viewEnter_0.3s_ease-out]">
+                  <div className="mb-5">
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('login')}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+                    >
+                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                      Back to Sign In
+                    </button>
+                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                      <Mail className="w-5 h-5 text-primary" /> Forgot Password
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">Enter your email and we&apos;ll send you a reset link</p>
+                  </div>
+
+                  <form onSubmit={handleForgotPassword} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email" className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                        Email Address
+                      </Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={forgotEmail}
+                        onChange={e => setForgotEmail(e.target.value)}
+                        required
+                        autoComplete="username"
+                        className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                      {loading ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Sending Reset Link...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          Send Reset Link
+                          <ArrowRight className="w-4 h-4" />
+                        </span>
+                      )}
+                    </Button>
+                  </form>
+
+                  <div className="mt-5 flex items-start gap-2.5 p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50">
+                    <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-blue-800 dark:text-blue-200/80 leading-relaxed">
+                      <span className="font-semibold">Note:</span> In production, a reset link will be sent to your email. For now, you&apos;ll be redirected directly to set a new password.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── RESET PASSWORD FORM ─── */}
+              {authMode === 'reset-password' && (
+                <div className="animate-[viewEnter_0.3s_ease-out]">
+                  <div className="mb-5">
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('login')}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+                    >
+                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                      Back to Sign In
+                    </button>
+                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                      <Lock className="w-5 h-5 text-primary" /> Reset Password
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">Enter your new password below</p>
+                  </div>
+
+                  {resetSuccess ? (
+                    <div className="text-center py-6 animate-[viewEnter_0.3s_ease-out]">
+                      <div className="w-14 h-14 rounded-full gradient-orange flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle2 className="w-7 h-7 text-white" />
+                      </div>
+                      <h3 className="text-lg font-bold text-foreground mb-2">Password Reset!</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Your password has been successfully reset. You can now sign in with your new password.</p>
+                      <Button
+                        type="button"
+                        onClick={() => { setAuthMode('login'); setResetSuccess(false); }}
+                        className="h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 px-8"
+                      >
+                        Sign In Now
+                      </Button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleResetPassword} className="space-y-5">
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                          New Password
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="new-password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            value={newPassword}
+                            onChange={e => setNewPassword(e.target.value)}
+                            required
+                            autoComplete="new-password"
+                            className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                          Confirm Password
+                        </Label>
+                        <Input
+                          id="confirm-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          required
+                          autoComplete="new-password"
+                          className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
+                        />
+                      </div>
+
+                      {newPassword && newPassword.length < 8 && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">Password must be at least 8 characters</p>
+                      )}
+
+                      <Button
+                        type="submit"
+                        disabled={loading || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 8}
+                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+                      >
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Resetting Password...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            Reset Password
+                            <CheckCircle2 className="w-4 h-4" />
+                          </span>
+                        )}
+                      </Button>
+                    </form>
+                  )}
+                </div>
+              )}
+
               {/* ─── LOGIN FORM (Binance-style multi-step) ─── */}
-              {activeTab === 'login' && (
+              {authMode === 'login' && activeTab === 'login' && (
                 <div className="animate-[viewEnter_0.3s_ease-out]">
                   {/* Step progress indicator */}
                   <div className="flex items-center justify-center gap-2 mb-6">
@@ -716,7 +884,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
               )}
 
               {/* ─── REGISTER FORM (Multi-Step Wizard) ─── */}
-              {activeTab === 'register' && (
+              {authMode === 'login' && activeTab === 'register' && (
                 <div className="animate-[viewEnter_0.3s_ease-out]">
                   <div className="mb-4">
                     <h2 className="text-2xl font-bold text-foreground">Create Account</h2>

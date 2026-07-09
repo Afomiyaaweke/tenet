@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     // Top companies by user count
     const topCompanies = await db.company.findMany({
       include: {
-        _count: { select: { users: true, tenders: true, bids: true } },
+        _count: { select: { users: true, tenders: true } },
       },
       orderBy: { users: { _count: 'desc' } },
       take: 10,
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
           verified: c.verified,
           users: c._count.users,
           tenders: c._count.tenders,
-          bids: c._count.bids,
+          bids: 0,
           createdAt: c.createdAt.toISOString(),
         })),
         recentActivity,

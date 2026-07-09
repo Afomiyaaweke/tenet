@@ -69,6 +69,22 @@ export async function POST(request: NextRequest) {
       companyId: user.companyId,
     });
 
+    // Audit log
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')?.trim()
+      || 'unknown';
+    await db.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'login',
+        resource: 'user',
+        resourceId: user.id,
+        companyId: user.companyId || null,
+        ipAddress,
+        userAgent: request.headers.get('user-agent') || 'unknown',
+      },
+    }).catch(() => {}); // Non-critical, don't fail login if audit fails
+
     // Return user data (without password hash)
     const { passwordHash: _, ...userWithoutPassword } = user;
 
