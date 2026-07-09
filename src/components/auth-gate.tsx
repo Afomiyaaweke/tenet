@@ -25,8 +25,6 @@ import {
   Fingerprint,
   CheckCircle2,
   AlertTriangle,
-  Shield,
-  Users,
   UserCircle,
   Building2,
   Globe,
@@ -40,34 +38,14 @@ const INDUSTRIES = [
   'Telecommunications', 'Manufacturing', 'Energy', 'Legal', 'General',
 ];
 
-type RegStep = 1 | 2 | 3 | 4 | 5;
+type RegStep = 1 | 2 | 3 | 4;
 
 const REG_STEP_META: Record<RegStep, { label: string; icon: React.ElementType }> = {
   1: { label: 'Account', icon: Lock },
   2: { label: 'Company', icon: Building2 },
   3: { label: 'Personal', icon: User },
-  4: { label: 'Role', icon: Shield },
-  5: { label: 'Review', icon: CheckCircle2 },
+  4: { label: 'Review', icon: CheckCircle2 },
 };
-
-const ROLE_OPTIONS = [
-  {
-    value: 'team_admin' as const,
-    label: 'Team Admin',
-    icon: Users,
-    description: 'Manage company profile, create tenders, review bids, manage team members',
-    color: 'slate',
-    warning: null,
-  },
-  {
-    value: 'user' as const,
-    label: 'User',
-    icon: UserCircle,
-    description: 'Submit bids, view tenders, manage own profile',
-    color: 'zinc',
-    warning: null,
-  },
-];
 
 /* ───────────────────────── Animated Background Dots ───────────────────────── */
 function FloatingDots() {
@@ -128,7 +106,7 @@ function scorePassword(pw: string): { score: number; label: string; color: strin
 }
 
 /* ───────────────────────── Step Indicator ───────────────────────── */
-function StepIndicator({ currentStep, totalSteps = 5 }: { currentStep: RegStep; totalSteps?: number }) {
+function StepIndicator({ currentStep, totalSteps = 4 }: { currentStep: RegStep; totalSteps?: number }) {
   return (
     <div className="flex items-center justify-center gap-1 mb-6">
       {Array.from({ length: totalSteps }, (_, i) => (i + 1) as RegStep).map((step, i) => {
@@ -176,7 +154,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     companyRegistrationNo: '', companyPhone: '', companyCity: '',
     companyCountry: '', companyEmail: '', companyWebsite: '',
     // Role
-    role: '' as string,
+    role: 'user' as string,
   });
   const [loading, setLoading] = useState(false);
 
@@ -266,8 +244,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       case 3:
         return !!regData.fullName;
       case 4:
-        return !!regData.role;
-      case 5:
         return true;
       default:
         return false;
@@ -276,7 +252,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
   const goNext = () => {
     if (!canGoNext()) return;
-    if (regStep < 5) setRegStep((regStep + 1) as RegStep);
+    if (regStep < 4) setRegStep((regStep + 1) as RegStep);
   };
 
   const goBack = () => {
@@ -286,7 +262,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const handleRegister = async () => {
     setLoading(true);
     const ok = await register(regData);
-    if (!ok) toast.error('Registration failed. Email may already exist or Super Admin authorization required.');
+    if (!ok) toast.error('Registration failed. Email may already exist.');
     else toast.success('Welcome to Tenet!');
     setLoading(false);
   };
@@ -1073,89 +1049,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     </div>
                   )}
 
-                  {/* ─── STEP 4: Role Selection ─── */}
+                  {/* ─── STEP 4: Review & Submit ─── */}
                   {regStep === 4 && (
-                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
-                      <div className="mb-2">
-                        <button
-                          type="button"
-                          onClick={goBack}
-                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
-                        >
-                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-                          Back
-                        </button>
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
-                            <Shield className="w-3.5 h-3.5 text-white" />
-                          </div>
-                          <h3 className="text-sm font-semibold text-foreground">Choose Your Access Level</h3>
-                        </div>
-                        <p className="text-xs text-muted-foreground ml-8">Select the role that best fits your responsibilities</p>
-                      </div>
-
-                      <div className="space-y-3">
-                        {ROLE_OPTIONS.map((role) => {
-                          const isSelected = regData.role === role.value;
-                          const Icon = role.icon;
-                          return (
-                            <button
-                              key={role.value}
-                              type="button"
-                              onClick={() => setRegData(d => ({ ...d, role: role.value }))}
-                              className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 relative ${
-                                isSelected
-                                  ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30 shadow-md shadow-orange-500/10'
-                                  : 'border-border bg-card/50 hover:border-orange-300 dark:hover:border-orange-700 hover:bg-orange-50/50 dark:hover:bg-orange-950/10'
-                              }`}
-                            >
-                              {isSelected && (
-                                <div className="absolute top-3 right-3">
-                                  <CheckCircle2 className="w-5 h-5 text-orange-500" />
-                                </div>
-                              )}
-                              <div className="flex items-start gap-3">
-                                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                                  isSelected
-                                    ? 'gradient-orange text-white shadow-sm shadow-orange-500/20'
-                                    : 'bg-muted text-muted-foreground'
-                                }`}>
-                                  <Icon className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-semibold text-foreground text-sm">{role.label}</h4>
-                                    {role.warning && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] font-medium">
-                                        <AlertTriangle className="w-3 h-3" />
-                                        {role.warning}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{role.description}</p>
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <Button
-                        type="button"
-                        onClick={goNext}
-                        disabled={!canGoNext()}
-                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
-                      >
-                        <span className="flex items-center gap-2">
-                          Continue
-                          <ArrowRight className="w-4 h-4" />
-                        </span>
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* ─── STEP 5: Review & Submit ─── */}
-                  {regStep === 5 && (
                     <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
                       <div className="mb-2">
                         <button
@@ -1282,30 +1177,22 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           </div>
                         </div>
 
-                        {/* Role */}
+                        {/* Account Type */}
                         <div className="p-3 rounded-xl border border-border bg-card/50">
                           <div className="flex items-center gap-2 mb-2">
-                            <Shield className="w-3.5 h-3.5 text-orange-500" />
-                            <span className="text-xs font-semibold text-foreground">Role</span>
+                            <UserCircle className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="text-xs font-semibold text-foreground">Account Type</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            {(() => {
-                              const selectedRole = ROLE_OPTIONS.find(r => r.value === regData.role);
-                              if (!selectedRole) return null;
-                              const RoleIcon = selectedRole.icon;
-                              return (
-                                <>
-                                  <div className="w-8 h-8 rounded-lg gradient-orange flex items-center justify-center text-white">
-                                    <RoleIcon className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-semibold text-foreground">{selectedRole.label}</p>
-                                    <p className="text-xs text-muted-foreground">{selectedRole.description}</p>
-                                  </div>
-                                </>
-                              );
-                            })()}
+                            <div className="w-8 h-8 rounded-lg gradient-orange flex items-center justify-center text-white">
+                              <UserCircle className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">User</p>
+                              <p className="text-xs text-muted-foreground">Submit bids, view tenders, manage your profile</p>
+                            </div>
                           </div>
+                          <p className="text-[10px] text-muted-foreground mt-2 ml-10">You can be promoted to Team Admin by your company admin later.</p>
                         </div>
                       </div>
 

@@ -261,3 +261,36 @@ Stage Summary:
 - No super_admin references in any source code, schema, or seed file
 - Database updated: any existing super_admin users changed to team_admin
 - App fully functional with team_admin as the highest role
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Remove role selection (Team Admin/User) from registration - default all new users to 'user'
+
+Work Log:
+- Changed RegStep type from `1|2|3|4|5` to `1|2|3|4` (removed step 5)
+- Removed ROLE_OPTIONS array entirely (was Team Admin + User options)
+- Updated REG_STEP_META: removed step 4 (Role) and step 5 (Review) → new step 4 is Review
+- Updated StepIndicator default totalSteps from 5 to 4
+- Set regData.role default to 'user' (was empty string)
+- Updated canGoNext: removed case 4 (role check), case 4 now returns true (was case 5)
+- Updated goNext: `regStep < 5` → `regStep < 4`
+- Removed entire Step 4 (Role Selection) JSX block (~80 lines with ROLE_OPTIONS.map, selection cards)
+- Changed Step 5 (Review) → Step 4 (Review): `regStep === 5` → `regStep === 4`
+- Replaced "Role" review section with "Account Type: User" display + promotion note
+- Updated error message: removed "Super Admin authorization required" text
+- Cleaned up unused imports: Shield, Users
+- Updated register API route:
+  - Removed `requireAuth` import
+  - Removed `role` from destructured body params
+  - Removed role validation logic (22 lines of team_admin authorization check)
+  - Always assigns `role: 'user'` instead of `assignedRole`
+  - Added comment: "All new users register as 'user' role, Team admin role can be assigned later via Staff Management"
+- Lint passes clean
+- Browser-verified: registration shows 4 steps, no role selection, review shows "Account Type: User"
+
+Stage Summary:
+- Registration is now 4 steps: Account → Company → Personal → Review
+- All new users default to 'user' role
+- Team Admin role can only be assigned via Staff Management by existing team_admins
+- No role selection during self-registration

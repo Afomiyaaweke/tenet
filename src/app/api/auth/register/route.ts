@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { generateToken, requireAuth } from '@/lib/auth';
+import { generateToken } from '@/lib/auth';
 
 // ── Input validation helpers ──
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,8 +42,6 @@ export async function POST(request: NextRequest) {
       companyCountry,
       companyEmail,
       companyWebsite,
-      // Role
-      role,
     } = body;
 
     // Validate required fields
@@ -71,29 +69,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate role - self-registration only allows "user" role
-    // Admin roles require existing admin authorization
-    let assignedRole = 'user';
-    if (role) {
-      if (role === 'team_admin') {
-        // Only existing admins can create team_admin accounts
-        const adminCheck = await requireAuth(request);
-        if (adminCheck.error || (adminCheck.user!.role !== 'team_admin')) {
-          return NextResponse.json(
-            { success: false, error: 'Forbidden: Only team admins can create team admin accounts. Please register as a regular user.' },
-            { status: 403 }
-          );
-        }
-        assignedRole = 'team_admin';
-      } else if (role === 'user') {
-        assignedRole = 'user';
-      } else {
-        return NextResponse.json(
-          { success: false, error: 'Invalid role. Allowed values: user, team_admin' },
-          { status: 400 }
-        );
-      }
-    }
+    // All new users register as 'user' role
+    // Team admin role can be assigned later via Staff Management
 
     // Check if user already exists
     const existingUser = await db.user.findUnique({ where: { email } });
@@ -135,7 +112,7 @@ export async function POST(request: NextRequest) {
         data: {
           email,
           passwordHash,
-          role: assignedRole,
+          role: 'user',
           companyId: company?.id || null,
           status: 'active',
         },
