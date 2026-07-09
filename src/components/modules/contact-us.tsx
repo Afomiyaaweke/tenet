@@ -29,36 +29,44 @@ import { toast } from 'sonner';
 
 const CONTACT_INFO = [
   {
-    icon: Mail,
-    label: 'Email',
-    value: 'afomiyaaweke6@gmail.com',
-    href: 'mailto:afomiyaaweke6@gmail.com',
+    icon: Phone,
+    label: 'Phone',
+    value: '+251 11 234 5678',
+    href: 'tel:+251112345678',
     color: 'text-orange-600 dark:text-orange-400',
     bg: 'bg-orange-50 dark:bg-orange-950/30',
   },
   {
-    icon: MapPin,
-    label: 'Location',
-    value: 'Addis Ababa, Ethiopia',
-    href: undefined,
+    icon: Mail,
+    label: 'Email',
+    value: 'support@tenet.app',
+    href: 'mailto:support@tenet.app',
     color: 'text-slate-600 dark:text-slate-400',
     bg: 'bg-slate-50 dark:bg-slate-900/40',
   },
   {
-    icon: Clock,
-    label: 'Business Hours',
-    value: 'Mon-Fri, 9:00 AM - 6:00 PM EAT',
+    icon: MapPin,
+    label: 'Head Office',
+    value: 'Bole Road, Atlas Building, 4th Floor\nAddis Ababa, Ethiopia',
     href: undefined,
     color: 'text-orange-600 dark:text-orange-400',
     bg: 'bg-orange-50 dark:bg-orange-950/30',
+  },
+  {
+    icon: Clock,
+    label: 'Business Hours',
+    value: 'Mon–Fri: 8:30 AM – 5:30 PM EAT\nSat: 9:00 AM – 1:00 PM EAT',
+    href: undefined,
+    color: 'text-slate-600 dark:text-slate-400',
+    bg: 'bg-slate-50 dark:bg-slate-900/40',
   },
   {
     icon: Globe,
     label: 'Website',
     value: 'tenet.app',
     href: 'https://tenet.app',
-    color: 'text-slate-600 dark:text-slate-400',
-    bg: 'bg-slate-50 dark:bg-slate-900/40',
+    color: 'text-orange-600 dark:text-orange-400',
+    bg: 'bg-orange-50 dark:bg-orange-950/30',
   },
 ];
 
@@ -66,24 +74,34 @@ const CONTACT_INFO = [
 
 const FAQ_ITEMS = [
   {
-    question: 'How do I register my company?',
+    question: 'How do I register my company on Tenet?',
     answer:
-      "During sign-up, you'll create your company workspace. Each company operates as an isolated environment with its own projects and tasks.",
+      'During sign-up, you will create your company workspace along with your account. Each company operates as an isolated environment — your projects, tenders, and data are never shared with other organizations on the platform.',
   },
   {
-    question: 'What are the user roles?',
+    question: 'What are the different user roles?',
     answer:
-      'We have three tiers: Super Admin (platform-wide access), Team Admin (company management), and User (standard access).',
+      'Tenet has three access tiers: Super Admin has platform-wide control including site audit and engagement analytics; Team Admin manages company-level operations, staff, and tenders; User is a standard member who can browse tenders, submit bids, and collaborate on projects.',
   },
   {
-    question: 'How does the AI bid analysis work?',
+    question: 'How does AI bid analysis work?',
     answer:
-      'Our AI analyzes submitted bids against tender requirements, scoring them on technical compliance, financial competitiveness, and risk factors.',
+      'When a tender owner triggers analysis, our AI evaluates all submitted bids against the tender requirements, scoring them on technical compliance, financial competitiveness, timeline feasibility, and risk factors. The result is a ranked recommendation with detailed breakdowns.',
   },
   {
-    question: 'Is my company data private?',
+    question: 'Is my company data private and secure?',
     answer:
-      'Yes! Each company operates as a completely isolated workspace. Your data is never shared with other organizations.',
+      'Absolutely. Each company operates as a completely isolated workspace with its own projects, tasks, documents, and tenders. Your data is scoped to your organization and cannot be accessed by users from other companies. All passwords are encrypted and sessions are secured with JWT tokens.',
+  },
+  {
+    question: 'What types of tenders can I publish?',
+    answer:
+      'Tenet supports tenders across multiple sectors including Construction, IT & Technology, Supply & Logistics, Consulting, Healthcare, and more. You can set budgets, deadlines, required documents, and category tags to attract the right bidders.',
+  },
+  {
+    question: 'How do I track project progress after awarding a tender?',
+    answer:
+      'Once a bid is awarded, Tenet automatically creates a project workspace with Kanban task boards, milestones, payment tracking, and a built-in messaging channel. Team Admins can assign tasks, set due dates, and monitor progress in real-time.',
   },
 ];
 
@@ -280,7 +298,7 @@ function ContactInfoCards() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   {item.label}
                 </p>
-                <p className="text-sm font-medium text-foreground mt-0.5 break-all">
+                <p className="text-sm font-medium text-foreground mt-0.5 break-words">
                   {item.value}
                 </p>
               </div>
