@@ -231,7 +231,7 @@ export async function fetchWorldBankTenders(opts: {
   search?: string;
   rows?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
-  const rows = Math.min(Math.max(opts.rows ?? 20, 1), 50);
+  const rows = Math.min(Math.max(opts.rows ?? 20, 1), 500);
   const params = new URLSearchParams({
     format: 'json',
     rows: String(rows),
@@ -321,7 +321,7 @@ export async function fetchEuTedTenders(opts: {
   search?: string;
   rows?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
-  const rows = Math.min(Math.max(opts.rows ?? 20, 1), 50);
+  const rows = Math.min(Math.max(opts.rows ?? 20, 1), 500);
   const base = 'https://api.ted.europa.eu/v3/notices/search';
   const body = {
     query: opts.search ? `(${opts.search})` : '*',

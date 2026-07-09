@@ -16,8 +16,9 @@ import { toast } from 'sonner';
 import {
   Building2, DollarSign, FileCode, ClipboardList, Receipt,
   Sparkles, FileText, Copy, Printer, RotateCcw, ArrowRight,
-  Loader2, Shield, ChevronRight, Zap, BookOpen,
+  Loader2, Shield, ChevronRight, Zap, BookOpen, Languages,
 } from 'lucide-react';
+import { InlineTranslator } from '@/components/translator';
 
 // ─── Template Definitions ────────────────────────────────────────────────────
 
@@ -672,6 +673,13 @@ export function DocBuilderView() {
             </Button>
           </div>
         </div>
+
+        {/* Translator for generated document */}
+        {generatedContent && (
+          <div className="mt-4">
+            <InlineTranslator text={generatedContent} />
+          </div>
+        )}
 
         {/* Document Paper */}
         <div className="bg-white rounded-xl border border-border/40 premium-shadow-lg overflow-hidden">

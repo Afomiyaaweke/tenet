@@ -494,7 +494,7 @@ export function AppShell() {
       case 'live-tenders':
         return <LiveTendersView />;
       case 'tender-detail':
-        return <TenderDetailView tenderId={viewParams.id} />;
+        return <TenderDetailView tenderId={viewParams.id} initialTab={viewParams.tab as any} />;
       case 'tender-compare':
         return <TenderCompareView tenderIds={viewParams.ids} />;
       case 'bid-compare':

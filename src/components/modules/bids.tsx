@@ -11,9 +11,10 @@ import {
   Gavel, Clock, DollarSign, FileSearch, Award, AlertCircle,
   CheckCircle, ChevronDown, ChevronUp, ArrowRight, TrendingUp,
   Briefcase, X, Eye, RotateCcw, Filter, Target,
-  CircleDot, Building2, FileSignature, Stamp,
+  CircleDot, Building2, FileSignature, Stamp, Sparkles, Languages,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
+import { InlineTranslator } from '@/components/translator';
 
 type BidTab = 'all' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected';
 
@@ -29,6 +30,8 @@ export function BidsView() {
   const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
   const [bidSignatures, setBidSignatures] = useState<Record<string, SavedSignature>>({});
   const stampSigHook = useStampSignature();
+  const [visibleCount, setVisibleCount] = useState(10);
+  const BID_PAGE_SIZE = 10;
 
   const loadBids = useCallback(async () => {
     setLoading(true);
@@ -227,10 +230,8 @@ export function BidsView() {
           </Card>
         </div>
       ) : (
-        <div
- className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
- >
-          {filteredBids.map(bid => {
+        <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
+          {filteredBids.slice(0, visibleCount).map(bid => {
               const sInfo = statusIcon(bid.status);
               const SIcon = sInfo.icon;
               const isExpanded = expandedId === bid.id;
@@ -339,6 +340,7 @@ export function BidsView() {
                                   <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Technical Proposal</p>
                                 </div>
                                 <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-xl p-4 leading-relaxed">{bid.technicalProposal}</p>
+                                <InlineTranslator text={bid.technicalProposal} className="mt-2" />
                               </div>
 
                               {/* Rejection Note */}
@@ -412,6 +414,17 @@ export function BidsView() {
                                   </Button>
                                 )}
 
+                                {/* Review with AI */}
+                                {bid.tender && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="rounded-xl text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-all"
+                                    onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: bid.tender!.id, tab: 'ai-overview' }); }}>
+                                    <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Review with AI
+                                  </Button>
+                                )}
+
                                 {/* Contractor: Withdraw action for pending bids */}
                                 {user?.role === 'user' && bid.status === 'pending_review' && (
                                   <Button
@@ -471,12 +484,27 @@ export function BidsView() {
                             </div>
                           </div>
                         )}
-</CardContent>
+                    </CardContent>
                   </Card>
                 </div>
               );
             })}
-</div>
+          </div>
+      )}
+
+      {/* See More / Load More bids */}
+      {!loading && filteredBids.length > visibleCount && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            size="lg"
+            className="gap-2 rounded-xl border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+            onClick={() => setVisibleCount(prev => Math.min(prev + BID_PAGE_SIZE, filteredBids.length))}
+          >
+            <ChevronDown className="h-4 w-4" />
+            See More ({filteredBids.length - visibleCount} remaining)
+          </Button>
+        </div>
       )}
 
       {/* Stamp & Signature Selector Dialog */}

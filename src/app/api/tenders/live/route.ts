@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const sector = (searchParams.get('sector') || '').toLowerCase();
     const search = searchParams.get('search') || undefined;
     const rowsRaw = Number(searchParams.get('rows'));
-    const rows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.min(rowsRaw, 50) : 20;
+    const rows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.min(rowsRaw, 500) : 20;
 
     const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders', 'jica', 'adb', 'uk_contracts', 'dgmarket'];
     if (!allowedSources.includes(source)) {
