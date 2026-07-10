@@ -62,6 +62,7 @@ model User {
   chatMessages ChatMessage[]
   messageReactions MessageReaction[]
   assignedTasks Task[]
+  savedTenders SavedTender[]
 }
 
 // ==========================================
@@ -451,6 +452,36 @@ model PasswordReset {
   @@index([email])
   @@index([token])
   @@index([expiresAt])
+}
+
+// ==========================================
+// SAVED TENDERS (Bookmarks for later bidding)
+// ==========================================
+
+model SavedTender {
+  id          String   @id @default(cuid())
+  userId      String
+  tenderId    String   // can be local Tender id or external live tender id
+  source      String   @default("local") // local, worldbank, eu_ted, ungm, sam_gov, etc.
+  title       String
+  scope       String   @default("")
+  budgetMin   Float    @default(0)
+  budgetMax   Float    @default(0)
+  deadline    DateTime?
+  location    String   @default("")
+  categoryTags String  @default("")
+  externalUrl String?
+  currency    String   @default("USD")
+  notes       String?  // user notes for later
+  status      String   @default("saved") // saved, bidding, applied, archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenderId, source])
+  @@index([userId])
+  @@index([status])
 }
 
 // ==========================================

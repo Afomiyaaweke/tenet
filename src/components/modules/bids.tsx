@@ -12,11 +12,12 @@ import {
   CheckCircle, ChevronDown, ChevronUp, ArrowRight, TrendingUp,
   Briefcase, X, Eye, RotateCcw, Filter, Target,
   CircleDot, Building2, FileSignature, Stamp, Sparkles, Languages,
+  Bookmark, MapPin, Calendar, ExternalLink, Trash2, PenLine,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator } from '@/components/translator';
 
-type BidTab = 'all' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected';
+type BidTab = 'all' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected' | 'saved';
 
 export function BidsView() {
   const { user } = useAuthStore();
@@ -33,6 +34,27 @@ export function BidsView() {
   const [visibleCount, setVisibleCount] = useState(10);
   const BID_PAGE_SIZE = 10;
 
+  // Saved tenders state
+  const [savedTenders, setSavedTenders] = useState<any[]>([]);
+  const [savedLoading, setSavedLoading] = useState(false);
+
+  const loadSavedTenders = useCallback(async () => {
+    setSavedLoading(true);
+    const res = await api.get('/tenders/saved');
+    if (res.success) setSavedTenders(res.data);
+    setSavedLoading(false);
+  }, []);
+
+  const handleRemoveSaved = async (id: string) => {
+    const res = await api.delete(`/tenders/saved/${id}`);
+    if (res.success) {
+      toast.success('Removed from saved tenders');
+      loadSavedTenders();
+    } else {
+      toast.error('Failed to remove');
+    }
+  };
+
   const loadBids = useCallback(async () => {
     setLoading(true);
     const params: Record<string, string> = {};
@@ -43,7 +65,7 @@ export function BidsView() {
   }, [statusFilter]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadBids(); }, [loadBids]);
+  useEffect(() => { loadBids(); loadSavedTenders(); }, [loadBids, loadSavedTenders]);
 
   const handleStatusUpdate = async (bidId: string, status: string) => {
     const res = await api.patch(`/bids/${bidId}/status`, { status });
@@ -64,6 +86,7 @@ export function BidsView() {
   }), [bids]);
 
   const filteredBids = useMemo(() => {
+    if (activeTab === 'saved') return [] as Bid[]; // handled separately
     if (activeTab === 'all') return bids;
     return bids.filter(b => b.status === activeTab);
   }, [bids, activeTab]);
@@ -96,6 +119,7 @@ export function BidsView() {
     { key: 'shortlisted', label: 'Shortlisted', icon: Award, count: stats.shortlisted, color: 'teal' },
     { key: 'awarded', label: 'Awarded', icon: CheckCircle, count: stats.awarded, color: 'emerald' },
     { key: 'rejected', label: 'Rejected', icon: AlertCircle, count: stats.rejected, color: 'rose' },
+    { key: 'saved', label: 'Saved Tenders', icon: Bookmark, count: savedTenders.length, color: 'violet' },
   ];
 
   return (
@@ -120,7 +144,7 @@ export function BidsView() {
       </div>
 
       {/* Stats Summary */}
-      {!loading && bids.length > 0 && (
+      {!loading && (bids.length > 0 || savedTenders.length > 0) && (
         <div
  className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]"
  >
@@ -148,7 +172,7 @@ export function BidsView() {
       )}
 
       {/* Tab Navigation */}
-      {!loading && bids.length > 0 && (
+      {!loading && (
         <div className="animate-[fadeIn_0.3s_ease-out]"
  >
           <Card className="premium-shadow rounded-xl border-0 bg-card">
@@ -181,8 +205,118 @@ export function BidsView() {
         </div>
       )}
 
+      {/* Saved Tenders Tab */}
+      {activeTab === 'saved' && (
+        <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
+          {savedLoading ? (
+            [1, 2, 3].map(i => (
+              <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse">
+                <CardContent className="p-5"><div className="h-20 bg-muted/50 rounded-xl" /></CardContent>
+              </Card>
+            ))
+          ) : savedTenders.length === 0 ? (
+            <Card className="premium-shadow rounded-xl border-0 bg-card">
+              <CardContent className="p-12 text-center">
+                <div className="p-3 rounded-2xl bg-violet-50 dark:bg-violet-950/30 w-fit mx-auto mb-4">
+                  <Bookmark className="h-8 w-8 text-violet-500" />
+                </div>
+                <h3 className="text-lg font-semibold">No saved tenders yet</h3>
+                <p className="text-muted-foreground text-sm mt-1 max-w-sm mx-auto">
+                  Bookmark tenders from Live Tenders to work on them later
+                </p>
+                <Button
+                  className="mt-4 gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow"
+                  onClick={() => setView('live-tenders')}
+                >
+                  <FileSearch className="h-4 w-4 mr-2" /> Browse Live Tenders
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            savedTenders.map((st: any) => (
+              <Card key={st.id} className="premium-shadow rounded-xl border-0 bg-card overflow-hidden hover:-translate-y-[2px] transition-all duration-200">
+                <div className="h-1 bg-gradient-to-r from-violet-400 to-purple-500" />
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="secondary" className="text-[10px] bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                          {st.source}
+                        </Badge>
+                        <Badge variant="secondary" className={`text-[10px] ${
+                          st.status === 'saved' ? 'bg-amber-50 text-amber-700' :
+                          st.status === 'bidding' ? 'bg-teal-50 text-teal-700' :
+                          st.status === 'applied' ? 'bg-emerald-50 text-emerald-700' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {st.status}
+                        </Badge>
+                      </div>
+                      <h4 className="font-semibold text-sm line-clamp-2">{st.title}</h4>
+                      {st.scope && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{st.scope}</p>}
+                      <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
+                        {(st.budgetMin > 0 || st.budgetMax > 0) && (
+                          <span className="flex items-center gap-1">
+                            <DollarSign className="h-3 w-3" />
+                            {st.currency || 'USD'} {st.budgetMin?.toLocaleString() || '—'} – {st.budgetMax?.toLocaleString() || '—'}
+                          </span>
+                        )}
+                        {st.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" /> {st.location}
+                          </span>
+                        )}
+                        {st.deadline && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> {new Date(st.deadline).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      {st.categoryTags && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {st.categoryTags.split(',').map((tag: string) => (
+                            <Badge key={tag} variant="secondary" className="text-[9px] px-1.5 py-0 bg-muted/50">
+                              {tag.trim()}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {st.notes && (
+                        <div className="mt-2 p-2 rounded-lg bg-muted/30 text-xs text-muted-foreground">
+                          <PenLine className="h-3 w-3 inline mr-1" /> {st.notes}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      {st.externalUrl && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => window.open(st.externalUrl, '_blank')}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                        onClick={() => handleRemoveSaved(st.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
       {/* Bids List */}
-      {loading ? (
+      {activeTab !== 'saved' && (loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
             <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
@@ -490,10 +624,10 @@ export function BidsView() {
               );
             })}
           </div>
-      )}
+      ))}
 
       {/* See More / Load More bids */}
-      {!loading && filteredBids.length > visibleCount && (
+      {activeTab !== 'saved' && !loading && filteredBids.length > visibleCount && (
         <div className="flex justify-center pt-4">
           <Button
             variant="outline"

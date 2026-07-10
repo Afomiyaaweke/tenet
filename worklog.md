@@ -294,3 +294,57 @@ Stage Summary:
 - All new users default to 'user' role
 - Team Admin role can only be assigned via Staff Management by existing team_admins
 - No role selection during self-registration
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Add new data sources (Apify, GovRider, Tenderwell, SeeGeneBid), redesign tender cards, add AI Review, Save/Bookmark, Load More, Saved Tenders in Bids
+
+Work Log:
+- Fixed critical auth bug: JWT_SECRET was read at module load time in auth.ts before .env was loaded. Changed to lazy evaluation via getSecret() function reading process.env.JWT_SECRET at call time
+- Added try/catch to login and register handlers in auth-gate.tsx for better error feedback
+- Added 5 new data source adapters to external-tenders.ts:
+  - fetchApifyGlobalTenders: requires APIFY_API_TOKEN env var
+  - fetchApifyProcurementTenders: requires APIFY_API_TOKEN env var
+  - fetchGovRiderTenders: requires GOVRIDER_API_KEY env var
+  - fetchTenderwellTenders: requires TENDERWELL_API_KEY env var
+  - fetchSeeGeneBidTenders: open source, no credentials needed
+- Added credential-gated sources to fetchLiveTenders aggregator with live flag based on env var presence
+- Updated allowed sources in /api/tenders/live route.ts to include all 5 new sources
+- Added SavedTender model to Prisma schema with userId, tenderId, source, title, scope, budget, deadline, location, categoryTags, externalUrl, currency, notes, status fields
+- Added savedTenders relation to User model
+- Ran db:push to apply schema changes
+- Created 4 new API routes:
+  - GET/POST /api/tenders/saved — List and save tenders
+  - GET /api/tenders/saved/check — Check if a tender is saved
+  - DELETE/PATCH /api/tenders/saved/[id] — Remove/update saved tender
+  - POST /api/tenders/live/review — Inline AI review using ZAI SDK LLM
+- Completely rewrote live-tenders.tsx with:
+  - New SOURCE_LABELS and SOURCE_ACCENT for all 5 new sources
+  - Redesigned tender cards with rich detail grid (budget, location, deadline, borrower, contract type, region)
+  - AI Review button (Sparkles icon) on each card → inline expandable AI review panel with summary, key requirements, eligibility check, risk assessment, recommended approach, competitive landscape, bid readiness score, tips
+  - Save/Bookmark button (Bookmark/BookmarkCheck icon) on each card top-right corner → POST /api/tenders/saved with toast feedback
+  - Load More button at bottom with "X of Y tenders shown · Z remaining"
+  - Data Sources panel shows all 15 sources with "Requires API Key" badge for credential-gated sources and "Enable" button opening dialog
+- Updated bids.tsx with:
+  - Added 'saved' to BidTab type
+  - Added "Saved Tenders" tab with Bookmark icon and violet color
+  - Added saved tenders loading, display, and removal functionality
+  - Empty state: "No saved tenders yet" with "Browse Live Tenders" CTA
+  - Saved tender cards show source, status, title, scope, budget, location, deadline, category tags, notes, external link, remove button
+  - Made tab navigation always visible (even with 0 bids) so saved tenders tab is accessible
+- Fixed duplicate nav id bug: Company Settings had id='profile' (same as Profile) → changed to id='company-settings'
+- Added 'company-settings' to View type in app-shell.tsx and store/index.ts
+- Reset owner@tenet.app password to Admin@123 in database
+- All lint checks pass clean
+- Browser-verified: login works, Live Tenders page shows all 15 sources, Bids page has Saved Tenders tab, saved tenders empty state renders correctly
+
+Stage Summary:
+- 5 new data sources added: Apify Global, Apify Procurement, GovRider, Tenderwell, SeeGeneBid
+- Credential-gated sources show "Enable" button with instructions for adding API keys to .env
+- Tender cards redesigned with rich detail grid for ALL sources
+- Inline AI Review on each card using ZAI SDK LLM (no page navigation)
+- Save/Bookmark button on each card with toast feedback
+- Load More pagination at bottom
+- Saved Tenders tab in Bids view for working on bookmarked tenders later
+- Critical auth fix: JWT_SECRET now read lazily instead of at module load time

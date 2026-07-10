@@ -9,7 +9,7 @@ import type { LiveTender, DataSource } from '@/lib/api';
  * Requires authentication. Returns normalized LiveTender[] + source metadata.
  *
  * Query params:
- *  - source: 'all' | 'worldbank' | 'eu_ted' | 'ungm' | 'sam_gov' | 'afdb' | 'eu_opentenders' | 'jica' | 'adb' | 'uk_contracts' | 'dgmarket'
+ *  - source: 'all' | 'worldbank' | 'eu_ted' | 'ungm' | 'sam_gov' | 'afdb' | 'eu_opentenders' | 'jica' | 'adb' | 'uk_contracts' | 'dgmarket' | 'apify_global' | 'apify_procurement' | 'govrider' | 'tenderwell' | 'seegenebid'
  *  - sector: 'all' | 'medical' | 'construction' | 'retail' | 'it' | 'energy' | 'agriculture' | 'education' | 'transport' | 'finance' | 'telecom'
  *  - search: free-text search term
  *  - rows:   number of records per source (default 20, max 50)
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const rowsRaw = Number(searchParams.get('rows'));
     const rows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.min(rowsRaw, 500) : 20;
 
-    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders', 'jica', 'adb', 'uk_contracts', 'dgmarket'];
+    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders', 'jica', 'adb', 'uk_contracts', 'dgmarket', 'apify_global', 'apify_procurement', 'govrider', 'tenderwell', 'seegenebid'];
     if (!allowedSources.includes(source)) {
       return NextResponse.json(
         { success: false, error: `Invalid source. Allowed: ${allowedSources.join(', ')}` },
