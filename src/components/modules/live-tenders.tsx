@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
   Globe2, Search, MapPin, Calendar, DollarSign,
@@ -17,6 +19,8 @@ import {
   ChevronDown, ChevronUp, BookOpen, Download, Copy,
   Loader2, Clock, Landmark, Plane, Flag, Cpu,
   CheckCircle2, ExternalLink, TrendingUp, ChevronRight, Languages,
+  Bookmark, BookmarkCheck, XCircle, AlertTriangle, Lightbulb,
+  Target, BarChart3, Users, Zap,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -36,6 +40,11 @@ const SOURCE_LABELS: Record<string, string> = {
   uk_contracts: 'UK Contracts',
   dgmarket: 'DgMarket',
   sector_feed: 'Sector Feed',
+  apify_global: 'Apify Global',
+  apify_procurement: 'Apify Procurement',
+  govrider: 'GovRider',
+  tenderwell: 'Tenderwell',
+  seegenebid: 'SeeGeneBid',
 };
 
 const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -116,6 +125,41 @@ const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; 
     bg: 'from-primary/10 to-primary/5',
     icon: TrendingUp,
   },
+  apify_global: {
+    dot: 'bg-amber-500',
+    badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+    ring: 'hover:border-amber-400/60',
+    bg: 'from-amber-500/10 to-yellow-500/5',
+    icon: Cpu,
+  },
+  apify_procurement: {
+    dot: 'bg-orange-500',
+    badge: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+    ring: 'hover:border-orange-400/60',
+    bg: 'from-orange-500/10 to-amber-500/5',
+    icon: Database,
+  },
+  govrider: {
+    dot: 'bg-violet-500',
+    badge: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+    ring: 'hover:border-violet-400/60',
+    bg: 'from-violet-500/10 to-purple-500/5',
+    icon: ShieldCheck,
+  },
+  tenderwell: {
+    dot: 'bg-teal-500',
+    badge: 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300',
+    ring: 'hover:border-teal-400/60',
+    bg: 'from-teal-500/10 to-cyan-500/5',
+    icon: Search,
+  },
+  seegenebid: {
+    dot: 'bg-rose-500',
+    badge: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+    ring: 'hover:border-rose-400/60',
+    bg: 'from-rose-500/10 to-pink-500/5',
+    icon: Globe2,
+  },
   default: {
     dot: 'bg-muted-foreground',
     badge: 'bg-muted text-muted-foreground',
@@ -173,6 +217,78 @@ interface InlineDocument {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
+ * AI Review data type
+ * ───────────────────────────────────────────────────────────────────── */
+
+interface AIReview {
+  summary: string;
+  keyRequirements: string[];
+  eligibilityCheck: { likely: boolean; reasons: string[] };
+  riskAssessment: { level: 'low' | 'medium' | 'high'; factors: string[] };
+  recommendedApproach: string;
+  competitiveLandscape: string;
+  bidReadiness: { score: number; checklist: string[] };
+  estimatedTimeline?: string;
+  tips: string[];
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Credential-gated source definitions
+ * ───────────────────────────────────────────────────────────────────── */
+
+interface GatedSource {
+  id: string;
+  name: string;
+  envVar: string;
+  description: string;
+  docsUrl: string;
+  credentialType: 'api_key' | 'open_source';
+}
+
+const GATED_SOURCES: GatedSource[] = [
+  {
+    id: 'apify_global',
+    name: 'Apify Global',
+    envVar: 'APIFY_API_TOKEN',
+    description: 'Apify provides web scraping and data extraction APIs for global procurement data. You need an Apify API token to enable this source.',
+    docsUrl: 'https://docs.apify.com/api/v2',
+    credentialType: 'api_key',
+  },
+  {
+    id: 'apify_procurement',
+    name: 'Apify Procurement',
+    envVar: 'APIFY_API_TOKEN',
+    description: 'Uses Apify actors specialized for procurement and tender scraping from government portals worldwide. Requires the same Apify API token.',
+    docsUrl: 'https://docs.apify.com/api/v2',
+    credentialType: 'api_key',
+  },
+  {
+    id: 'govrider',
+    name: 'GovRider',
+    envVar: 'GOVRIDER_API_KEY',
+    description: 'GovRider aggregates government tender data from multiple jurisdictions. An API key is required to access their feed.',
+    docsUrl: 'https://govrider.com/docs',
+    credentialType: 'api_key',
+  },
+  {
+    id: 'tenderwell',
+    name: 'Tenderwell',
+    envVar: 'TENDERWELL_API_KEY',
+    description: 'Tenderwell provides AI-enhanced tender discovery and matching. Requires an API key for access.',
+    docsUrl: 'https://tenderwell.com/api',
+    credentialType: 'api_key',
+  },
+  {
+    id: 'seegenebid',
+    name: 'SeeGeneBid',
+    envVar: '',
+    description: 'Open source gene/bid discovery platform. No credentials required — community-maintained data feed.',
+    docsUrl: 'https://seegenebid.org',
+    credentialType: 'open_source',
+  },
+];
+
+/* ─────────────────────────────────────────────────────────────────────
  * Helpers
  * ───────────────────────────────────────────────────────────────────── */
 
@@ -190,6 +306,7 @@ function fmtMoney(amount: number, currency: string): string {
 }
 
 function daysUntil(dateStr: string): number {
+  if (!dateStr) return 999;
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
@@ -200,7 +317,15 @@ function deadlineBadge(days: number): string {
   return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
 }
 
+function deadlineLabel(days: number): string {
+  if (days <= 0) return 'Closed';
+  if (days <= 7) return `${days}d left`;
+  if (days <= 30) return `${days}d left`;
+  return `${days}d left`;
+}
+
 function relativeTime(dateStr: string): string {
+  if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
   const day = 86400000;
   if (diff < day) return 'today';
@@ -209,13 +334,23 @@ function relativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
+function riskBadgeColor(level: string): string {
+  if (level === 'low') return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
+  if (level === 'medium') return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
+  return 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300';
+}
+
+function readinessColor(score: number): string {
+  if (score >= 8) return 'bg-emerald-500';
+  if (score >= 5) return 'bg-amber-500';
+  return 'bg-rose-500';
+}
+
 /* ─────────────────────────────────────────────────────────────────────
  * Inline Document Viewer Component
  * ───────────────────────────────────────────────────────────────────── */
 
 function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: () => void }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
   const copyContent = () => {
     const text = doc.sections
       ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
@@ -225,9 +360,7 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
   };
 
   return (
-    <div
- className="overflow-hidden animate-[fadeIn_0.3s_ease-out]"
- >
+    <div className="overflow-hidden animate-[fadeIn_0.3s_ease-out]">
       <div className="border-t border-border bg-gradient-to-b from-muted/30 to-background">
         <div className="p-4 md:p-6 space-y-4">
           {/* Document header */}
@@ -289,7 +422,7 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
 
           {/* Sections view */}
           {doc.sections && doc.sections.length > 0 ? (
-            <div ref={scrollRef} className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4 space-y-4 scrollbar-thin">
+            <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4 space-y-4 scrollbar-thin">
               {doc.sections.map((section, i) => (
                 <div key={i}>
                   <h4 className="text-sm font-semibold text-foreground mb-1.5">{section.heading}</h4>
@@ -301,7 +434,7 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
               ))}
             </div>
           ) : (
-            <div ref={scrollRef} className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4 scrollbar-thin">
+            <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4 scrollbar-thin">
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                 {doc.content || 'No content could be extracted from this page.'}
               </p>
@@ -314,7 +447,285 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * Main LiveTendersView component — Notion-style
+ * AI Review Panel Component
+ * ───────────────────────────────────────────────────────────────────── */
+
+function AIReviewPanel({
+  review,
+  isLoading,
+}: {
+  review: AIReview | null;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="border-t border-border bg-gradient-to-b from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-4 md:p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-violet-500 animate-pulse" />
+          <span className="text-sm font-medium text-violet-700 dark:text-violet-300">Generating AI Review…</span>
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-5/6" />
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!review) return null;
+
+  return (
+    <div className="border-t border-border bg-gradient-to-b from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-4 md:p-5 space-y-4 animate-[fadeIn_0.3s_ease-out]">
+      {/* Summary */}
+      <div className="flex items-start gap-2.5">
+        <div className="h-7 w-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0 mt-0.5">
+          <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1">Summary</p>
+          <p className="text-sm text-foreground leading-relaxed">{review.summary}</p>
+        </div>
+      </div>
+
+      <Separator className="bg-border" />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Key Requirements */}
+        {review.keyRequirements.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <Target className="h-3.5 w-3.5 text-amber-500" />
+              Key Requirements
+            </p>
+            <ul className="space-y-1.5">
+              {review.keyRequirements.map((req, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                  <span>{req}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Eligibility Check */}
+        <div>
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+            Eligibility Check
+          </p>
+          <div className="flex items-center gap-2 mb-2">
+            {review.eligibilityCheck.likely ? (
+              <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-xs">
+                <CheckCircle2 className="h-3 w-3" />
+                Likely Eligible
+              </Badge>
+            ) : (
+              <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-0 gap-1 text-xs">
+                <XCircle className="h-3 w-3" />
+                May Not Qualify
+              </Badge>
+            )}
+          </div>
+          {review.eligibilityCheck.reasons.length > 0 && (
+            <ul className="space-y-1">
+              {review.eligibilityCheck.reasons.map((reason, i) => (
+                <li key={i} className={`flex items-start gap-2 text-xs ${review.eligibilityCheck.likely ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                  {review.eligibilityCheck.likely ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  ) : (
+                    <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  )}
+                  <span>{reason}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <Separator className="bg-border" />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Risk Assessment */}
+        <div>
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+            Risk Assessment
+          </p>
+          <Badge className={`${riskBadgeColor(review.riskAssessment.level)} border-0 text-xs capitalize mb-2`}>
+            {review.riskAssessment.level} Risk
+          </Badge>
+          {review.riskAssessment.factors.length > 0 && (
+            <ul className="space-y-1 mt-1.5">
+              {review.riskAssessment.factors.map((factor, i) => (
+                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
+                  {factor}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Recommended Approach */}
+        <div>
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+            Recommended Approach
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{review.recommendedApproach}</p>
+        </div>
+
+        {/* Competitive Landscape */}
+        <div>
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-amber-500" />
+            Competitive Landscape
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{review.competitiveLandscape}</p>
+        </div>
+      </div>
+
+      <Separator className="bg-border" />
+
+      {/* Bid Readiness Score */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5 text-amber-500" />
+            Bid Readiness
+          </p>
+          <span className="text-sm font-bold text-foreground">{review.bidReadiness.score}/10</span>
+        </div>
+        <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden mb-2">
+          <div
+            className={`h-full rounded-full transition-all ${readinessColor(review.bidReadiness.score)}`}
+            style={{ width: `${review.bidReadiness.score * 10}%` }}
+          />
+        </div>
+        {review.bidReadiness.checklist.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {review.bidReadiness.checklist.map((item, i) => (
+              <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                {item}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Tips */}
+      {review.tips.length > 0 && (
+        <>
+          <Separator className="bg-border" />
+          <div>
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5 text-amber-500" />
+              Tips
+            </p>
+            <ul className="space-y-1.5">
+              {review.tips.map((tip, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <ChevronRight className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Credential Dialog Component
+ * ───────────────────────────────────────────────────────────────────── */
+
+function CredentialDialog({
+  source,
+  open,
+  onOpenChange,
+}: {
+  source: GatedSource | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!source) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {source.credentialType === 'api_key' ? (
+              <Lock className="h-5 w-5 text-amber-500" />
+            ) : (
+              <Globe2 className="h-5 w-5 text-emerald-500" />
+            )}
+            Enable {source.name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{source.description}</p>
+          {source.credentialType === 'api_key' ? (
+            <>
+              <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
+                <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Required Environment Variable</p>
+                <code className="block text-sm font-mono bg-background px-3 py-2 rounded border border-border">
+                  {source.envVar}=your_api_key_here
+                </code>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">To enable this data source:</p>
+                <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Sign up at <a href={source.docsUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">{source.name} <ArrowUpRight className="h-2.5 w-2.5" /></a></li>
+                  <li>Generate an API key from your dashboard</li>
+                  <li>Add <code className="px-1 py-0.5 rounded bg-muted">{source.envVar}</code> to your environment</li>
+                  <li>Restart the application server</li>
+                </ol>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/80 dark:bg-emerald-950/30 p-3 space-y-2">
+              <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">No Credentials Required</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
+                {source.name} is an open source data source. It should be automatically available once the integration module is enabled.
+              </p>
+            </div>
+          )}
+          <div className="flex items-center gap-2 pt-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+              Close
+            </Button>
+            <a
+              href={source.docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1"
+            >
+              <Button className="w-full gap-1.5">
+                View Documentation
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Button>
+            </a>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Main LiveTendersView component
  * ───────────────────────────────────────────────────────────────────── */
 
 export function LiveTendersView() {
@@ -341,8 +752,21 @@ export function LiveTendersView() {
   const [docData, setDocData] = useState<Record<string, InlineDocument>>({});
   const [docError, setDocError] = useState<Record<string, string>>({});
 
+  // AI Review state
+  const [aiReviewData, setAiReviewData] = useState<Record<string, AIReview>>({});
+  const [aiReviewLoading, setAiReviewLoading] = useState<Record<string, boolean>>({});
+  const [aiReviewExpanded, setAiReviewExpanded] = useState<Record<string, boolean>>({});
+
+  // Saved/bookmark state
+  const [savedTenders, setSavedTenders] = useState<Record<string, boolean>>({});
+  const [savingTender, setSavingTender] = useState<Record<string, boolean>>({});
+
   // Import state
   const [importing, setImporting] = useState<string | null>(null);
+
+  // Credential dialog state
+  const [credDialogSource, setCredDialogSource] = useState<GatedSource | null>(null);
+  const [credDialogOpen, setCredDialogOpen] = useState(false);
 
   const load = useCallback(
     async (isRefresh = false) => {
@@ -372,6 +796,28 @@ export function LiveTendersView() {
     const t = setTimeout(() => load(), 250);
     return () => clearTimeout(t);
   }, [load]);
+
+  // Check saved status for visible tenders
+  useEffect(() => {
+    const checkSaved = async () => {
+      const visibleTenders = tenders.slice(0, visibleCount);
+      for (const t of visibleTenders) {
+        if (savedTenders[t.id] !== undefined) continue;
+        try {
+          const res = await api.get('/tenders/saved/check', {
+            tenderId: t.externalId || t.id,
+            source: t.source,
+          });
+          if (res.success) {
+            setSavedTenders((prev) => ({ ...prev, [t.id]: res.saved }));
+          }
+        } catch {
+          // Ignore errors for saved check
+        }
+      }
+    };
+    if (tenders.length > 0) checkSaved();
+  }, [tenders, visibleCount, savedTenders]);
 
   const liveSourcesCount = useMemo(
     () => sourceMeta.filter((s) => s.live && s.ok).length,
@@ -413,6 +859,90 @@ export function LiveTendersView() {
     setDocLoading(null);
   }, [expandedId, docData]);
 
+  /* ────── AI Review ────── */
+  const loadAIReview = useCallback(async (tender: LiveTender) => {
+    const id = tender.id;
+    // Toggle off if already expanded
+    if (aiReviewExpanded[id]) {
+      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+      return;
+    }
+    // Expand the panel
+    setAiReviewExpanded((prev) => ({ ...prev, [id]: true }));
+    // If already loaded, no need to fetch
+    if (aiReviewData[id]) return;
+
+    setAiReviewLoading((prev) => ({ ...prev, [id]: true }));
+    try {
+      const res = await api.post('/tenders/live/review', {
+        title: tender.title,
+        scope: tender.scope,
+        budgetMin: tender.budgetMin,
+        budgetMax: tender.budgetMax,
+        deadline: tender.deadline,
+        location: tender.location,
+        categoryTags: tender.categoryTags,
+        source: tender.source,
+        currency: tender.currency,
+        borrower: tender.borrower,
+        contractType: tender.contractType,
+        region: tender.region,
+      });
+      if (res.success && res.data) {
+        setAiReviewData((prev) => ({ ...prev, [id]: res.data as AIReview }));
+      } else {
+        toast.error(res.error || 'Failed to generate AI review');
+        setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+      }
+    } catch {
+      toast.error('Failed to generate AI review');
+      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+    }
+    setAiReviewLoading((prev) => ({ ...prev, [id]: false }));
+  }, [aiReviewExpanded, aiReviewData]);
+
+  /* ────── Save/Bookmark ────── */
+  const toggleSave = useCallback(async (tender: LiveTender) => {
+    const id = tender.id;
+    const isCurrentlySaved = savedTenders[id];
+    setSavingTender((prev) => ({ ...prev, [id]: true }));
+
+    try {
+      if (isCurrentlySaved) {
+        // Remove from saved — use the saved check data to find the record
+        const checkRes = await api.get('/tenders/saved/check', {
+          tenderId: tender.externalId || tender.id,
+          source: tender.source,
+        });
+        if (checkRes.success && checkRes.data?.id) {
+          await api.delete(`/tenders/saved/${checkRes.data.id}`);
+        }
+        setSavedTenders((prev) => ({ ...prev, [id]: false }));
+        toast.success('Removed from saved', { description: `"${tender.title}" removed from your bids list.` });
+      } else {
+        // Save the tender
+        await api.post('/tenders/saved', {
+          tenderId: tender.externalId || tender.id,
+          source: tender.source,
+          title: tender.title,
+          scope: tender.scope,
+          budgetMin: tender.budgetMin,
+          budgetMax: tender.budgetMax,
+          deadline: tender.deadline,
+          location: tender.location,
+          categoryTags: tender.categoryTags,
+          externalUrl: tender.externalUrl,
+          currency: tender.currency,
+        });
+        setSavedTenders((prev) => ({ ...prev, [id]: true }));
+        toast.success('Tender saved to your bids list', { description: `"${tender.title}" has been bookmarked.` });
+      }
+    } catch {
+      toast.error(isCurrentlySaved ? 'Failed to remove from saved' : 'Failed to save tender');
+    }
+    setSavingTender((prev) => ({ ...prev, [id]: false }));
+  }, [savedTenders]);
+
   /* ────── Import to local tenders ────── */
   const importTender = useCallback(async (tender: LiveTender) => {
     setImporting(tender.id);
@@ -440,6 +970,15 @@ export function LiveTendersView() {
       toast.error('Failed to import tender');
     }
     setImporting(null);
+  }, []);
+
+  /* ────── Open credential dialog ────── */
+  const openCredDialog = useCallback((sourceId: string) => {
+    const gated = GATED_SOURCES.find((s) => s.id === sourceId);
+    if (gated) {
+      setCredDialogSource(gated);
+      setCredDialogOpen(true);
+    }
   }, []);
 
   /* ────── Render ────── */
@@ -481,7 +1020,7 @@ export function LiveTendersView() {
               </Badge>
             </div>
             <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-              Real-time procurement from international public APIs — {tenders.length} opportunities from {sourceMeta.length || 10} sources
+              Real-time procurement from international public APIs — {tenders.length} opportunities from {sourceMeta.length || 15} sources
               {sectorFilter && <span className="ml-1 text-primary font-medium">· filtered by {SECTOR_PILLS.find(s => s.id === sectorFilter)?.label || sectorFilter}</span>}
             </p>
           </div>
@@ -496,7 +1035,7 @@ export function LiveTendersView() {
           <span className="text-foreground font-medium">Live Feed</span>
         </nav>
 
-        {/* ───────────────── Stats bar (compact) ───────────────── */}
+        {/* ───────────────── Stats bar ───────────────── */}
         <div className="grid grid-cols-4 gap-2 md:gap-3">
           <Card className="bg-card border-border">
             <CardContent className="p-3 md:p-4">
@@ -513,7 +1052,7 @@ export function LiveTendersView() {
                 <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Online</span>
                 <Radio className="h-3.5 w-3.5 text-emerald-500" />
               </div>
-              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{liveSourcesCount}/{sourceMeta.length || 6}</p>
+              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{liveSourcesCount}/{sourceMeta.length || 15}</p>
             </CardContent>
           </Card>
           <Card className="bg-card border-border">
@@ -587,6 +1126,11 @@ export function LiveTendersView() {
                   <SelectItem value="adb">🌏 ADB</SelectItem>
                   <SelectItem value="uk_contracts">🇬🇧 UK Contracts Finder</SelectItem>
                   <SelectItem value="dgmarket">🌐 DgMarket</SelectItem>
+                  <SelectItem value="apify_global">🤖 Apify Global</SelectItem>
+                  <SelectItem value="apify_procurement">📦 Apify Procurement</SelectItem>
+                  <SelectItem value="govrider">🛡️ GovRider</SelectItem>
+                  <SelectItem value="tenderwell">🔍 Tenderwell</SelectItem>
+                  <SelectItem value="seegenebid">🌐 SeeGeneBid</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -704,16 +1248,50 @@ export function LiveTendersView() {
                 const doc = docData[t.id];
                 const docErr = docError[t.id];
                 const SourceIcon = accent.icon;
+                const isSaved = savedTenders[t.id] || false;
+                const isSaving = savingTender[t.id] || false;
+                const showAiReview = aiReviewExpanded[t.id] || false;
+                const aiLoading = aiReviewLoading[t.id] || false;
+                const aiReview = aiReviewData[t.id] || null;
+
+                // Compute which meta fields have values
+                const hasBudget = !!(t.budgetMin || t.budgetMax);
+                const hasLocation = !!t.location;
+                const hasDeadline = !!t.deadline;
+                const hasBorrower = !!(t.borrower || t.supplier);
+                const hasContractType = !!t.contractType;
+                const hasRegion = !!t.region;
+                const metaFieldCount = [hasBudget, hasLocation, hasDeadline, hasBorrower, hasContractType, hasRegion].filter(Boolean).length;
 
                 return (
                   <div key={t.id}>
                     <Card className={`bg-card border-border transition-all ${accent.ring} ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
                       <CardContent className="p-0">
                         {/* Main card content */}
-                        <div className="p-4 md:p-5">
-                          {/* Top row: source + status */}
-                          <div className="flex items-center justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-2">
+                        <div className="p-4 md:p-5 relative">
+                          {/* Bookmark button — top right */}
+                          <div className="absolute top-3 right-3 md:top-4 md:right-4">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 rounded-full"
+                              onClick={() => toggleSave(t)}
+                              disabled={isSaving}
+                              title={isSaved ? 'Remove from saved' : 'Save to bids list'}
+                            >
+                              {isSaving ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                              ) : isSaved ? (
+                                <BookmarkCheck className="h-4 w-4 text-primary" />
+                              ) : (
+                                <Bookmark className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                              )}
+                            </Button>
+                          </div>
+
+                          {/* Top row: source + status + relative time */}
+                          <div className="flex items-center justify-between gap-2 mb-3 pr-10">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span
                                 className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${accent.badge}`}
                               >
@@ -729,8 +1307,14 @@ export function LiveTendersView() {
                                   Open Notice
                                 </Badge>
                               )}
+                              {t.source === 'sector_feed' && (
+                                <Badge className="bg-primary/10 text-primary border-0 text-[10px] gap-1">
+                                  <TrendingUp className="h-3 w-3" />
+                                  Sector
+                                </Badge>
+                              )}
                             </div>
-                            <span className="text-[11px] text-muted-foreground hidden md:inline-flex items-center gap-1">
+                            <span className="text-[11px] text-muted-foreground hidden md:inline-flex items-center gap-1 shrink-0">
                               <Clock className="h-3 w-3" />
                               {t.signingDate
                                 ? `Signed ${relativeTime(t.signingDate)}`
@@ -739,72 +1323,89 @@ export function LiveTendersView() {
                           </div>
 
                           {/* Title */}
-                          <h3 className="text-base md:text-lg font-semibold text-foreground leading-snug line-clamp-2">
+                          <h3 className="text-base md:text-lg font-semibold text-foreground leading-snug line-clamp-2 pr-10">
                             {t.title}
                           </h3>
 
-                          {/* Sector badge for sector_feed items */}
-                          {t.source === 'sector_feed' && (
-                            <div className="mt-1.5">
-                              <Badge className="bg-primary/10 text-primary border-0 text-[10px] gap-1">
-                                <TrendingUp className="h-3 w-3" />
-                                Sector
-                              </Badge>
+                          {/* Scope preview */}
+                          {t.scope && (
+                            <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                              {t.scope}
+                            </p>
+                          )}
+
+                          {/* Rich meta grid */}
+                          {metaFieldCount > 0 && (
+                            <div className={`grid gap-2 mt-3 ${metaFieldCount <= 3 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-3'}`}>
+                              {hasBudget && (
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <DollarSign className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                                  <span className="text-muted-foreground">Budget:</span>
+                                  <span className="font-medium text-foreground truncate">
+                                    {t.budgetMin && t.budgetMax
+                                      ? `${fmtMoney(t.budgetMin, t.currency).replace(/\.00/, '')} – ${fmtMoney(t.budgetMax, t.currency).replace(/\.00/, '')}`
+                                      : fmtMoney(t.budgetMax || t.budgetMin, t.currency)}
+                                  </span>
+                                </div>
+                              )}
+                              {hasLocation && (
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <MapPin className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+                                  <span className="text-muted-foreground">Location:</span>
+                                  <span className="font-medium text-foreground truncate max-w-[140px]">{t.location}</span>
+                                </div>
+                              )}
+                              {hasDeadline && (
+                                <div className={`inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded w-fit ${deadlineBadge(days)}`}>
+                                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="font-medium">{deadlineLabel(days)}</span>
+                                </div>
+                              )}
+                              {hasBorrower && (
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+                                  <span className="text-muted-foreground">{t.borrower ? 'Borrower:' : 'Org:'}</span>
+                                  <span className="font-medium text-foreground truncate max-w-[140px]">{t.borrower || t.supplier}</span>
+                                </div>
+                              )}
+                              {hasContractType && (
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                                  <span className="text-muted-foreground">Type:</span>
+                                  <span className="font-medium text-foreground truncate">{t.contractType}</span>
+                                </div>
+                              )}
+                              {hasRegion && (
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <Globe2 className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                                  <span className="text-muted-foreground">Region:</span>
+                                  <span className="font-medium text-foreground truncate">{t.region}</span>
+                                </div>
+                              )}
                             </div>
                           )}
 
-                          {/* Scope preview */}
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                            {t.scope}
-                          </p>
-
-                          {/* Meta row */}
-                          <div className="flex flex-wrap items-center gap-3 mt-3">
-                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <DollarSign className="h-3.5 w-3.5 shrink-0" />
-                              <span className="font-medium text-foreground">
-                                {fmtMoney(t.budgetMax, t.currency)}
-                              </span>
-                            </span>
-                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <MapPin className="h-3.5 w-3.5 shrink-0" />
-                              <span className="truncate max-w-[120px]">{t.location}</span>
-                            </span>
-                            <span className={`inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded ${deadlineBadge(days)}`}>
-                              <Calendar className="h-3.5 w-3.5 shrink-0" />
-                              {days <= 0 ? 'Closed' : `${days}d left`}
-                            </span>
-                            {t.borrower && (
-                              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hidden md:inline-flex">
-                                <Building2 className="h-3.5 w-3.5 shrink-0" />
-                                <span className="truncate max-w-[140px]">{t.borrower}</span>
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Category tags + actions */}
-                          <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
-                            <div className="flex flex-wrap gap-1.5">
+                          {/* Category tags */}
+                          {((t.categoryTags && t.categoryTags.split(',').filter(Boolean).length > 0) || t.contractType) && (
+                            <div className="flex flex-wrap gap-1.5 mt-3">
                               {t.categoryTags
                                 .split(',')
                                 .filter(Boolean)
-                                .slice(0, 4)
+                                .slice(0, 5)
                                 .map((c) => (
                                   <span
                                     key={c}
-                                    className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                                    className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
                                   >
                                     {c.trim()}
                                   </span>
                                 ))}
-                              {t.contractType && (
-                                <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                                  {t.contractType}
-                                </span>
-                              )}
                             </div>
+                          )}
 
-                            <div className="flex items-center gap-2 shrink-0">
+                          {/* Bottom action bar */}
+                          <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -824,14 +1425,27 @@ export function LiveTendersView() {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                className={`gap-1.5 text-xs h-7 ${showAiReview ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 hover:bg-violet-100 dark:hover:bg-violet-950/40' : 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30'}`}
+                                onClick={() => loadAIReview(t)}
+                                disabled={aiLoading}
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide Review' : 'AI Review'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="gap-1.5 text-xs h-7 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
                                 onClick={() => {
                                   useNavStore.getState().setView('tender-detail', { id: t.id, tab: 'ai-overview' });
                                 }}
                               >
-                                <Sparkles className="h-3.5 w-3.5" />
-                                Review with AI
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Details
                               </Button>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <InlineTranslator text={t.scope || t.title} size="sm" className="hidden md:flex" />
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -852,75 +1466,87 @@ export function LiveTendersView() {
 
                         {/* Inline document viewer */}
                         {isExpanded && (
-                            <>
-                              {isLoadingDoc && (
-                                <div
- className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground animate-[fadeIn_0.3s_ease-out]"
- >
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Fetching document content…
-                                </div>
-                              )}
-                              {docErr && !isLoadingDoc && (
-                                <div
- className="border-t border-border p-6 animate-[fadeIn_0.3s_ease-out]"
- >
-                                  <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
-                                    <ServerCrash className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                    <div>
-                                      <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                                        Could not load document content
-                                      </p>
-                                      <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
-                                        {docErr} — you can still{' '}
-                                        <a
-                                          href={t.externalUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="underline font-medium"
-                                        >
-                                          view the original page
-                                        </a>
-                                        .
-                                      </p>
-                                    </div>
+                          <>
+                            {isLoadingDoc && (
+                              <div className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground animate-[fadeIn_0.3s_ease-out]">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Fetching document content…
+                              </div>
+                            )}
+                            {docErr && !isLoadingDoc && (
+                              <div className="border-t border-border p-6 animate-[fadeIn_0.3s_ease-out]">
+                                <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
+                                  <ServerCrash className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                  <div>
+                                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                                      Could not load document content
+                                    </p>
+                                    <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
+                                      {docErr} — you can still{' '}
+                                      <a
+                                        href={t.externalUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline font-medium"
+                                      >
+                                        view the original page
+                                      </a>
+                                      .
+                                    </p>
                                   </div>
                                 </div>
-                              )}
-                              {doc && !isLoadingDoc && (
-                                <InlineDocumentViewer
-                                  doc={doc}
-                                  onClose={() => setExpandedId(null)}
-                                />
-                              )}
-                              {/* Translator for document content */}
-                              {(doc?.content || t.scope) && !isLoadingDoc && (
-                                <div className="border-t border-border px-4 py-2.5">
-                                  <InlineTranslator text={doc?.content || t.scope} />
-                                </div>
-                              )}
-                            </>
-                          )}
+                              </div>
+                            )}
+                            {doc && !isLoadingDoc && (
+                              <InlineDocumentViewer
+                                doc={doc}
+                                onClose={() => setExpandedId(null)}
+                              />
+                            )}
+                            {/* Translator for document content */}
+                            {(doc?.content || t.scope) && !isLoadingDoc && (
+                              <div className="border-t border-border px-4 py-2.5">
+                                <InlineTranslator text={doc?.content || t.scope} />
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {/* AI Review Panel */}
+                        {showAiReview && (
+                          <AIReviewPanel
+                            review={aiReview}
+                            isLoading={aiLoading}
+                          />
+                        )}
                     </CardContent>
                   </Card>
                   </div>
                 );
               })}
-            </div>
+          </div>
         )}
 
-        {/* See More button */}
-        {tenders.length > visibleCount && (
-          <div className="flex justify-center pt-4 pb-2">
-            <Button
-              variant="outline"
-              size="lg"
-              className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-              onClick={() => setVisibleCount(prev => Math.min(prev + PAGE_SIZE, tenders.length))}
-            >
-              <ChevronDown className="h-4 w-4" />
-              See More ({tenders.length - visibleCount} remaining)
-            </Button>
+        {/* See More / Load More button */}
+        {tenders.length > 0 && (
+          <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+            <p className="text-xs text-muted-foreground">
+              {visibleCount >= tenders.length
+                ? `${tenders.length} of ${tenders.length} tenders shown`
+                : `${Math.min(visibleCount, tenders.length)} of ${tenders.length} tenders shown · ${tenders.length - visibleCount} remaining`
+              }
+            </p>
+            {visibleCount < tenders.length && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                onClick={() => setVisibleCount(prev => Math.min(prev + PAGE_SIZE, tenders.length))}
+              >
+                <ChevronDown className="h-4 w-4" />
+                Load More ({tenders.length - visibleCount} remaining)
+              </Button>
+            )}
           </div>
         )}
 
@@ -930,7 +1556,7 @@ export function LiveTendersView() {
             <Database className="h-4 w-4 text-emerald-500" />
             <h2 className="text-lg font-semibold text-foreground">Connected Data Sources</h2>
             <Badge variant="outline" className="text-xs border-border text-muted-foreground">
-              {dataSources.filter((s) => s.live).length} live · {dataSources.length} total
+              {dataSources.filter((s) => s.live).length} live · {dataSources.length + GATED_SOURCES.length} total
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mb-4">
@@ -940,6 +1566,7 @@ export function LiveTendersView() {
           </p>
 
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {/* Live data sources from API */}
             {dataSources.map((s) => {
               const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
               const SourceIcon = accent.icon;
@@ -1000,12 +1627,86 @@ export function LiveTendersView() {
                 </Card>
               );
             })}
+
+            {/* Credential-gated sources (Apify, GovRider, Tenderwell, SeeGeneBid) */}
+            {GATED_SOURCES.map((gs) => {
+              const accent = SOURCE_ACCENT[gs.id] || SOURCE_ACCENT.default;
+              const SourceIcon = accent.icon;
+              const isOpenSource = gs.credentialType === 'open_source';
+              return (
+                <Card
+                  key={gs.id}
+                  className="bg-card border-border hover:border-primary/40 transition-colors opacity-80"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 dark:bg-amber-950/40">
+                          <SourceIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-semibold text-foreground text-sm truncate">{gs.name}</h4>
+                            <span className={`h-2 w-2 rounded-full shrink-0 ${accent.dot}`} />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{gs.description}</p>
+                        </div>
+                      </div>
+                      {isOpenSource ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 shrink-0 text-[10px]">
+                          Open Source
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 shrink-0 text-[10px] gap-1">
+                          <Lock className="h-2.5 w-2.5" />
+                          API Key
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+                        {isOpenSource ? (
+                          <Globe2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                        ) : (
+                          <Lock className="h-3 w-3 shrink-0 text-amber-500" />
+                        )}
+                        <span className="truncate">
+                          {isOpenSource ? 'No credentials required' : `Requires ${gs.envVar}`}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[10px] gap-1 px-2 shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCredDialog(gs.id);
+                        }}
+                      >
+                        {isOpenSource ? (
+                          <>
+                            <Globe2 className="h-2.5 w-2.5" />
+                            Enable
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="h-2.5 w-2.5" />
+                            Enable
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-start gap-3">
             <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">More sources available</span>{' '}
+              <span className="font-medium text-foreground">15 sources available</span>{' '}
               Enable Apify, GovRider, Tenderwell, or SeeGeneBid by providing the required
               API credentials. Each adapter follows the same{' '}
               <code className="px-1 py-0.5 rounded bg-muted text-foreground">LiveTender</code> shape
@@ -1014,6 +1715,13 @@ export function LiveTendersView() {
           </div>
         </div>
       </div>
+
+      {/* Credential Dialog */}
+      <CredentialDialog
+        source={credDialogSource}
+        open={credDialogOpen}
+        onOpenChange={setCredDialogOpen}
+      />
     </div>
   );
 }

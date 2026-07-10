@@ -1,0 +1,1728 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+     4→import { api, LiveTender, DataSource } from '@/lib/api';
+     5→import { useNavStore } from '@/store';
+     6→import { Card, CardContent } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    11→import { Separator } from '@/components/ui/separator';
+    12→import { Skeleton } from '@/components/ui/skeleton';
+    13→import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    14→import { toast } from 'sonner';
+    15→import {
+    16→  Globe2, Search, MapPin, Calendar, DollarSign,
+    17→  RefreshCw, Radio, Building2, FileText, ShieldCheck, Lock,
+    18→  Database, ServerCrash, Sparkles, ArrowUpRight,
+    19→  ChevronDown, ChevronUp, BookOpen, Download, Copy,
+    20→  Loader2, Clock, Landmark, Plane, Flag, Cpu,
+    21→  CheckCircle2, ExternalLink, TrendingUp, ChevronRight, Languages,
+    22→  Bookmark, BookmarkCheck, XCircle, AlertTriangle, Lightbulb,
+    23→  Target, BarChart3, Users, Zap,
+    24→} from 'lucide-react';
+    25→import { InlineTranslator } from '@/components/translator';
+    26→
+    27→/* ─────────────────────────────────────────────────────────────────────
+    28→ * Constants
+    29→ * ───────────────────────────────────────────────────────────────────── */
+    30→
+    31→const SOURCE_LABELS: Record<string, string> = {
+    32→  worldbank: 'World Bank',
+    33→  eu_ted: 'EU TED',
+    34→  ungm: 'UNGM',
+    35→  sam_gov: 'SAM.gov',
+    36→  afdb: 'AfDB',
+    37→  eu_opentenders: 'OpenTenders EU',
+    38→  jica: 'JICA',
+    39→  adb: 'ADB',
+    40→  uk_contracts: 'UK Contracts',
+    41→  dgmarket: 'DgMarket',
+    42→  sector_feed: 'Sector Feed',
+    43→  apify_global: 'Apify Global',
+    44→  apify_procurement: 'Apify Procurement',
+    45→  govrider: 'GovRider',
+    46→  tenderwell: 'Tenderwell',
+    47→  seegenebid: 'SeeGeneBid',
+    48→};
+    49→
+    50→const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
+    51→  worldbank: {
+    52→    dot: 'bg-emerald-500',
+    53→    badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+    54→    ring: 'hover:border-emerald-400/60',
+    55→    bg: 'from-emerald-500/10 to-teal-500/5',
+    56→    icon: Landmark,
+    57→  },
+    58→  eu_ted: {
+    59→    dot: 'bg-blue-500',
+    60→    badge: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+    61→    ring: 'hover:border-blue-400/60',
+    62→    bg: 'from-blue-500/10 to-indigo-500/5',
+    63→    icon: Flag,
+    64→  },
+    65→  ungm: {
+    66→    dot: 'bg-sky-500',
+    67→    badge: 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+    68→    ring: 'hover:border-sky-400/60',
+    69→    bg: 'from-sky-500/10 to-cyan-500/5',
+    70→    icon: Plane,
+    71→  },
+    72→  sam_gov: {
+    73→    dot: 'bg-amber-500',
+    74→    badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+    75→    ring: 'hover:border-amber-400/60',
+    76→    bg: 'from-amber-500/10 to-orange-500/5',
+    77→    icon: Landmark,
+    78→  },
+    79→  afdb: {
+    80→    dot: 'bg-orange-500',
+    81→    badge: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+    82→    ring: 'hover:border-orange-400/60',
+    83→    bg: 'from-orange-500/10 to-red-500/5',
+    84→    icon: Globe2,
+    85→  },
+    86→  eu_opentenders: {
+    87→    dot: 'bg-violet-500',
+    88→    badge: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+    89→    ring: 'hover:border-violet-400/60',
+    90→    bg: 'from-violet-500/10 to-purple-500/5',
+    91→    icon: Cpu,
+    92→  },
+    93→  jica: {
+    94→    dot: 'bg-red-500',
+    95→    badge: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+    96→    ring: 'hover:border-red-400/60',
+    97→    bg: 'from-red-500/10 to-rose-500/5',
+    98→    icon: Flag,
+    99→  },
+   100→  adb: {
+   101→    dot: 'bg-cyan-500',
+   102→    badge: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300',
+   103→    ring: 'hover:border-cyan-400/60',
+   104→    bg: 'from-cyan-500/10 to-teal-500/5',
+   105→    icon: Landmark,
+   106→  },
+   107→  uk_contracts: {
+   108→    dot: 'bg-rose-500',
+   109→    badge: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+   110→    ring: 'hover:border-rose-400/60',
+   111→    bg: 'from-rose-500/10 to-pink-500/5',
+   112→    icon: Flag,
+   113→  },
+   114→  dgmarket: {
+   115→    dot: 'bg-lime-500',
+   116→    badge: 'bg-lime-50 text-lime-700 dark:bg-lime-950/40 dark:text-lime-300',
+   117→    ring: 'hover:border-lime-400/60',
+   118→    bg: 'from-lime-500/10 to-green-500/5',
+   119→    icon: Globe2,
+   120→  },
+   121→  sector_feed: {
+   122→    dot: 'bg-primary',
+   123→    badge: 'bg-primary/10 text-primary',
+   124→    ring: 'hover:border-primary/40',
+   125→    bg: 'from-primary/10 to-primary/5',
+   126→    icon: TrendingUp,
+   127→  },
+   128→  apify_global: {
+   129→    dot: 'bg-amber-500',
+   130→    badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+   131→    ring: 'hover:border-amber-400/60',
+   132→    bg: 'from-amber-500/10 to-yellow-500/5',
+   133→    icon: Cpu,
+   134→  },
+   135→  apify_procurement: {
+   136→    dot: 'bg-orange-500',
+   137→    badge: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+   138→    ring: 'hover:border-orange-400/60',
+   139→    bg: 'from-orange-500/10 to-amber-500/5',
+   140→    icon: Database,
+   141→  },
+   142→  govrider: {
+   143→    dot: 'bg-violet-500',
+   144→    badge: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+   145→    ring: 'hover:border-violet-400/60',
+   146→    bg: 'from-violet-500/10 to-purple-500/5',
+   147→    icon: ShieldCheck,
+   148→  },
+   149→  tenderwell: {
+   150→    dot: 'bg-teal-500',
+   151→    badge: 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300',
+   152→    ring: 'hover:border-teal-400/60',
+   153→    bg: 'from-teal-500/10 to-cyan-500/5',
+   154→    icon: Search,
+   155→  },
+   156→  seegenebid: {
+   157→    dot: 'bg-rose-500',
+   158→    badge: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+   159→    ring: 'hover:border-rose-400/60',
+   160→    bg: 'from-rose-500/10 to-pink-500/5',
+   161→    icon: Globe2,
+   162→  },
+   163→  default: {
+   164→    dot: 'bg-muted-foreground',
+   165→    badge: 'bg-muted text-muted-foreground',
+   166→    ring: 'hover:border-border',
+   167→    bg: 'from-muted/50 to-muted/20',
+   168→    icon: Globe2,
+   169→  },
+   170→};
+   171→
+   172→const ACCENT_DOT: Record<string, string> = {
+   173→  emerald: 'bg-emerald-500',
+   174→  blue: 'bg-blue-500',
+   175→  sky: 'bg-sky-500',
+   176→  amber: 'bg-amber-500',
+   177→  orange: 'bg-orange-500',
+   178→  violet: 'bg-violet-500',
+   179→  teal: 'bg-teal-500',
+   180→  rose: 'bg-rose-500',
+   181→  red: 'bg-red-500',
+   182→  cyan: 'bg-cyan-500',
+   183→  lime: 'bg-lime-500',
+   184→};
+   185→
+   186→/* ─────────────────────────────────────────────────────────────────────
+   187→ * Sector definitions for quick-filter
+   188→ * ───────────────────────────────────────────────────────────────────── */
+   189→
+   190→const SECTOR_PILLS: { id: string; label: string; icon: string; color: string }[] = [
+   191→  { id: 'medical', label: 'Medical', icon: '🏥', color: 'rose' },
+   192→  { id: 'construction', label: 'Construction', icon: '🏗️', color: 'amber' },
+   193→  { id: 'retail', label: 'Retail', icon: '🛒', color: 'pink' },
+   194→  { id: 'it', label: 'IT', icon: '💻', color: 'violet' },
+   195→  { id: 'energy', label: 'Energy', icon: '⚡', color: 'yellow' },
+   196→  { id: 'agriculture', label: 'Agriculture', icon: '🌾', color: 'green' },
+   197→  { id: 'education', label: 'Education', icon: '📚', color: 'blue' },
+   198→  { id: 'transport', label: 'Transport', icon: '🚛', color: 'cyan' },
+   199→  { id: 'finance', label: 'Finance', icon: '🏦', color: 'emerald' },
+   200→  { id: 'telecom', label: 'Telecom', icon: '📡', color: 'sky' },
+   201→];
+   202→
+   203→/* ─────────────────────────────────────────────────────────────────────
+   204→ * Inline document data type
+   205→ * ───────────────────────────────────────────────────────────────────── */
+   206→
+   207→interface InlineDocument {
+   208→  title: string;
+   209→  metaDescription?: string;
+   210→  content: string;
+   211→  sections?: { heading: string; content: string }[];
+   212→  deadlines?: string[];
+   213→  budgets?: string[];
+   214→  url: string;
+   215→  contentType?: string;
+   216→  fetchedAt: string;
+   217→}
+   218→
+   219→/* ─────────────────────────────────────────────────────────────────────
+   220→ * AI Review data type
+   221→ * ───────────────────────────────────────────────────────────────────── */
+   222→
+   223→interface AIReview {
+   224→  summary: string;
+   225→  keyRequirements: string[];
+   226→  eligibilityCheck: { likely: boolean; reasons: string[] };
+   227→  riskAssessment: { level: 'low' | 'medium' | 'high'; factors: string[] };
+   228→  recommendedApproach: string;
+   229→  competitiveLandscape: string;
+   230→  bidReadiness: { score: number; checklist: string[] };
+   231→  estimatedTimeline?: string;
+   232→  tips: string[];
+   233→}
+   234→
+   235→/* ─────────────────────────────────────────────────────────────────────
+   236→ * Credential-gated source definitions
+   237→ * ───────────────────────────────────────────────────────────────────── */
+   238→
+   239→interface GatedSource {
+   240→  id: string;
+   241→  name: string;
+   242→  envVar: string;
+   243→  description: string;
+   244→  docsUrl: string;
+   245→  credentialType: 'api_key' | 'open_source';
+   246→}
+   247→
+   248→const GATED_SOURCES: GatedSource[] = [
+   249→  {
+   250→    id: 'apify_global',
+   251→    name: 'Apify Global',
+   252→    envVar: 'APIFY_API_TOKEN',
+   253→    description: 'Apify provides web scraping and data extraction APIs for global procurement data. You need an Apify API token to enable this source.',
+   254→    docsUrl: 'https://docs.apify.com/api/v2',
+   255→    credentialType: 'api_key',
+   256→  },
+   257→  {
+   258→    id: 'apify_procurement',
+   259→    name: 'Apify Procurement',
+   260→    envVar: 'APIFY_API_TOKEN',
+   261→    description: 'Uses Apify actors specialized for procurement and tender scraping from government portals worldwide. Requires the same Apify API token.',
+   262→    docsUrl: 'https://docs.apify.com/api/v2',
+   263→    credentialType: 'api_key',
+   264→  },
+   265→  {
+   266→    id: 'govrider',
+   267→    name: 'GovRider',
+   268→    envVar: 'GOVRIDER_API_KEY',
+   269→    description: 'GovRider aggregates government tender data from multiple jurisdictions. An API key is required to access their feed.',
+   270→    docsUrl: 'https://govrider.com/docs',
+   271→    credentialType: 'api_key',
+   272→  },
+   273→  {
+   274→    id: 'tenderwell',
+   275→    name: 'Tenderwell',
+   276→    envVar: 'TENDERWELL_API_KEY',
+   277→    description: 'Tenderwell provides AI-enhanced tender discovery and matching. Requires an API key for access.',
+   278→    docsUrl: 'https://tenderwell.com/api',
+   279→    credentialType: 'api_key',
+   280→  },
+   281→  {
+   282→    id: 'seegenebid',
+   283→    name: 'SeeGeneBid',
+   284→    envVar: '',
+   285→    description: 'Open source gene/bid discovery platform. No credentials required — community-maintained data feed.',
+   286→    docsUrl: 'https://seegenebid.org',
+   287→    credentialType: 'open_source',
+   288→  },
+   289→];
+   290→
+   291→/* ─────────────────────────────────────────────────────────────────────
+   292→ * Helpers
+   293→ * ───────────────────────────────────────────────────────────────────── */
+   294→
+   295→function fmtMoney(amount: number, currency: string): string {
+   296→  if (!amount) return '—';
+   297→  try {
+   298→    return new Intl.NumberFormat('en-US', {
+   299→      style: 'currency',
+   300→      currency: currency || 'USD',
+   301→      maximumFractionDigits: 0,
+   302→    }).format(amount);
+   303→  } catch {
+   304→    return `${currency} ${amount.toLocaleString()}`;
+   305→  }
+   306→}
+   307→
+   308→function daysUntil(dateStr: string): number {
+   309→  if (!dateStr) return 999;
+   310→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+   311→}
+   312→
+   313→function deadlineBadge(days: number): string {
+   314→  if (days <= 0) return 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300';
+   315→  if (days <= 7) return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
+   316→  if (days <= 21) return 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300';
+   317→  return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
+   318→}
+   319→
+   320→function deadlineLabel(days: number): string {
+   321→  if (days <= 0) return 'Closed';
+   322→  if (days <= 7) return `${days}d left`;
+   323→  if (days <= 30) return `${days}d left`;
+   324→  return `${days}d left`;
+   325→}
+   326→
+   327→function relativeTime(dateStr: string): string {
+   328→  if (!dateStr) return '';
+   329→  const diff = Date.now() - new Date(dateStr).getTime();
+   330→  const day = 86400000;
+   331→  if (diff < day) return 'today';
+   332→  if (diff < 2 * day) return 'yesterday';
+   333→  if (diff < 30 * day) return `${Math.floor(diff / day)}d ago`;
+   334→  return new Date(dateStr).toLocaleDateString();
+   335→}
+   336→
+   337→function riskBadgeColor(level: string): string {
+   338→  if (level === 'low') return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
+   339→  if (level === 'medium') return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
+   340→  return 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300';
+   341→}
+   342→
+   343→function readinessColor(score: number): string {
+   344→  if (score >= 8) return 'bg-emerald-500';
+   345→  if (score >= 5) return 'bg-amber-500';
+   346→  return 'bg-rose-500';
+   347→}
+   348→
+   349→/* ─────────────────────────────────────────────────────────────────────
+   350→ * Inline Document Viewer Component
+   351→ * ───────────────────────────────────────────────────────────────────── */
+   352→
+   353→function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: () => void }) {
+   354→  const copyContent = () => {
+   355→    const text = doc.sections
+   356→      ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
+   357→      : doc.content;
+   358→    navigator.clipboard.writeText(text);
+   359→    toast.success('Content copied to clipboard');
+   360→  };
+   361→
+   362→  return (
+   363→    <div className="overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+   364→      <div className="border-t border-border bg-gradient-to-b from-muted/30 to-background">
+   365→        <div className="p-4 md:p-6 space-y-4">
+   366→          {/* Document header */}
+   367→          <div className="flex items-start justify-between gap-3">
+   368→            <div className="min-w-0 flex-1">
+   369→              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+   370→                <BookOpen className="h-3.5 w-3.5" />
+   371→                <span>Document loaded from {new URL(doc.url).hostname}</span>
+   372→                <span>·</span>
+   373→                <span>{new Date(doc.fetchedAt).toLocaleTimeString()}</span>
+   374→              </div>
+   375→              <h3 className="text-lg font-semibold text-foreground leading-snug">
+   376→                {doc.title || 'Tender Document'}
+   377→              </h3>
+   378→              {doc.metaDescription && (
+   379→                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+   380→                  {doc.metaDescription}
+   381→                </p>
+   382→              )}
+   383→            </div>
+   384→            <div className="flex items-center gap-2 shrink-0">
+   385→              <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={copyContent}>
+   386→                <Copy className="h-3.5 w-3.5" />
+   387→                Copy
+   388→              </Button>
+   389→              <a
+   390→                href={doc.url}
+   391→                target="_blank"
+   392→                rel="noopener noreferrer"
+   393→                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+   394→              >
+   395→                <ExternalLink className="h-3.5 w-3.5" />
+   396→                Open original
+   397→              </a>
+   398→              <Button variant="ghost" size="sm" onClick={onClose} className="gap-1.5 text-xs text-muted-foreground">
+   399→                <ChevronUp className="h-3.5 w-3.5" />
+   400→                Collapse
+   401→              </Button>
+   402→            </div>
+   403→          </div>
+   404→
+   405→          {/* Extracted metadata pills */}
+   406→          {(doc.deadlines && doc.deadlines.length > 0) || (doc.budgets && doc.budgets.length > 0) ? (
+   407→            <div className="flex flex-wrap gap-2">
+   408→              {doc.deadlines?.map((d, i) => (
+   409→                <Badge key={`dl-${i}`} variant="outline" className="gap-1.5 text-xs border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300">
+   410→                  <Calendar className="h-3 w-3" />
+   411→                  {d}
+   412→                </Badge>
+   413→              ))}
+   414→              {doc.budgets?.map((b, i) => (
+   415→                <Badge key={`bg-${i}`} variant="outline" className="gap-1.5 text-xs border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+   416→                  <DollarSign className="h-3 w-3" />
+   417→                  {b}
+   418→                </Badge>
+   419→              ))}
+   420→            </div>
+   421→          ) : null}
+   422→
+   423→          {/* Sections view */}
+   424→          {doc.sections && doc.sections.length > 0 ? (
+   425→            <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4 space-y-4 scrollbar-thin">
+   426→              {doc.sections.map((section, i) => (
+   427→                <div key={i}>
+   428→                  <h4 className="text-sm font-semibold text-foreground mb-1.5">{section.heading}</h4>
+   429→                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+   430→                    {section.content}
+   431→                  </p>
+   432→                  {i < doc.sections!.length - 1 && <Separator className="mt-4 bg-border" />}
+   433→                </div>
+   434→              ))}
+   435→            </div>
+   436→          ) : (
+   437→            <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4 scrollbar-thin">
+   438→              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+   439→                {doc.content || 'No content could be extracted from this page.'}
+   440→              </p>
+   441→            </div>
+   442→          )}
+   443→        </div>
+   444→      </div>
+   445→    </div>
+   446→  );
+   447→}
+   448→
+   449→/* ─────────────────────────────────────────────────────────────────────
+   450→ * AI Review Panel Component
+   451→ * ───────────────────────────────────────────────────────────────────── */
+   452→
+   453→function AIReviewPanel({
+   454→  review,
+   455→  isLoading,
+   456→}: {
+   457→  review: AIReview | null;
+   458→  isLoading: boolean;
+   459→}) {
+   460→  if (isLoading) {
+   461→    return (
+   462→      <div className="border-t border-border bg-gradient-to-b from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-4 md:p-5 space-y-4">
+   463→        <div className="flex items-center gap-2">
+   464→          <Sparkles className="h-4 w-4 text-violet-500 animate-pulse" />
+   465→          <span className="text-sm font-medium text-violet-700 dark:text-violet-300">Generating AI Review…</span>
+   466→        </div>
+   467→        <div className="space-y-3">
+   468→          <Skeleton className="h-4 w-3/4" />
+   469→          <Skeleton className="h-3 w-full" />
+   470→          <Skeleton className="h-3 w-5/6" />
+   471→          <div className="grid grid-cols-2 gap-3">
+   472→            <Skeleton className="h-16 w-full" />
+   473→            <Skeleton className="h-16 w-full" />
+   474→          </div>
+   475→          <Skeleton className="h-3 w-2/3" />
+   476→          <Skeleton className="h-8 w-full" />
+   477→        </div>
+   478→      </div>
+   479→    );
+   480→  }
+   481→
+   482→  if (!review) return null;
+   483→
+   484→  return (
+   485→    <div className="border-t border-border bg-gradient-to-b from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-4 md:p-5 space-y-4 animate-[fadeIn_0.3s_ease-out]">
+   486→      {/* Summary */}
+   487→      <div className="flex items-start gap-2.5">
+   488→        <div className="h-7 w-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0 mt-0.5">
+   489→          <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" />
+   490→        </div>
+   491→        <div className="min-w-0 flex-1">
+   492→          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1">Summary</p>
+   493→          <p className="text-sm text-foreground leading-relaxed">{review.summary}</p>
+   494→        </div>
+   495→      </div>
+   496→
+   497→      <Separator className="bg-border" />
+   498→
+   499→      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   500→        {/* Key Requirements */}
+   501→        {review.keyRequirements.length > 0 && (
+   502→          <div>
+   503→            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+   504→              <Target className="h-3.5 w-3.5 text-amber-500" />
+   505→              Key Requirements
+   506→            </p>
+   507→            <ul className="space-y-1.5">
+   508→              {review.keyRequirements.map((req, i) => (
+   509→                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+   510→                  <CheckCircle2 className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+   511→                  <span>{req}</span>
+   512→                </li>
+   513→              ))}
+   514→            </ul>
+   515→          </div>
+   516→        )}
+   517→
+   518→        {/* Eligibility Check */}
+   519→        <div>
+   520→          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+   521→            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+   522→            Eligibility Check
+   523→          </p>
+   524→          <div className="flex items-center gap-2 mb-2">
+   525→            {review.eligibilityCheck.likely ? (
+   526→              <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-xs">
+   527→                <CheckCircle2 className="h-3 w-3" />
+   528→                Likely Eligible
+   529→              </Badge>
+   530→            ) : (
+   531→              <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-0 gap-1 text-xs">
+   532→                <XCircle className="h-3 w-3" />
+   533→                May Not Qualify
+   534→              </Badge>
+   535→            )}
+   536→          </div>
+   537→          {review.eligibilityCheck.reasons.length > 0 && (
+   538→            <ul className="space-y-1">
+   539→              {review.eligibilityCheck.reasons.map((reason, i) => (
+   540→                <li key={i} className={`flex items-start gap-2 text-xs ${review.eligibilityCheck.likely ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+   541→                  {review.eligibilityCheck.likely ? (
+   542→                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+   543→                  ) : (
+   544→                    <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+   545→                  )}
+   546→                  <span>{reason}</span>
+   547→                </li>
+   548→              ))}
+   549→            </ul>
+   550→          )}
+   551→        </div>
+   552→      </div>
+   553→
+   554→      <Separator className="bg-border" />
+   555→
+   556→      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   557→        {/* Risk Assessment */}
+   558→        <div>
+   559→          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+   560→            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+   561→            Risk Assessment
+   562→          </p>
+   563→          <Badge className={`${riskBadgeColor(review.riskAssessment.level)} border-0 text-xs capitalize mb-2`}>
+   564→            {review.riskAssessment.level} Risk
+   565→          </Badge>
+   566→          {review.riskAssessment.factors.length > 0 && (
+   567→            <ul className="space-y-1 mt-1.5">
+   568→              {review.riskAssessment.factors.map((factor, i) => (
+   569→                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+   570→                  <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
+   571→                  {factor}
+   572→                </li>
+   573→              ))}
+   574→            </ul>
+   575→          )}
+   576→        </div>
+   577→
+   578→        {/* Recommended Approach */}
+   579→        <div>
+   580→          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+   581→            <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+   582→            Recommended Approach
+   583→          </p>
+   584→          <p className="text-xs text-muted-foreground leading-relaxed">{review.recommendedApproach}</p>
+   585→        </div>
+   586→
+   587→        {/* Competitive Landscape */}
+   588→        <div>
+   589→          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+   590→            <Users className="h-3.5 w-3.5 text-amber-500" />
+   591→            Competitive Landscape
+   592→          </p>
+   593→          <p className="text-xs text-muted-foreground leading-relaxed">{review.competitiveLandscape}</p>
+   594→        </div>
+   595→      </div>
+   596→
+   597→      <Separator className="bg-border" />
+   598→
+   599→      {/* Bid Readiness Score */}
+   600→      <div>
+   601→        <div className="flex items-center justify-between mb-2">
+   602→          <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
+   603→            <BarChart3 className="h-3.5 w-3.5 text-amber-500" />
+   604→            Bid Readiness
+   605→          </p>
+   606→          <span className="text-sm font-bold text-foreground">{review.bidReadiness.score}/10</span>
+   607→        </div>
+   608→        <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden mb-2">
+   609→          <div
+   610→            className={`h-full rounded-full transition-all ${readinessColor(review.bidReadiness.score)}`}
+   611→            style={{ width: `${review.bidReadiness.score * 10}%` }}
+   612→          />
+   613→        </div>
+   614→        {review.bidReadiness.checklist.length > 0 && (
+   615→          <div className="flex flex-wrap gap-1.5">
+   616→            {review.bidReadiness.checklist.map((item, i) => (
+   617→              <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+   618→                {item}
+   619→              </span>
+   620→            ))}
+   621→          </div>
+   622→        )}
+   623→      </div>
+   624→
+   625→      {/* Tips */}
+   626→      {review.tips.length > 0 && (
+   627→        <>
+   628→          <Separator className="bg-border" />
+   629→          <div>
+   630→            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+   631→              <Zap className="h-3.5 w-3.5 text-amber-500" />
+   632→              Tips
+   633→            </p>
+   634→            <ul className="space-y-1.5">
+   635→              {review.tips.map((tip, i) => (
+   636→                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+   637→                  <ChevronRight className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+   638→                  <span>{tip}</span>
+   639→                </li>
+   640→              ))}
+   641→            </ul>
+   642→          </div>
+   643→        </>
+   644→      )}
+   645→    </div>
+   646→  );
+   647→}
+   648→
+   649→/* ─────────────────────────────────────────────────────────────────────
+   650→ * Credential Dialog Component
+   651→ * ───────────────────────────────────────────────────────────────────── */
+   652→
+   653→function CredentialDialog({
+   654→  source,
+   655→  open,
+   656→  onOpenChange,
+   657→}: {
+   658→  source: GatedSource | null;
+   659→  open: boolean;
+   660→  onOpenChange: (open: boolean) => void;
+   661→}) {
+   662→  if (!source) return null;
+   663→
+   664→  return (
+   665→    <Dialog open={open} onOpenChange={onOpenChange}>
+   666→      <DialogContent className="sm:max-w-md">
+   667→        <DialogHeader>
+   668→          <DialogTitle className="flex items-center gap-2">
+   669→            {source.credentialType === 'api_key' ? (
+   670→              <Lock className="h-5 w-5 text-amber-500" />
+   671→            ) : (
+   672→              <Globe2 className="h-5 w-5 text-emerald-500" />
+   673→            )}
+   674→            Enable {source.name}
+   675→          </DialogTitle>
+   676→        </DialogHeader>
+   677→        <div className="space-y-4">
+   678→          <p className="text-sm text-muted-foreground">{source.description}</p>
+   679→          {source.credentialType === 'api_key' ? (
+   680→            <>
+   681→              <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
+   682→                <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Required Environment Variable</p>
+   683→                <code className="block text-sm font-mono bg-background px-3 py-2 rounded border border-border">
+   684→                  {source.envVar}=your_api_key_here
+   685→                </code>
+   686→              </div>
+   687→              <div className="space-y-2">
+   688→                <p className="text-xs text-muted-foreground">To enable this data source:</p>
+   689→                <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+   690→                  <li>Sign up at <a href={source.docsUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">{source.name} <ArrowUpRight className="h-2.5 w-2.5" /></a></li>
+   691→                  <li>Generate an API key from your dashboard</li>
+   692→                  <li>Add <code className="px-1 py-0.5 rounded bg-muted">{source.envVar}</code> to your environment</li>
+   693→                  <li>Restart the application server</li>
+   694→                </ol>
+   695→              </div>
+   696→            </>
+   697→          ) : (
+   698→            <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/80 dark:bg-emerald-950/30 p-3 space-y-2">
+   699→              <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">No Credentials Required</p>
+   700→              <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
+   701→                {source.name} is an open source data source. It should be automatically available once the integration module is enabled.
+   702→              </p>
+   703→            </div>
+   704→          )}
+   705→          <div className="flex items-center gap-2 pt-2">
+   706→            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+   707→              Close
+   708→            </Button>
+   709→            <a
+   710→              href={source.docsUrl}
+   711→              target="_blank"
+   712→              rel="noopener noreferrer"
+   713→              className="flex-1"
+   714→            >
+   715→              <Button className="w-full gap-1.5">
+   716→                View Documentation
+   717→                <ArrowUpRight className="h-3.5 w-3.5" />
+   718→              </Button>
+   719→            </a>
+   720→          </div>
+   721→        </div>
+   722→      </DialogContent>
+   723→    </Dialog>
+   724→  );
+   725→}
+   726→
+   727→/* ─────────────────────────────────────────────────────────────────────
+   728→ * Main LiveTendersView component
+   729→ * ───────────────────────────────────────────────────────────────────── */
+   730→
+   731→export function LiveTendersView() {
+   732→  const [tenders, setTenders] = useState<LiveTender[]>([]);
+   733→  const [dataSources, setDataSources] = useState<DataSource[]>([]);
+   734→  const [sourceMeta, setSourceMeta] = useState<
+   735→    { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[]
+   736→  >([]);
+   737→  const [loading, setLoading] = useState(true);
+   738→  const [refreshing, setRefreshing] = useState(false);
+   739→  const [fallback, setFallback] = useState(false);
+   740→  const [search, setSearch] = useState('');
+   741→  const [sourceFilter, setSourceFilter] = useState('all');
+   742→  const [sectorFilter, setSectorFilter] = useState('');
+   743→  const [sectorCounts, setSectorCounts] = useState<{ id: string; label: string; count: number }[]>([]);
+   744→
+   745→  // Pagination state
+   746→  const [visibleCount, setVisibleCount] = useState(20);
+   747→  const PAGE_SIZE = 20;
+   748→
+   749→  // Inline document state
+   750→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   751→  const [docLoading, setDocLoading] = useState<string | null>(null);
+   752→  const [docData, setDocData] = useState<Record<string, InlineDocument>>({});
+   753→  const [docError, setDocError] = useState<Record<string, string>>({});
+   754→
+   755→  // AI Review state
+   756→  const [aiReviewData, setAiReviewData] = useState<Record<string, AIReview>>({});
+   757→  const [aiReviewLoading, setAiReviewLoading] = useState<Record<string, boolean>>({});
+   758→  const [aiReviewExpanded, setAiReviewExpanded] = useState<Record<string, boolean>>({});
+   759→
+   760→  // Saved/bookmark state
+   761→  const [savedTenders, setSavedTenders] = useState<Record<string, boolean>>({});
+   762→  const [savingTender, setSavingTender] = useState<Record<string, boolean>>({});
+   763→
+   764→  // Import state
+   765→  const [importing, setImporting] = useState<string | null>(null);
+   766→
+   767→  // Credential dialog state
+   768→  const [credDialogSource, setCredDialogSource] = useState<GatedSource | null>(null);
+   769→  const [credDialogOpen, setCredDialogOpen] = useState(false);
+   770→
+   771→  const load = useCallback(
+   772→    async (isRefresh = false) => {
+   773→      if (isRefresh) setRefreshing(true);
+   774→      else setLoading(true);
+   775→      const params: Record<string, string> = { rows: '500' };
+   776→      if (search) params.search = search;
+   777→      if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
+   778→      if (sectorFilter) params.sector = sectorFilter;
+   779→      const res = await api.get('/tenders/live', params);
+   780→      if (res.success) {
+   781→        setTenders(res.data as LiveTender[]);
+   782→        setSourceMeta(res.meta?.sources || []);
+   783→        setFallback(Boolean(res.meta?.fallback));
+   784→        if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
+   785→        if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
+   786→      } else {
+   787→        toast.error(res.error || 'Failed to load live tenders');
+   788→      }
+   789→      setLoading(false);
+   790→      setRefreshing(false);
+   791→    },
+   792→    [search, sourceFilter, sectorFilter],
+   793→  );
+   794→
+   795→  useEffect(() => {
+   796→    const t = setTimeout(() => load(), 250);
+   797→    return () => clearTimeout(t);
+   798→  }, [load]);
+   799→
+   800→  // Check saved status for visible tenders
+   801→  useEffect(() => {
+   802→    const checkSaved = async () => {
+   803→      const visibleTenders = tenders.slice(0, visibleCount);
+   804→      for (const t of visibleTenders) {
+   805→        if (savedTenders[t.id] !== undefined) continue;
+   806→        try {
+   807→          const res = await api.get('/tenders/saved/check', {
+   808→            tenderId: t.externalId || t.id,
+   809→            source: t.source,
+   810→          });
+   811→          if (res.success) {
+   812→            setSavedTenders((prev) => ({ ...prev, [t.id]: res.saved }));
+   813→          }
+   814→        } catch {
+   815→          // Ignore errors for saved check
+   816→        }
+   817→      }
+   818→    };
+   819→    if (tenders.length > 0) checkSaved();
+   820→  }, [tenders, visibleCount, savedTenders]);
+   821→
+   822→  const liveSourcesCount = useMemo(
+   823→    () => sourceMeta.filter((s) => s.live && s.ok).length,
+   824→    [sourceMeta],
+   825→  );
+   826→
+   827→  const totalTenderValue = useMemo(() => {
+   828→    return tenders.reduce((sum, t) => sum + (t.budgetMax || 0), 0);
+   829→  }, [tenders]);
+   830→
+   831→  /* ────── Inline document loading ────── */
+   832→  const loadDocument = useCallback(async (tender: LiveTender) => {
+   833→    const id = tender.id;
+   834→    if (expandedId === id) {
+   835→      setExpandedId(null);
+   836→      return;
+   837→    }
+   838→
+   839→    // Already fetched?
+   840→    if (docData[id]) {
+   841→      setExpandedId(id);
+   842→      return;
+   843→    }
+   844→
+   845→    setExpandedId(id);
+   846→    setDocLoading(id);
+   847→    setDocError((prev) => { const n = { ...prev }; delete n[id]; return n; });
+   848→
+   849→    try {
+   850→      const res = await api.get(`/tenders/${encodeURIComponent(id)}/documents`, { url: tender.externalUrl });
+   851→      if (res.success && res.data) {
+   852→        setDocData((prev) => ({ ...prev, [id]: res.data as InlineDocument }));
+   853→      } else {
+   854→        setDocError((prev) => ({ ...prev, [id]: res.error || 'Failed to load document' }));
+   855→      }
+   856→    } catch {
+   857→      setDocError((prev) => ({ ...prev, [id]: 'Network error' }));
+   858→    }
+   859→    setDocLoading(null);
+   860→  }, [expandedId, docData]);
+   861→
+   862→  /* ────── AI Review ────── */
+   863→  const loadAIReview = useCallback(async (tender: LiveTender) => {
+   864→    const id = tender.id;
+   865→    // Toggle off if already expanded
+   866→    if (aiReviewExpanded[id]) {
+   867→      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+   868→      return;
+   869→    }
+   870→    // Expand the panel
+   871→    setAiReviewExpanded((prev) => ({ ...prev, [id]: true }));
+   872→    // If already loaded, no need to fetch
+   873→    if (aiReviewData[id]) return;
+   874→
+   875→    setAiReviewLoading((prev) => ({ ...prev, [id]: true }));
+   876→    try {
+   877→      const res = await api.post('/tenders/live/review', {
+   878→        title: tender.title,
+   879→        scope: tender.scope,
+   880→        budgetMin: tender.budgetMin,
+   881→        budgetMax: tender.budgetMax,
+   882→        deadline: tender.deadline,
+   883→        location: tender.location,
+   884→        categoryTags: tender.categoryTags,
+   885→        source: tender.source,
+   886→        currency: tender.currency,
+   887→        borrower: tender.borrower,
+   888→        contractType: tender.contractType,
+   889→        region: tender.region,
+   890→      });
+   891→      if (res.success && res.data) {
+   892→        setAiReviewData((prev) => ({ ...prev, [id]: res.data as AIReview }));
+   893→      } else {
+   894→        toast.error(res.error || 'Failed to generate AI review');
+   895→        setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+   896→      }
+   897→    } catch {
+   898→      toast.error('Failed to generate AI review');
+   899→      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+   900→    }
+   901→    setAiReviewLoading((prev) => ({ ...prev, [id]: false }));
+   902→  }, [aiReviewExpanded, aiReviewData]);
+   903→
+   904→  /* ────── Save/Bookmark ────── */
+   905→  const toggleSave = useCallback(async (tender: LiveTender) => {
+   906→    const id = tender.id;
+   907→    const isCurrentlySaved = savedTenders[id];
+   908→    setSavingTender((prev) => ({ ...prev, [id]: true }));
+   909→
+   910→    try {
+   911→      if (isCurrentlySaved) {
+   912→        // Remove from saved — use the saved check data to find the record
+   913→        const checkRes = await api.get('/tenders/saved/check', {
+   914→          tenderId: tender.externalId || tender.id,
+   915→          source: tender.source,
+   916→        });
+   917→        if (checkRes.success && checkRes.data?.id) {
+   918→          await api.delete(`/tenders/saved/${checkRes.data.id}`);
+   919→        }
+   920→        setSavedTenders((prev) => ({ ...prev, [id]: false }));
+   921→        toast.success('Removed from saved', { description: `"${tender.title}" removed from your bids list.` });
+   922→      } else {
+   923→        // Save the tender
+   924→        await api.post('/tenders/saved', {
+   925→          tenderId: tender.externalId || tender.id,
+   926→          source: tender.source,
+   927→          title: tender.title,
+   928→          scope: tender.scope,
+   929→          budgetMin: tender.budgetMin,
+   930→          budgetMax: tender.budgetMax,
+   931→          deadline: tender.deadline,
+   932→          location: tender.location,
+   933→          categoryTags: tender.categoryTags,
+   934→          externalUrl: tender.externalUrl,
+   935→          currency: tender.currency,
+   936→        });
+   937→        setSavedTenders((prev) => ({ ...prev, [id]: true }));
+   938→        toast.success('Tender saved to your bids list', { description: `"${tender.title}" has been bookmarked.` });
+   939→      }
+   940→    } catch {
+   941→      toast.error(isCurrentlySaved ? 'Failed to remove from saved' : 'Failed to save tender');
+   942→    }
+   943→    setSavingTender((prev) => ({ ...prev, [id]: false }));
+   944→  }, [savedTenders]);
+   945→
+   946→  /* ────── Import to local tenders ────── */
+   947→  const importTender = useCallback(async (tender: LiveTender) => {
+   948→    setImporting(tender.id);
+   949→    try {
+   950→      const res = await api.post('/tenders', {
+   951→        title: tender.title,
+   952→        scope: tender.scope,
+   953→        budgetMin: tender.budgetMin,
+   954→        budgetMax: tender.budgetMax,
+   955→        deadline: tender.deadline,
+   956→        location: tender.location,
+   957→        categoryTags: tender.categoryTags,
+   958→        requiredDocs: `Source: ${SOURCE_LABELS[tender.source] || tender.source} | External ID: ${tender.externalId} | URL: ${tender.externalUrl}`,
+   959→        status: 'open',
+   960→        currency: tender.currency,
+   961→      });
+   962→      if (res.success) {
+   963→        toast.success('Tender imported successfully', {
+   964→          description: `"${tender.title}" is now in your tenders list.`,
+   965→        });
+   966→      } else {
+   967→        toast.error(res.error || 'Failed to import tender');
+   968→      }
+   969→    } catch {
+   970→      toast.error('Failed to import tender');
+   971→    }
+   972→    setImporting(null);
+   973→  }, []);
+   974→
+   975→  /* ────── Open credential dialog ────── */
+   976→  const openCredDialog = useCallback((sourceId: string) => {
+   977→    const gated = GATED_SOURCES.find((s) => s.id === sourceId);
+   978→    if (gated) {
+   979→      setCredDialogSource(gated);
+   980→      setCredDialogOpen(true);
+   981→    }
+   982→  }, []);
+   983→
+   984→  /* ────── Render ────── */
+   985→  return (
+   986→    <div className="view-enter">
+   987→      {/* ───────────────── Notion-style Cover ───────────────── */}
+   988→      <div className="relative h-32 md:h-40 bg-gradient-to-br from-emerald-600 via-teal-700 to-cyan-800 overflow-hidden">
+   989→        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+PC9zdmc+')] opacity-60" />
+   990→        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
+   991→        <div className="absolute top-4 right-4 md:right-6">
+   992→          <Button
+   993→            variant="secondary"
+   994→            size="sm"
+   995→            onClick={() => load(true)}
+   996→            disabled={refreshing}
+   997→            className="gap-1.5 shadow-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
+   998→          >
+   999→            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+  1000→            {refreshing ? 'Refreshing…' : 'Refresh'}
+  1001→          </Button>
+  1002→        </div>
+  1003→      </div>
+  1004→
+  1005→      <div className="px-4 md:px-6 max-w-5xl mx-auto -mt-8 relative z-10 space-y-6">
+  1006→        {/* ───────────────── Notion-style Icon + Title ───────────────── */}
+  1007→        <div className="flex items-end gap-4">
+  1008→          <div className="h-14 w-14 md:h-16 md:w-16 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 border-4 border-background shrink-0">
+  1009→            <Globe2 className="h-7 w-7 md:h-8 md:w-8 text-white" />
+  1010→          </div>
+  1011→          <div className="flex-1 min-w-0 pb-1">
+  1012→            <div className="flex items-center gap-2 flex-wrap">
+  1013→              <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">Global Live Tenders</h1>
+  1014→              <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-xs">
+  1015→                <span className="relative flex h-1.5 w-1.5">
+  1016→                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+  1017→                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+  1018→                </span>
+  1019→                LIVE
+  1020→              </Badge>
+  1021→            </div>
+  1022→            <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+  1023→              Real-time procurement from international public APIs — {tenders.length} opportunities from {sourceMeta.length || 15} sources
+  1024→              {sectorFilter && <span className="ml-1 text-primary font-medium">· filtered by {SECTOR_PILLS.find(s => s.id === sectorFilter)?.label || sectorFilter}</span>}
+  1025→            </p>
+  1026→          </div>
+  1027→        </div>
+  1028→
+  1029→        {/* ───────────────── Breadcrumb ───────────────── */}
+  1030→        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="Breadcrumb">
+  1031→          <span className="hover:text-foreground cursor-default">Dashboard</span>
+  1032→          <span>/</span>
+  1033→          <span className="hover:text-foreground cursor-default">Tenders</span>
+  1034→          <span>/</span>
+  1035→          <span className="text-foreground font-medium">Live Feed</span>
+  1036→        </nav>
+  1037→
+  1038→        {/* ───────────────── Stats bar ───────────────── */}
+  1039→        <div className="grid grid-cols-4 gap-2 md:gap-3">
+  1040→          <Card className="bg-card border-border">
+  1041→            <CardContent className="p-3 md:p-4">
+  1042→              <div className="flex items-center justify-between">
+  1043→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Tenders</span>
+  1044→                <Database className="h-3.5 w-3.5 text-emerald-500" />
+  1045→              </div>
+  1046→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{tenders.length}</p>
+  1047→            </CardContent>
+  1048→          </Card>
+  1049→          <Card className="bg-card border-border">
+  1050→            <CardContent className="p-3 md:p-4">
+  1051→              <div className="flex items-center justify-between">
+  1052→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Online</span>
+  1053→                <Radio className="h-3.5 w-3.5 text-emerald-500" />
+  1054→              </div>
+  1055→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{liveSourcesCount}/{sourceMeta.length || 15}</p>
+  1056→            </CardContent>
+  1057→          </Card>
+  1058→          <Card className="bg-card border-border">
+  1059→            <CardContent className="p-3 md:p-4">
+  1060→              <div className="flex items-center justify-between">
+  1061→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Value</span>
+  1062→                <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
+  1063→              </div>
+  1064→              <p className="text-sm md:text-base font-bold text-foreground mt-1">
+  1065→                {totalTenderValue > 0 ? fmtMoney(totalTenderValue, 'USD').replace('USD', '').trim() : '—'}
+  1066→              </p>
+  1067→            </CardContent>
+  1068→          </Card>
+  1069→          <Card className="bg-card border-border">
+  1070→            <CardContent className="p-3 md:p-4">
+  1071→              <div className="flex items-center justify-between">
+  1072→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</span>
+  1073→                {fallback ? (
+  1074→                  <ServerCrash className="h-3.5 w-3.5 text-amber-500" />
+  1075→                ) : (
+  1076→                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+  1077→                )}
+  1078→              </div>
+  1079→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">
+  1080→                {fallback ? 'Cached' : 'Live'}
+  1081→              </p>
+  1082→            </CardContent>
+  1083→          </Card>
+  1084→        </div>
+  1085→
+  1086→        {fallback && (
+  1087→          <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
+  1088→            <ServerCrash className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+  1089→            <div className="text-sm">
+  1090→              <p className="font-medium text-amber-900 dark:text-amber-200">
+  1091→                Showing curated sample data
+  1092→              </p>
+  1093→              <p className="text-amber-700 dark:text-amber-300/80 mt-0.5">
+  1094→                Upstream APIs are currently unreachable from this environment. The records below are representative samples.
+  1095→              </p>
+  1096→            </div>
+  1097→          </div>
+  1098→        )}
+  1099→
+  1100→        {/* ───────────────── Filters ───────────────── */}
+  1101→        <Card className="bg-card border-border">
+  1102→          <CardContent className="p-4">
+  1103→            <div className="flex flex-col md:flex-row gap-3">
+  1104→              <div className="relative flex-1">
+  1105→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  1106→                <Input
+  1107→                  placeholder="Search tenders — title, country, category…"
+  1108→                  value={search}
+  1109→                  onChange={(e) => setSearch(e.target.value)}
+  1110→                  className="pl-9 bg-muted/50 border-border"
+  1111→                />
+  1112→              </div>
+  1113→              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+  1114→                <SelectTrigger className="w-full md:w-56 bg-muted/50 border-border">
+  1115→                  <SelectValue placeholder="All sources" />
+  1116→                </SelectTrigger>
+  1117→                <SelectContent>
+  1118→                  <SelectItem value="all">All live sources</SelectItem>
+  1119→                  <SelectItem value="worldbank">🏦 World Bank</SelectItem>
+  1120→                  <SelectItem value="eu_ted">🇪🇺 EU TED</SelectItem>
+  1121→                  <SelectItem value="ungm">🇺🇳 UNGM</SelectItem>
+  1122→                  <SelectItem value="sam_gov">🇺🇸 SAM.gov</SelectItem>
+  1123→                  <SelectItem value="afdb">🌍 AfDB</SelectItem>
+  1124→                  <SelectItem value="eu_opentenders">🔎 OpenTenders EU</SelectItem>
+  1125→                  <SelectItem value="jica">🇯🇵 JICA</SelectItem>
+  1126→                  <SelectItem value="adb">🌏 ADB</SelectItem>
+  1127→                  <SelectItem value="uk_contracts">🇬🇧 UK Contracts Finder</SelectItem>
+  1128→                  <SelectItem value="dgmarket">🌐 DgMarket</SelectItem>
+  1129→                  <SelectItem value="apify_global">🤖 Apify Global</SelectItem>
+  1130→                  <SelectItem value="apify_procurement">📦 Apify Procurement</SelectItem>
+  1131→                  <SelectItem value="govrider">🛡️ GovRider</SelectItem>
+  1132→                  <SelectItem value="tenderwell">🔍 Tenderwell</SelectItem>
+  1133→                  <SelectItem value="seegenebid">🌐 SeeGeneBid</SelectItem>
+  1134→                </SelectContent>
+  1135→              </Select>
+  1136→            </div>
+  1137→
+  1138→            {/* Sector quick-filter pills */}
+  1139→            <div className="flex flex-wrap items-center gap-1.5 mt-2 md:mt-0">
+  1140→              <span className="text-xs font-medium text-muted-foreground mr-1">Sectors:</span>
+  1141→              <button
+  1142→                onClick={() => setSectorFilter('')}
+  1143→                className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+  1144→                  !sectorFilter
+  1145→                    ? 'ring-2 ring-primary/50 bg-primary/10 text-primary font-medium'
+  1146→                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+  1147→                }`}
+  1148→              >
+  1149→                All
+  1150→              </button>
+  1151→              {SECTOR_PILLS.map((s) => {
+  1152→                const count = sectorCounts.find(c => c.id === s.id)?.count || 0;
+  1153→                const isActive = sectorFilter === s.id;
+  1154→                return (
+  1155→                  <button
+  1156→                    key={s.id}
+  1157→                    onClick={() => setSectorFilter(isActive ? '' : s.id)}
+  1158→                    className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+  1159→                      isActive
+  1160→                        ? 'ring-2 ring-primary/50 bg-primary/10 text-primary font-medium'
+  1161→                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+  1162→                    }`}
+  1163→                  >
+  1164→                    <span>{s.icon}</span>
+  1165→                    {s.label}
+  1166→                    {count > 0 && <span className="opacity-70">· {count}</span>}
+  1167→                  </button>
+  1168→                );
+  1169→              })}
+  1170→            </div>
+  1171→
+  1172→            {/* Source status pills */}
+  1173→            {sourceMeta.length > 0 && (
+  1174→              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border">
+  1175→                <span className="text-xs font-medium text-muted-foreground mr-1">Feed status:</span>
+  1176→                {sourceMeta.map((s) => {
+  1177→                  const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
+  1178→                  const isComingSoon = !s.ok && s.error && (s.error.toLowerCase().includes('coming soon') || s.error.toLowerCase().includes('credentials'));
+  1179→                  return (
+  1180→                    <button
+  1181→                      key={s.id}
+  1182→                      onClick={() => setSourceFilter(s.id === sourceFilter ? 'all' : s.id)}
+  1183→                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+  1184→                        sourceFilter === s.id
+  1185→                          ? 'ring-2 ring-primary/50 ' + accent.badge
+  1186→                          : accent.badge
+  1187→                      }`}
+  1188→                      title={s.ok ? 'Connected' : isComingSoon ? 'Coming Soon — requires API credentials' : 'Unavailable — using fallback'}
+  1189→                    >
+  1190→                      <span className={`h-1.5 w-1.5 rounded-full ${s.ok ? accent.dot : 'bg-muted-foreground/40'}`} />
+  1191→                      {s.name}
+  1192→                      {s.ok ? (
+  1193→                        <span className="opacity-70">· {s.count}</span>
+  1194→                      ) : isComingSoon ? (
+  1195→                        <Badge variant="outline" className="text-[9px] leading-none px-1.5 py-0 border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30">
+  1196→                          Coming Soon
+  1197→                        </Badge>
+  1198→                      ) : (
+  1199→                        <span className="opacity-50">· 0</span>
+  1200→                      )}
+  1201→                    </button>
+  1202→                  );
+  1203→                })}
+  1204→              </div>
+  1205→            )}
+  1206→          </CardContent>
+  1207→        </Card>
+  1208→
+  1209→        {/* ───────────────── Feed-style Tender Cards ───────────────── */}
+  1210→        {loading ? (
+  1211→          <div className="space-y-3">
+  1212→            {Array.from({ length: 4 }).map((_, i) => (
+  1213→              <Card key={i} className="bg-card border-border">
+  1214→                <CardContent className="p-5 space-y-3">
+  1215→                  <div className="flex items-center gap-3">
+  1216→                    <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+  1217→                    <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+  1218→                  </div>
+  1219→                  <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
+  1220→                  <div className="h-3 w-full bg-muted rounded animate-pulse" />
+  1221→                  <div className="h-3 w-2/3 bg-muted rounded animate-pulse" />
+  1222→                  <div className="flex gap-3 pt-1">
+  1223→                    <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+  1224→                    <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+  1225→                    <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+  1226→                  </div>
+  1227→                </CardContent>
+  1228→              </Card>
+  1229→            ))}
+  1230→          </div>
+  1231→        ) : tenders.length === 0 ? (
+  1232→          <Card className="bg-card border-border">
+  1233→            <CardContent className="p-12 text-center">
+  1234→              <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+  1235→              <p className="text-foreground font-medium">No live tenders found</p>
+  1236→              <p className="text-sm text-muted-foreground mt-1">
+  1237→                Try a different search term or source filter.
+  1238→              </p>
+  1239→            </CardContent>
+  1240→          </Card>
+  1241→        ) : (
+  1242→          <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+  1243→            {tenders.slice(0, visibleCount).map((t) => {
+  1244→                const accent = SOURCE_ACCENT[t.source] || SOURCE_ACCENT.default;
+  1245→                const days = daysUntil(t.deadline);
+  1246→                const isExpanded = expandedId === t.id;
+  1247→                const isLoadingDoc = docLoading === t.id;
+  1248→                const doc = docData[t.id];
+  1249→                const docErr = docError[t.id];
+  1250→                const SourceIcon = accent.icon;
+  1251→                const isSaved = savedTenders[t.id] || false;
+  1252→                const isSaving = savingTender[t.id] || false;
+  1253→                const showAiReview = aiReviewExpanded[t.id] || false;
+  1254→                const aiLoading = aiReviewLoading[t.id] || false;
+  1255→                const aiReview = aiReviewData[t.id] || null;
+  1256→
+  1257→                // Compute which meta fields have values
+  1258→                const hasBudget = !!(t.budgetMin || t.budgetMax);
+  1259→                const hasLocation = !!t.location;
+  1260→                const hasDeadline = !!t.deadline;
+  1261→                const hasBorrower = !!(t.borrower || t.supplier);
+  1262→                const hasContractType = !!t.contractType;
+  1263→                const hasRegion = !!t.region;
+  1264→                const metaFieldCount = [hasBudget, hasLocation, hasDeadline, hasBorrower, hasContractType, hasRegion].filter(Boolean).length;
+  1265→
+  1266→                return (
+  1267→                  <div key={t.id}>
+  1268→                    <Card className={`bg-card border-border transition-all ${accent.ring} ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
+  1269→                      <CardContent className="p-0">
+  1270→                        {/* Main card content */}
+  1271→                        <div className="p-4 md:p-5 relative">
+  1272→                          {/* Bookmark button — top right */}
+  1273→                          <div className="absolute top-3 right-3 md:top-4 md:right-4">
+  1274→                            <Button
+  1275→                              variant="ghost"
+  1276→                              size="sm"
+  1277→                              className="h-8 w-8 p-0 rounded-full"
+  1278→                              onClick={() => toggleSave(t)}
+  1279→                              disabled={isSaving}
+  1280→                              title={isSaved ? 'Remove from saved' : 'Save to bids list'}
+  1281→                            >
+  1282→                              {isSaving ? (
+  1283→                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+  1284→                              ) : isSaved ? (
+  1285→                                <BookmarkCheck className="h-4 w-4 text-primary" />
+  1286→                              ) : (
+  1287→                                <Bookmark className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+  1288→                              )}
+  1289→                            </Button>
+  1290→                          </div>
+  1291→
+  1292→                          {/* Top row: source + status + relative time */}
+  1293→                          <div className="flex items-center justify-between gap-2 mb-3 pr-10">
+  1294→                            <div className="flex items-center gap-2 flex-wrap">
+  1295→                              <span
+  1296→                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${accent.badge}`}
+  1297→                              >
+  1298→                                <SourceIcon className="h-3 w-3" />
+  1299→                                {SOURCE_LABELS[t.source] || t.source}
+  1300→                              </span>
+  1301→                              {t.status === 'awarded' ? (
+  1302→                                <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+  1303→                                  Contract Award
+  1304→                                </Badge>
+  1305→                              ) : (
+  1306→                                <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+  1307→                                  Open Notice
+  1308→                                </Badge>
+  1309→                              )}
+  1310→                              {t.source === 'sector_feed' && (
+  1311→                                <Badge className="bg-primary/10 text-primary border-0 text-[10px] gap-1">
+  1312→                                  <TrendingUp className="h-3 w-3" />
+  1313→                                  Sector
+  1314→                                </Badge>
+  1315→                              )}
+  1316→                            </div>
+  1317→                            <span className="text-[11px] text-muted-foreground hidden md:inline-flex items-center gap-1 shrink-0">
+  1318→                              <Clock className="h-3 w-3" />
+  1319→                              {t.signingDate
+  1320→                                ? `Signed ${relativeTime(t.signingDate)}`
+  1321→                                : `Published ${relativeTime(t.createdAt)}`}
+  1322→                            </span>
+  1323→                          </div>
+  1324→
+  1325→                          {/* Title */}
+  1326→                          <h3 className="text-base md:text-lg font-semibold text-foreground leading-snug line-clamp-2 pr-10">
+  1327→                            {t.title}
+  1328→                          </h3>
+  1329→
+  1330→                          {/* Scope preview */}
+  1331→                          {t.scope && (
+  1332→                            <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+  1333→                              {t.scope}
+  1334→                            </p>
+  1335→                          )}
+  1336→
+  1337→                          {/* Rich meta grid */}
+  1338→                          {metaFieldCount > 0 && (
+  1339→                            <div className={`grid gap-2 mt-3 ${metaFieldCount <= 3 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-3'}`}>
+  1340→                              {hasBudget && (
+  1341→                                <div className="flex items-center gap-1.5 text-xs">
+  1342→                                  <DollarSign className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+  1343→                                  <span className="text-muted-foreground">Budget:</span>
+  1344→                                  <span className="font-medium text-foreground truncate">
+  1345→                                    {t.budgetMin && t.budgetMax
+  1346→                                      ? `${fmtMoney(t.budgetMin, t.currency).replace(/\.00/, '')} – ${fmtMoney(t.budgetMax, t.currency).replace(/\.00/, '')}`
+  1347→                                      : fmtMoney(t.budgetMax || t.budgetMin, t.currency)}
+  1348→                                  </span>
+  1349→                                </div>
+  1350→                              )}
+  1351→                              {hasLocation && (
+  1352→                                <div className="flex items-center gap-1.5 text-xs">
+  1353→                                  <MapPin className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+  1354→                                  <span className="text-muted-foreground">Location:</span>
+  1355→                                  <span className="font-medium text-foreground truncate max-w-[140px]">{t.location}</span>
+  1356→                                </div>
+  1357→                              )}
+  1358→                              {hasDeadline && (
+  1359→                                <div className={`inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded w-fit ${deadlineBadge(days)}`}>
+  1360→                                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+  1361→                                  <span className="font-medium">{deadlineLabel(days)}</span>
+  1362→                                </div>
+  1363→                              )}
+  1364→                              {hasBorrower && (
+  1365→                                <div className="flex items-center gap-1.5 text-xs">
+  1366→                                  <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+  1367→                                  <span className="text-muted-foreground">{t.borrower ? 'Borrower:' : 'Org:'}</span>
+  1368→                                  <span className="font-medium text-foreground truncate max-w-[140px]">{t.borrower || t.supplier}</span>
+  1369→                                </div>
+  1370→                              )}
+  1371→                              {hasContractType && (
+  1372→                                <div className="flex items-center gap-1.5 text-xs">
+  1373→                                  <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+  1374→                                  <span className="text-muted-foreground">Type:</span>
+  1375→                                  <span className="font-medium text-foreground truncate">{t.contractType}</span>
+  1376→                                </div>
+  1377→                              )}
+  1378→                              {hasRegion && (
+  1379→                                <div className="flex items-center gap-1.5 text-xs">
+  1380→                                  <Globe2 className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+  1381→                                  <span className="text-muted-foreground">Region:</span>
+  1382→                                  <span className="font-medium text-foreground truncate">{t.region}</span>
+  1383→                                </div>
+  1384→                              )}
+  1385→                            </div>
+  1386→                          )}
+  1387→
+  1388→                          {/* Category tags */}
+  1389→                          {((t.categoryTags && t.categoryTags.split(',').filter(Boolean).length > 0) || t.contractType) && (
+  1390→                            <div className="flex flex-wrap gap-1.5 mt-3">
+  1391→                              {t.categoryTags
+  1392→                                .split(',')
+  1393→                                .filter(Boolean)
+  1394→                                .slice(0, 5)
+  1395→                                .map((c) => (
+  1396→                                  <span
+  1397→                                    key={c}
+  1398→                                    className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+  1399→                                  >
+  1400→                                    {c.trim()}
+  1401→                                  </span>
+  1402→                                ))}
+  1403→                            </div>
+  1404→                          )}
+  1405→
+  1406→                          {/* Bottom action bar */}
+  1407→                          <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
+  1408→                            <div className="flex items-center gap-1.5 flex-wrap">
+  1409→                              <Button
+  1410→                                variant="ghost"
+  1411→                                size="sm"
+  1412→                                className="gap-1.5 text-xs h-7"
+  1413→                                onClick={() => loadDocument(t)}
+  1414→                                disabled={isLoadingDoc}
+  1415→                              >
+  1416→                                {isLoadingDoc ? (
+  1417→                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1418→                                ) : isExpanded ? (
+  1419→                                  <ChevronUp className="h-3.5 w-3.5" />
+  1420→                                ) : (
+  1421→                                  <BookOpen className="h-3.5 w-3.5" />
+  1422→                                )}
+  1423→                                {isLoadingDoc ? 'Loading…' : isExpanded ? 'Collapse' : 'Read More'}
+  1424→                              </Button>
+  1425→                              <Button
+  1426→                                variant="ghost"
+  1427→                                size="sm"
+  1428→                                className={`gap-1.5 text-xs h-7 ${showAiReview ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 hover:bg-violet-100 dark:hover:bg-violet-950/40' : 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30'}`}
+  1429→                                onClick={() => loadAIReview(t)}
+  1430→                                disabled={aiLoading}
+  1431→                              >
+  1432→                                <Sparkles className="h-3.5 w-3.5" />
+  1433→                                {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide Review' : 'AI Review'}
+  1434→                              </Button>
+  1435→                              <Button
+  1436→                                variant="ghost"
+  1437→                                size="sm"
+  1438→                                className="gap-1.5 text-xs h-7 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+  1439→                                onClick={() => {
+  1440→                                  useNavStore.getState().setView('tender-detail', { id: t.id, tab: 'ai-overview' });
+  1441→                                }}
+  1442→                              >
+  1443→                                <ExternalLink className="h-3.5 w-3.5" />
+  1444→                                Details
+  1445→                              </Button>
+  1446→                            </div>
+  1447→                            <div className="flex items-center gap-1.5 shrink-0">
+  1448→                              <InlineTranslator text={t.scope || t.title} size="sm" className="hidden md:flex" />
+  1449→                              <Button
+  1450→                                variant="ghost"
+  1451→                                size="sm"
+  1452→                                className="gap-1.5 text-xs h-7 text-primary"
+  1453→                                onClick={() => importTender(t)}
+  1454→                                disabled={importing === t.id}
+  1455→                              >
+  1456→                                {importing === t.id ? (
+  1457→                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1458→                                ) : (
+  1459→                                  <Download className="h-3.5 w-3.5" />
+  1460→                                )}
+  1461→                                Import
+  1462→                              </Button>
+  1463→                            </div>
+  1464→                          </div>
+  1465→                        </div>
+  1466→
+  1467→                        {/* Inline document viewer */}
+  1468→                        {isExpanded && (
+  1469→                          <>
+  1470→                            {isLoadingDoc && (
+  1471→                              <div className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground animate-[fadeIn_0.3s_ease-out]">
+  1472→                                <Loader2 className="h-4 w-4 animate-spin" />
+  1473→                                Fetching document content…
+  1474→                              </div>
+  1475→                            )}
+  1476→                            {docErr && !isLoadingDoc && (
+  1477→                              <div className="border-t border-border p-6 animate-[fadeIn_0.3s_ease-out]">
+  1478→                                <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
+  1479→                                  <ServerCrash className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+  1480→                                  <div>
+  1481→                                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+  1482→                                      Could not load document content
+  1483→                                    </p>
+  1484→                                    <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
+  1485→                                      {docErr} — you can still{' '}
+  1486→                                      <a
+  1487→                                        href={t.externalUrl}
+  1488→                                        target="_blank"
+  1489→                                        rel="noopener noreferrer"
+  1490→                                        className="underline font-medium"
+  1491→                                      >
+  1492→                                        view the original page
+  1493→                                      </a>
+  1494→                                      .
+  1495→                                    </p>
+  1496→                                  </div>
+  1497→                                </div>
+  1498→                              </div>
+  1499→                            )}
+  1500→                            {doc && !isLoadingDoc && (
+  1501→                              <InlineDocumentViewer
+  1502→                                doc={doc}
+  1503→                                onClose={() => setExpandedId(null)}
+  1504→                              />
+  1505→                            )}
+  1506→                            {/* Translator for document content */}
+  1507→                            {(doc?.content || t.scope) && !isLoadingDoc && (
+  1508→                              <div className="border-t border-border px-4 py-2.5">
+  1509→                                <InlineTranslator text={doc?.content || t.scope} />
+  1510→                              </div>
+  1511→                            )}
+  1512→                          </>
+  1513→                        )}
+  1514→
+  1515→                        {/* AI Review Panel */}
+  1516→                        {showAiReview && (
+  1517→                          <AIReviewPanel
+  1518→                            review={aiReview}
+  1519→                            isLoading={aiLoading}
+  1520→                          />
+  1521→                        )}
+  1522→                    </CardContent>
+  1523→                  </Card>
+  1524→                  </div>
+  1525→                );
+  1526→              })}
+  1527→          </div>
+  1528→        )}
+  1529→
+  1530→        {/* See More / Load More button */}
+  1531→        {tenders.length > 0 && (
+  1532→          <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+  1533→            <p className="text-xs text-muted-foreground">
+  1534→              {visibleCount >= tenders.length
+  1535→                ? `${tenders.length} of ${tenders.length} tenders shown`
+  1536→                : `${Math.min(visibleCount, tenders.length)} of ${tenders.length} tenders shown · ${tenders.length - visibleCount} remaining`
+  1537→              }
+  1538→            </p>
+  1539→            {visibleCount < tenders.length && (
+  1540→              <Button
+  1541→                variant="outline"
+  1542→                size="lg"
+  1543→                className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+  1544→                onClick={() => setVisibleCount(prev => Math.min(prev + PAGE_SIZE, tenders.length))}
+  1545→              >
+  1546→                <ChevronDown className="h-4 w-4" />
+  1547→                Load More ({tenders.length - visibleCount} remaining)
+  1548→              </Button>
+  1549→            )}
+  1550→          </div>
+  1551→        )}
+  1552→
+  1553→        {/* ───────────────── Data Sources panel ───────────────── */}
+  1554→        <div className="pt-4 pb-8">
+  1555→          <div className="flex items-center gap-2 mb-3">
+  1556→            <Database className="h-4 w-4 text-emerald-500" />
+  1557→            <h2 className="text-lg font-semibold text-foreground">Connected Data Sources</h2>
+  1558→            <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+  1559→              {dataSources.filter((s) => s.live).length} live · {dataSources.length + GATED_SOURCES.length} total
+  1560→            </Badge>
+  1561→          </div>
+  1562→          <p className="text-sm text-muted-foreground mb-4">
+  1563→            Aggregated procurement from international data feeds.
+  1564→            Sources marked <span className="font-medium text-emerald-600 dark:text-emerald-400">Live</span> are
+  1565→            fetched in real time; others require credentials.
+  1566→          </p>
+  1567→
+  1568→          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+  1569→            {/* Live data sources from API */}
+  1570→            {dataSources.map((s) => {
+  1571→              const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
+  1572→              const SourceIcon = accent.icon;
+  1573→              return (
+  1574→                <Card
+  1575→                  key={s.id}
+  1576→                  className={`bg-card border-border hover:border-primary/40 transition-colors ${s.live ? 'cursor-pointer' : 'opacity-70'}`}
+  1577→                  onClick={s.live ? () => setSourceFilter(s.id === sourceFilter ? 'all' : s.id) : undefined}
+  1578→                >
+  1579→                  <CardContent className="p-4">
+  1580→                    <div className="flex items-start justify-between gap-2">
+  1581→                      <div className="flex items-start gap-2.5 min-w-0">
+  1582→                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${s.live ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-muted'}`}>
+  1583→                          {s.live ? (
+  1584→                            <SourceIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+  1585→                          ) : (
+  1586→                            <Lock className="h-4 w-4 text-muted-foreground" />
+  1587→                          )}
+  1588→                        </div>
+  1589→                        <div className="min-w-0">
+  1590→                          <div className="flex items-center gap-1.5">
+  1591→                            <h4 className="font-semibold text-foreground text-sm truncate">{s.name}</h4>
+  1592→                            <span
+  1593→                              className={`h-2 w-2 rounded-full shrink-0 ${ACCENT_DOT[s.accent] || 'bg-muted-foreground'}`}
+  1594→                            />
+  1595→                          </div>
+  1596→                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.coverage}</p>
+  1597→                        </div>
+  1598→                      </div>
+  1599→                      {s.live ? (
+  1600→                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 shrink-0 text-[10px]">
+  1601→                          Live
+  1602→                        </Badge>
+  1603→                      ) : (
+  1604→                        <Badge variant="outline" className="border-border text-muted-foreground shrink-0 text-[10px]">
+  1605→                          Reference
+  1606→                        </Badge>
+  1607→                      )}
+  1608→                    </div>
+  1609→
+  1610→                    <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
+  1611→                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+  1612→                        <ShieldCheck className="h-3 w-3 shrink-0" />
+  1613→                        <span className="truncate">{s.access}</span>
+  1614→                      </div>
+  1615→                      <a
+  1616→                        href={s.link}
+  1617→                        target="_blank"
+  1618→                        rel="noopener noreferrer"
+  1619→                        className="inline-flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline shrink-0"
+  1620→                        onClick={(e) => e.stopPropagation()}
+  1621→                      >
+  1622→                        Open
+  1623→                        <ArrowUpRight className="h-2.5 w-2.5" />
+  1624→                      </a>
+  1625→                    </div>
+  1626→                  </CardContent>
+  1627→                </Card>
+  1628→              );
+  1629→            })}
+  1630→
+  1631→            {/* Credential-gated sources (Apify, GovRider, Tenderwell, SeeGeneBid) */}
+  1632→            {GATED_SOURCES.map((gs) => {
+  1633→              const accent = SOURCE_ACCENT[gs.id] || SOURCE_ACCENT.default;
+  1634→              const SourceIcon = accent.icon;
+  1635→              const isOpenSource = gs.credentialType === 'open_source';
+  1636→              return (
+  1637→                <Card
+  1638→                  key={gs.id}
+  1639→                  className="bg-card border-border hover:border-primary/40 transition-colors opacity-80"
+  1640→                >
+  1641→                  <CardContent className="p-4">
+  1642→                    <div className="flex items-start justify-between gap-2">
+  1643→                      <div className="flex items-start gap-2.5 min-w-0">
+  1644→                        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 dark:bg-amber-950/40">
+  1645→                          <SourceIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+  1646→                        </div>
+  1647→                        <div className="min-w-0">
+  1648→                          <div className="flex items-center gap-1.5">
+  1649→                            <h4 className="font-semibold text-foreground text-sm truncate">{gs.name}</h4>
+  1650→                            <span className={`h-2 w-2 rounded-full shrink-0 ${accent.dot}`} />
+  1651→                          </div>
+  1652→                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{gs.description}</p>
+  1653→                        </div>
+  1654→                      </div>
+  1655→                      {isOpenSource ? (
+  1656→                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 shrink-0 text-[10px]">
+  1657→                          Open Source
+  1658→                        </Badge>
+  1659→                      ) : (
+  1660→                        <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 shrink-0 text-[10px] gap-1">
+  1661→                          <Lock className="h-2.5 w-2.5" />
+  1662→                          API Key
+  1663→                        </Badge>
+  1664→                      )}
+  1665→                    </div>
+  1666→
+  1667→                    <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
+  1668→                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+  1669→                        {isOpenSource ? (
+  1670→                          <Globe2 className="h-3 w-3 shrink-0 text-emerald-500" />
+  1671→                        ) : (
+  1672→                          <Lock className="h-3 w-3 shrink-0 text-amber-500" />
+  1673→                        )}
+  1674→                        <span className="truncate">
+  1675→                          {isOpenSource ? 'No credentials required' : `Requires ${gs.envVar}`}
+  1676→                        </span>
+  1677→                      </div>
+  1678→                      <Button
+  1679→                        variant="outline"
+  1680→                        size="sm"
+  1681→                        className="h-6 text-[10px] gap-1 px-2 shrink-0"
+  1682→                        onClick={(e) => {
+  1683→                          e.stopPropagation();
+  1684→                          openCredDialog(gs.id);
+  1685→                        }}
+  1686→                      >
+  1687→                        {isOpenSource ? (
+  1688→                          <>
+  1689→                            <Globe2 className="h-2.5 w-2.5" />
+  1690→                            Enable
+  1691→                          </>
+  1692→                        ) : (
+  1693→                          <>
+  1694→                            <Lock className="h-2.5 w-2.5" />
+  1695→                            Enable
+  1696→                          </>
+  1697→                        )}
+  1698→                      </Button>
+  1699→                    </div>
+  1700→                  </CardContent>
+  1701→                </Card>
+  1702→              );
+  1703→            })}
+  1704→          </div>
+  1705→
+  1706→          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-start gap-3">
+  1707→            <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+  1708→            <p className="text-xs text-muted-foreground">
+  1709→              <span className="font-medium text-foreground">15 sources available</span>{' '}
+  1710→              Enable Apify, GovRider, Tenderwell, or SeeGeneBid by providing the required
+  1711→              API credentials. Each adapter follows the same{' '}
+  1712→              <code className="px-1 py-0.5 rounded bg-muted text-foreground">LiveTender</code> shape
+  1713→              and integrates directly into this feed.
+  1714→            </p>
+  1715→          </div>
+  1716→        </div>
+  1717→      </div>
+  1718→
+  1719→      {/* Credential Dialog */}
+  1720→      <CredentialDialog
+  1721→        source={credDialogSource}
+  1722→        open={credDialogOpen}
+  1723→        onOpenChange={setCredDialogOpen}
+  1724→      />
+  1725→    </div>
+  1726→  );
+  1727→}
+  1728→

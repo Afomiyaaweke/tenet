@@ -1,0 +1,521 @@
+   500→        <div className="grid grid-cols-4 gap-2 md:gap-3">
+   501→          <Card className="bg-card border-border">
+   502→            <CardContent className="p-3 md:p-4">
+   503→              <div className="flex items-center justify-between">
+   504→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Tenders</span>
+   505→                <Database className="h-3.5 w-3.5 text-emerald-500" />
+   506→              </div>
+   507→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{tenders.length}</p>
+   508→            </CardContent>
+   509→          </Card>
+   510→          <Card className="bg-card border-border">
+   511→            <CardContent className="p-3 md:p-4">
+   512→              <div className="flex items-center justify-between">
+   513→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Online</span>
+   514→                <Radio className="h-3.5 w-3.5 text-emerald-500" />
+   515→              </div>
+   516→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{liveSourcesCount}/{sourceMeta.length || 6}</p>
+   517→            </CardContent>
+   518→          </Card>
+   519→          <Card className="bg-card border-border">
+   520→            <CardContent className="p-3 md:p-4">
+   521→              <div className="flex items-center justify-between">
+   522→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Value</span>
+   523→                <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
+   524→              </div>
+   525→              <p className="text-sm md:text-base font-bold text-foreground mt-1">
+   526→                {totalTenderValue > 0 ? fmtMoney(totalTenderValue, 'USD').replace('USD', '').trim() : '—'}
+   527→              </p>
+   528→            </CardContent>
+   529→          </Card>
+   530→          <Card className="bg-card border-border">
+   531→            <CardContent className="p-3 md:p-4">
+   532→              <div className="flex items-center justify-between">
+   533→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</span>
+   534→                {fallback ? (
+   535→                  <ServerCrash className="h-3.5 w-3.5 text-amber-500" />
+   536→                ) : (
+   537→                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+   538→                )}
+   539→              </div>
+   540→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">
+   541→                {fallback ? 'Cached' : 'Live'}
+   542→              </p>
+   543→            </CardContent>
+   544→          </Card>
+   545→        </div>
+   546→
+   547→        {fallback && (
+   548→          <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
+   549→            <ServerCrash className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+   550→            <div className="text-sm">
+   551→              <p className="font-medium text-amber-900 dark:text-amber-200">
+   552→                Showing curated sample data
+   553→              </p>
+   554→              <p className="text-amber-700 dark:text-amber-300/80 mt-0.5">
+   555→                Upstream APIs are currently unreachable from this environment. The records below are representative samples.
+   556→              </p>
+   557→            </div>
+   558→          </div>
+   559→        )}
+   560→
+   561→        {/* ───────────────── Filters ───────────────── */}
+   562→        <Card className="bg-card border-border">
+   563→          <CardContent className="p-4">
+   564→            <div className="flex flex-col md:flex-row gap-3">
+   565→              <div className="relative flex-1">
+   566→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   567→                <Input
+   568→                  placeholder="Search tenders — title, country, category…"
+   569→                  value={search}
+   570→                  onChange={(e) => setSearch(e.target.value)}
+   571→                  className="pl-9 bg-muted/50 border-border"
+   572→                />
+   573→              </div>
+   574→              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+   575→                <SelectTrigger className="w-full md:w-56 bg-muted/50 border-border">
+   576→                  <SelectValue placeholder="All sources" />
+   577→                </SelectTrigger>
+   578→                <SelectContent>
+   579→                  <SelectItem value="all">All live sources</SelectItem>
+   580→                  <SelectItem value="worldbank">🏦 World Bank</SelectItem>
+   581→                  <SelectItem value="eu_ted">🇪🇺 EU TED</SelectItem>
+   582→                  <SelectItem value="ungm">🇺🇳 UNGM</SelectItem>
+   583→                  <SelectItem value="sam_gov">🇺🇸 SAM.gov</SelectItem>
+   584→                  <SelectItem value="afdb">🌍 AfDB</SelectItem>
+   585→                  <SelectItem value="eu_opentenders">🔎 OpenTenders EU</SelectItem>
+   586→                  <SelectItem value="jica">🇯🇵 JICA</SelectItem>
+   587→                  <SelectItem value="adb">🌏 ADB</SelectItem>
+   588→                  <SelectItem value="uk_contracts">🇬🇧 UK Contracts Finder</SelectItem>
+   589→                  <SelectItem value="dgmarket">🌐 DgMarket</SelectItem>
+   590→                </SelectContent>
+   591→              </Select>
+   592→            </div>
+   593→
+   594→            {/* Sector quick-filter pills */}
+   595→            <div className="flex flex-wrap items-center gap-1.5 mt-2 md:mt-0">
+   596→              <span className="text-xs font-medium text-muted-foreground mr-1">Sectors:</span>
+   597→              <button
+   598→                onClick={() => setSectorFilter('')}
+   599→                className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+   600→                  !sectorFilter
+   601→                    ? 'ring-2 ring-primary/50 bg-primary/10 text-primary font-medium'
+   602→                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+   603→                }`}
+   604→              >
+   605→                All
+   606→              </button>
+   607→              {SECTOR_PILLS.map((s) => {
+   608→                const count = sectorCounts.find(c => c.id === s.id)?.count || 0;
+   609→                const isActive = sectorFilter === s.id;
+   610→                return (
+   611→                  <button
+   612→                    key={s.id}
+   613→                    onClick={() => setSectorFilter(isActive ? '' : s.id)}
+   614→                    className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+   615→                      isActive
+   616→                        ? 'ring-2 ring-primary/50 bg-primary/10 text-primary font-medium'
+   617→                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+   618→                    }`}
+   619→                  >
+   620→                    <span>{s.icon}</span>
+   621→                    {s.label}
+   622→                    {count > 0 && <span className="opacity-70">· {count}</span>}
+   623→                  </button>
+   624→                );
+   625→              })}
+   626→            </div>
+   627→
+   628→            {/* Source status pills */}
+   629→            {sourceMeta.length > 0 && (
+   630→              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border">
+   631→                <span className="text-xs font-medium text-muted-foreground mr-1">Feed status:</span>
+   632→                {sourceMeta.map((s) => {
+   633→                  const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
+   634→                  const isComingSoon = !s.ok && s.error && (s.error.toLowerCase().includes('coming soon') || s.error.toLowerCase().includes('credentials'));
+   635→                  return (
+   636→                    <button
+   637→                      key={s.id}
+   638→                      onClick={() => setSourceFilter(s.id === sourceFilter ? 'all' : s.id)}
+   639→                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+   640→                        sourceFilter === s.id
+   641→                          ? 'ring-2 ring-primary/50 ' + accent.badge
+   642→                          : accent.badge
+   643→                      }`}
+   644→                      title={s.ok ? 'Connected' : isComingSoon ? 'Coming Soon — requires API credentials' : 'Unavailable — using fallback'}
+   645→                    >
+   646→                      <span className={`h-1.5 w-1.5 rounded-full ${s.ok ? accent.dot : 'bg-muted-foreground/40'}`} />
+   647→                      {s.name}
+   648→                      {s.ok ? (
+   649→                        <span className="opacity-70">· {s.count}</span>
+   650→                      ) : isComingSoon ? (
+   651→                        <Badge variant="outline" className="text-[9px] leading-none px-1.5 py-0 border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30">
+   652→                          Coming Soon
+   653→                        </Badge>
+   654→                      ) : (
+   655→                        <span className="opacity-50">· 0</span>
+   656→                      )}
+   657→                    </button>
+   658→                  );
+   659→                })}
+   660→              </div>
+   661→            )}
+   662→          </CardContent>
+   663→        </Card>
+   664→
+   665→        {/* ───────────────── Feed-style Tender Cards ───────────────── */}
+   666→        {loading ? (
+   667→          <div className="space-y-3">
+   668→            {Array.from({ length: 4 }).map((_, i) => (
+   669→              <Card key={i} className="bg-card border-border">
+   670→                <CardContent className="p-5 space-y-3">
+   671→                  <div className="flex items-center gap-3">
+   672→                    <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+   673→                    <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+   674→                  </div>
+   675→                  <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
+   676→                  <div className="h-3 w-full bg-muted rounded animate-pulse" />
+   677→                  <div className="h-3 w-2/3 bg-muted rounded animate-pulse" />
+   678→                  <div className="flex gap-3 pt-1">
+   679→                    <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+   680→                    <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+   681→                    <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+   682→                  </div>
+   683→                </CardContent>
+   684→              </Card>
+   685→            ))}
+   686→          </div>
+   687→        ) : tenders.length === 0 ? (
+   688→          <Card className="bg-card border-border">
+   689→            <CardContent className="p-12 text-center">
+   690→              <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+   691→              <p className="text-foreground font-medium">No live tenders found</p>
+   692→              <p className="text-sm text-muted-foreground mt-1">
+   693→                Try a different search term or source filter.
+   694→              </p>
+   695→            </CardContent>
+   696→          </Card>
+   697→        ) : (
+   698→          <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+   699→            {tenders.slice(0, visibleCount).map((t) => {
+   700→                const accent = SOURCE_ACCENT[t.source] || SOURCE_ACCENT.default;
+   701→                const days = daysUntil(t.deadline);
+   702→                const isExpanded = expandedId === t.id;
+   703→                const isLoadingDoc = docLoading === t.id;
+   704→                const doc = docData[t.id];
+   705→                const docErr = docError[t.id];
+   706→                const SourceIcon = accent.icon;
+   707→
+   708→                return (
+   709→                  <div key={t.id}>
+   710→                    <Card className={`bg-card border-border transition-all ${accent.ring} ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
+   711→                      <CardContent className="p-0">
+   712→                        {/* Main card content */}
+   713→                        <div className="p-4 md:p-5">
+   714→                          {/* Top row: source + status */}
+   715→                          <div className="flex items-center justify-between gap-2 mb-3">
+   716→                            <div className="flex items-center gap-2">
+   717→                              <span
+   718→                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${accent.badge}`}
+   719→                              >
+   720→                                <SourceIcon className="h-3 w-3" />
+   721→                                {SOURCE_LABELS[t.source] || t.source}
+   722→                              </span>
+   723→                              {t.status === 'awarded' ? (
+   724→                                <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+   725→                                  Contract Award
+   726→                                </Badge>
+   727→                              ) : (
+   728→                                <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+   729→                                  Open Notice
+   730→                                </Badge>
+   731→                              )}
+   732→                            </div>
+   733→                            <span className="text-[11px] text-muted-foreground hidden md:inline-flex items-center gap-1">
+   734→                              <Clock className="h-3 w-3" />
+   735→                              {t.signingDate
+   736→                                ? `Signed ${relativeTime(t.signingDate)}`
+   737→                                : `Published ${relativeTime(t.createdAt)}`}
+   738→                            </span>
+   739→                          </div>
+   740→
+   741→                          {/* Title */}
+   742→                          <h3 className="text-base md:text-lg font-semibold text-foreground leading-snug line-clamp-2">
+   743→                            {t.title}
+   744→                          </h3>
+   745→
+   746→                          {/* Sector badge for sector_feed items */}
+   747→                          {t.source === 'sector_feed' && (
+   748→                            <div className="mt-1.5">
+   749→                              <Badge className="bg-primary/10 text-primary border-0 text-[10px] gap-1">
+   750→                                <TrendingUp className="h-3 w-3" />
+   751→                                Sector
+   752→                              </Badge>
+   753→                            </div>
+   754→                          )}
+   755→
+   756→                          {/* Scope preview */}
+   757→                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+   758→                            {t.scope}
+   759→                          </p>
+   760→
+   761→                          {/* Meta row */}
+   762→                          <div className="flex flex-wrap items-center gap-3 mt-3">
+   763→                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+   764→                              <DollarSign className="h-3.5 w-3.5 shrink-0" />
+   765→                              <span className="font-medium text-foreground">
+   766→                                {fmtMoney(t.budgetMax, t.currency)}
+   767→                              </span>
+   768→                            </span>
+   769→                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+   770→                              <MapPin className="h-3.5 w-3.5 shrink-0" />
+   771→                              <span className="truncate max-w-[120px]">{t.location}</span>
+   772→                            </span>
+   773→                            <span className={`inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded ${deadlineBadge(days)}`}>
+   774→                              <Calendar className="h-3.5 w-3.5 shrink-0" />
+   775→                              {days <= 0 ? 'Closed' : `${days}d left`}
+   776→                            </span>
+   777→                            {t.borrower && (
+   778→                              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hidden md:inline-flex">
+   779→                                <Building2 className="h-3.5 w-3.5 shrink-0" />
+   780→                                <span className="truncate max-w-[140px]">{t.borrower}</span>
+   781→                              </span>
+   782→                            )}
+   783→                          </div>
+   784→
+   785→                          {/* Category tags + actions */}
+   786→                          <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
+   787→                            <div className="flex flex-wrap gap-1.5">
+   788→                              {t.categoryTags
+   789→                                .split(',')
+   790→                                .filter(Boolean)
+   791→                                .slice(0, 4)
+   792→                                .map((c) => (
+   793→                                  <span
+   794→                                    key={c}
+   795→                                    className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+   796→                                  >
+   797→                                    {c.trim()}
+   798→                                  </span>
+   799→                                ))}
+   800→                              {t.contractType && (
+   801→                                <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+   802→                                  {t.contractType}
+   803→                                </span>
+   804→                              )}
+   805→                            </div>
+   806→
+   807→                            <div className="flex items-center gap-2 shrink-0">
+   808→                              <Button
+   809→                                variant="ghost"
+   810→                                size="sm"
+   811→                                className="gap-1.5 text-xs h-7"
+   812→                                onClick={() => loadDocument(t)}
+   813→                                disabled={isLoadingDoc}
+   814→                              >
+   815→                                {isLoadingDoc ? (
+   816→                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   817→                                ) : isExpanded ? (
+   818→                                  <ChevronUp className="h-3.5 w-3.5" />
+   819→                                ) : (
+   820→                                  <BookOpen className="h-3.5 w-3.5" />
+   821→                                )}
+   822→                                {isLoadingDoc ? 'Loading…' : isExpanded ? 'Collapse' : 'Read More'}
+   823→                              </Button>
+   824→                              <Button
+   825→                                variant="ghost"
+   826→                                size="sm"
+   827→                                className="gap-1.5 text-xs h-7 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+   828→                                onClick={() => {
+   829→                                  useNavStore.getState().setView('tender-detail', { id: t.id, tab: 'ai-overview' });
+   830→                                }}
+   831→                              >
+   832→                                <Sparkles className="h-3.5 w-3.5" />
+   833→                                Review with AI
+   834→                              </Button>
+   835→                              <Button
+   836→                                variant="ghost"
+   837→                                size="sm"
+   838→                                className="gap-1.5 text-xs h-7 text-primary"
+   839→                                onClick={() => importTender(t)}
+   840→                                disabled={importing === t.id}
+   841→                              >
+   842→                                {importing === t.id ? (
+   843→                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   844→                                ) : (
+   845→                                  <Download className="h-3.5 w-3.5" />
+   846→                                )}
+   847→                                Import
+   848→                              </Button>
+   849→                            </div>
+   850→                          </div>
+   851→                        </div>
+   852→
+   853→                        {/* Inline document viewer */}
+   854→                        {isExpanded && (
+   855→                            <>
+   856→                              {isLoadingDoc && (
+   857→                                <div
+   858→ className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground animate-[fadeIn_0.3s_ease-out]"
+   859→ >
+   860→                                  <Loader2 className="h-4 w-4 animate-spin" />
+   861→                                  Fetching document content…
+   862→                                </div>
+   863→                              )}
+   864→                              {docErr && !isLoadingDoc && (
+   865→                                <div
+   866→ className="border-t border-border p-6 animate-[fadeIn_0.3s_ease-out]"
+   867→ >
+   868→                                  <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
+   869→                                    <ServerCrash className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+   870→                                    <div>
+   871→                                      <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+   872→                                        Could not load document content
+   873→                                      </p>
+   874→                                      <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
+   875→                                        {docErr} — you can still{' '}
+   876→                                        <a
+   877→                                          href={t.externalUrl}
+   878→                                          target="_blank"
+   879→                                          rel="noopener noreferrer"
+   880→                                          className="underline font-medium"
+   881→                                        >
+   882→                                          view the original page
+   883→                                        </a>
+   884→                                        .
+   885→                                      </p>
+   886→                                    </div>
+   887→                                  </div>
+   888→                                </div>
+   889→                              )}
+   890→                              {doc && !isLoadingDoc && (
+   891→                                <InlineDocumentViewer
+   892→                                  doc={doc}
+   893→                                  onClose={() => setExpandedId(null)}
+   894→                                />
+   895→                              )}
+   896→                              {/* Translator for document content */}
+   897→                              {(doc?.content || t.scope) && !isLoadingDoc && (
+   898→                                <div className="border-t border-border px-4 py-2.5">
+   899→                                  <InlineTranslator text={doc?.content || t.scope} />
+   900→                                </div>
+   901→                              )}
+   902→                            </>
+   903→                          )}
+   904→                    </CardContent>
+   905→                  </Card>
+   906→                  </div>
+   907→                );
+   908→              })}
+   909→            </div>
+   910→        )}
+   911→
+   912→        {/* See More button */}
+   913→        {tenders.length > visibleCount && (
+   914→          <div className="flex justify-center pt-4 pb-2">
+   915→            <Button
+   916→              variant="outline"
+   917→              size="lg"
+   918→              className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+   919→              onClick={() => setVisibleCount(prev => Math.min(prev + PAGE_SIZE, tenders.length))}
+   920→            >
+   921→              <ChevronDown className="h-4 w-4" />
+   922→              See More ({tenders.length - visibleCount} remaining)
+   923→            </Button>
+   924→          </div>
+   925→        )}
+   926→
+   927→        {/* ───────────────── Data Sources panel ───────────────── */}
+   928→        <div className="pt-4 pb-8">
+   929→          <div className="flex items-center gap-2 mb-3">
+   930→            <Database className="h-4 w-4 text-emerald-500" />
+   931→            <h2 className="text-lg font-semibold text-foreground">Connected Data Sources</h2>
+   932→            <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+   933→              {dataSources.filter((s) => s.live).length} live · {dataSources.length} total
+   934→            </Badge>
+   935→          </div>
+   936→          <p className="text-sm text-muted-foreground mb-4">
+   937→            Aggregated procurement from international data feeds.
+   938→            Sources marked <span className="font-medium text-emerald-600 dark:text-emerald-400">Live</span> are
+   939→            fetched in real time; others require credentials.
+   940→          </p>
+   941→
+   942→          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+   943→            {dataSources.map((s) => {
+   944→              const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
+   945→              const SourceIcon = accent.icon;
+   946→              return (
+   947→                <Card
+   948→                  key={s.id}
+   949→                  className={`bg-card border-border hover:border-primary/40 transition-colors ${s.live ? 'cursor-pointer' : 'opacity-70'}`}
+   950→                  onClick={s.live ? () => setSourceFilter(s.id === sourceFilter ? 'all' : s.id) : undefined}
+   951→                >
+   952→                  <CardContent className="p-4">
+   953→                    <div className="flex items-start justify-between gap-2">
+   954→                      <div className="flex items-start gap-2.5 min-w-0">
+   955→                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${s.live ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-muted'}`}>
+   956→                          {s.live ? (
+   957→                            <SourceIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   958→                          ) : (
+   959→                            <Lock className="h-4 w-4 text-muted-foreground" />
+   960→                          )}
+   961→                        </div>
+   962→                        <div className="min-w-0">
+   963→                          <div className="flex items-center gap-1.5">
+   964→                            <h4 className="font-semibold text-foreground text-sm truncate">{s.name}</h4>
+   965→                            <span
+   966→                              className={`h-2 w-2 rounded-full shrink-0 ${ACCENT_DOT[s.accent] || 'bg-muted-foreground'}`}
+   967→                            />
+   968→                          </div>
+   969→                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.coverage}</p>
+   970→                        </div>
+   971→                      </div>
+   972→                      {s.live ? (
+   973→                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 shrink-0 text-[10px]">
+   974→                          Live
+   975→                        </Badge>
+   976→                      ) : (
+   977→                        <Badge variant="outline" className="border-border text-muted-foreground shrink-0 text-[10px]">
+   978→                          Reference
+   979→                        </Badge>
+   980→                      )}
+   981→                    </div>
+   982→
+   983→                    <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
+   984→                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+   985→                        <ShieldCheck className="h-3 w-3 shrink-0" />
+   986→                        <span className="truncate">{s.access}</span>
+   987→                      </div>
+   988→                      <a
+   989→                        href={s.link}
+   990→                        target="_blank"
+   991→                        rel="noopener noreferrer"
+   992→                        className="inline-flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline shrink-0"
+   993→                        onClick={(e) => e.stopPropagation()}
+   994→                      >
+   995→                        Open
+   996→                        <ArrowUpRight className="h-2.5 w-2.5" />
+   997→                      </a>
+   998→                    </div>
+   999→                  </CardContent>
+  1000→                </Card>
+  1001→              );
+  1002→            })}
+  1003→          </div>
+  1004→
+  1005→          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-start gap-3">
+  1006→            <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+  1007→            <p className="text-xs text-muted-foreground">
+  1008→              <span className="font-medium text-foreground">More sources available</span>{' '}
+  1009→              Enable Apify, GovRider, Tenderwell, or SeeGeneBid by providing the required
+  1010→              API credentials. Each adapter follows the same{' '}
+  1011→              <code className="px-1 py-0.5 rounded bg-muted text-foreground">LiveTender</code> shape
+  1012→              and integrates directly into this feed.
+  1013→            </p>
+  1014→          </div>
+  1015→        </div>
+  1016→      </div>
+  1017→    </div>
+  1018→  );
+  1019→}
+  1020→
