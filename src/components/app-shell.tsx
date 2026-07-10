@@ -136,7 +136,7 @@ function getNavItemsForRole(role: string): NavSection[] {
         label: 'TEAM',
         items: [
           { id: 'staff', label: 'Staff', icon: Users },
-          { id: 'profile', label: 'Company Settings', icon: Building2 },
+          { id: 'company-settings', label: 'Company Settings', icon: Building2 },
         ],
       },
     ];
@@ -159,7 +159,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -514,6 +514,8 @@ export function AppShell() {
       case 'events':
         return <EventsView />;
       case 'profile':
+        return <ProfileView />;
+      case 'company-settings':
         return <ProfileView />;
       case 'documents':
         return <DocumentsView />;
