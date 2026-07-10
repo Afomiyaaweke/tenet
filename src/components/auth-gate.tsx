@@ -174,9 +174,13 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     e.preventDefault();
     if (!loginData.email || !loginData.password) return;
     setLoading(true);
-    const ok = await login(loginData.email, loginData.password);
-    if (!ok) {
-      toast.error('Invalid email or password');
+    try {
+      const ok = await login(loginData.email, loginData.password);
+      if (!ok) {
+        toast.error('Invalid email or password. Please try again.');
+      }
+    } catch {
+      toast.error('Login failed. Please check your connection and try again.');
     }
     setLoading(false);
   };
@@ -261,9 +265,13 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
   const handleRegister = async () => {
     setLoading(true);
-    const ok = await register(regData);
-    if (!ok) toast.error('Registration failed. Email may already exist.');
-    else toast.success('Welcome to Tenet!');
+    try {
+      const ok = await register(regData);
+      if (!ok) toast.error('Registration failed. Email may already exist.');
+      else toast.success('Welcome to Tenet!');
+    } catch {
+      toast.error('Registration failed. Please check your connection and try again.');
+    }
     setLoading(false);
   };
 
