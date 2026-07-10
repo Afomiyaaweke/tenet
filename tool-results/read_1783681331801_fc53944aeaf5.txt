@@ -1,0 +1,1271 @@
+     1→'use client';
+     2→
+     3→import React, { useState } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Input } from '@/components/ui/input';
+     7→import { Label } from '@/components/ui/label';
+     8→import { toast } from 'sonner';
+     9→import { TenetLogo } from '@/components/logo';
+    10→import {
+    11→  ShieldCheck,
+    12→  BrainCircuit,
+    13→  Lock,
+    14→  ArrowRight,
+    15→  ArrowLeft,
+    16→  Loader2,
+    17→  Eye,
+    18→  EyeOff,
+    19→  User,
+    20→  Briefcase,
+    21→  MapPin,
+    22→  Phone,
+    23→  Mail,
+    24→  FileText,
+    25→  Fingerprint,
+    26→  CheckCircle2,
+    27→  AlertTriangle,
+    28→  UserCircle,
+    29→  Building2,
+    30→  Globe,
+    31→  Hash,
+    32→  CreditCard,
+    33→} from 'lucide-react';
+    34→
+    35→const INDUSTRIES = [
+    36→  'Construction', 'IT & Technology', 'Healthcare', 'Supply & Logistics', 'Consulting',
+    37→  'Engineering', 'Architecture', 'Education', 'Finance', 'Agriculture',
+    38→  'Telecommunications', 'Manufacturing', 'Energy', 'Legal', 'General',
+    39→];
+    40→
+    41→type RegStep = 1 | 2 | 3 | 4;
+    42→
+    43→const REG_STEP_META: Record<RegStep, { label: string; icon: React.ElementType }> = {
+    44→  1: { label: 'Account', icon: Lock },
+    45→  2: { label: 'Company', icon: Building2 },
+    46→  3: { label: 'Personal', icon: User },
+    47→  4: { label: 'Review', icon: CheckCircle2 },
+    48→};
+    49→
+    50→/* ───────────────────────── Animated Background Dots ───────────────────────── */
+    51→function FloatingDots() {
+    52→  return (
+    53→    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    54→      {/* Large blurred circles */}
+    55→      <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-white/[0.04] animate-[float1_18s_ease-in-out_infinite]" />
+    56→      <div className="absolute top-1/3 -right-16 w-56 h-56 rounded-full bg-white/[0.06] animate-[float2_22s_ease-in-out_infinite]" />
+    57→      <div className="absolute bottom-1/4 left-1/4 w-40 h-40 rounded-full bg-white/[0.05] animate-[float3_16s_ease-in-out_infinite]" />
+    58→      <div className="absolute -bottom-10 right-1/3 w-64 h-64 rounded-full bg-white/[0.03] animate-[float1_20s_ease-in-out_infinite_2s]" />
+    59→
+    60→      {/* Small dots grid */}
+    61→      {Array.from({ length: 24 }).map((_, i) => (
+    62→        <div
+    63→          key={i}
+    64→          className="absolute w-1 h-1 rounded-full bg-white/[0.15]"
+    65→          style={{
+    66→            top: `${10 + (i * 37) % 80}%`,
+    67→            left: `${5 + (i * 53) % 90}%`,
+    68→            animation: `pulse-dot ${2 + (i % 3)}s ease-in-out ${i * 0.3}s infinite alternate`,
+    69→          }}
+    70→        />
+    71→      ))}
+    72→
+    73→      {/* Decorative ring */}
+    74→      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full border border-white/[0.04] animate-[spin-slow_60s_linear_infinite]" />
+    75→      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[360px] h-[360px] rounded-full border border-white/[0.06] animate-[spin-slow_45s_linear_infinite_reverse]" />
+    76→    </div>
+    77→  );
+    78→}
+    79→
+    80→/* ───────────────────────── Feature Highlight ───────────────────────── */
+    81→function FeatureHighlight({ icon, title, delay }: { icon: React.ReactNode; title: string; delay: string }) {
+    82→  return (
+    83→    <div
+    84→      className="flex items-center gap-3 animate-[slideInLeft_0.5s_ease-out_both]"
+    85→      style={{ animationDelay: delay }}
+    86→    >
+    87→      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-orange-200">
+    88→        {icon}
+    89→      </div>
+    90→      <span className="text-white/90 text-sm font-medium">{title}</span>
+    91→    </div>
+    92→  );
+    93→}
+    94→
+    95→/* ───────────────────────── Password Strength Meter ───────────────────────── */
+    96→function scorePassword(pw: string): { score: number; label: string; color: string } {
+    97→  let score = 0;
+    98→  if (pw.length >= 8) score++;
+    99→  if (pw.length >= 12) score++;
+   100→  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+   101→  if (/[0-9]/.test(pw)) score++;
+   102→  if (/[^A-Za-z0-9]/.test(pw)) score++;
+   103→  const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong'];
+   104→  const colors = ['bg-rose-500', 'bg-rose-500', 'bg-amber-500', 'bg-yellow-500', 'bg-orange-500', 'bg-orange-600'];
+   105→  return { score, label: labels[score], color: colors[score] };
+   106→}
+   107→
+   108→/* ───────────────────────── Step Indicator ───────────────────────── */
+   109→function StepIndicator({ currentStep, totalSteps = 4 }: { currentStep: RegStep; totalSteps?: number }) {
+   110→  return (
+   111→    <div className="flex items-center justify-center gap-1 mb-6">
+   112→      {Array.from({ length: totalSteps }, (_, i) => (i + 1) as RegStep).map((step, i) => {
+   113→        const meta = REG_STEP_META[step];
+   114→        const isCompleted = currentStep > step;
+   115→        const isCurrent = currentStep === step;
+   116→        const Icon = meta.icon;
+   117→        return (
+   118→          <React.Fragment key={step}>
+   119→            <div className="flex items-center gap-1.5">
+   120→              <div
+   121→                className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+   122→                  isCompleted || isCurrent
+   123→                    ? 'gradient-orange text-white shadow-md shadow-orange-500/30'
+   124→                    : 'bg-muted text-muted-foreground'
+   125→                }`}
+   126→              >
+   127→                {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-3.5 h-3.5" />}
+   128→              </div>
+   129→              <span className={`text-xs font-medium hidden sm:inline ${isCompleted || isCurrent ? 'text-foreground' : 'text-muted-foreground'}`}>
+   130→                {meta.label}
+   131→              </span>
+   132→            </div>
+   133→            {i < totalSteps - 1 && (
+   134→              <div className={`h-0.5 w-4 sm:w-8 rounded-full ${currentStep > step ? 'bg-orange-500' : 'bg-muted'}`} />
+   135→            )}
+   136→          </React.Fragment>
+   137→        );
+   138→      })}
+   139→    </div>
+   140→  );
+   141→}
+   142→
+   143→/* ───────────────────────── Main Component ───────────────────────── */
+   144→
+   145→export function AuthGate({ onBack }: { onBack?: () => void }) {
+   146→  const { login, register } = useAuthStore();
+   147→  const [loginData, setLoginData] = useState({ email: '', password: '' });
+   148→  const [regData, setRegData] = useState({
+   149→    email: '', password: '',
+   150→    // Personal
+   151→    fullName: '', jobTitle: '', phone: '', location: '',
+   152→    // Company
+   153→    companyName: '', companyIndustry: '', companyTinNumber: '',
+   154→    companyRegistrationNo: '', companyPhone: '', companyCity: '',
+   155→    companyCountry: '', companyEmail: '', companyWebsite: '',
+   156→    // Role
+   157→    role: 'user' as string,
+   158→  });
+   159→  const [loading, setLoading] = useState(false);
+   160→
+   161→  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+   162→  const [showPassword, setShowPassword] = useState(false);
+   163→  const [regStep, setRegStep] = useState<RegStep>(1);
+   164→
+   165→  // Forgot / Reset password state
+   166→  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password' | 'forgot-sent' | 'reset-password'>('login');
+   167→  const [forgotEmail, setForgotEmail] = useState('');
+   168→  const [resetToken, setResetToken] = useState('');
+   169→  const [newPassword, setNewPassword] = useState('');
+   170→  const [confirmPassword, setConfirmPassword] = useState('');
+   171→  const [resetSuccess, setResetSuccess] = useState(false);
+   172→
+   173→  const handleLoginSubmit = async (e: React.FormEvent) => {
+   174→    e.preventDefault();
+   175→    if (!loginData.email || !loginData.password) return;
+   176→    setLoading(true);
+   177→    const ok = await login(loginData.email, loginData.password);
+   178→    if (!ok) {
+   179→      toast.error('Invalid email or password');
+   180→    }
+   181→    setLoading(false);
+   182→  };
+   183→
+   184→  const handleForgotPassword = async (e: React.FormEvent) => {
+   185→    e.preventDefault();
+   186→    if (!forgotEmail) return;
+   187→    setLoading(true);
+   188→    try {
+   189→      const { api } = await import('@/lib/api');
+   190→      const res = await api.post('/auth/forgot-password', { email: forgotEmail });
+   191→      if (res.success) {
+   192→        // Always show the confirmation screen to prevent email enumeration
+   193→        if (res.resetToken) {
+   194→          setResetToken(res.resetToken);
+   195→        }
+   196→        setAuthMode('forgot-sent');
+   197→      } else {
+   198→        toast.error(res.error || 'Failed to process request');
+   199→      }
+   200→    } catch {
+   201→      toast.error('Network error. Please try again.');
+   202→    }
+   203→    setLoading(false);
+   204→  };
+   205→
+   206→  const handleResetPassword = async (e: React.FormEvent) => {
+   207→    e.preventDefault();
+   208→    if (!resetToken || !newPassword || !confirmPassword) return;
+   209→    if (newPassword !== confirmPassword) {
+   210→      toast.error('Passwords do not match');
+   211→      return;
+   212→    }
+   213→    if (newPassword.length < 8) {
+   214→      toast.error('Password must be at least 8 characters');
+   215→      return;
+   216→    }
+   217→    setLoading(true);
+   218→    try {
+   219→      const { api } = await import('@/lib/api');
+   220→      const res = await api.post('/auth/reset-password', {
+   221→        token: resetToken,
+   222→        newPassword,
+   223→        confirmPassword,
+   224→      });
+   225→      if (res.success) {
+   226→        setResetSuccess(true);
+   227→        toast.success('Password reset successfully! You can now sign in.');
+   228→      } else {
+   229→        toast.error(res.error || 'Failed to reset password');
+   230→      }
+   231→    } catch {
+   232→      toast.error('Network error. Please try again.');
+   233→    }
+   234→    setLoading(false);
+   235→  };
+   236→
+   237→  /* ─── Registration step navigation ─── */
+   238→  const canGoNext = (): boolean => {
+   239→    switch (regStep) {
+   240→      case 1:
+   241→        return !!regData.email && !!regData.password && regData.password.length >= 8;
+   242→      case 2:
+   243→        return !!regData.companyName;
+   244→      case 3:
+   245→        return !!regData.fullName;
+   246→      case 4:
+   247→        return true;
+   248→      default:
+   249→        return false;
+   250→    }
+   251→  };
+   252→
+   253→  const goNext = () => {
+   254→    if (!canGoNext()) return;
+   255→    if (regStep < 4) setRegStep((regStep + 1) as RegStep);
+   256→  };
+   257→
+   258→  const goBack = () => {
+   259→    if (regStep > 1) setRegStep((regStep - 1) as RegStep);
+   260→  };
+   261→
+   262→  const handleRegister = async () => {
+   263→    setLoading(true);
+   264→    const ok = await register(regData);
+   265→    if (!ok) toast.error('Registration failed. Email may already exist.');
+   266→    else toast.success('Welcome to Tenet!');
+   267→    setLoading(false);
+   268→  };
+   269→
+   270→  const pwScore = scorePassword(regData.password);
+   271→
+   272→  return (
+   273→    <div className="min-h-screen flex flex-col">
+   274→      {/* ─── Main content area ─── */}
+   275→      <div className="flex-1 flex flex-col lg:flex-row">
+   276→
+   277→        {/* ═══════════ LEFT PANEL (Desktop) ═══════════ */}
+   278→        <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden gradient-slate flex-col">
+   279→          <FloatingDots />
+   280→
+   281→          <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
+   282→            {/* Logo */}
+   283→            <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
+   284→              <img src="/logo.png" alt="Tenet" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
+   285→              <div>
+   286→                <h1 className="text-2xl font-bold text-white tracking-tight">Tenet</h1>
+   287→                <p className="text-orange-300/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
+   288→              </div>
+   289→            </div>
+   290→
+   291→            {/* Main copy */}
+   292→            <div className="flex-1 flex flex-col justify-center max-w-lg">
+   293→              <h2
+   294→                className="text-4xl xl:text-5xl font-extrabold text-white leading-[1.1] mb-4 animate-[slideInLeft_0.7s_ease-out_both]"
+   295→              >
+   296→                Transforming<br />
+   297→                <span className="text-orange-300">Procurement</span>
+   298→              </h2>
+   299→              <p
+   300→                className="text-orange-100/70 text-base leading-relaxed mb-10 animate-[slideInLeft_0.7s_ease-out_0.1s_both]"
+   301→              >
+   302→                Connect with verified users, discover tenders, and manage projects — all in one intelligent platform built for Ethiopia&apos;s future.
+   303→              </p>
+   304→
+   305→              {/* Feature highlights */}
+   306→              <div className="space-y-4 mb-12">
+   307→                <FeatureHighlight
+   308→                  icon={<ShieldCheck className="w-5 h-5" />}
+   309→                  title="Verified Contractors & Vendors"
+   310→                  delay="0.2s"
+   311→                />
+   312→                <FeatureHighlight
+   313→                  icon={<BrainCircuit className="w-5 h-5" />}
+   314→                  title="AI-Powered Smart Matching"
+   315→                  delay="0.3s"
+   316→                />
+   317→                <FeatureHighlight
+   318→                  icon={<Lock className="w-5 h-5" />}
+   319→                  title="Secure Payments & Escrow"
+   320→                  delay="0.4s"
+   321→                />
+   322→              </div>
+   323→            </div>
+   324→
+   325→            {/* Bottom trust line */}
+   326→            <div
+   327→              className="animate-[fadeUp_0.6s_ease-out_0.5s_both]"
+   328→            >
+   329→              <div className="flex items-center gap-3 pt-8 border-t border-white/10">
+   330→                <div className="flex -space-x-2">
+   331→                  {['bg-amber-400', 'bg-orange-400', 'bg-orange-300', 'bg-rose-400'].map((bg, i) => (
+   332→                    <div
+   333→                      key={i}
+   334→                      className={`w-8 h-8 rounded-full ${bg} border-2 border-white/20 flex items-center justify-center`}
+   335→                    >
+   336→                      <span className="text-[10px] font-bold text-white/90">
+   337→                        {['AD', 'SK', 'MB', 'TN'][i]}
+   338→                      </span>
+   339→                    </div>
+   340→                  ))}
+   341→                </div>
+   342→                <p className="text-orange-200/60 text-sm">
+   343→                  Trusted by <span className="text-white font-semibold">500+</span> organizations across Ethiopia
+   344→                </p>
+   345→              </div>
+   346→            </div>
+   347→          </div>
+   348→        </div>
+   349→
+   350→        {/* ═══════════ RIGHT PANEL (Form) ═══════════ */}
+   351→        <div className="flex-1 flex flex-col min-h-screen lg:min-h-0 bg-background">
+   352→          {/* Mobile header with gradient bar */}
+   353→          <div className="lg:hidden">
+   354→            <div className="h-1.5 gradient-slate" />
+   355→            <div className="px-6 pt-6 pb-4 flex items-center gap-3">
+   356→              <TenetLogo size="sm" />
+   357→            </div>
+   358→          </div>
+   359→
+   360→          {/* Form content */}
+   361→          <div className="flex-1 flex flex-col justify-center px-6 sm:px-10 lg:px-14 xl:px-20 py-6 lg:py-10">
+   362→            <div
+   363→              className="w-full max-w-md mx-auto animate-[viewEnter_0.5s_ease-out]"
+   364→            >
+   365→              {/* Back button */}
+   366→              {onBack && (
+   367→                <button
+   368→                  type="button"
+   369→                  onClick={onBack}
+   370→                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
+   371→                >
+   372→                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+   373→                  Back to home
+   374→                </button>
+   375→              )}
+   376→
+   377→              {/* Tab switcher - hidden when in forgot/reset mode */}
+   378→              {authMode === 'login' && (
+   379→              <div className="mb-8">
+   380→                <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
+   381→                  <button
+   382→                    type="button"
+   383→                    onClick={() => setActiveTab('login')}
+   384→                    className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-300 ${
+   385→                      activeTab === 'login'
+   386→                        ? 'bg-background text-foreground shadow-sm'
+   387→                        : 'text-muted-foreground hover:text-foreground'
+   388→                    }`}
+   389→                  >
+   390→                    Welcome Back
+   391→                  </button>
+   392→                  <button
+   393→                    type="button"
+   394→                    onClick={() => setActiveTab('register')}
+   395→                    className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-300 ${
+   396→                      activeTab === 'register'
+   397→                        ? 'bg-background text-foreground shadow-sm'
+   398→                        : 'text-muted-foreground hover:text-foreground'
+   399→                    }`}
+   400→                  >
+   401→                    Create Account
+   402→                  </button>
+   403→                </div>
+   404→              </div>
+   405→              )}
+   406→
+   407→              {/* ─── FORGOT PASSWORD FORM ─── */}
+   408→              {authMode === 'forgot-password' && (
+   409→                <div className="animate-[viewEnter_0.3s_ease-out]">
+   410→                  <div className="mb-5">
+   411→                    <button
+   412→                      type="button"
+   413→                      onClick={() => setAuthMode('login')}
+   414→                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+   415→                    >
+   416→                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+   417→                      Back to Sign In
+   418→                    </button>
+   419→                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+   420→                      <Mail className="w-5 h-5 text-primary" /> Forgot Password
+   421→                    </h2>
+   422→                    <p className="text-muted-foreground text-sm mt-1">Enter your email and we&apos;ll send you a reset link</p>
+   423→                  </div>
+   424→
+   425→                  <form onSubmit={handleForgotPassword} className="space-y-5">
+   426→                    <div className="space-y-2">
+   427→                      <Label htmlFor="forgot-email" className="text-sm font-medium text-foreground flex items-center gap-2">
+   428→                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+   429→                        Email Address
+   430→                      </Label>
+   431→                      <Input
+   432→                        id="forgot-email"
+   433→                        type="email"
+   434→                        placeholder="you@example.com"
+   435→                        value={forgotEmail}
+   436→                        onChange={e => setForgotEmail(e.target.value)}
+   437→                        required
+   438→                        autoComplete="username"
+   439→                        className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
+   440→                      />
+   441→                    </div>
+   442→
+   443→                    <Button
+   444→                      type="submit"
+   445→                      disabled={loading}
+   446→                      className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+   447→                    >
+   448→                      {loading ? (
+   449→                        <span className="flex items-center gap-2">
+   450→                          <Loader2 className="w-4 h-4 animate-spin" />
+   451→                          Sending Reset Link...
+   452→                        </span>
+   453→                      ) : (
+   454→                        <span className="flex items-center gap-2">
+   455→                          Send Reset Link
+   456→                          <ArrowRight className="w-4 h-4" />
+   457→                        </span>
+   458→                      )}
+   459→                    </Button>
+   460→                  </form>
+   461→                </div>
+   462→              )}
+   463→
+   464→              {/* ─── FORGOT PASSWORD SENT CONFIRMATION ─── */}
+   465→              {authMode === 'forgot-sent' && (
+   466→                <div className="animate-[viewEnter_0.3s_ease-out]">
+   467→                  <div className="text-center py-8">
+   468→                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+   469→                      <Mail className="w-8 h-8 text-primary" />
+   470→                    </div>
+   471→                    <h2 className="text-2xl font-bold text-foreground mb-2">Check Your Email</h2>
+   472→                    <p className="text-muted-foreground text-sm mb-1">
+   473→                      If an account with <span className="font-semibold text-foreground">{forgotEmail}</span> exists, a password reset link has been sent.
+   474→                    </p>
+   475→                    <p className="text-muted-foreground text-xs mb-6">
+   476→                      Please check your inbox and spam folder. The link expires in 1 hour.
+   477→                    </p>
+   478→
+   479→                    {resetToken ? (
+   480→                      <div className="space-y-3">
+   481→                        <Button
+   482→                          type="button"
+   483→                          onClick={() => setAuthMode('reset-password')}
+   484→                          className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
+   485→                        >
+   486→                          <span className="flex items-center gap-2">
+   487→                            Reset Password Now
+   488→                            <ArrowRight className="w-4 h-4" />
+   489→                          </span>
+   490→                        </Button>
+   491→                        <p className="text-xs text-muted-foreground">
+   492→                          In development mode, you can reset your password directly.
+   493→                        </p>
+   494→                      </div>
+   495→                    ) : (
+   496→                      <div className="p-4 rounded-xl bg-muted/50 border border-border">
+   497→                        <p className="text-xs text-muted-foreground leading-relaxed">
+   498→                          Didn&apos;t receive the email? Make sure the email address is correct and check your spam folder.
+   499→                        </p>
+   500→                      </div>
+   501→                    )}
+   502→
+   503→                    <button
+   504→                      type="button"
+   505→                      onClick={() => { setAuthMode('forgot-password'); setResetToken(''); }}
+   506→                      className="mt-4 text-sm text-primary hover:underline font-medium"
+   507→                    >
+   508→                      Try a different email
+   509→                    </button>
+   510→
+   511→                    <div className="mt-6 pt-4 border-t border-border">
+   512→                      <button
+   513→                        type="button"
+   514→                        onClick={() => { setAuthMode('login'); setResetToken(''); }}
+   515→                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto group"
+   516→                      >
+   517→                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+   518→                        Back to Sign In
+   519→                      </button>
+   520→                    </div>
+   521→                  </div>
+   522→                </div>
+   523→              )}
+   524→
+   525→              {/* ─── RESET PASSWORD FORM ─── */}
+   526→              {authMode === 'reset-password' && (
+   527→                <div className="animate-[viewEnter_0.3s_ease-out]">
+   528→                  <div className="mb-5">
+   529→                    <button
+   530→                      type="button"
+   531→                      onClick={() => setAuthMode('login')}
+   532→                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+   533→                    >
+   534→                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+   535→                      Back to Sign In
+   536→                    </button>
+   537→                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+   538→                      <Lock className="w-5 h-5 text-primary" /> Reset Password
+   539→                    </h2>
+   540→                    <p className="text-muted-foreground text-sm mt-1">Enter your new password below</p>
+   541→                  </div>
+   542→
+   543→                  {resetSuccess ? (
+   544→                    <div className="text-center py-6 animate-[viewEnter_0.3s_ease-out]">
+   545→                      <div className="w-14 h-14 rounded-full gradient-orange flex items-center justify-center mx-auto mb-4">
+   546→                        <CheckCircle2 className="w-7 h-7 text-white" />
+   547→                      </div>
+   548→                      <h3 className="text-lg font-bold text-foreground mb-2">Password Reset!</h3>
+   549→                      <p className="text-sm text-muted-foreground mb-6">Your password has been successfully reset. You can now sign in with your new password.</p>
+   550→                      <Button
+   551→                        type="button"
+   552→                        onClick={() => { setAuthMode('login'); setResetSuccess(false); }}
+   553→                        className="h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 px-8"
+   554→                      >
+   555→                        Sign In Now
+   556→                      </Button>
+   557→                    </div>
+   558→                  ) : (
+   559→                    <form onSubmit={handleResetPassword} className="space-y-5">
+   560→                      <div className="space-y-2">
+   561→                        <Label htmlFor="new-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+   562→                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+   563→                          New Password
+   564→                        </Label>
+   565→                        <div className="relative">
+   566→                          <Input
+   567→                            id="new-password"
+   568→                            type={showPassword ? 'text' : 'password'}
+   569→                            placeholder="••••••••"
+   570→                            value={newPassword}
+   571→                            onChange={e => setNewPassword(e.target.value)}
+   572→                            required
+   573→                            autoComplete="new-password"
+   574→                            className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 pr-10"
+   575→                          />
+   576→                          <button
+   577→                            type="button"
+   578→                            onClick={() => setShowPassword(!showPassword)}
+   579→                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+   580→                          >
+   581→                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   582→                          </button>
+   583→                        </div>
+   584→                      </div>
+   585→
+   586→                      <div className="space-y-2">
+   587→                        <Label htmlFor="confirm-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+   588→                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+   589→                          Confirm Password
+   590→                        </Label>
+   591→                        <Input
+   592→                          id="confirm-password"
+   593→                          type={showPassword ? 'text' : 'password'}
+   594→                          placeholder="••••••••"
+   595→                          value={confirmPassword}
+   596→                          onChange={e => setConfirmPassword(e.target.value)}
+   597→                          required
+   598→                          autoComplete="new-password"
+   599→                          className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
+   600→                        />
+   601→                      </div>
+   602→
+   603→                      {newPassword && newPassword.length < 8 && (
+   604→                        <p className="text-xs text-amber-600 dark:text-amber-400">Password must be at least 8 characters</p>
+   605→                      )}
+   606→
+   607→                      <Button
+   608→                        type="submit"
+   609→                        disabled={loading || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 8}
+   610→                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+   611→                      >
+   612→                        {loading ? (
+   613→                          <span className="flex items-center gap-2">
+   614→                            <Loader2 className="w-4 h-4 animate-spin" />
+   615→                            Resetting Password...
+   616→                          </span>
+   617→                        ) : (
+   618→                          <span className="flex items-center gap-2">
+   619→                            Reset Password
+   620→                            <CheckCircle2 className="w-4 h-4" />
+   621→                          </span>
+   622→                        )}
+   623→                      </Button>
+   624→                    </form>
+   625→                  )}
+   626→                </div>
+   627→              )}
+   628→
+   629→              {/* ─── LOGIN FORM (direct sign in) ─── */}
+   630→              {authMode === 'login' && activeTab === 'login' && (
+   631→                <div className="animate-[viewEnter_0.3s_ease-out]">
+   632→                  <div className="mb-5">
+   633→                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+   634→                      <Fingerprint className="w-5 h-5 text-primary" /> Secure Sign In
+   635→                    </h2>
+   636→                    <p className="text-muted-foreground text-sm mt-1">Enter your credentials to continue</p>
+   637→                  </div>
+   638→
+   639→                  <form onSubmit={handleLoginSubmit} className="space-y-5">
+   640→                    <div className="space-y-2">
+   641→                      <Label htmlFor="login-email" className="text-sm font-medium text-foreground flex items-center gap-2">
+   642→                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+   643→                        Email Address
+   644→                      </Label>
+   645→                      <Input
+   646→                        id="login-email"
+   647→                        type="email"
+   648→                        placeholder="you@example.com"
+   649→                        value={loginData.email}
+   650→                        onChange={e => setLoginData(d => ({ ...d, email: e.target.value }))}
+   651→                        required
+   652→                        autoComplete="username"
+   653→                        className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
+   654→                      />
+   655→                    </div>
+   656→
+   657→                    <div className="space-y-2">
+   658→                      <Label htmlFor="login-password" className="text-sm font-medium text-foreground flex items-center gap-2">
+   659→                        <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+   660→                        Password
+   661→                      </Label>
+   662→                      <div className="relative">
+   663→                        <Input
+   664→                          id="login-password"
+   665→                          type={showPassword ? 'text' : 'password'}
+   666→                          placeholder="••••••••"
+   667→                          value={loginData.password}
+   668→                          onChange={e => setLoginData(d => ({ ...d, password: e.target.value }))}
+   669→                          required
+   670→                          autoComplete="current-password"
+   671→                          className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 pr-10"
+   672→                        />
+   673→                        <button
+   674→                          type="button"
+   675→                          onClick={() => setShowPassword(!showPassword)}
+   676→                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+   677→                        >
+   678→                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   679→                        </button>
+   680→                      </div>
+   681→                    </div>
+   682→
+   683→                    {/* Forgot Password link */}
+   684→                    <div className="flex justify-end">
+   685→                      <button
+   686→                        type="button"
+   687→                        onClick={() => { setAuthMode('forgot-password'); setForgotEmail(loginData.email); }}
+   688→                        className="text-xs text-primary hover:underline font-medium"
+   689→                      >
+   690→                        Forgot Password?
+   691→                      </button>
+   692→                    </div>
+   693→
+   694→                    <Button
+   695→                      type="submit"
+   696→                      disabled={loading}
+   697→                      className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
+   698→                    >
+   699→                      {loading ? (
+   700→                        <Loader2 className="w-4 h-4 animate-spin" />
+   701→                      ) : (
+   702→                        <span className="flex items-center gap-2">
+   703→                          Sign In
+   704→                          <ArrowRight className="w-4 h-4" />
+   705→                        </span>
+   706→                      )}
+   707→                    </Button>
+   708→                  </form>
+   709→
+   710→                  {/* Anti-phishing security reminder */}
+   711→                  <div className="mt-5 flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+   712→                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+   713→                    <p className="text-xs text-amber-800 dark:text-amber-200/80 leading-relaxed">
+   714→                      <span className="font-semibold">Anti-Phishing Notice:</span> Tenet will never ask for your password or security code by email or phone. Always verify the URL before signing in.
+   715→                    </p>
+   716→                  </div>
+   717→                </div>
+   718→              )}
+   719→
+   720→              {/* ─── REGISTER FORM (Multi-Step Wizard) ─── */}
+   721→              {authMode === 'login' && activeTab === 'register' && (
+   722→                <div className="animate-[viewEnter_0.3s_ease-out]">
+   723→                  <div className="mb-4">
+   724→                    <h2 className="text-2xl font-bold text-foreground">Create Account</h2>
+   725→                    <p className="text-muted-foreground text-sm mt-1">Join the Tenet Tender Ecosystem</p>
+   726→                  </div>
+   727→
+   728→                  {/* Step indicator */}
+   729→                  <StepIndicator currentStep={regStep} />
+   730→
+   731→                  {/* ─── STEP 1: Email & Password ─── */}
+   732→                  {regStep === 1 && (
+   733→                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+   734→                      <div className="mb-2">
+   735→                        <div className="flex items-center gap-2 mb-1">
+   736→                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+   737→                            <Lock className="w-3.5 h-3.5 text-white" />
+   738→                          </div>
+   739→                          <h3 className="text-sm font-semibold text-foreground">Account Credentials</h3>
+   740→                        </div>
+   741→                        <p className="text-xs text-muted-foreground ml-8">Set up your email and password</p>
+   742→                      </div>
+   743→
+   744→                      <div className="space-y-3">
+   745→                        <div className="space-y-1.5">
+   746→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   747→                            <Mail className="w-3 h-3" /> Email Address *
+   748→                          </Label>
+   749→                          <Input
+   750→                            type="email"
+   751→                            placeholder="you@example.com"
+   752→                            required
+   753→                            value={regData.email}
+   754→                            onChange={e => setRegData(d => ({ ...d, email: e.target.value }))}
+   755→                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   756→                          />
+   757→                        </div>
+   758→
+   759→                        <div className="space-y-1.5">
+   760→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   761→                            <Lock className="w-3 h-3" /> Password *
+   762→                          </Label>
+   763→                          <div className="relative">
+   764→                            <Input
+   765→                              type={showPassword ? 'text' : 'password'}
+   766→                              placeholder="Min 8 chars with uppercase, lowercase, number, special"
+   767→                              required
+   768→                              value={regData.password}
+   769→                              onChange={e => setRegData(d => ({ ...d, password: e.target.value }))}
+   770→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm pr-10"
+   771→                            />
+   772→                            <button
+   773→                              type="button"
+   774→                              onClick={() => setShowPassword(!showPassword)}
+   775→                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+   776→                            >
+   777→                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   778→                            </button>
+   779→                          </div>
+   780→                          {regData.password && (
+   781→                            <div className="space-y-1 animate-[viewEnter_0.2s_ease-out]">
+   782→                              <div className="flex gap-1">
+   783→                                {[0, 1, 2, 3, 4].map(i => (
+   784→                                  <div
+   785→                                    key={i}
+   786→                                    className={`h-1 flex-1 rounded-full transition-all ${i < pwScore.score ? pwScore.color : 'bg-muted'}`}
+   787→                                  />
+   788→                                ))}
+   789→                              </div>
+   790→                              <p className={`text-[10px] font-medium ${pwScore.score >= 4 ? 'text-orange-600' : pwScore.score >= 2 ? 'text-amber-600' : 'text-rose-600'}`}>
+   791→                                {pwScore.label}
+   792→                              </p>
+   793→                            </div>
+   794→                          )}
+   795→                        </div>
+   796→                      </div>
+   797→
+   798→                      <Button
+   799→                        type="button"
+   800→                        onClick={goNext}
+   801→                        disabled={!canGoNext()}
+   802→                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+   803→                      >
+   804→                        <span className="flex items-center gap-2">
+   805→                          Continue
+   806→                          <ArrowRight className="w-4 h-4" />
+   807→                        </span>
+   808→                      </Button>
+   809→                    </div>
+   810→                  )}
+   811→
+   812→                  {/* ─── STEP 2: Company Information ─── */}
+   813→                  {regStep === 2 && (
+   814→                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+   815→                      <div className="mb-2">
+   816→                        <button
+   817→                          type="button"
+   818→                          onClick={goBack}
+   819→                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+   820→                        >
+   821→                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+   822→                          Back
+   823→                        </button>
+   824→                        <div className="flex items-center gap-2 mb-1">
+   825→                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+   826→                            <Building2 className="w-3.5 h-3.5 text-white" />
+   827→                          </div>
+   828→                          <h3 className="text-sm font-semibold text-foreground">Company Information</h3>
+   829→                        </div>
+   830→                        <p className="text-xs text-muted-foreground ml-8">Company name is required. Other details are optional.</p>
+   831→                      </div>
+   832→
+   833→                      <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
+   834→                        <div className="space-y-1.5">
+   835→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   836→                            <Building2 className="w-3 h-3" /> Company Name *
+   837→                          </Label>
+   838→                          <Input
+   839→                            placeholder="e.g. ABC Construction PLC"
+   840→                            required
+   841→                            value={regData.companyName}
+   842→                            onChange={e => setRegData(d => ({ ...d, companyName: e.target.value }))}
+   843→                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   844→                          />
+   845→                        </div>
+   846→
+   847→                        <div className="space-y-1.5">
+   848→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   849→                            <Briefcase className="w-3 h-3" /> Industry
+   850→                          </Label>
+   851→                          <select
+   852→                            value={regData.companyIndustry}
+   853→                            onChange={e => setRegData(d => ({ ...d, companyIndustry: e.target.value }))}
+   854→                            className="h-10 w-full rounded-md border border-border bg-muted/50 px-3 text-sm text-foreground focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+   855→                          >
+   856→                            <option value="">Select industry...</option>
+   857→                            {INDUSTRIES.map(ind => (
+   858→                              <option key={ind} value={ind}>{ind}</option>
+   859→                            ))}
+   860→                          </select>
+   861→                        </div>
+   862→
+   863→                        <div className="grid grid-cols-2 gap-3">
+   864→                          <div className="space-y-1.5">
+   865→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   866→                              <Hash className="w-3 h-3" /> TIN Number
+   867→                            </Label>
+   868→                            <Input
+   869→                              placeholder="TIN..."
+   870→                              value={regData.companyTinNumber}
+   871→                              onChange={e => setRegData(d => ({ ...d, companyTinNumber: e.target.value }))}
+   872→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   873→                            />
+   874→                          </div>
+   875→                          <div className="space-y-1.5">
+   876→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   877→                              <CreditCard className="w-3 h-3" /> Registration No
+   878→                            </Label>
+   879→                            <Input
+   880→                              placeholder="REG..."
+   881→                              value={regData.companyRegistrationNo}
+   882→                              onChange={e => setRegData(d => ({ ...d, companyRegistrationNo: e.target.value }))}
+   883→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   884→                            />
+   885→                          </div>
+   886→                        </div>
+   887→
+   888→                        <div className="space-y-1.5">
+   889→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   890→                            <Phone className="w-3 h-3" /> Company Phone
+   891→                          </Label>
+   892→                          <Input
+   893→                            placeholder="+251..."
+   894→                            value={regData.companyPhone}
+   895→                            onChange={e => setRegData(d => ({ ...d, companyPhone: e.target.value }))}
+   896→                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   897→                          />
+   898→                        </div>
+   899→
+   900→                        <div className="grid grid-cols-2 gap-3">
+   901→                          <div className="space-y-1.5">
+   902→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   903→                              <MapPin className="w-3 h-3" /> City
+   904→                            </Label>
+   905→                            <Input
+   906→                              placeholder="Addis Ababa"
+   907→                              value={regData.companyCity}
+   908→                              onChange={e => setRegData(d => ({ ...d, companyCity: e.target.value }))}
+   909→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   910→                            />
+   911→                          </div>
+   912→                          <div className="space-y-1.5">
+   913→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   914→                              <Globe className="w-3 h-3" /> Country
+   915→                            </Label>
+   916→                            <Input
+   917→                              placeholder="Ethiopia"
+   918→                              value={regData.companyCountry}
+   919→                              onChange={e => setRegData(d => ({ ...d, companyCountry: e.target.value }))}
+   920→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   921→                            />
+   922→                          </div>
+   923→                        </div>
+   924→
+   925→                        <div className="space-y-1.5">
+   926→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   927→                            <Mail className="w-3 h-3" /> Company Email
+   928→                          </Label>
+   929→                          <Input
+   930→                            type="email"
+   931→                            placeholder="info@company.com"
+   932→                            value={regData.companyEmail}
+   933→                            onChange={e => setRegData(d => ({ ...d, companyEmail: e.target.value }))}
+   934→                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   935→                          />
+   936→                        </div>
+   937→
+   938→                        <div className="space-y-1.5">
+   939→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   940→                            <Globe className="w-3 h-3" /> Website
+   941→                          </Label>
+   942→                          <Input
+   943→                            placeholder="https://company.com"
+   944→                            value={regData.companyWebsite}
+   945→                            onChange={e => setRegData(d => ({ ...d, companyWebsite: e.target.value }))}
+   946→                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   947→                          />
+   948→                        </div>
+   949→                      </div>
+   950→
+   951→                      <Button
+   952→                        type="button"
+   953→                        onClick={goNext}
+   954→                        disabled={!canGoNext()}
+   955→                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+   956→                      >
+   957→                        <span className="flex items-center gap-2">
+   958→                          Continue
+   959→                          <ArrowRight className="w-4 h-4" />
+   960→                        </span>
+   961→                      </Button>
+   962→                    </div>
+   963→                  )}
+   964→
+   965→                  {/* ─── STEP 3: Personal Information ─── */}
+   966→                  {regStep === 3 && (
+   967→                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+   968→                      <div className="mb-2">
+   969→                        <button
+   970→                          type="button"
+   971→                          onClick={goBack}
+   972→                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+   973→                        >
+   974→                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+   975→                          Back
+   976→                        </button>
+   977→                        <div className="flex items-center gap-2 mb-1">
+   978→                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+   979→                            <User className="w-3.5 h-3.5 text-white" />
+   980→                          </div>
+   981→                          <h3 className="text-sm font-semibold text-foreground">Personal Information</h3>
+   982→                        </div>
+   983→                        <p className="text-xs text-muted-foreground ml-8">Tell us about yourself</p>
+   984→                      </div>
+   985→
+   986→                      <div className="space-y-3">
+   987→                        <div className="space-y-1.5">
+   988→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   989→                            <User className="w-3 h-3" /> Full Name *
+   990→                          </Label>
+   991→                          <Input
+   992→                            placeholder="Your full name"
+   993→                            required
+   994→                            value={regData.fullName}
+   995→                            onChange={e => setRegData(d => ({ ...d, fullName: e.target.value }))}
+   996→                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+   997→                          />
+   998→                        </div>
+   999→
+  1000→                        <div className="space-y-1.5">
+  1001→                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+  1002→                            <Briefcase className="w-3 h-3" /> Job Title
+  1003→                          </Label>
+  1004→                          <Input
+  1005→                            placeholder="Project Manager, CEO, etc."
+  1006→                            value={regData.jobTitle}
+  1007→                            onChange={e => setRegData(d => ({ ...d, jobTitle: e.target.value }))}
+  1008→                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+  1009→                          />
+  1010→                        </div>
+  1011→
+  1012→                        <div className="grid grid-cols-2 gap-3">
+  1013→                          <div className="space-y-1.5">
+  1014→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+  1015→                              <Phone className="w-3 h-3" /> Phone
+  1016→                            </Label>
+  1017→                            <Input
+  1018→                              placeholder="+251..."
+  1019→                              value={regData.phone}
+  1020→                              onChange={e => setRegData(d => ({ ...d, phone: e.target.value }))}
+  1021→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+  1022→                            />
+  1023→                          </div>
+  1024→                          <div className="space-y-1.5">
+  1025→                            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+  1026→                              <MapPin className="w-3 h-3" /> Location
+  1027→                            </Label>
+  1028→                            <Input
+  1029→                              placeholder="City, Region"
+  1030→                              value={regData.location}
+  1031→                              onChange={e => setRegData(d => ({ ...d, location: e.target.value }))}
+  1032→                              className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+  1033→                            />
+  1034→                          </div>
+  1035→                        </div>
+  1036→                      </div>
+  1037→
+  1038→                      <Button
+  1039→                        type="button"
+  1040→                        onClick={goNext}
+  1041→                        disabled={!canGoNext()}
+  1042→                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+  1043→                      >
+  1044→                        <span className="flex items-center gap-2">
+  1045→                          Continue
+  1046→                          <ArrowRight className="w-4 h-4" />
+  1047→                        </span>
+  1048→                      </Button>
+  1049→                    </div>
+  1050→                  )}
+  1051→
+  1052→                  {/* ─── STEP 4: Review & Submit ─── */}
+  1053→                  {regStep === 4 && (
+  1054→                    <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
+  1055→                      <div className="mb-2">
+  1056→                        <button
+  1057→                          type="button"
+  1058→                          onClick={goBack}
+  1059→                          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 group"
+  1060→                        >
+  1061→                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+  1062→                          Back
+  1063→                        </button>
+  1064→                        <div className="flex items-center gap-2 mb-1">
+  1065→                          <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
+  1066→                            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+  1067→                          </div>
+  1068→                          <h3 className="text-sm font-semibold text-foreground">Review & Submit</h3>
+  1069→                        </div>
+  1070→                        <p className="text-xs text-muted-foreground ml-8">Confirm your details before creating your account</p>
+  1071→                      </div>
+  1072→
+  1073→                      <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
+  1074→                        {/* Account */}
+  1075→                        <div className="p-3 rounded-xl border border-border bg-card/50">
+  1076→                          <div className="flex items-center gap-2 mb-2">
+  1077→                            <Lock className="w-3.5 h-3.5 text-orange-500" />
+  1078→                            <span className="text-xs font-semibold text-foreground">Account</span>
+  1079→                          </div>
+  1080→                          <div className="space-y-1 text-xs">
+  1081→                            <div className="flex justify-between">
+  1082→                              <span className="text-muted-foreground">Email</span>
+  1083→                              <span className="text-foreground font-medium">{regData.email}</span>
+  1084→                            </div>
+  1085→                            <div className="flex justify-between">
+  1086→                              <span className="text-muted-foreground">Password</span>
+  1087→                              <span className="text-foreground font-medium">••••••••</span>
+  1088→                            </div>
+  1089→                          </div>
+  1090→                        </div>
+  1091→
+  1092→                        {/* Company */}
+  1093→                        <div className="p-3 rounded-xl border border-border bg-card/50">
+  1094→                          <div className="flex items-center gap-2 mb-2">
+  1095→                            <Building2 className="w-3.5 h-3.5 text-orange-500" />
+  1096→                            <span className="text-xs font-semibold text-foreground">Company</span>
+  1097→                          </div>
+  1098→                          <div className="space-y-1 text-xs">
+  1099→                            <div className="flex justify-between">
+  1100→                              <span className="text-muted-foreground">Name</span>
+  1101→                              <span className="text-foreground font-medium">{regData.companyName}</span>
+  1102→                            </div>
+  1103→                            {regData.companyIndustry && (
+  1104→                              <div className="flex justify-between">
+  1105→                                <span className="text-muted-foreground">Industry</span>
+  1106→                                <span className="text-foreground font-medium">{regData.companyIndustry}</span>
+  1107→                              </div>
+  1108→                            )}
+  1109→                            {regData.companyTinNumber && (
+  1110→                              <div className="flex justify-between">
+  1111→                                <span className="text-muted-foreground">TIN</span>
+  1112→                                <span className="text-foreground font-medium">{regData.companyTinNumber}</span>
+  1113→                              </div>
+  1114→                            )}
+  1115→                            {regData.companyRegistrationNo && (
+  1116→                              <div className="flex justify-between">
+  1117→                                <span className="text-muted-foreground">Reg. No</span>
+  1118→                                <span className="text-foreground font-medium">{regData.companyRegistrationNo}</span>
+  1119→                              </div>
+  1120→                            )}
+  1121→                            {regData.companyPhone && (
+  1122→                              <div className="flex justify-between">
+  1123→                                <span className="text-muted-foreground">Phone</span>
+  1124→                                <span className="text-foreground font-medium">{regData.companyPhone}</span>
+  1125→                              </div>
+  1126→                            )}
+  1127→                            {(regData.companyCity || regData.companyCountry) && (
+  1128→                              <div className="flex justify-between">
+  1129→                                <span className="text-muted-foreground">Location</span>
+  1130→                                <span className="text-foreground font-medium">{[regData.companyCity, regData.companyCountry].filter(Boolean).join(', ')}</span>
+  1131→                              </div>
+  1132→                            )}
+  1133→                            {regData.companyEmail && (
+  1134→                              <div className="flex justify-between">
+  1135→                                <span className="text-muted-foreground">Email</span>
+  1136→                                <span className="text-foreground font-medium">{regData.companyEmail}</span>
+  1137→                              </div>
+  1138→                            )}
+  1139→                            {regData.companyWebsite && (
+  1140→                              <div className="flex justify-between">
+  1141→                                <span className="text-muted-foreground">Website</span>
+  1142→                                <span className="text-foreground font-medium">{regData.companyWebsite}</span>
+  1143→                              </div>
+  1144→                            )}
+  1145→                          </div>
+  1146→                        </div>
+  1147→
+  1148→                        {/* Personal */}
+  1149→                        <div className="p-3 rounded-xl border border-border bg-card/50">
+  1150→                          <div className="flex items-center gap-2 mb-2">
+  1151→                            <User className="w-3.5 h-3.5 text-orange-500" />
+  1152→                            <span className="text-xs font-semibold text-foreground">Personal</span>
+  1153→                          </div>
+  1154→                          <div className="space-y-1 text-xs">
+  1155→                            <div className="flex justify-between">
+  1156→                              <span className="text-muted-foreground">Full Name</span>
+  1157→                              <span className="text-foreground font-medium">{regData.fullName}</span>
+  1158→                            </div>
+  1159→                            {regData.jobTitle && (
+  1160→                              <div className="flex justify-between">
+  1161→                                <span className="text-muted-foreground">Job Title</span>
+  1162→                                <span className="text-foreground font-medium">{regData.jobTitle}</span>
+  1163→                              </div>
+  1164→                            )}
+  1165→                            {regData.phone && (
+  1166→                              <div className="flex justify-between">
+  1167→                                <span className="text-muted-foreground">Phone</span>
+  1168→                                <span className="text-foreground font-medium">{regData.phone}</span>
+  1169→                              </div>
+  1170→                            )}
+  1171→                            {regData.location && (
+  1172→                              <div className="flex justify-between">
+  1173→                                <span className="text-muted-foreground">Location</span>
+  1174→                                <span className="text-foreground font-medium">{regData.location}</span>
+  1175→                              </div>
+  1176→                            )}
+  1177→                          </div>
+  1178→                        </div>
+  1179→
+  1180→                        {/* Account Type */}
+  1181→                        <div className="p-3 rounded-xl border border-border bg-card/50">
+  1182→                          <div className="flex items-center gap-2 mb-2">
+  1183→                            <UserCircle className="w-3.5 h-3.5 text-orange-500" />
+  1184→                            <span className="text-xs font-semibold text-foreground">Account Type</span>
+  1185→                          </div>
+  1186→                          <div className="flex items-center gap-2">
+  1187→                            <div className="w-8 h-8 rounded-lg gradient-orange flex items-center justify-center text-white">
+  1188→                              <UserCircle className="w-4 h-4" />
+  1189→                            </div>
+  1190→                            <div>
+  1191→                              <p className="text-sm font-semibold text-foreground">User</p>
+  1192→                              <p className="text-xs text-muted-foreground">Submit bids, view tenders, manage your profile</p>
+  1193→                            </div>
+  1194→                          </div>
+  1195→                          <p className="text-[10px] text-muted-foreground mt-2 ml-10">You can be promoted to Team Admin by your company admin later.</p>
+  1196→                        </div>
+  1197→                      </div>
+  1198→
+  1199→                      <Button
+  1200→                        type="button"
+  1201→                        onClick={handleRegister}
+  1202→                        disabled={loading}
+  1203→                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
+  1204→                      >
+  1205→                        {loading ? (
+  1206→                          <span className="flex items-center gap-2">
+  1207→                            <Loader2 className="w-4 h-4 animate-spin" />
+  1208→                            Creating Account...
+  1209→                          </span>
+  1210→                        ) : (
+  1211→                          <span className="flex items-center gap-2">
+  1212→                            Create Account
+  1213→                            <ArrowRight className="w-4 h-4" />
+  1214→                          </span>
+  1215→                        )}
+  1216→                      </Button>
+  1217→                    </div>
+  1218→                  )}
+  1219→                </div>
+  1220→              )}
+  1221→            </div>
+  1222→          </div>
+  1223→
+  1224→          {/* Footer inside right panel on desktop, or below on mobile */}
+  1225→          <footer className="px-6 py-4 text-center border-t border-border lg:border-t lg:py-5">
+  1226→            <p className="text-xs text-muted-foreground">
+  1227→              © 2025 Tenet · Transforming Procurement Through Technology
+  1228→            </p>
+  1229→          </footer>
+  1230→        </div>
+  1231→      </div>
+  1232→
+  1233→      {/* ─── Global keyframe styles ─── */}
+  1234→      <style jsx global>{`
+  1235→        @keyframes float1 {
+  1236→          0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+  1237→          50% { transform: translateY(-30px) translateX(15px) scale(1.05); }
+  1238→        }
+  1239→        @keyframes float2 {
+  1240→          0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+  1241→          50% { transform: translateY(25px) translateX(-20px) scale(1.08); }
+  1242→        }
+  1243→        @keyframes float3 {
+  1244→          0%, 100% { transform: translateY(0) translateX(0); }
+  1245→          50% { transform: translateY(-20px) translateX(10px); }
+  1246→        }
+  1247→        @keyframes pulse-dot {
+  1248→          0% { opacity: 0.2; transform: scale(1); }
+  1249→          100% { opacity: 0.5; transform: scale(1.5); }
+  1250→        }
+  1251→        @keyframes spin-slow {
+  1252→          from { transform: translate(-50%, -50%) rotate(0deg); }
+  1253→          to { transform: translate(-50%, -50%) rotate(360deg); }
+  1254→        }
+  1255→        @keyframes fadeDown {
+  1256→          from { opacity: 0; transform: translateY(-16px); }
+  1257→          to { opacity: 1; transform: translateY(0); }
+  1258→        }
+  1259→        @keyframes fadeUp {
+  1260→          from { opacity: 0; transform: translateY(16px); }
+  1261→          to { opacity: 1; transform: translateY(0); }
+  1262→        }
+  1263→        @keyframes slideInLeft {
+  1264→          from { opacity: 0; transform: translateX(-20px); }
+  1265→          to { opacity: 1; transform: translateX(0); }
+  1266→        }
+  1267→      `}</style>
+  1268→    </div>
+  1269→  );
+  1270→}
+  1271→
