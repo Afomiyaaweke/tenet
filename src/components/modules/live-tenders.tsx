@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api, LiveTender, DataSource } from '@/lib/api';
 import { useNavStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +20,8 @@ import {
   Loader2, Clock, Landmark, Plane, Flag, Cpu,
   CheckCircle2, ExternalLink, TrendingUp, ChevronRight, Languages,
   Bookmark, BookmarkCheck, XCircle, AlertTriangle, Lightbulb,
-  Target, BarChart3, Users, Zap,
+  Target, BarChart3, Users, Zap, Eye, Gavel,
+  CircleCheck, Send,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -368,7 +369,7 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <BookOpen className="h-3.5 w-3.5" />
-                <span>Document loaded from {new URL(doc.url).hostname}</span>
+                <span>Full tender content loaded from {new URL(doc.url).hostname}</span>
                 <span>·</span>
                 <span>{new Date(doc.fetchedAt).toLocaleTimeString()}</span>
               </div>
@@ -422,7 +423,7 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
 
           {/* Sections view */}
           {doc.sections && doc.sections.length > 0 ? (
-            <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4 space-y-4 scrollbar-thin">
+            <div className="max-h-96 overflow-y-auto rounded-lg border border-border bg-background p-4 space-y-4 scrollbar-thin">
               {doc.sections.map((section, i) => (
                 <div key={i}>
                   <h4 className="text-sm font-semibold text-foreground mb-1.5">{section.heading}</h4>
@@ -434,7 +435,7 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
               ))}
             </div>
           ) : (
-            <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4 scrollbar-thin">
+            <div className="max-h-96 overflow-y-auto rounded-lg border border-border bg-background p-4 scrollbar-thin">
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                 {doc.content || 'No content could be extracted from this page.'}
               </p>
@@ -489,7 +490,7 @@ function AIReviewPanel({
           <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1">Summary</p>
+          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1">AI Summary</p>
           <p className="text-sm text-foreground leading-relaxed">{review.summary}</p>
         </div>
       </div>
@@ -725,6 +726,323 @@ function CredentialDialog({
 }
 
 /* ─────────────────────────────────────────────────────────────────────
+ * Single Tender Card Component — detailed, World Bank style for ALL sources
+ * ───────────────────────────────────────────────────────────────────── */
+
+function TenderCard({
+  tender,
+  accent,
+  isSaved,
+  isSaving,
+  isExpanded,
+  isLoadingDoc,
+  doc,
+  docErr,
+  showAiReview,
+  aiLoading,
+  aiReview,
+  onToggleSave,
+  onLoadDocument,
+  onLoadAIReview,
+  onImport,
+}: {
+  tender: LiveTender;
+  accent: typeof SOURCE_ACCENT[string];
+  isSaved: boolean;
+  isSaving: boolean;
+  isExpanded: boolean;
+  isLoadingDoc: boolean;
+  doc: InlineDocument | undefined;
+  docErr: string | undefined;
+  showAiReview: boolean;
+  aiLoading: boolean;
+  aiReview: AIReview | null;
+  onToggleSave: () => void;
+  onLoadDocument: () => void;
+  onLoadAIReview: () => void;
+  onImport: () => void;
+}) {
+  const SourceIcon = accent.icon;
+  const days = daysUntil(tender.deadline);
+
+  const hasBudget = !!(tender.budgetMin || tender.budgetMax);
+  const hasLocation = !!tender.location;
+  const hasDeadline = !!tender.deadline;
+  const hasBorrower = !!(tender.borrower || tender.supplier);
+  const hasContractType = !!tender.contractType;
+  const hasRegion = !!tender.region;
+  const metaFieldCount = [hasBudget, hasLocation, hasDeadline, hasBorrower, hasContractType, hasRegion].filter(Boolean).length;
+
+  return (
+    <Card className={`bg-card border-border transition-all ${accent.ring} ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
+      <CardContent className="p-0">
+        {/* Main card content */}
+        <div className="p-4 md:p-5 relative">
+
+          {/* ── Right corner: Selection / Move to Bid button ── */}
+          <div className="absolute top-3 right-3 md:top-4 md:right-4 flex items-center gap-1.5">
+            <Button
+              variant={isSaved ? 'default' : 'outline'}
+              size="sm"
+              className={`h-8 gap-1.5 text-xs rounded-full ${isSaved
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                : 'border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+              }`}
+              onClick={onToggleSave}
+              disabled={isSaving}
+              title={isSaved ? 'Added to Bids — click to remove' : 'Move to Bids'}
+            >
+              {isSaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : isSaved ? (
+                <>
+                  <Gavel className="h-3.5 w-3.5" />
+                  In Bids
+                </>
+              ) : (
+                <>
+                  <Send className="h-3.5 w-3.5" />
+                  Bid
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* ── Top row: source badge + status + relative time ── */}
+          <div className="flex items-center justify-between gap-2 mb-3 pr-24">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${accent.badge}`}
+              >
+                <SourceIcon className="h-3 w-3" />
+                {SOURCE_LABELS[tender.source] || tender.source}
+              </span>
+              {tender.status === 'awarded' ? (
+                <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                  Contract Award
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+                  Open Notice
+                </Badge>
+              )}
+            </div>
+            <span className="text-[11px] text-muted-foreground hidden md:inline-flex items-center gap-1 shrink-0">
+              <Clock className="h-3 w-3" />
+              {tender.signingDate
+                ? `Signed ${relativeTime(tender.signingDate)}`
+                : `Published ${relativeTime(tender.createdAt)}`}
+            </span>
+          </div>
+
+          {/* ── Title ── */}
+          <h3 className="text-base md:text-lg font-semibold text-foreground leading-snug line-clamp-2 pr-24">
+            {tender.title}
+          </h3>
+
+          {/* ── Scope preview ── */}
+          {tender.scope && (
+            <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+              {tender.scope}
+            </p>
+          )}
+
+          {/* ── Rich meta grid ── */}
+          {metaFieldCount > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">
+              {hasBudget && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <DollarSign className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <span className="text-muted-foreground">Budget:</span>
+                  <span className="font-medium text-foreground truncate">
+                    {tender.budgetMin && tender.budgetMax
+                      ? `${fmtMoney(tender.budgetMin, tender.currency).replace(/\.00/, '')} – ${fmtMoney(tender.budgetMax, tender.currency).replace(/\.00/, '')}`
+                      : fmtMoney(tender.budgetMax || tender.budgetMin, tender.currency)}
+                  </span>
+                </div>
+              )}
+              {hasLocation && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+                  <span className="text-muted-foreground">Location:</span>
+                  <span className="font-medium text-foreground truncate max-w-[140px]">{tender.location}</span>
+                </div>
+              )}
+              {hasDeadline && (
+                <div className={`inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded w-fit ${deadlineBadge(days)}`}>
+                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                  <span className="font-medium">{deadlineLabel(days)}</span>
+                </div>
+              )}
+              {hasBorrower && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+                  <span className="text-muted-foreground">{tender.borrower ? 'Borrower:' : 'Org:'}</span>
+                  <span className="font-medium text-foreground truncate max-w-[140px]">{tender.borrower || tender.supplier}</span>
+                </div>
+              )}
+              {hasContractType && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                  <span className="text-muted-foreground">Type:</span>
+                  <span className="font-medium text-foreground truncate">{tender.contractType}</span>
+                </div>
+              )}
+              {hasRegion && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Globe2 className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                  <span className="text-muted-foreground">Region:</span>
+                  <span className="font-medium text-foreground truncate">{tender.region}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Category tags ── */}
+          {((tender.categoryTags && tender.categoryTags.split(',').filter(Boolean).length > 0) || tender.contractType) && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {tender.categoryTags
+                .split(',')
+                .filter(Boolean)
+                .slice(0, 5)
+                .map((c) => (
+                  <span
+                    key={c}
+                    className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+                  >
+                    {c.trim()}
+                  </span>
+                ))}
+            </div>
+          )}
+
+          {/* ── External link preview ── */}
+          {tender.externalUrl && (
+            <div className="mt-3 flex items-center gap-2">
+              <a
+                href={tender.externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View on {SOURCE_LABELS[tender.source] || 'source site'}
+              </a>
+              <span className="text-[10px] text-muted-foreground truncate max-w-[200px]">
+                {(() => { try { return new URL(tender.externalUrl).hostname; } catch { return tender.externalUrl; } })()}
+              </span>
+            </div>
+          )}
+
+          {/* ── Bottom action bar ── */}
+          <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* See More — loads the full tender content from the external site */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-xs h-7"
+                onClick={onLoadDocument}
+                disabled={isLoadingDoc}
+              >
+                {isLoadingDoc ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : isExpanded ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
+                {isLoadingDoc ? 'Loading…' : isExpanded ? 'Collapse' : 'See More'}
+              </Button>
+              {/* AI Review */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`gap-1.5 text-xs h-7 ${showAiReview ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 hover:bg-violet-100 dark:hover:bg-violet-950/40' : 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30'}`}
+                onClick={onLoadAIReview}
+                disabled={aiLoading}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide Review' : 'AI Review'}
+              </Button>
+              {/* Import to local */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-xs h-7 text-primary"
+                onClick={onImport}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Import
+              </Button>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <InlineTranslator text={tender.scope || tender.title} size="sm" className="hidden md:flex" />
+            </div>
+          </div>
+        </div>
+
+        {/* Inline document viewer — shows exact tender content from external site */}
+        {isExpanded && (
+          <>
+            {isLoadingDoc && (
+              <div className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground animate-[fadeIn_0.3s_ease-out]">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Fetching full tender content from the source site…
+              </div>
+            )}
+            {docErr && !isLoadingDoc && (
+              <div className="border-t border-border p-6 animate-[fadeIn_0.3s_ease-out]">
+                <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
+                  <ServerCrash className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                      Could not load the full tender content
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
+                      {docErr} — you can still{' '}
+                      <a
+                        href={tender.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline font-medium"
+                      >
+                        view the original page directly
+                      </a>
+                      .
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {doc && !isLoadingDoc && (
+              <InlineDocumentViewer
+                doc={doc}
+                onClose={() => {/* handled by parent */}}
+              />
+            )}
+            {/* Translator for document content */}
+            {(doc?.content || tender.scope) && !isLoadingDoc && (
+              <div className="border-t border-border px-4 py-2.5">
+                <InlineTranslator text={doc?.content || tender.scope} />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* AI Review Panel */}
+        {showAiReview && (
+          <AIReviewPanel
+            review={aiReview}
+            isLoading={aiLoading}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
  * Main LiveTendersView component
  * ───────────────────────────────────────────────────────────────────── */
 
@@ -743,8 +1061,8 @@ export function LiveTendersView() {
   const [sectorCounts, setSectorCounts] = useState<{ id: string; label: string; count: number }[]>([]);
 
   // Pagination state
-  const [visibleCount, setVisibleCount] = useState(20);
-  const PAGE_SIZE = 20;
+  const [visibleCount, setVisibleCount] = useState(12);
+  const PAGE_SIZE = 12;
 
   // Inline document state
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -887,6 +1205,7 @@ export function LiveTendersView() {
         borrower: tender.borrower,
         contractType: tender.contractType,
         region: tender.region,
+        externalUrl: tender.externalUrl,
       });
       if (res.success && res.data) {
         setAiReviewData((prev) => ({ ...prev, [id]: res.data as AIReview }));
@@ -901,7 +1220,7 @@ export function LiveTendersView() {
     setAiReviewLoading((prev) => ({ ...prev, [id]: false }));
   }, [aiReviewExpanded, aiReviewData]);
 
-  /* ────── Save/Bookmark ────── */
+  /* ────── Save/Bookmark → Move to Bid ────── */
   const toggleSave = useCallback(async (tender: LiveTender) => {
     const id = tender.id;
     const isCurrentlySaved = savedTenders[id];
@@ -909,7 +1228,7 @@ export function LiveTendersView() {
 
     try {
       if (isCurrentlySaved) {
-        // Remove from saved — use the saved check data to find the record
+        // Remove from saved/bids
         const checkRes = await api.get('/tenders/saved/check', {
           tenderId: tender.externalId || tender.id,
           source: tender.source,
@@ -918,9 +1237,9 @@ export function LiveTendersView() {
           await api.delete(`/tenders/saved/${checkRes.data.id}`);
         }
         setSavedTenders((prev) => ({ ...prev, [id]: false }));
-        toast.success('Removed from saved', { description: `"${tender.title}" removed from your bids list.` });
+        toast.success('Removed from Bids', { description: `"${tender.title}" removed from your bids list.` });
       } else {
-        // Save the tender
+        // Save the tender → move to bids
         await api.post('/tenders/saved', {
           tenderId: tender.externalId || tender.id,
           source: tender.source,
@@ -935,10 +1254,10 @@ export function LiveTendersView() {
           currency: tender.currency,
         });
         setSavedTenders((prev) => ({ ...prev, [id]: true }));
-        toast.success('Tender saved to your bids list', { description: `"${tender.title}" has been bookmarked.` });
+        toast.success('Moved to Bids', { description: `"${tender.title}" is now in your bids list. Go to Bids to work on it.` });
       }
     } catch {
-      toast.error(isCurrentlySaved ? 'Failed to remove from saved' : 'Failed to save tender');
+      toast.error(isCurrentlySaved ? 'Failed to remove from bids' : 'Failed to move to bids');
     }
     setSavingTender((prev) => ({ ...prev, [id]: false }));
   }, [savedTenders]);
@@ -981,6 +1300,9 @@ export function LiveTendersView() {
     }
   }, []);
 
+  /* ────── Count saved tenders ────── */
+  const savedCount = useMemo(() => Object.values(savedTenders).filter(Boolean).length, [savedTenders]);
+
   /* ────── Render ────── */
   return (
     <div className="view-enter">
@@ -988,7 +1310,18 @@ export function LiveTendersView() {
       <div className="relative h-32 md:h-40 bg-gradient-to-br from-emerald-600 via-teal-700 to-cyan-800 overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+PC9zdmc+')] opacity-60" />
         <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
-        <div className="absolute top-4 right-4 md:right-6">
+        <div className="absolute top-4 right-4 md:right-6 flex items-center gap-2">
+          {savedCount > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-1.5 shadow-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
+              onClick={() => useNavStore.getState().setView('bids')}
+            >
+              <Gavel className="h-3.5 w-3.5 text-emerald-600" />
+              My Bids ({savedCount})
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -1010,7 +1343,7 @@ export function LiveTendersView() {
           </div>
           <div className="flex-1 min-w-0 pb-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">Global Live Tenders</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">Live Tenders</h1>
               <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-xs">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -1020,7 +1353,7 @@ export function LiveTendersView() {
               </Badge>
             </div>
             <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-              Real-time procurement from international public APIs — {tenders.length} opportunities from {sourceMeta.length || 15} sources
+              {tenders.length} tenders from {sourceMeta.length || 15} sources — click &quot;See More&quot; to view the exact tender, &quot;AI Review&quot; to analyze, &quot;Bid&quot; to work on it later
               {sectorFilter && <span className="ml-1 text-primary font-medium">· filtered by {SECTOR_PILLS.find(s => s.id === sectorFilter)?.label || sectorFilter}</span>}
             </p>
           </div>
@@ -1069,16 +1402,10 @@ export function LiveTendersView() {
           <Card className="bg-card border-border">
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</span>
-                {fallback ? (
-                  <ServerCrash className="h-3.5 w-3.5 text-amber-500" />
-                ) : (
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                )}
+                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">My Bids</span>
+                <Gavel className="h-3.5 w-3.5 text-emerald-500" />
               </div>
-              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">
-                {fallback ? 'Cached' : 'Live'}
-              </p>
+              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{savedCount}</p>
             </CardContent>
           </Card>
         </div>
@@ -1206,7 +1533,7 @@ export function LiveTendersView() {
           </CardContent>
         </Card>
 
-        {/* ───────────────── Feed-style Tender Cards ───────────────── */}
+        {/* ───────────────── Individual Tender Cards (NOT grouped by source) ───────────────── */}
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -1242,292 +1569,32 @@ export function LiveTendersView() {
           <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
             {tenders.slice(0, visibleCount).map((t) => {
                 const accent = SOURCE_ACCENT[t.source] || SOURCE_ACCENT.default;
-                const days = daysUntil(t.deadline);
-                const isExpanded = expandedId === t.id;
-                const isLoadingDoc = docLoading === t.id;
-                const doc = docData[t.id];
-                const docErr = docError[t.id];
-                const SourceIcon = accent.icon;
-                const isSaved = savedTenders[t.id] || false;
-                const isSaving = savingTender[t.id] || false;
-                const showAiReview = aiReviewExpanded[t.id] || false;
-                const aiLoading = aiReviewLoading[t.id] || false;
-                const aiReview = aiReviewData[t.id] || null;
-
-                // Compute which meta fields have values
-                const hasBudget = !!(t.budgetMin || t.budgetMax);
-                const hasLocation = !!t.location;
-                const hasDeadline = !!t.deadline;
-                const hasBorrower = !!(t.borrower || t.supplier);
-                const hasContractType = !!t.contractType;
-                const hasRegion = !!t.region;
-                const metaFieldCount = [hasBudget, hasLocation, hasDeadline, hasBorrower, hasContractType, hasRegion].filter(Boolean).length;
 
                 return (
-                  <div key={t.id}>
-                    <Card className={`bg-card border-border transition-all ${accent.ring} ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
-                      <CardContent className="p-0">
-                        {/* Main card content */}
-                        <div className="p-4 md:p-5 relative">
-                          {/* Bookmark button — top right */}
-                          <div className="absolute top-3 right-3 md:top-4 md:right-4">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 rounded-full"
-                              onClick={() => toggleSave(t)}
-                              disabled={isSaving}
-                              title={isSaved ? 'Remove from saved' : 'Save to bids list'}
-                            >
-                              {isSaving ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              ) : isSaved ? (
-                                <BookmarkCheck className="h-4 w-4 text-primary" />
-                              ) : (
-                                <Bookmark className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                              )}
-                            </Button>
-                          </div>
-
-                          {/* Top row: source + status + relative time */}
-                          <div className="flex items-center justify-between gap-2 mb-3 pr-10">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span
-                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${accent.badge}`}
-                              >
-                                <SourceIcon className="h-3 w-3" />
-                                {SOURCE_LABELS[t.source] || t.source}
-                              </span>
-                              {t.status === 'awarded' ? (
-                                <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
-                                  Contract Award
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
-                                  Open Notice
-                                </Badge>
-                              )}
-                              {t.source === 'sector_feed' && (
-                                <Badge className="bg-primary/10 text-primary border-0 text-[10px] gap-1">
-                                  <TrendingUp className="h-3 w-3" />
-                                  Sector
-                                </Badge>
-                              )}
-                            </div>
-                            <span className="text-[11px] text-muted-foreground hidden md:inline-flex items-center gap-1 shrink-0">
-                              <Clock className="h-3 w-3" />
-                              {t.signingDate
-                                ? `Signed ${relativeTime(t.signingDate)}`
-                                : `Published ${relativeTime(t.createdAt)}`}
-                            </span>
-                          </div>
-
-                          {/* Title */}
-                          <h3 className="text-base md:text-lg font-semibold text-foreground leading-snug line-clamp-2 pr-10">
-                            {t.title}
-                          </h3>
-
-                          {/* Scope preview */}
-                          {t.scope && (
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
-                              {t.scope}
-                            </p>
-                          )}
-
-                          {/* Rich meta grid */}
-                          {metaFieldCount > 0 && (
-                            <div className={`grid gap-2 mt-3 ${metaFieldCount <= 3 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-3'}`}>
-                              {hasBudget && (
-                                <div className="flex items-center gap-1.5 text-xs">
-                                  <DollarSign className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                                  <span className="text-muted-foreground">Budget:</span>
-                                  <span className="font-medium text-foreground truncate">
-                                    {t.budgetMin && t.budgetMax
-                                      ? `${fmtMoney(t.budgetMin, t.currency).replace(/\.00/, '')} – ${fmtMoney(t.budgetMax, t.currency).replace(/\.00/, '')}`
-                                      : fmtMoney(t.budgetMax || t.budgetMin, t.currency)}
-                                  </span>
-                                </div>
-                              )}
-                              {hasLocation && (
-                                <div className="flex items-center gap-1.5 text-xs">
-                                  <MapPin className="h-3.5 w-3.5 shrink-0 text-sky-500" />
-                                  <span className="text-muted-foreground">Location:</span>
-                                  <span className="font-medium text-foreground truncate max-w-[140px]">{t.location}</span>
-                                </div>
-                              )}
-                              {hasDeadline && (
-                                <div className={`inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded w-fit ${deadlineBadge(days)}`}>
-                                  <Calendar className="h-3.5 w-3.5 shrink-0" />
-                                  <span className="font-medium">{deadlineLabel(days)}</span>
-                                </div>
-                              )}
-                              {hasBorrower && (
-                                <div className="flex items-center gap-1.5 text-xs">
-                                  <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-500" />
-                                  <span className="text-muted-foreground">{t.borrower ? 'Borrower:' : 'Org:'}</span>
-                                  <span className="font-medium text-foreground truncate max-w-[140px]">{t.borrower || t.supplier}</span>
-                                </div>
-                              )}
-                              {hasContractType && (
-                                <div className="flex items-center gap-1.5 text-xs">
-                                  <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                                  <span className="text-muted-foreground">Type:</span>
-                                  <span className="font-medium text-foreground truncate">{t.contractType}</span>
-                                </div>
-                              )}
-                              {hasRegion && (
-                                <div className="flex items-center gap-1.5 text-xs">
-                                  <Globe2 className="h-3.5 w-3.5 shrink-0 text-rose-500" />
-                                  <span className="text-muted-foreground">Region:</span>
-                                  <span className="font-medium text-foreground truncate">{t.region}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Category tags */}
-                          {((t.categoryTags && t.categoryTags.split(',').filter(Boolean).length > 0) || t.contractType) && (
-                            <div className="flex flex-wrap gap-1.5 mt-3">
-                              {t.categoryTags
-                                .split(',')
-                                .filter(Boolean)
-                                .slice(0, 5)
-                                .map((c) => (
-                                  <span
-                                    key={c}
-                                    className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
-                                  >
-                                    {c.trim()}
-                                  </span>
-                                ))}
-                            </div>
-                          )}
-
-                          {/* Bottom action bar */}
-                          <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1.5 text-xs h-7"
-                                onClick={() => loadDocument(t)}
-                                disabled={isLoadingDoc}
-                              >
-                                {isLoadingDoc ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : isExpanded ? (
-                                  <ChevronUp className="h-3.5 w-3.5" />
-                                ) : (
-                                  <BookOpen className="h-3.5 w-3.5" />
-                                )}
-                                {isLoadingDoc ? 'Loading…' : isExpanded ? 'Collapse' : 'Read More'}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`gap-1.5 text-xs h-7 ${showAiReview ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 hover:bg-violet-100 dark:hover:bg-violet-950/40' : 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30'}`}
-                                onClick={() => loadAIReview(t)}
-                                disabled={aiLoading}
-                              >
-                                <Sparkles className="h-3.5 w-3.5" />
-                                {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide Review' : 'AI Review'}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1.5 text-xs h-7 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
-                                onClick={() => {
-                                  useNavStore.getState().setView('tender-detail', { id: t.id, tab: 'ai-overview' });
-                                }}
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                Details
-                              </Button>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <InlineTranslator text={t.scope || t.title} size="sm" className="hidden md:flex" />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1.5 text-xs h-7 text-primary"
-                                onClick={() => importTender(t)}
-                                disabled={importing === t.id}
-                              >
-                                {importing === t.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Download className="h-3.5 w-3.5" />
-                                )}
-                                Import
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Inline document viewer */}
-                        {isExpanded && (
-                          <>
-                            {isLoadingDoc && (
-                              <div className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground animate-[fadeIn_0.3s_ease-out]">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Fetching document content…
-                              </div>
-                            )}
-                            {docErr && !isLoadingDoc && (
-                              <div className="border-t border-border p-6 animate-[fadeIn_0.3s_ease-out]">
-                                <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
-                                  <ServerCrash className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                  <div>
-                                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                                      Could not load document content
-                                    </p>
-                                    <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
-                                      {docErr} — you can still{' '}
-                                      <a
-                                        href={t.externalUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="underline font-medium"
-                                      >
-                                        view the original page
-                                      </a>
-                                      .
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            {doc && !isLoadingDoc && (
-                              <InlineDocumentViewer
-                                doc={doc}
-                                onClose={() => setExpandedId(null)}
-                              />
-                            )}
-                            {/* Translator for document content */}
-                            {(doc?.content || t.scope) && !isLoadingDoc && (
-                              <div className="border-t border-border px-4 py-2.5">
-                                <InlineTranslator text={doc?.content || t.scope} />
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        {/* AI Review Panel */}
-                        {showAiReview && (
-                          <AIReviewPanel
-                            review={aiReview}
-                            isLoading={aiLoading}
-                          />
-                        )}
-                    </CardContent>
-                  </Card>
-                  </div>
+                  <TenderCard
+                    key={t.id}
+                    tender={t}
+                    accent={accent}
+                    isSaved={savedTenders[t.id] || false}
+                    isSaving={savingTender[t.id] || false}
+                    isExpanded={expandedId === t.id}
+                    isLoadingDoc={docLoading === t.id}
+                    doc={docData[t.id]}
+                    docErr={docError[t.id]}
+                    showAiReview={aiReviewExpanded[t.id] || false}
+                    aiLoading={aiReviewLoading[t.id] || false}
+                    aiReview={aiReviewData[t.id] || null}
+                    onToggleSave={() => toggleSave(t)}
+                    onLoadDocument={() => loadDocument(t)}
+                    onLoadAIReview={() => loadAIReview(t)}
+                    onImport={() => importTender(t)}
+                  />
                 );
               })}
           </div>
         )}
 
-        {/* See More / Load More button */}
+        {/* Load More button */}
         {tenders.length > 0 && (
           <div className="flex flex-col items-center gap-2 pt-4 pb-2">
             <p className="text-xs text-muted-foreground">
@@ -1628,7 +1695,7 @@ export function LiveTendersView() {
               );
             })}
 
-            {/* Credential-gated sources (Apify, GovRider, Tenderwell, SeeGeneBid) */}
+            {/* Credential-gated sources */}
             {GATED_SOURCES.map((gs) => {
               const accent = SOURCE_ACCENT[gs.id] || SOURCE_ACCENT.default;
               const SourceIcon = accent.icon;
