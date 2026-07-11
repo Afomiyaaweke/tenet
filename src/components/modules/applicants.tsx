@@ -27,6 +27,9 @@ import {
   Ban, ClipboardCheck, MoreHorizontal, ExternalLink, Sparkles,
   RefreshCw, Columns3, CheckSquare, Square, Timer, Lock,
   Hourglass,
+  FileText, ScanSearch, Brain, Upload, FileCheck, FileX,
+  Loader2, AlertTriangle, X, CheckCircle2, Info, ThumbsUp,
+  ThumbsDown, AlertOctagon, BarChart3,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -66,6 +69,19 @@ interface ApplicantRow {
   bidStatus: string;
   rejectionNote: string;
   submittedAt: string;
+  documents: Array<{
+    id: string;
+    fileName: string;
+    docType: string;
+    fileUrl: string;
+    status: string;
+    ocrStatus: string; // 'none' | 'processing' | 'completed' | 'failed'
+    ocrProcessedAt: string | null;
+    aiReviewStatus: string; // 'none' | 'processing' | 'completed' | 'failed'
+    aiReviewProcessedAt: string | null;
+    createdAt: string;
+  }>;
+  requiredDocs: string;
 }
 
 interface ApplicantMeta {
@@ -90,6 +106,7 @@ interface TenderInfo {
 type SortField = keyof ApplicantRow;
 type SortDir = 'asc' | 'desc';
 type ViewMode = 'table' | 'cards';
+type NavView = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin';
 
 // ─── Column definitions ───────────────────────────────────────────────
 
@@ -192,6 +209,15 @@ export function ApplicantsView() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
 
+  // ─── Document / OCR / AI Review state ───────────────────────────
+  const [docUploadBidId, setDocUploadBidId] = useState<string | null>(null);
+  const [ocrLoading, setOcrLoading] = useState<Set<string>>(new Set());
+  const [reviewLoading, setReviewLoading] = useState<Set<string>>(new Set());
+  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
+  const [viewingDocType, setViewingDocType] = useState<'ocr' | 'review'>('ocr');
+  const [docOcrText, setDocOcrText] = useState<Record<string, string>>({});
+  const [docReview, setDocReview] = useState<Record<string, Record<string, unknown>>>({});
+
   // Fetch data
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -222,6 +248,135 @@ export function ApplicantsView() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // ─── Document handlers ──────────────────────────────────────────
+  const handleDocUpload = useCallback(async (bidId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('docType', 'bid_attachment');
+    formData.append('autoOcr', 'true');
+    try {
+      const res = await api.upload(`/bids/${bidId}/documents`, formData);
+      if (res.success) {
+        toast.success('Document uploaded successfully');
+        fetchData();
+      } else {
+        toast.error(res.message || 'Upload failed');
+      }
+    } catch {
+      toast.error('Upload failed');
+    } finally {
+      setDocUploadBidId(null);
+    }
+  }, [fetchData]);
+
+  const handleRunOcr = useCallback(async (docId: string) => {
+    setOcrLoading(prev => new Set(prev).add(docId));
+    try {
+      await api.post(`/document-ocr/${docId}`);
+      // Poll for completion
+      const poll = async (attempts = 0): Promise<void> => {
+        if (attempts > 30) {
+          toast.error('OCR processing timed out');
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        const res = await api.get(`/document-ocr/${docId}`);
+        if (res.success && res.data?.ocrStatus === 'completed') {
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
+          fetchData();
+          toast.success('OCR completed');
+        } else if (res.success && res.data?.ocrStatus === 'failed') {
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          toast.error('OCR processing failed');
+          fetchData();
+        } else {
+          await poll(attempts + 1);
+        }
+      };
+      poll();
+    } catch {
+      setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+      toast.error('Failed to start OCR');
+    }
+  }, [fetchData]);
+
+  const handleRunReview = useCallback(async (docId: string) => {
+    setReviewLoading(prev => new Set(prev).add(docId));
+    try {
+      await api.post(`/document-review/${docId}`);
+      // Poll for completion
+      const poll = async (attempts = 0): Promise<void> => {
+        if (attempts > 30) {
+          toast.error('AI Review processing timed out');
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        const res = await api.get(`/document-review/${docId}`);
+        if (res.success && res.data?.aiReviewStatus === 'completed') {
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          let reviewData = res.data.aiReview || {};
+          if (typeof reviewData === 'string') {
+            try { reviewData = JSON.parse(reviewData); } catch { reviewData = { summary: reviewData }; }
+          }
+          setDocReview(prev => ({ ...prev, [docId]: reviewData }));
+          fetchData();
+          toast.success('AI Review completed');
+        } else if (res.success && res.data?.aiReviewStatus === 'failed') {
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          toast.error('AI Review processing failed');
+          fetchData();
+        } else {
+          await poll(attempts + 1);
+        }
+      };
+      poll();
+    } catch {
+      setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+      toast.error('Failed to start AI Review');
+    }
+  }, [fetchData]);
+
+  const handleViewDocDetail = useCallback(async (docId: string, type: 'ocr' | 'review') => {
+    if (viewingDocId === docId && viewingDocType === type) {
+      // Toggle off
+      setViewingDocId(null);
+      return;
+    }
+    setViewingDocId(docId);
+    setViewingDocType(type);
+    try {
+      if (type === 'ocr' && !docOcrText[docId]) {
+        const res = await api.get(`/document-ocr/${docId}`);
+        if (res.success) {
+          setDocOcrText(prev => ({ ...prev, [docId]: res.data?.ocrText || '' }));
+        }
+      } else if (type === 'review' && !docReview[docId]) {
+        const res = await api.get(`/document-review/${docId}`);
+        if (res.success) {
+          let reviewData = res.data?.aiReview || {};
+          // aiReview may come as a JSON string from the API - parse it
+          if (typeof reviewData === 'string') {
+            try {
+              reviewData = JSON.parse(reviewData);
+            } catch {
+              reviewData = { summary: reviewData };
+            }
+          }
+          setDocReview(prev => ({ ...prev, [docId]: reviewData }));
+        }
+      }
+    } catch {
+      toast.error('Failed to load document details');
+    }
+  }, [viewingDocId, viewingDocType, docOcrText, docReview]);
+
+  const closeDocDetail = useCallback(() => {
+    setViewingDocId(null);
+  }, []);
 
   // Get unique tenders for filter dropdown (from closedTenders API data)
   const tenderOptions = useMemo(() => {
@@ -715,6 +870,19 @@ export function ApplicantsView() {
             <ExpandedRowDetail
               row={sortedRows.find(r => r.id === expandedRow)!}
               setView={setView}
+              docUploadBidId={docUploadBidId}
+              ocrLoading={ocrLoading}
+              reviewLoading={reviewLoading}
+              viewingDocId={viewingDocId}
+              viewingDocType={viewingDocType}
+              docOcrText={docOcrText}
+              docReview={docReview}
+              onUploadDoc={handleDocUpload}
+              onSetDocUploadBidId={setDocUploadBidId}
+              onRunOcr={handleRunOcr}
+              onRunReview={handleRunReview}
+              onViewDocDetail={handleViewDocDetail}
+              onCloseDocDetail={closeDocDetail}
             />
           )}
 
@@ -849,7 +1017,7 @@ export function ApplicantsView() {
 
 // ─── Cell renderer ────────────────────────────────────────────────────
 
-function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef; setView: (v: string, p?: Record<string, string>) => void }) {
+function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef; setView: (v: NavView, p?: Record<string, string>) => void }) {
   const val = row[col.key];
 
   switch (col.key) {
@@ -1025,9 +1193,267 @@ function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef
   }
 }
 
+// ─── Status badge helpers ─────────────────────────────────────────────
+
+function OcrStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'completed':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"><CheckCircle2 className="h-3 w-3 mr-0.5" />OCR Done</Badge>;
+    case 'processing':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Processing</Badge>;
+    case 'failed':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><FileX className="h-3 w-3 mr-0.5" />Failed</Badge>;
+    default:
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">No OCR</Badge>;
+  }
+}
+
+function ReviewStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'completed':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"><CheckCircle2 className="h-3 w-3 mr-0.5" />Reviewed</Badge>;
+    case 'processing':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Analyzing</Badge>;
+    case 'failed':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><FileX className="h-3 w-3 mr-0.5" />Failed</Badge>;
+    default:
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">No Review</Badge>;
+  }
+}
+
+function AssessmentBadge({ assessment }: { assessment: string }) {
+  switch (assessment) {
+    case 'approved':
+      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"><ThumbsUp className="h-3 w-3 mr-0.5" />Approved</Badge>;
+    case 'conditionally_approved':
+      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><AlertTriangle className="h-3 w-3 mr-0.5" />Conditional</Badge>;
+    case 'rejected':
+      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><ThumbsDown className="h-3 w-3 mr-0.5" />Rejected</Badge>;
+    case 'needs_clarification':
+      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"><Info className="h-3 w-3 mr-0.5" />Needs Clarification</Badge>;
+    default:
+      return <Badge variant="secondary" className="text-[10px]">{assessment}</Badge>;
+  }
+}
+
+function RiskBadge({ level }: { level: string }) {
+  switch (level) {
+    case 'low':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Low Risk</Badge>;
+    case 'medium':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Medium Risk</Badge>;
+    case 'high':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">High Risk</Badge>;
+    case 'critical':
+      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-200 text-red-800 dark:bg-red-900/60 dark:text-red-200 font-bold">Critical Risk</Badge>;
+    default:
+      return <Badge variant="secondary" className="text-[9px]">{level}</Badge>;
+  }
+}
+
+function ScoreBar({ label, score }: { label: string; score: number }) {
+  const clampedScore = Math.max(0, Math.min(100, score));
+  const color = clampedScore < 40 ? 'bg-red-500' : clampedScore < 70 ? 'bg-amber-500' : 'bg-emerald-500';
+  const textColor = clampedScore < 40 ? 'text-red-600 dark:text-red-400' : clampedScore < 70 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`font-semibold ${textColor}`}>{clampedScore}%</span>
+      </div>
+      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${clampedScore}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Document Detail Panel ───────────────────────────────────────────
+
+interface DocumentDetailPanelProps {
+  docId: string;
+  type: 'ocr' | 'review';
+  ocrText: string | undefined;
+  reviewData: Record<string, unknown> | undefined;
+  onClose: () => void;
+}
+
+function DocumentDetailPanel({ docId, type, ocrText, reviewData, onClose }: DocumentDetailPanelProps) {
+  if (type === 'ocr') {
+    return (
+      <Card className="border-teal-200 dark:border-teal-800/50 bg-teal-50/30 dark:bg-teal-950/10">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <ScanSearch className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+              <h5 className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wider">OCR Extracted Text</h5>
+            </div>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="max-h-64 overflow-y-auto rounded-lg border bg-white dark:bg-background p-3 text-xs whitespace-pre-wrap font-mono leading-relaxed custom-scrollbar">
+            {ocrText || 'No OCR text available. Run OCR first to extract text from this document.'}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // AI Review panel
+  const review = reviewData as Record<string, unknown> | undefined;
+  const overallAssessment = String(review?.overallAssessment || '');
+  const complianceScore = Number(review?.complianceScore ?? 0);
+  const completenessScore = Number(review?.completenessScore ?? 0);
+  const riskLevel = String(review?.riskLevel || '');
+  const findings = Array.isArray(review?.findings) ? (review.findings as Array<Record<string, string>>) : [];
+  const strengths = Array.isArray(review?.strengths) ? (review.strengths as string[]) : [];
+  const weaknesses = Array.isArray(review?.weaknesses) ? (review.weaknesses as string[]) : [];
+  const missingElements = Array.isArray(review?.missingElements) ? (review.missingElements as string[]) : [];
+  const recommendations = Array.isArray(review?.recommendations) ? (review.recommendations as string[]) : [];
+  const summary = String(review?.summary || '');
+
+  return (
+    <Card className="border-violet-200 dark:border-violet-800/50 bg-violet-50/30 dark:bg-violet-950/10">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Brain className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            <h5 className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wider">AI Document Review</h5>
+          </div>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        {/* Assessment & Risk */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {overallAssessment && <AssessmentBadge assessment={overallAssessment} />}
+          {riskLevel && <RiskBadge level={riskLevel} />}
+        </div>
+
+        {/* Score bars */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <ScoreBar label="Compliance" score={complianceScore} />
+          <ScoreBar label="Completeness" score={completenessScore} />
+        </div>
+
+        {/* Findings */}
+        {findings.length > 0 && (
+          <div className="mb-3">
+            <h6 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <AlertOctagon className="h-3 w-3" /> Findings
+            </h6>
+            <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+              {findings.map((f, i) => {
+                const severityColor =
+                  f.severity === 'critical' ? 'border-red-400 bg-red-50 dark:bg-red-950/20' :
+                  f.severity === 'high' ? 'border-red-300 bg-red-50/50 dark:bg-red-950/10' :
+                  f.severity === 'medium' ? 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/10' :
+                  'border-blue-300 bg-blue-50/50 dark:bg-blue-950/10';
+                const severityBadge =
+                  f.severity === 'critical' ? 'bg-red-200 text-red-800 dark:bg-red-900/60 dark:text-red-200' :
+                  f.severity === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
+                  f.severity === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
+                  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
+                return (
+                  <div key={i} className={`text-[10px] p-1.5 rounded border ${severityColor}`}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Badge className={`text-[8px] px-1 py-0 border-0 rounded ${severityBadge}`}>{f.severity}</Badge>
+                      <span className="font-medium">{f.category}</span>
+                    </div>
+                    <p className="text-muted-foreground">{f.description}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Strengths, Weaknesses, Missing */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+          {strengths.length > 0 && (
+            <div>
+              <h6 className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <ThumbsUp className="h-3 w-3" /> Strengths
+              </h6>
+              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+                {strengths.map((s, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 mt-0.5 shrink-0" />{s}</li>)}
+              </ul>
+            </div>
+          )}
+          {weaknesses.length > 0 && (
+            <div>
+              <h6 className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <ThumbsDown className="h-3 w-3" /> Weaknesses
+              </h6>
+              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+                {weaknesses.map((w, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><AlertTriangle className="h-2.5 w-2.5 text-amber-500 mt-0.5 shrink-0" />{w}</li>)}
+              </ul>
+            </div>
+          )}
+          {missingElements.length > 0 && (
+            <div>
+              <h6 className="text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <FileX className="h-3 w-3" /> Missing
+              </h6>
+              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+                {missingElements.map((m, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><X className="h-2.5 w-2.5 text-red-500 mt-0.5 shrink-0" />{m}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Recommendations */}
+        {recommendations.length > 0 && (
+          <div className="mb-3">
+            <h6 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <BarChart3 className="h-3 w-3" /> Recommendations
+            </h6>
+            <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+              {recommendations.map((r, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><ChevronRight className="h-2.5 w-2.5 text-violet-500 mt-0.5 shrink-0" />{r}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {/* Summary */}
+        {summary && (
+          <div className="p-2 rounded-lg bg-violet-100/50 dark:bg-violet-900/20 border border-violet-200/50 dark:border-violet-800/30">
+            <h6 className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 mb-0.5">Summary</h6>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">{summary}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Expanded row detail panel ────────────────────────────────────────
 
-function ExpandedRowDetail({ row, setView }: { row: ApplicantRow; setView: (v: string, p?: Record<string, string>) => void }) {
+interface ExpandedRowDetailProps {
+  row: ApplicantRow;
+  setView: (v: NavView, p?: Record<string, string>) => void;
+  docUploadBidId: string | null;
+  ocrLoading: Set<string>;
+  reviewLoading: Set<string>;
+  viewingDocId: string | null;
+  viewingDocType: 'ocr' | 'review';
+  docOcrText: Record<string, string>;
+  docReview: Record<string, Record<string, unknown>>;
+  onUploadDoc: (bidId: string, file: File) => void;
+  onSetDocUploadBidId: (bidId: string | null) => void;
+  onRunOcr: (docId: string) => void;
+  onRunReview: (docId: string) => void;
+  onViewDocDetail: (docId: string, type: 'ocr' | 'review') => void;
+  onCloseDocDetail: () => void;
+}
+
+function ExpandedRowDetail({
+  row, setView,
+  docUploadBidId, ocrLoading, reviewLoading,
+  viewingDocId, viewingDocType, docOcrText, docReview,
+  onUploadDoc, onSetDocUploadBidId, onRunOcr, onRunReview, onViewDocDetail, onCloseDocDetail,
+}: ExpandedRowDetailProps) {
   return (
     <div className="border-t bg-muted/10 px-6 py-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1184,6 +1610,138 @@ function ExpandedRowDetail({ row, setView }: { row: ApplicantRow; setView: (v: s
           </p>
         </div>
       )}
+
+      {/* ─── Documents & AI Review Section ─── */}
+      <div className="mt-4 pt-4 border-t">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+            Documents & AI Review
+            {row.requiredDocs && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1">
+                Required: {row.requiredDocs}
+              </Badge>
+            )}
+          </h4>
+          <div className="relative">
+            <input
+              type="file"
+              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onUploadDoc(row.id, file);
+                e.target.value = '';
+              }}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+            />
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onSetDocUploadBidId(row.id)}>
+              <Upload className="h-3 w-3 mr-1" />
+              Upload Document
+            </Button>
+          </div>
+        </div>
+
+        {row.documents && row.documents.length > 0 ? (
+          <div className="space-y-2">
+            {row.documents.map((doc) => (
+              <div key={doc.id} className="rounded-lg border bg-card p-3">
+                {/* Document header */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{doc.fileName}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Badge variant="secondary" className="text-[8px] px-1 py-0">{doc.docType}</Badge>
+                        <span className="text-[9px] text-muted-foreground">{formatDate(doc.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <OcrStatusBadge status={doc.ocrStatus} />
+                    <ReviewStatusBadge status={doc.aiReviewStatus} />
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] px-2 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:hover:bg-teal-950/20"
+                    disabled={ocrLoading.has(doc.id) || doc.ocrStatus === 'processing'}
+                    onClick={() => onRunOcr(doc.id)}
+                  >
+                    {ocrLoading.has(doc.id) || doc.ocrStatus === 'processing'
+                      ? <><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Running OCR</>
+                      : <><ScanSearch className="h-3 w-3 mr-0.5" />Run OCR</>
+                    }
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] px-2 border-violet-200 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/20"
+                    disabled={
+                      reviewLoading.has(doc.id) ||
+                      doc.aiReviewStatus === 'processing' ||
+                      doc.ocrStatus !== 'completed'
+                    }
+                    onClick={() => onRunReview(doc.id)}
+                  >
+                    {reviewLoading.has(doc.id) || doc.aiReviewStatus === 'processing'
+                      ? <><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Analyzing</>
+                      : <><Brain className="h-3 w-3 mr-0.5" />AI Review</>
+                    }
+                  </Button>
+                  {doc.ocrStatus === 'completed' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px] px-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:text-teal-400"
+                      onClick={() => onViewDocDetail(doc.id, 'ocr')}
+                    >
+                      <Eye className="h-3 w-3 mr-0.5" />
+                      View OCR Text
+                    </Button>
+                  )}
+                  {doc.aiReviewStatus === 'completed' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px] px-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:text-violet-400"
+                      onClick={() => onViewDocDetail(doc.id, 'review')}
+                    >
+                      <FileCheck className="h-3 w-3 mr-0.5" />
+                      View AI Review
+                    </Button>
+                  )}
+                </div>
+
+                {/* Slide-down detail panel */}
+                {viewingDocId === doc.id && (
+                  <div className="mt-3">
+                    <DocumentDetailPanel
+                      docId={doc.id}
+                      type={viewingDocType}
+                      ocrText={docOcrText[doc.id]}
+                      reviewData={docReview[doc.id]}
+                      onClose={onCloseDocDetail}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-center">
+            <FileText className="h-6 w-6 text-muted-foreground mx-auto mb-1.5" />
+            <p className="text-xs text-muted-foreground">No documents uploaded yet</p>
+            <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+              Upload bid documents to run OCR extraction and AI review
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

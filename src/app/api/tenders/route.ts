@@ -91,10 +91,11 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: Record<string, unknown> = {};
+    let orConditions: Record<string, unknown>[] | null = null;
 
     // Company isolation: non-team_admin users see their own company's tenders + open tenders from other companies
     if (user!.role !== 'team_admin' && user!.companyId) {
-      where.OR = [
+      orConditions = [
         { companyId: user!.companyId },
         { status: 'open' },
       ];
@@ -107,15 +108,16 @@ export async function GET(request: NextRequest) {
         { location: { contains: search } },
       ];
       // If we already have an OR (from company filter), we need to combine with AND
-      if (where.OR) {
-        where.AND = where.OR.map((cond: Record<string, unknown>) => ({
+      if (orConditions) {
+        where.AND = orConditions.map((cond: Record<string, unknown>) => ({
           ...cond,
           OR: searchConditions,
         }));
-        delete where.OR;
       } else {
         where.OR = searchConditions;
       }
+    } else if (orConditions) {
+      where.OR = orConditions;
     }
 
     if (category) {

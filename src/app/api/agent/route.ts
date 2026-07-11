@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
         const docCompanyFilter = user!.companyId ? { companyId: user!.companyId } : {};
 
         const [userCount, pendingBids, pendingDocs, openTenders, activeProjects] = await Promise.all([
-          db.user.count(user!.companyId ? { where: { companyId: user!.companyId } } : {}),
+          db.user.count({ where: user!.companyId ? { companyId: user!.companyId } : undefined }),
           db.bid.count({ where: { status: 'pending_review', ...tenderCompanyFilter } }),
           db.document.count({ where: { status: 'pending', ...docCompanyFilter } }),
           db.tender.count({ where: { status: 'open' } }),
