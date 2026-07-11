@@ -513,3 +513,19 @@ Stage Summary:
 - Document AI Review: fully functional, gated behind OCR completion
 - Documents Vault UI: rich interaction with buttons, expandable text, review dialog
 - Applicants API already fixed in prior session (filters by createdBy + deadline)
+---
+Task ID: 7
+Agent: Main Agent
+Task: Fix hydration mismatch error in page.tsx
+
+Work Log:
+- Diagnosed hydration mismatch: server renders LandingPage (token=null), client reads localStorage token and renders different content
+- Added `mounted` state to defer reading client-only state until after hydration
+- Before mount: always render LandingPage (matching server HTML)
+- After mount: read token from localStorage and switch to appropriate screen
+- Applied eslint-disable comment for setMounted(true) inside useEffect (project convention)
+- Browser verification: zero hydration errors, page renders correctly
+
+Stage Summary:
+- Hydration mismatch fixed with mounted state pattern
+- Lint passes, no errors in browser console
