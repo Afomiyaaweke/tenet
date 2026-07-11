@@ -391,3 +391,28 @@ Stage Summary:
 - Expandable row detail panels
 - CSV export functionality
 - Zero lint errors, zero browser errors
+
+---
+Task ID: 10
+Agent: Main Agent
+Task: Return the project part as it was - restore Projects page functionality
+
+Work Log:
+- Investigated: Projects page showed "No projects yet" because database had 0 projects
+- Created sample project data from awarded bids:
+  - Road Construction Project (ETB 58M, 10 tasks, 5 milestones, 1 payment)
+  - IT Infrastructure Upgrade (ETB 22M, 7 tasks, 4 milestones, 1 payment)
+- Fixed /src/app/api/projects/route.ts: Added tasks and milestones to the include query so the Board view can compute task progress correctly (was only including _count, not the actual task arrays)
+- Browser verified: Projects page now shows 2 active projects with real progress data
+  - Board view: Cards show task counts (2/10, 1/7), next milestones, contract values
+  - List view: Table with Project, Tender, Contractor, Value, Status, Progress, Next Milestone columns
+  - Timeline/Gantt view: Month columns (May-Dec 26) with project bars
+  - Project detail: Kanban board with task management (Start →, ✓ Done buttons), Timeline, Payments, Chat tabs
+  - Dashboard: Shows "2 Active Projects, 18% average completion, ETB 80.0M Contract Value"
+- Zero lint errors, zero browser errors
+
+Stage Summary:
+- Projects page fully restored and functional with sample data
+- API fixed to include tasks/milestones for progress computation
+- All 3 project views (Board, List, Timeline) working
+- Project detail with Kanban task management working

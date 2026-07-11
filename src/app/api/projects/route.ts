@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
               user: { select: { id: true, email: true, profile: { select: { fullName: true, jobTitle: true } }, company: { select: { id: true, name: true } } } },
             },
           },
+          tasks: { select: { id: true, status: true, title: true, dueDate: true, order: true }, orderBy: { order: 'asc' } },
+          milestones: { select: { id: true, title: true, dueDate: true, completed: true }, orderBy: { dueDate: 'asc' } },
           _count: { select: { tasks: true, payments: true, milestones: true } },
         },
       }),
