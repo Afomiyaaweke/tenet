@@ -486,3 +486,30 @@ Stage Summary:
 - Document upload for bids works with auto-OCR option
 - Applicants spreadsheet has full document management with OCR and AI review per applicant
 - All lint checks pass, browser verification successful
+---
+Task ID: 3-5
+Agent: Main Agent
+Task: Add OCR and AI Review for documents from external sites
+
+Work Log:
+- Created `/api/document-ocr/[id]/route.ts` — POST triggers OCR via z-ai-web-dev-sdk Vision API, GET returns status/text
+- Created `/api/document-review/[id]/route.ts` — POST triggers AI review via z-ai-web-dev-sdk Chat API, GET returns status/result
+- Both routes have proper auth/access control (owner, company admin, tender creator)
+- OCR route reads file from uploads, converts to base64 data URL, uses Vision API (image_url for images, file_url for PDFs/docs)
+- AI Review route requires OCR to be completed first (returns 400 if not), uses Chat API with procurement review system prompt
+- AI Review produces structured JSON: complianceScore, completenessScore, riskLevel, findings, strengths, weaknesses, missingElements, recommendations
+- Updated Documents Vault component with comprehensive OCR & AI Review UI:
+  - 5 stat cards (Pending, Approved, Rejected, OCR Done, AI Reviewed)
+  - Per-document OCR button (blue/sky) with loading state
+  - Per-document AI Review button (purple) - disabled until OCR is complete
+  - Inline OCR text viewer (expandable)
+  - AI Review detail dialog with score cards, findings, strengths, weaknesses, missing elements, recommendations
+  - OCR/review status badges on document rows
+  - Bid document type support
+- Browser verification: all features work end-to-end — OCR extracts text from images, AI Review produces comprehensive analysis with scores
+
+Stage Summary:
+- Document OCR: fully functional using z-ai-web-dev-sdk Vision API
+- Document AI Review: fully functional, gated behind OCR completion
+- Documents Vault UI: rich interaction with buttons, expandable text, review dialog
+- Applicants API already fixed in prior session (filters by createdBy + deadline)

@@ -5,9 +5,9 @@ import ZAI from 'z-ai-web-dev-sdk';
 
 /**
  * POST /api/document-review/[id]
- * AI review of a document - analyzes the document content for
- * compliance, completeness, risk, and provides recommendations.
- * Uses OCR text if available, otherwise triggers OCR first.
+ * Triggers AI review processing for a document by its ID.
+ * Uses the z-ai-web-dev-sdk Chat Completions API to analyze document text
+ * and provide structured review feedback.
  */
 export async function POST(
   request: NextRequest,
@@ -19,31 +19,15 @@ export async function POST(
 
     const { id } = await params;
 
-    // Find the document
+    // Find the document with related data for access checks
     const doc = await db.document.findUnique({
       where: { id },
       include: {
-        user: { select: { id: true, companyId: true, profile: { select: { fullName: true } } } },
+        user: { select: { id: true, companyId: true } },
         bid: {
           select: {
-            id: true,
-            tenderId: true,
-            financialProposal: true,
-            technicalProposal: true,
-            timeline: true,
-            status: true,
             tender: {
-              select: {
-                id: true,
-                title: true,
-                scope: true,
-                budgetMin: true,
-                budgetMax: true,
-                deadline: true,
-                requiredDocs: true,
-                categoryTags: true,
-                createdBy: true,
-              },
+              select: { createdBy: true },
             },
           },
         },
@@ -57,40 +41,34 @@ export async function POST(
       );
     }
 
-    // Authorization
+    // Access rules:
+    // - Team admin can access any document in their company
+    // - Regular user can only access their own documents
+    // - If document has a bidId, the tender creator can also access it
     const isOwner = doc.userId === user!.id;
-    const isCompanyAdmin = user!.role === 'team_admin' && doc.user?.companyId === user!.companyId;
-    const isTenderCreator = doc.bid?.tender?.createdBy === user!.id;
+    const isCompanyAdmin =
+      user!.role === 'team_admin' && doc.user?.companyId === user!.companyId;
+    const isTenderCreator = doc.bidId ? doc.bid?.tender?.createdBy === user!.id : false;
 
     if (!isOwner && !isCompanyAdmin && !isTenderCreator) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: You cannot review this document' },
+        { success: false, error: 'Forbidden: You do not have access to this document' },
         { status: 403 }
       );
     }
 
-    // If already processing, return status
-    if (doc.aiReviewStatus === 'processing') {
-      return NextResponse.json({
-        success: true,
-        data: { id: doc.id, aiReviewStatus: doc.aiReviewStatus, aiReview: null },
-        message: 'AI review is already being processed',
-      });
-    }
-
-    // Need OCR text to review - if not completed, we need to do OCR first
-    if (!doc.ocrText && doc.ocrStatus !== 'completed') {
+    // If document has no OCR text yet, return error suggesting OCR first
+    if (doc.ocrStatus !== 'completed' || !doc.ocrText) {
       return NextResponse.json(
         {
           success: false,
           error: 'OCR must be completed before AI review. Please run OCR first.',
-          data: { id: doc.id, ocrStatus: doc.ocrStatus, aiReviewStatus: doc.aiReviewStatus },
         },
         { status: 400 }
       );
     }
 
-    // Mark as processing
+    // Set aiReviewStatus to 'processing'
     await db.document.update({
       where: { id },
       data: { aiReviewStatus: 'processing' },
@@ -99,104 +77,56 @@ export async function POST(
     try {
       const zai = await ZAI.create();
 
-      // Build context for the AI review
-      const tenderInfo = doc.bid?.tender;
-      const bidInfo = doc.bid;
-
-      const tenderContext = tenderInfo
-        ? `
-Tender: ${tenderInfo.title}
-Scope: ${tenderInfo.scope}
-Budget Range: ETB ${tenderInfo.budgetMin.toLocaleString()} - ${tenderInfo.budgetMax.toLocaleString()}
-Required Documents: ${tenderInfo.requiredDocs || 'Not specified'}
-Category: ${tenderInfo.categoryTags}
-Deadline: ${new Date(tenderInfo.deadline).toLocaleDateString()}
-${bidInfo ? `Bid Amount: ETB ${bidInfo.financialProposal.toLocaleString()}
-Bid Timeline: ${bidInfo.timeline}
-Bid Status: ${bidInfo.status}` : ''}`
-        : '';
-
-      const reviewPrompt = `You are an expert procurement document reviewer. Analyze the following document text and provide a comprehensive review.
-
-Document Type: ${doc.docType}
-Document Name: ${doc.fileName}
-${tenderContext}
-
-Document Content (OCR extracted):
----
-${doc.ocrText || '(No text extracted)'}
----
-
-Provide your review in the following JSON structure:
-{
-  "overallAssessment": "approved|conditionally_approved|rejected|needs_clarification",
-  "complianceScore": <0-100>,
-  "completenessScore": <0-100>,
-  "riskLevel": "low|medium|high|critical",
-  "findings": [
-    {
-      "category": "compliance|completeness|accuracy|risk|recommendation",
-      "severity": "info|warning|critical",
-      "description": "finding description"
-    }
-  ],
-  "strengths": ["list of strengths"],
-  "weaknesses": ["list of weaknesses or concerns"],
-  "missingElements": ["list of missing required elements"],
-  "recommendations": ["list of actionable recommendations"],
-  "summary": "Brief overall summary of the review"
-}
-
-Be thorough, objective, and specific. Focus on procurement compliance, document completeness, and risk assessment.`;
+      const ocrText = doc.ocrText;
 
       const completion = await zai.chat.completions.create({
         messages: [
           {
             role: 'assistant',
-            content: 'You are an expert procurement document reviewer. Analyze documents for compliance, completeness, risk, and provide detailed findings. Always respond with valid JSON only - no markdown, no code fences, just the raw JSON object.',
+            content: `You are an expert procurement document reviewer. Analyze the provided document text and produce a structured review in JSON format with these fields:
+- complianceScore: number 0-100 (how well the document meets procurement standards)
+- completenessScore: number 0-100 (how complete the document is)
+- riskLevel: "low" | "medium" | "high" (overall risk assessment)
+- findings: array of { type: "positive"|"negative"|"warning", title: string, description: string }
+- strengths: array of strings
+- weaknesses: array of strings
+- missingElements: array of strings (what's missing or incomplete)
+- recommendations: array of strings
+
+Respond ONLY with valid JSON, no other text.`,
           },
           {
             role: 'user',
-            content: reviewPrompt,
+            content: `Please review this document:\n\n${ocrText}`,
           },
         ],
         thinking: { type: 'disabled' },
       });
 
-      const responseText = completion.choices?.[0]?.message?.content || '';
+      const rawResponse = completion.choices?.[0]?.message?.content || '';
 
-      if (!responseText || responseText.trim().length === 0) {
+      if (!rawResponse || rawResponse.trim().length === 0) {
         throw new Error('AI review returned empty result');
       }
 
-      // Try to parse as JSON; if it fails, store as raw text
-      let reviewJson: string;
+      // Parse the response as JSON; if parsing fails, wrap as { summary: rawResponse }
+      let reviewData: Record<string, unknown>;
       try {
         // Clean up response - remove markdown code fences if present
-        const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        JSON.parse(cleaned); // validate it parses
-        reviewJson = cleaned;
+        const cleaned = rawResponse
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
+        reviewData = JSON.parse(cleaned);
       } catch {
-        // If not valid JSON, wrap it
-        reviewJson = JSON.stringify({
-          overallAssessment: 'needs_clarification',
-          complianceScore: 50,
-          completenessScore: 50,
-          riskLevel: 'medium',
-          findings: [],
-          strengths: [],
-          weaknesses: [],
-          missingElements: [],
-          recommendations: [],
-          summary: responseText,
-        });
+        reviewData = { summary: rawResponse };
       }
 
-      // Save AI review result
+      // Store as JSON string in aiReview field and update status
       const updated = await db.document.update({
         where: { id },
         data: {
-          aiReview: reviewJson,
+          aiReview: JSON.stringify(reviewData),
           aiReviewStatus: 'completed',
           aiReviewProcessedAt: new Date(),
         },
@@ -206,14 +136,15 @@ Be thorough, objective, and specific. Focus on procurement compliance, document 
         success: true,
         data: {
           id: updated.id,
-          aiReview: updated.aiReview,
           aiReviewStatus: updated.aiReviewStatus,
+          aiReview: updated.aiReview,
           aiReviewProcessedAt: updated.aiReviewProcessedAt,
         },
       });
     } catch (reviewError) {
       console.error('AI review processing error:', reviewError);
 
+      // On failure, set aiReviewStatus to 'failed'
       await db.document.update({
         where: { id },
         data: { aiReviewStatus: 'failed' },
@@ -239,7 +170,9 @@ Be thorough, objective, and specific. Focus on procurement compliance, document 
 
 /**
  * GET /api/document-review/[id]
- * Get the current AI review status and result for a document
+ * Gets the current AI review status and result for a document.
+ * aiReview is stored as a JSON string in the database — returned as-is
+ * (the frontend will parse it).
  */
 export async function GET(
   request: NextRequest,
@@ -260,7 +193,14 @@ export async function GET(
         aiReviewProcessedAt: true,
         userId: true,
         user: { select: { companyId: true } },
-        bid: { select: { tender: { select: { createdBy: true } } } },
+        bidId: true,
+        bid: {
+          select: {
+            tender: {
+              select: { createdBy: true },
+            },
+          },
+        },
       },
     });
 
@@ -271,23 +211,26 @@ export async function GET(
       );
     }
 
+    // Same access rules as POST
     const isOwner = doc.userId === user!.id;
-    const isCompanyAdmin = user!.role === 'team_admin' && doc.user?.companyId === user!.companyId;
-    const isTenderCreator = doc.bid?.tender?.createdBy === user!.id;
+    const isCompanyAdmin =
+      user!.role === 'team_admin' && doc.user?.companyId === user!.companyId;
+    const isTenderCreator = doc.bidId ? doc.bid?.tender?.createdBy === user!.id : false;
 
     if (!isOwner && !isCompanyAdmin && !isTenderCreator) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden' },
+        { success: false, error: 'Forbidden: You do not have access to this document' },
         { status: 403 }
       );
     }
 
+    // aiReview is stored as a JSON string — return it as-is (frontend will parse)
     return NextResponse.json({
       success: true,
       data: {
         id: doc.id,
-        aiReview: doc.aiReview,
         aiReviewStatus: doc.aiReviewStatus,
+        aiReview: doc.aiReview,
         aiReviewProcessedAt: doc.aiReviewProcessedAt,
       },
     });
