@@ -1,13 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readFile } from 'fs/promises';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import ZAI from 'z-ai-web-dev-sdk';
 
 /**
+ * Helper to determine MIME type from file extension
+ */
+function getMimeType(fileName: string): string {
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  const mimeMap: Record<string, string> = {
+    pdf: 'application/pdf',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    bmp: 'image/bmp',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    doc: 'application/msword',
+    txt: 'text/plain',
+  };
+  return mimeMap[ext] || 'application/octet-stream';
+}
+
+/**
+ * Helper to check if a file extension is an image type
+ */
+function isImageFile(fileName: string): boolean {
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
+}
+
+/**
  * POST /api/document-ocr/[id]
- * Extract text from a document using OCR (VLM with file_url).
- * Supports PDF, DOCX, images - reads the file from disk and sends
- * it as a base64 data URL to the VLM model.
+ * Triggers OCR processing for a document by its ID.
+ * Uses the z-ai-web-dev-sdk Vision API to extract text from documents.
  */
 export async function POST(
   request: NextRequest,
@@ -19,12 +47,18 @@ export async function POST(
 
     const { id } = await params;
 
-    // Find the document
+    // Find the document with related data for access checks
     const doc = await db.document.findUnique({
       where: { id },
       include: {
         user: { select: { id: true, companyId: true } },
-        bid: { select: { id: true, tenderId: true, tender: { select: { createdBy: true } } } },
+        bid: {
+          select: {
+            id: true,
+            tenderId: true,
+            tender: { select: { createdBy: true } },
+          },
+        },
       },
     });
 
@@ -35,25 +69,47 @@ export async function POST(
       );
     }
 
-    // Authorization: user must own the doc OR be team_admin of the company
-    // OR be the tender creator (for bid documents)
+    // Access control:
+    // - Team admin can access any document in their company
+    // - Regular user can only access their own documents
+    // - If document has a bidId, the tender creator can also access it
     const isOwner = doc.userId === user!.id;
-    const isCompanyAdmin = user!.role === 'team_admin' && doc.user?.companyId === user!.companyId;
+    const isCompanyAdmin =
+      user!.role === 'team_admin' && doc.user?.companyId === user!.companyId;
     const isTenderCreator = doc.bid?.tender?.createdBy === user!.id;
 
     if (!isOwner && !isCompanyAdmin && !isTenderCreator) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: You cannot OCR this document' },
+        { success: false, error: 'Forbidden: You do not have access to this document' },
         { status: 403 }
       );
     }
 
-    // If already processing, return status
+    // If already processing, return current status
     if (doc.ocrStatus === 'processing') {
       return NextResponse.json({
         success: true,
-        data: { id: doc.id, ocrStatus: doc.ocrStatus, ocrText: null },
+        data: {
+          id: doc.id,
+          ocrStatus: doc.ocrStatus,
+          ocrText: null,
+          ocrProcessedAt: null,
+        },
         message: 'OCR is already being processed',
+      });
+    }
+
+    // If already completed, return existing result
+    if (doc.ocrStatus === 'completed' && doc.ocrText) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: doc.id,
+          ocrStatus: doc.ocrStatus,
+          ocrText: doc.ocrText,
+          ocrProcessedAt: doc.ocrProcessedAt,
+        },
+        message: 'OCR already completed',
       });
     }
 
@@ -64,55 +120,44 @@ export async function POST(
     });
 
     try {
-      // Read the file from disk
-      const fs = await import('fs/promises');
-      const filePath = process.cwd() + '/uploads/' + doc.fileUrl.split('/uploads/')[1];
+      // Read the file from the uploads directory
+      // fileUrl is like "/uploads/filename.ext" — actual file is at process.cwd() + fileUrl
+      const filePath = process.cwd() + doc.fileUrl;
+      const fileBuffer = await readFile(filePath);
+      const base64Data = fileBuffer.toString('base64');
 
-      if (!filePath) {
-        throw new Error('Invalid file URL');
-      }
+      // Determine MIME type and create data URL
+      const mimeType = getMimeType(doc.fileName);
+      const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-      const fileBuffer = await fs.readFile(filePath);
-      const base64File = fileBuffer.toString('base64');
-
-      // Determine MIME type based on file extension
-      const ext = doc.fileName.toLowerCase().split('.').pop();
-      const mimeMap: Record<string, string> = {
-        pdf: 'application/pdf',
-        jpg: 'image/jpeg',
-        jpeg: 'image/jpeg',
-        png: 'image/png',
-        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        doc: 'application/msword',
-        txt: 'text/plain',
-      };
-      const mimeType = mimeMap[ext || ''] || 'application/octet-stream';
-      const dataUrl = `data:${mimeType};base64,${base64File}`;
-
-      // Use VLM to extract text from document
+      // Use z-ai-web-dev-sdk Vision API to extract text
       const zai = await ZAI.create();
 
-      // For PDFs and documents, use file_url type; for images, use image_url
-      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext || '');
+      // For images: use image_url type; for documents (pdf/docx/txt): use file_url type
+      const isImage = isImageFile(doc.fileName);
       const contentItem = isImage
         ? { type: 'image_url' as const, image_url: { url: dataUrl } }
         : { type: 'file_url' as const, file_url: { url: dataUrl } };
 
       const response = await zai.chat.completions.createVision({
+        model: 'default',
         messages: [
           {
             role: 'assistant',
             content: [
               {
                 type: 'text',
-                text: 'You are an expert OCR system. Extract ALL text from the provided document precisely. Preserve the document structure, headings, tables, and formatting as much as possible. Output only the extracted text content, no additional commentary.',
+                text: 'You are an expert OCR system. Extract ALL text from the provided document precisely. Preserve structure, headings, tables, and formatting. Output only the extracted text, no commentary.',
               },
             ],
           },
           {
             role: 'user',
             content: [
-              { type: 'text', text: 'Extract all text from this document. Preserve structure, headings, tables and formatting.' },
+              {
+                type: 'text',
+                text: 'Extract all text from this document. Preserve structure and formatting.',
+              },
               contentItem,
             ],
           },
@@ -122,11 +167,7 @@ export async function POST(
 
       const ocrText = response.choices?.[0]?.message?.content || '';
 
-      if (!ocrText || ocrText.trim().length === 0) {
-        throw new Error('OCR returned empty result');
-      }
-
-      // Save OCR result
+      // Update the document with OCR results
       const updated = await db.document.update({
         where: { id },
         data: {
@@ -140,15 +181,15 @@ export async function POST(
         success: true,
         data: {
           id: updated.id,
-          ocrText: updated.ocrText,
           ocrStatus: updated.ocrStatus,
+          ocrText: updated.ocrText,
           ocrProcessedAt: updated.ocrProcessedAt,
         },
       });
     } catch (ocrError) {
       console.error('OCR processing error:', ocrError);
 
-      // Mark as failed
+      // Mark as failed on error
       await db.document.update({
         where: { id },
         data: { ocrStatus: 'failed' },
@@ -174,7 +215,7 @@ export async function POST(
 
 /**
  * GET /api/document-ocr/[id]
- * Get the current OCR status and result for a document
+ * Gets the current OCR status and extracted text for a document.
  */
 export async function GET(
   request: NextRequest,
@@ -186,12 +227,13 @@ export async function GET(
 
     const { id } = await params;
 
+    // Find the document with related data for access checks
     const doc = await db.document.findUnique({
       where: { id },
       select: {
         id: true,
-        ocrText: true,
         ocrStatus: true,
+        ocrText: true,
         ocrProcessedAt: true,
         userId: true,
         user: { select: { companyId: true } },
@@ -206,8 +248,10 @@ export async function GET(
       );
     }
 
+    // Same access rules as POST
     const isOwner = doc.userId === user!.id;
-    const isCompanyAdmin = user!.role === 'team_admin' && doc.user?.companyId === user!.companyId;
+    const isCompanyAdmin =
+      user!.role === 'team_admin' && doc.user?.companyId === user!.companyId;
     const isTenderCreator = doc.bid?.tender?.createdBy === user!.id;
 
     if (!isOwner && !isCompanyAdmin && !isTenderCreator) {
@@ -221,8 +265,8 @@ export async function GET(
       success: true,
       data: {
         id: doc.id,
-        ocrText: doc.ocrText,
         ocrStatus: doc.ocrStatus,
+        ocrText: doc.ocrText,
         ocrProcessedAt: doc.ocrProcessedAt,
       },
     });

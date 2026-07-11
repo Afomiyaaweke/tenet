@@ -1,0 +1,958 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useRef } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api, Document } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    10→import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    11→import { toast } from 'sonner';
+    12→import {
+    13→  FileText, Upload, CheckCircle2, Clock, XCircle, Shield,
+    14→  Briefcase, Receipt, FolderOpen, Award, File, ArrowRight,
+    15→  Search, Filter, CloudUpload, FileUp, Trash2, Eye,
+    16→  Stamp, FileSignature, X, Languages,
+    17→  ScanSearch, Brain, Loader2, AlertTriangle, ChevronDown, ChevronUp,
+    18→  ThumbsUp, ThumbsDown, AlertOctagon, BarChart3, Sparkles,
+    19→} from 'lucide-react';
+    20→import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
+    21→import { InlineTranslator } from '@/components/translator';
+    22→
+    23→// ─── Helpers ────────────────────────────────────────────────────────
+    24→function formatFileSize(bytes: number): string {
+    25→  if (bytes === 0) return '0 B';
+    26→  const k = 1024;
+    27→  const sizes = ['B', 'KB', 'MB', 'GB'];
+    28→  const i = Math.floor(Math.log(bytes) / Math.log(k));
+    29→  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+    30→}
+    31→
+    32→function getFileExtension(fileName: string): string {
+    33→  const parts = fileName.split('.');
+    34→  return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : 'FILE';
+    35→}
+    36→
+    37→interface AIReviewData {
+    38→  complianceScore?: number;
+    39→  completenessScore?: number;
+    40→  riskLevel?: string;
+    41→  findings?: Array<{ type: string; title?: string; description: string; category?: string; severity?: string }>;
+    42→  strengths?: string[];
+    43→  weaknesses?: string[];
+    44→  missingElements?: string[];
+    45→  recommendations?: string[];
+    46→  summary?: string;
+    47→  overallAssessment?: string;
+    48→}
+    49→
+    50→export function DocumentsView() {
+    51→  const { user } = useAuthStore();
+    52→  const [documents, setDocuments] = useState<Document[]>([]);
+    53→  const [loading, setLoading] = useState(true);
+    54→  const [docType, setDocType] = useState('business_license');
+    55→  const [statusFilter, setStatusFilter] = useState<string>('all');
+    56→  const [typeFilter, setTypeFilter] = useState<string>('all');
+    57→  const fileRef = useRef<HTMLInputElement>(null);
+    58→  const [isDragging, setIsDragging] = useState(false);
+    59→  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    60→  const [stampSelectorOpen, setStampSelectorOpen] = useState(false);
+    61→  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+    62→  const [docStamps, setDocStamps] = useState<Record<string, SavedSignature[]>>({});
+    63→  const stampSigHook = useStampSignature();
+    64→  const [translateDocId, setTranslateDocId] = useState<string | null>(null);
+    65→
+    66→  // OCR & AI Review state
+    67→  const [ocrLoading, setOcrLoading] = useState<Set<string>>(new Set());
+    68→  const [reviewLoading, setReviewLoading] = useState<Set<string>>(new Set());
+    69→  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+    70→  const [expandedType, setExpandedType] = useState<'ocr' | 'review' | null>(null);
+    71→  const [docOcrText, setDocOcrText] = useState<Record<string, string>>({});
+    72→  const [docReview, setDocReview] = useState<Record<string, AIReviewData>>({});
+    73→  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+    74→  const [reviewDialogDocId, setReviewDialogDocId] = useState<string | null>(null);
+    75→
+    76→  const loadDocs = useCallback(async () => {
+    77→    setLoading(true);
+    78→    const res = await api.get('/documents');
+    79→    if (res.success) setDocuments(res.data);
+    80→    setLoading(false);
+    81→  }, []);
+    82→
+    83→  /* eslint-disable react-hooks/set-state-in-effect */
+    84→  useEffect(() => { loadDocs(); }, [loadDocs]);
+    85→  /* eslint-enable react-hooks/set-state-in-effect */
+    86→
+    87→  const handleUpload = async () => {
+    88→    const file = fileRef.current?.files?.[0] || selectedFile;
+    89→    if (!file) return;
+    90→    const formData = new FormData();
+    91→    formData.append('file', file);
+    92→    formData.append('docType', docType);
+    93→    formData.append('userId', user?.id || '');
+    94→    const res = await api.upload('/documents', formData);
+    95→    if (res.success) {
+    96→      toast.success('Document uploaded');
+    97→      setSelectedFile(null);
+    98→      if (fileRef.current) fileRef.current.value = '';
+    99→      loadDocs();
+   100→    } else toast.error(res.error || 'Upload failed');
+   101→  };
+   102→
+   103→  const handleDragOver = (e: React.DragEvent) => {
+   104→    e.preventDefault();
+   105→    e.stopPropagation();
+   106→    setIsDragging(true);
+   107→  };
+   108→
+   109→  const handleDragLeave = (e: React.DragEvent) => {
+   110→    e.preventDefault();
+   111→    e.stopPropagation();
+   112→    setIsDragging(false);
+   113→  };
+   114→
+   115→  const handleDrop = (e: React.DragEvent) => {
+   116→    e.preventDefault();
+   117→    e.stopPropagation();
+   118→    setIsDragging(false);
+   119→    const file = e.dataTransfer.files?.[0];
+   120→    if (file) {
+   121→      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+   122→      if (!allowedTypes.includes(file.type)) {
+   123→        toast.error('Only PDF, JPEG, and PNG files are allowed');
+   124→        return;
+   125→      }
+   126→      if (file.size > 10 * 1024 * 1024) {
+   127→        toast.error('File size must be under 10MB');
+   128→        return;
+   129→      }
+   130→      setSelectedFile(file);
+   131→    }
+   132→  };
+   133→
+   134→  // ── OCR Processing ──
+   135→  const handleRunOcr = useCallback(async (docId: string) => {
+   136→    setOcrLoading(prev => new Set(prev).add(docId));
+   137→    try {
+   138→      await api.post(`/document-ocr/${docId}`);
+   139→      // Poll for completion
+   140→      const poll = async (attempts = 0): Promise<void> => {
+   141→        if (attempts > 30) {
+   142→          toast.error('OCR processing timed out');
+   143→          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   144→          return;
+   145→        }
+   146→        await new Promise(r => setTimeout(r, 2000));
+   147→        const res = await api.get(`/document-ocr/${docId}`);
+   148→        if (res.success && res.data?.ocrStatus === 'completed') {
+   149→          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   150→          setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
+   151→          loadDocs();
+   152→          toast.success('OCR completed — text extracted successfully');
+   153→        } else if (res.success && res.data?.ocrStatus === 'failed') {
+   154→          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   155→          toast.error('OCR processing failed');
+   156→          loadDocs();
+   157→        } else {
+   158→          await poll(attempts + 1);
+   159→        }
+   160→      };
+   161→      poll();
+   162→    } catch {
+   163→      setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   164→      toast.error('Failed to start OCR');
+   165→    }
+   166→  }, [loadDocs]);
+   167→
+   168→  // ── AI Review Processing ──
+   169→  const handleRunReview = useCallback(async (docId: string) => {
+   170→    setReviewLoading(prev => new Set(prev).add(docId));
+   171→    try {
+   172→      const res = await api.post(`/document-review/${docId}`);
+   173→      if (!res.success && res.error?.includes('OCR must be completed')) {
+   174→        setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   175→        toast.error('Run OCR first before AI review');
+   176→        return;
+   177→      }
+   178→      // Poll for completion
+   179→      const poll = async (attempts = 0): Promise<void> => {
+   180→        if (attempts > 30) {
+   181→          toast.error('AI Review processing timed out');
+   182→          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   183→          return;
+   184→        }
+   185→        await new Promise(r => setTimeout(r, 2000));
+   186→        const pollRes = await api.get(`/document-review/${docId}`);
+   187→        if (pollRes.success && pollRes.data?.aiReviewStatus === 'completed') {
+   188→          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   189→          let reviewData = pollRes.data.aiReview || {};
+   190→          if (typeof reviewData === 'string') {
+   191→            try { reviewData = JSON.parse(reviewData); } catch { reviewData = { summary: reviewData }; }
+   192→          }
+   193→          setDocReview(prev => ({ ...prev, [docId]: reviewData as AIReviewData }));
+   194→          loadDocs();
+   195→          toast.success('AI Review completed');
+   196→        } else if (pollRes.success && pollRes.data?.aiReviewStatus === 'failed') {
+   197→          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   198→          toast.error('AI Review processing failed');
+   199→          loadDocs();
+   200→        } else {
+   201→          await poll(attempts + 1);
+   202→        }
+   203→      };
+   204→      poll();
+   205→    } catch {
+   206→      setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   207→      toast.error('Failed to start AI Review');
+   208→    }
+   209→  }, [loadDocs]);
+   210→
+   211→  // ── View OCR/Review detail ──
+   212→  const handleToggleExpand = useCallback(async (docId: string, type: 'ocr' | 'review') => {
+   213→    if (expandedDocId === docId && expandedType === type) {
+   214→      setExpandedDocId(null);
+   215→      setExpandedType(null);
+   216→      return;
+   217→    }
+   218→    setExpandedDocId(docId);
+   219→    setExpandedType(type);
+   220→    try {
+   221→      if (type === 'ocr' && !docOcrText[docId]) {
+   222→        const res = await api.get(`/document-ocr/${docId}`);
+   223→        if (res.success) {
+   224→          setDocOcrText(prev => ({ ...prev, [docId]: res.data?.ocrText || '' }));
+   225→        }
+   226→      } else if (type === 'review' && !docReview[docId]) {
+   227→        const res = await api.get(`/document-review/${docId}`);
+   228→        if (res.success) {
+   229→          let reviewData = res.data?.aiReview || {};
+   230→          if (typeof reviewData === 'string') {
+   231→            try { reviewData = JSON.parse(reviewData); } catch { reviewData = { summary: reviewData }; }
+   232→          }
+   233→          setDocReview(prev => ({ ...prev, [docId]: reviewData as AIReviewData }));
+   234→        }
+   235→      }
+   236→    } catch {
+   237→      toast.error('Failed to load document details');
+   238→    }
+   239→  }, [expandedDocId, expandedType, docOcrText, docReview]);
+   240→
+   241→  const statusIcon = (status: string) => {
+   242→    switch (status) {
+   243→      case 'approved': return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
+   244→      case 'rejected': return <XCircle className="h-4 w-4 text-rose-600" />;
+   245→      default: return <Clock className="h-4 w-4 text-amber-600" />;
+   246→    }
+   247→  };
+   248→
+   249→  const statusBadge = (status: string) => {
+   250→    switch (status) {
+   251→      case 'approved': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   252→      case 'rejected': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   253→      default: return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
+   254→    }
+   255→  };
+   256→
+   257→  const statusDot = (status: string) => {
+   258→    switch (status) {
+   259→      case 'approved': return 'bg-emerald-500';
+   260→      case 'rejected': return 'bg-rose-500';
+   261→      default: return 'bg-amber-500';
+   262→    }
+   263→  };
+   264→
+   265→  const ocrStatusBadge = (status: string) => {
+   266→    switch (status) {
+   267→      case 'completed': return 'bg-emerald-100 text-emerald-700';
+   268→      case 'processing': return 'bg-sky-100 text-sky-700 animate-pulse';
+   269→      case 'failed': return 'bg-rose-100 text-rose-700';
+   270→      default: return 'bg-gray-100 text-gray-500';
+   271→    }
+   272→  };
+   273→
+   274→  const reviewStatusBadge = (status: string) => {
+   275→    switch (status) {
+   276→      case 'completed': return 'bg-emerald-100 text-emerald-700';
+   277→      case 'processing': return 'bg-sky-100 text-sky-700 animate-pulse';
+   278→      case 'failed': return 'bg-rose-100 text-rose-700';
+   279→      default: return 'bg-gray-100 text-gray-500';
+   280→    }
+   281→  };
+   282→
+   283→  const docTypeConfig = (type: string) => {
+   284→    switch (type) {
+   285→      case 'business_license': return { icon: Briefcase, bg: 'bg-emerald-50', color: 'text-emerald-600', label: 'Business License' };
+   286→      case 'tax_clearance': return { icon: Receipt, bg: 'bg-amber-50', color: 'text-amber-600', label: 'Tax Clearance' };
+   287→      case 'portfolio': return { icon: FolderOpen, bg: 'bg-teal-50', color: 'text-teal-600', label: 'Portfolio' };
+   288→      case 'certificate': return { icon: Award, bg: 'bg-purple-50', color: 'text-purple-600', label: 'Certificate' };
+   289→      case 'bid_attachment': return { icon: FileText, bg: 'bg-sky-50', color: 'text-sky-600', label: 'Bid Document' };
+   290→      default: return { icon: File, bg: 'bg-muted/50', color: 'text-muted-foreground', label: type.replace('_', ' ') };
+   291→    }
+   292→  };
+   293→
+   294→  const pendingCount = documents.filter(d => d.status === 'pending').length;
+   295→  const approvedCount = documents.filter(d => d.status === 'approved').length;
+   296→  const rejectedCount = documents.filter(d => d.status === 'rejected').length;
+   297→  const ocrCompletedCount = documents.filter(d => d.ocrStatus === 'completed').length;
+   298→  const reviewCompletedCount = documents.filter(d => d.aiReviewStatus === 'completed').length;
+   299→
+   300→  // ── Filtered Docs ──
+   301→  const filteredDocs = documents.filter(d => {
+   302→    const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
+   303→    const matchesType = typeFilter === 'all' || d.docType === typeFilter;
+   304→    return matchesStatus && matchesType;
+   305→  });
+   306→
+   307→  // ── Review dialog data ──
+   308→  const reviewDialogData = reviewDialogDocId ? docReview[reviewDialogDocId] : null;
+   309→  const reviewDialogDoc = documents.find(d => d.id === reviewDialogDocId);
+   310→
+   311→  const getScoreColor = (score: number) => {
+   312→    if (score >= 80) return 'text-emerald-600';
+   313→    if (score >= 60) return 'text-amber-600';
+   314→    return 'text-rose-600';
+   315→  };
+   316→
+   317→  const getScoreBg = (score: number) => {
+   318→    if (score >= 80) return 'bg-emerald-50';
+   319→    if (score >= 60) return 'bg-amber-50';
+   320→    return 'bg-rose-50';
+   321→  };
+   322→
+   323→  const getRiskColor = (risk: string) => {
+   324→    switch (risk?.toLowerCase()) {
+   325→      case 'low': return 'bg-emerald-100 text-emerald-700';
+   326→      case 'medium': return 'bg-amber-100 text-amber-700';
+   327→      case 'high': case 'critical': return 'bg-rose-100 text-rose-700';
+   328→      default: return 'bg-gray-100 text-gray-700';
+   329→    }
+   330→  };
+   331→
+   332→  return (
+   333→    <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto animate-[fadeIn_0.3s_ease-out]">
+   334→      {/* Header */}
+   335→      <div className="flex items-center gap-4">
+   336→        <div className="p-3 rounded-2xl gradient-teal shadow-md flex-shrink-0 shadow-teal-200/40">
+   337→          <FileText className="h-6 w-6 text-white" />
+   338→        </div>
+   339→        <div>
+   340→          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   341→            <span className="text-gradient-emerald">Document</span> Vault
+   342→          </h2>
+   343→          <p className="text-muted-foreground text-sm mt-0.5">Upload, OCR scan, and AI-review your documents</p>
+   344→        </div>
+   345→      </div>
+   346→
+   347→      {/* Verification Status */}
+   348→      <div>
+   349→        <Card className="premium-shadow-lg rounded-xl border-0 bg-card">
+   350→          <CardContent className="p-5 flex items-center gap-4">
+   351→            <div className={`p-3 rounded-2xl flex-shrink-0 ${user?.profile?.verified ? 'gradient-emerald' : 'gradient-amber'}`}>
+   352→              <Shield className="h-6 w-6 text-white" />
+   353→            </div>
+   354→            <div className="min-w-0 flex-1">
+   355→              <p className="font-semibold text-sm">{user?.profile?.verified ? 'Verified Account' : 'Verification Pending'}</p>
+   356→              <p className="text-sm text-muted-foreground mt-0.5">
+   357→                {user?.profile?.verified
+   358→                  ? 'Your account is verified. You can submit bids.'
+   359→                  : 'Upload your documents for admin review to get verified.'}
+   360→              </p>
+   361→            </div>
+   362→            <div className="ml-auto flex-shrink-0">
+   363→              {user?.profile?.verified ? (
+   364→                <Badge className="bg-emerald-100 text-emerald-700 border-0 rounded-lg hover:bg-emerald-100">
+   365→                  <CheckCircle2 className="h-3 w-3 mr-1" /> Verified
+   366→                </Badge>
+   367→              ) : (
+   368→                <Badge className="bg-amber-100 text-amber-700 border-0 rounded-lg hover:bg-amber-100">
+   369→                  <Clock className="h-3 w-3 mr-1" /> Pending
+   370→                </Badge>
+   371→              )}
+   372→            </div>
+   373→          </CardContent>
+   374→        </Card>
+   375→      </div>
+   376→
+   377→      {/* Stats Summary */}
+   378→      {!loading && documents.length > 0 && (
+   379→        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+   380→          {[
+   381→            { count: pendingCount, label: 'Pending', icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+   382→            { count: approvedCount, label: 'Approved', icon: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+   383→            { count: rejectedCount, label: 'Rejected', icon: XCircle, bg: 'bg-rose-50', color: 'text-rose-600' },
+   384→            { count: ocrCompletedCount, label: 'OCR Done', icon: ScanSearch, bg: 'bg-sky-50', color: 'text-sky-600' },
+   385→            { count: reviewCompletedCount, label: 'AI Reviewed', icon: Brain, bg: 'bg-purple-50', color: 'text-purple-600' },
+   386→          ].map(stat => (
+   387→            <div className="hover:-translate-y-[3px] transition-all duration-200" key={stat.label}>
+   388→              <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200 h-full">
+   389→                <CardContent className="p-3 flex items-center gap-2">
+   390→                  <div className={`p-1.5 rounded-lg ${stat.bg} flex-shrink-0`}>
+   391→                    <stat.icon className={`h-3.5 w-3.5 ${stat.color}`} />
+   392→                  </div>
+   393→                  <div>
+   394→                    <p className="text-lg font-bold">{stat.count}</p>
+   395→                    <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+   396→                  </div>
+   397→                </CardContent>
+   398→              </Card>
+   399→            </div>
+   400→          ))}
+   401→        </div>
+   402→      )}
+   403→
+   404→      {/* Upload Section with Drag-Drop */}
+   405→      <div>
+   406→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+   407→          <CardHeader className="pb-3">
+   408→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   409→              <div className="p-1.5 rounded-lg gradient-emerald">
+   410→                <Upload className="h-3.5 w-3.5 text-white" />
+   411→              </div>
+   412→              Upload Document
+   413→            </CardTitle>
+   414→          </CardHeader>
+   415→          <CardContent className="space-y-4">
+   416→            {/* Drag-drop zone */}
+   417→            <div
+   418→              onDragOver={handleDragOver}
+   419→              onDragLeave={handleDragLeave}
+   420→              onDrop={handleDrop}
+   421→              className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
+   422→                isDragging
+   423→                  ? 'border-emerald-400 bg-emerald-50/50 scale-[1.01]'
+   424→                  : 'border-border/60 bg-muted/20 hover:border-emerald-300 hover:bg-primary/10'
+   425→              }`}
+   426→            >
+   427→              <div className="flex flex-col items-center gap-2">
+   428→                <div className={`p-3 rounded-2xl transition-colors ${isDragging ? 'gradient-emerald' : 'bg-emerald-50'}`}>
+   429→                  <CloudUpload className={`h-6 w-6 ${isDragging ? 'text-white' : 'text-emerald-600'}`} />
+   430→                </div>
+   431→                <div>
+   432→                  <p className="text-sm font-semibold text-foreground">
+   433→                    {isDragging ? 'Drop your file here' : 'Drag & drop your file here'}
+   434→                  </p>
+   435→                  <p className="text-xs text-muted-foreground mt-0.5">PDF, JPEG, PNG — Max 10MB</p>
+   436→                </div>
+   437→                <Button
+   438→                  variant="ghost"
+   439→                  size="sm"
+   440→                  className="text-xs text-emerald-600 hover:text-emerald-700 hover:bg-primary/10"
+   441→                  onClick={() => fileRef.current?.click()}
+   442→                >
+   443→                  <FileUp className="h-3.5 w-3.5 mr-1" /> Or browse files
+   444→                </Button>
+   445→                <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+   446→                  onChange={e => {
+   447→                    const f = e.target.files?.[0];
+   448→                    if (f) setSelectedFile(f);
+   449→                  }} />
+   450→              </div>
+   451→            </div>
+   452→
+   453→            {/* Selected file preview */}
+   454→            {selectedFile && (
+   455→              <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 animate-[fadeIn_0.3s_ease-out]">
+   456→                <div className="p-2 rounded-lg bg-emerald-100 flex-shrink-0">
+   457→                  <FileText className="h-4 w-4 text-emerald-600" />
+   458→                </div>
+   459→                <div className="min-w-0 flex-1">
+   460→                  <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+   461→                  <p className="text-xs text-muted-foreground">{getFileExtension(selectedFile.name)} &middot; {formatFileSize(selectedFile.size)}</p>
+   462→                </div>
+   463→                <Button
+   464→                  variant="ghost"
+   465→                  size="sm"
+   466→                  className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+   467→                  onClick={() => { setSelectedFile(null); if (fileRef.current) fileRef.current.value = ''; }}
+   468→                >
+   469→                  <Trash2 className="h-3.5 w-3.5" />
+   470→                </Button>
+   471→              </div>
+   472→            )}
+   473→
+   474→            {/* Type selector + Upload button */}
+   475→            <div className="grid grid-cols-2 gap-4">
+   476→              <div className="space-y-2">
+   477→                <label className="text-sm font-medium">Document Type</label>
+   478→                <Select value={docType} onValueChange={setDocType}>
+   479→                  <SelectTrigger className="rounded-xl bg-muted/50 border-border/60">
+   480→                    <SelectValue />
+   481→                  </SelectTrigger>
+   482→                  <SelectContent>
+   483→                    <SelectItem value="business_license">Business License</SelectItem>
+   484→                    <SelectItem value="tax_clearance">Tax Clearance</SelectItem>
+   485→                    <SelectItem value="portfolio">Portfolio</SelectItem>
+   486→                    <SelectItem value="certificate">Certificate</SelectItem>
+   487→                    <SelectItem value="other">Other</SelectItem>
+   488→                  </SelectContent>
+   489→                </Select>
+   490→              </div>
+   491→              <div className="flex items-end">
+   492→                <Button
+   493→                  className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+   494→                  onClick={handleUpload}
+   495→                  disabled={!selectedFile}
+   496→                >
+   497→                  <Upload className="h-4 w-4 mr-2" /> Upload Document
+   498→                </Button>
+   499→              </div>
+   500→            </div>
+   501→          </CardContent>
+   502→        </Card>
+   503→      </div>
+   504→
+   505→      {/* Documents List */}
+   506→      <div>
+   507→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+   508→          <CardHeader className="pb-3">
+   509→            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   510→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   511→                <div className="p-1.5 rounded-lg gradient-teal">
+   512→                  <FolderOpen className="h-3.5 w-3.5 text-white" />
+   513→                </div>
+   514→                My Documents
+   515→                <Badge className="text-[10px] px-1.5 py-0 border-0 bg-teal-50 text-teal-700 font-medium hover:bg-teal-50">
+   516→                  {filteredDocs.length} of {documents.length}
+   517→                </Badge>
+   518→              </CardTitle>
+   519→              {/* Filters */}
+   520→              <div className="flex items-center gap-2">
+   521→                <select
+   522→                  value={typeFilter}
+   523→                  onChange={e => setTypeFilter(e.target.value)}
+   524→                  className="h-7 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
+   525→                >
+   526→                  <option value="all">All Types</option>
+   527→                  <option value="business_license">Business License</option>
+   528→                  <option value="tax_clearance">Tax Clearance</option>
+   529→                  <option value="portfolio">Portfolio</option>
+   530→                  <option value="certificate">Certificate</option>
+   531→                  <option value="bid_attachment">Bid Document</option>
+   532→                  <option value="other">Other</option>
+   533→                </select>
+   534→                <select
+   535→                  value={statusFilter}
+   536→                  onChange={e => setStatusFilter(e.target.value)}
+   537→                  className="h-7 text-xs rounded-lg bg-muted/50 border border-border/60 px-2 focus:ring-primary focus:outline-none"
+   538→                >
+   539→                  <option value="all">All Status</option>
+   540→                  <option value="pending">Pending</option>
+   541→                  <option value="approved">Approved</option>
+   542→                  <option value="rejected">Rejected</option>
+   543→                </select>
+   544→              </div>
+   545→            </div>
+   546→          </CardHeader>
+   547→          <CardContent className="space-y-3">
+   548→            {loading ? (
+   549→              <div className="space-y-3">
+   550→                {[1, 2, 3].map(i => (
+   551→                  <div key={i} className="h-14 bg-muted/50 rounded-xl animate-pulse" />
+   552→                ))}
+   553→              </div>
+   554→            ) : filteredDocs.length === 0 ? (
+   555→              <div className="text-center py-8">
+   556→                <div className="p-3 rounded-2xl gradient-teal w-fit mx-auto mb-4">
+   557→                  <FileText className="h-8 w-8 text-white" />
+   558→                </div>
+   559→                <p className="text-sm font-medium">{statusFilter !== 'all' || typeFilter !== 'all' ? 'No documents match your filters' : 'No documents uploaded yet'}</p>
+   560→                <p className="text-xs text-muted-foreground mt-1">
+   561→                  {statusFilter !== 'all' || typeFilter !== 'all' ? 'Try changing your filter settings' : 'Upload your first document to get started'}
+   562→                </p>
+   563→                {(statusFilter !== 'all' || typeFilter !== 'all') && (
+   564→                  <Button variant="ghost" size="sm" className="text-xs mt-2 text-emerald-600 hover:text-emerald-700" onClick={() => { setStatusFilter('all'); setTypeFilter('all'); }}>
+   565→                    Clear filters
+   566→                  </Button>
+   567→                )}
+   568→              </div>
+   569→            ) : (
+   570→              filteredDocs.map((doc) => {
+   571→                  const dtConfig = docTypeConfig(doc.docType);
+   572→                  const DtIcon = dtConfig.icon;
+   573→                  const isOcrLoading = ocrLoading.has(doc.id);
+   574→                  const isReviewLoading = reviewLoading.has(doc.id);
+   575→                  const isExpanded = expandedDocId === doc.id;
+   576→                  return (
+   577→                    <div key={doc.id}>
+   578→                      {/* Main document row */}
+   579→                      <div className="p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]">
+   580→                        {/* Top row: doc info + action buttons */}
+   581→                        <div className="flex items-center justify-between">
+   582→                          <div className="flex items-center gap-3 min-w-0 flex-1">
+   583→                            <div className={`p-2 rounded-lg ${dtConfig.bg} flex-shrink-0`}>
+   584→                              <DtIcon className={`h-4 w-4 ${dtConfig.color}`} />
+   585→                            </div>
+   586→                            <div className="min-w-0">
+   587→                              <div className="flex items-center gap-1.5 flex-wrap">
+   588→                                <span className={`h-1.5 w-1.5 rounded-full ${statusDot(doc.status)}`} />
+   589→                                <p className="text-sm font-medium">{dtConfig.label}</p>
+   590→                                {/* OCR status indicator */}
+   591→                                {doc.ocrStatus === 'completed' && (
+   592→                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 hover:bg-emerald-50 h-4">
+   593→                                    <ScanSearch className="h-2.5 w-2.5 mr-0.5" /> OCR
+   594→                                  </Badge>
+   595→                                )}
+   596→                                {doc.ocrStatus === 'processing' && (
+   597→                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-sky-50 text-sky-600 hover:bg-sky-50 h-4 animate-pulse">
+   598→                                    <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> OCR
+   599→                                  </Badge>
+   600→                                )}
+   601→                                {doc.ocrStatus === 'failed' && (
+   602→                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-rose-50 text-rose-600 hover:bg-rose-50 h-4">
+   603→                                    <XCircle className="h-2.5 w-2.5 mr-0.5" /> OCR
+   604→                                  </Badge>
+   605→                                )}
+   606→                                {/* AI Review status indicator */}
+   607→                                {doc.aiReviewStatus === 'completed' && (
+   608→                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-purple-50 text-purple-600 hover:bg-purple-50 h-4">
+   609→                                    <Brain className="h-2.5 w-2.5 mr-0.5" /> Reviewed
+   610→                                  </Badge>
+   611→                                )}
+   612→                                {doc.aiReviewStatus === 'processing' && (
+   613→                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-sky-50 text-sky-600 hover:bg-sky-50 h-4 animate-pulse">
+   614→                                    <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> Reviewing
+   615→                                  </Badge>
+   616→                                )}
+   617→                              </div>
+   618→                              <p className="text-xs text-muted-foreground">
+   619→                                {doc.fileName} &middot; {new Date(doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   620→                              </p>
+   621→                              {doc.reviewNotes && (
+   622→                                <p className="text-xs mt-1 flex items-center gap-1">
+   623→                                  {doc.status === 'approved' ? (
+   624→                                    <span className="text-emerald-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
+   625→                                  ) : doc.status === 'rejected' ? (
+   626→                                    <span className="text-rose-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
+   627→                                  ) : (
+   628→                                    <span className="text-amber-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
+   629→                                  )}
+   630→                                </p>
+   631→                              )}
+   632→                            </div>
+   633→                          </div>
+   634→                          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+   635→                            {/* OCR button */}
+   636→                            <Button
+   637→                              variant="ghost"
+   638→                              size="sm"
+   639→                              className="h-6 px-2 text-[10px] text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded-lg"
+   640→                              disabled={isOcrLoading || doc.ocrStatus === 'processing'}
+   641→                              onClick={() => handleRunOcr(doc.id)}
+   642→                            >
+   643→                              {isOcrLoading || doc.ocrStatus === 'processing' ? (
+   644→                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+   645→                              ) : (
+   646→                                <ScanSearch className="h-3 w-3 mr-1" />
+   647→                              )}
+   648→                              {doc.ocrStatus === 'completed' ? 'Re-OCR' : doc.ocrStatus === 'processing' ? 'OCR...' : 'OCR'}
+   649→                            </Button>
+   650→                            {/* AI Review button */}
+   651→                            <Button
+   652→                              variant="ghost"
+   653→                              size="sm"
+   654→                              className="h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg"
+   655→                              disabled={isReviewLoading || doc.aiReviewStatus === 'processing' || (doc.ocrStatus !== 'completed' && doc.aiReviewStatus !== 'completed')}
+   656→                              onClick={() => handleRunReview(doc.id)}
+   657→                              title={doc.ocrStatus !== 'completed' && doc.aiReviewStatus !== 'completed' ? 'Run OCR first' : 'Run AI Review'}
+   658→                            >
+   659→                              {isReviewLoading || doc.aiReviewStatus === 'processing' ? (
+   660→                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+   661→                              ) : (
+   662→                                <Brain className="h-3 w-3 mr-1" />
+   663→                              )}
+   664→                              {doc.aiReviewStatus === 'completed' ? 'Re-Review' : doc.aiReviewStatus === 'processing' ? 'Reviewing' : 'AI Review'}
+   665→                            </Button>
+   666→                            {/* View OCR */}
+   667→                            {doc.ocrStatus === 'completed' && (
+   668→                              <Button
+   669→                                variant="ghost"
+   670→                                size="sm"
+   671→                                className="h-6 px-2 text-[10px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg"
+   672→                                onClick={() => handleToggleExpand(doc.id, 'ocr')}
+   673→                              >
+   674→                                <Eye className="h-3 w-3 mr-1" />
+   675→                                OCR Text
+   676→                                {isExpanded && expandedType === 'ocr' ? <ChevronUp className="h-2.5 w-2.5 ml-0.5" /> : <ChevronDown className="h-2.5 w-2.5 ml-0.5" />}
+   677→                              </Button>
+   678→                            )}
+   679→                            {/* View Review */}
+   680→                            {doc.aiReviewStatus === 'completed' && (
+   681→                              <Button
+   682→                                variant="ghost"
+   683→                                size="sm"
+   684→                                className="h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg"
+   685→                                onClick={() => { setReviewDialogDocId(doc.id); setReviewDialogOpen(true); }}
+   686→                              >
+   687→                                <BarChart3 className="h-3 w-3 mr-1" />
+   688→                                Review
+   689→                              </Button>
+   690→                            )}
+   691→                            {/* Sign & Stamp button */}
+   692→                            <Button
+   693→                              variant="ghost"
+   694→                              size="sm"
+   695→                              className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
+   696→                              onClick={() => { setSelectedDocId(doc.id); setStampSelectorOpen(true); }}
+   697→                            >
+   698→                              <Stamp className="h-3 w-3 mr-1" /> Stamp
+   699→                            </Button>
+   700→                            {/* Translate button */}
+   701→                            <Button
+   702→                              variant="ghost"
+   703→                              size="sm"
+   704→                              className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
+   705→                              onClick={() => setTranslateDocId(translateDocId === doc.id ? null : doc.id)}
+   706→                            >
+   707→                              <Languages className="h-3 w-3 mr-1" /> {translateDocId === doc.id ? 'Hide' : 'Translate'}
+   708→                            </Button>
+   709→                            {/* Status badge */}
+   710→                            <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${statusBadge(doc.status)} flex-shrink-0`}>{doc.status}</Badge>
+   711→                          </div>
+   712→                        </div>
+   713→
+   714→                        {/* Applied stamps for this document */}
+   715→                        {docStamps[doc.id] && docStamps[doc.id].length > 0 && (
+   716→                          <div className="flex items-center gap-2 mt-2 ml-11">
+   717→                            {docStamps[doc.id].map((stamp, sIdx) => (
+   718→                              <div key={`${stamp.id}-${sIdx}`} className="flex items-center gap-1.5 p-1 bg-orange-50/50 border border-orange-100 rounded-lg">
+   719→                                <div className="w-6 h-5 bg-white rounded overflow-hidden p-0.5">
+   720→                                  <img src={stamp.dataUrl} alt={stamp.label} className="max-w-full max-h-full object-contain" />
+   721→                                </div>
+   722→                                <span className="text-[9px] text-orange-700 font-medium">{stamp.label}</span>
+   723→                                <button
+   724→                                  className="h-3.5 w-3.5 rounded-full hover:bg-orange-100 flex items-center justify-center"
+   725→                                  onClick={() => setDocStamps(prev => ({
+   726→                                    ...prev,
+   727→                                    [doc.id]: (prev[doc.id] || []).filter((_, i) => i !== sIdx),
+   728→                                  }))}
+   729→                                >
+   730→                                  <X className="h-2.5 w-2.5 text-orange-400" />
+   731→                                </button>
+   732→                              </div>
+   733→                            ))}
+   734→                          </div>
+   735→                        )}
+   736→
+   737→                        {/* Inline translator for this document */}
+   738→                        {translateDocId === doc.id && (
+   739→                          <div className="ml-11 mt-2">
+   740→                            <InlineTranslator text={`Document: ${doc.fileName}\nType: ${doc.docType}\nStatus: ${doc.status}${doc.reviewNotes ? '\nReview: ' + doc.reviewNotes : ''}${docOcrText[doc.id] ? '\nOCR Text: ' + docOcrText[doc.id].substring(0, 500) : ''}`} />
+   741→                          </div>
+   742→                        )}
+   743→
+   744→                        {/* Expanded OCR text */}
+   745→                        {isExpanded && expandedType === 'ocr' && (
+   746→                          <div className="mt-3 ml-0 p-3 bg-emerald-50/30 border border-emerald-100 rounded-lg animate-[fadeIn_0.2s_ease-out]">
+   747→                            <div className="flex items-center gap-2 mb-2">
+   748→                              <ScanSearch className="h-4 w-4 text-emerald-600" />
+   749→                              <p className="text-xs font-semibold text-emerald-700">Extracted Text (OCR)</p>
+   750→                              {doc.ocrProcessedAt && (
+   751→                                <span className="text-[9px] text-muted-foreground">
+   752→                                  Processed {new Date(doc.ocrProcessedAt).toLocaleString()}
+   753→                                </span>
+   754→                              )}
+   755→                            </div>
+   756→                            <div className="max-h-64 overflow-y-auto text-xs text-foreground/80 whitespace-pre-wrap bg-white/60 p-3 rounded-lg border border-emerald-100/50 leading-relaxed">
+   757→                              {docOcrText[doc.id] || 'Loading...'}
+   758→                            </div>
+   759→                          </div>
+   760→                        )}
+   761→
+   762→                        {/* Expanded AI Review inline (brief) */}
+   763→                        {isExpanded && expandedType === 'review' && docReview[doc.id] && (
+   764→                          <div className="mt-3 ml-0 p-3 bg-purple-50/30 border border-purple-100 rounded-lg animate-[fadeIn_0.2s_ease-out]">
+   765→                            <div className="flex items-center gap-2 mb-2">
+   766→                              <Brain className="h-4 w-4 text-purple-600" />
+   767→                              <p className="text-xs font-semibold text-purple-700">AI Review Summary</p>
+   768→                            </div>
+   769→                            <p className="text-xs text-foreground/70">{docReview[doc.id]?.summary || 'No summary available'}</p>
+   770→                          </div>
+   771→                        )}
+   772→                      </div>
+   773→                    </div>
+   774→                  );
+   775→                })
+   776→            )}
+   777→          </CardContent>
+   778→        </Card>
+   779→      </div>
+   780→
+   781→      {/* AI Review Detail Dialog */}
+   782→      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+   783→        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+   784→          <DialogHeader>
+   785→            <DialogTitle className="flex items-center gap-2">
+   786→              <div className="p-1.5 rounded-lg bg-purple-50">
+   787→                <Brain className="h-4 w-4 text-purple-600" />
+   788→              </div>
+   789→              AI Document Review
+   790→              {reviewDialogDoc && (
+   791→                <span className="text-sm font-normal text-muted-foreground">
+   792→                  — {reviewDialogDoc.fileName}
+   793→                </span>
+   794→              )}
+   795→            </DialogTitle>
+   796→          </DialogHeader>
+   797→          {reviewDialogData ? (
+   798→            <div className="space-y-5 pt-2">
+   799→              {/* Score cards */}
+   800→              <div className="grid grid-cols-3 gap-3">
+   801→                {reviewDialogData.complianceScore !== undefined && (
+   802→                  <div className={`p-3 rounded-xl text-center ${getScoreBg(reviewDialogData.complianceScore)}`}>
+   803→                    <p className={`text-2xl font-bold ${getScoreColor(reviewDialogData.complianceScore)}`}>
+   804→                      {reviewDialogData.complianceScore}
+   805→                    </p>
+   806→                    <p className="text-[10px] text-muted-foreground mt-0.5">Compliance</p>
+   807→                  </div>
+   808→                )}
+   809→                {reviewDialogData.completenessScore !== undefined && (
+   810→                  <div className={`p-3 rounded-xl text-center ${getScoreBg(reviewDialogData.completenessScore)}`}>
+   811→                    <p className={`text-2xl font-bold ${getScoreColor(reviewDialogData.completenessScore)}`}>
+   812→                      {reviewDialogData.completenessScore}
+   813→                    </p>
+   814→                    <p className="text-[10px] text-muted-foreground mt-0.5">Completeness</p>
+   815→                  </div>
+   816→                )}
+   817→                {reviewDialogData.riskLevel && (
+   818→                  <div className="p-3 rounded-xl text-center bg-muted/30">
+   819→                    <Badge className={`${getRiskColor(reviewDialogData.riskLevel)} text-xs px-2 py-0.5`}>
+   820→                      {reviewDialogData.riskLevel.toUpperCase()}
+   821→                    </Badge>
+   822→                    <p className="text-[10px] text-muted-foreground mt-1.5">Risk Level</p>
+   823→                  </div>
+   824→                )}
+   825→              </div>
+   826→
+   827→              {/* Summary */}
+   828→              {reviewDialogData.summary && (
+   829→                <div>
+   830→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Summary</h4>
+   831→                  <p className="text-sm text-foreground/80 bg-muted/30 p-3 rounded-lg">{reviewDialogData.summary}</p>
+   832→                </div>
+   833→              )}
+   834→
+   835→              {/* Findings */}
+   836→              {reviewDialogData.findings && reviewDialogData.findings.length > 0 && (
+   837→                <div>
+   838→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Key Findings</h4>
+   839→                  <div className="space-y-2">
+   840→                    {reviewDialogData.findings.map((f, i) => {
+   841→                      const isPositive = f.type === 'positive';
+   842→                      const isWarning = f.type === 'warning';
+   843→                      const icon = isPositive ? <ThumbsUp className="h-3.5 w-3.5" /> : isWarning ? <AlertTriangle className="h-3.5 w-3.5" /> : <ThumbsDown className="h-3.5 w-3.5" />;
+   844→                      const colorClass = isPositive ? 'text-emerald-600 bg-emerald-50' : isWarning ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50';
+   845→                      const borderClass = isPositive ? 'border-emerald-100' : isWarning ? 'border-amber-100' : 'border-rose-100';
+   846→                      return (
+   847→                        <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg border ${borderClass}`}>
+   848→                          <div className={`p-1 rounded ${colorClass} flex-shrink-0 mt-0.5`}>{icon}</div>
+   849→                          <div className="min-w-0">
+   850→                            {f.title && <p className="text-xs font-medium">{f.title}</p>}
+   851→                            <p className="text-xs text-muted-foreground">{f.description}</p>
+   852→                          </div>
+   853→                        </div>
+   854→                      );
+   855→                    })}
+   856→                  </div>
+   857→                </div>
+   858→              )}
+   859→
+   860→              {/* Strengths */}
+   861→              {reviewDialogData.strengths && reviewDialogData.strengths.length > 0 && (
+   862→                <div>
+   863→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+   864→                    <ThumbsUp className="h-3 w-3 text-emerald-600" /> Strengths
+   865→                  </h4>
+   866→                  <ul className="space-y-1">
+   867→                    {reviewDialogData.strengths.map((s, i) => (
+   868→                      <li key={i} className="text-xs text-emerald-700 flex items-start gap-1.5">
+   869→                        <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+   870→                        <span>{s}</span>
+   871→                      </li>
+   872→                    ))}
+   873→                  </ul>
+   874→                </div>
+   875→              )}
+   876→
+   877→              {/* Weaknesses */}
+   878→              {reviewDialogData.weaknesses && reviewDialogData.weaknesses.length > 0 && (
+   879→                <div>
+   880→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+   881→                    <ThumbsDown className="h-3 w-3 text-rose-600" /> Weaknesses
+   882→                  </h4>
+   883→                  <ul className="space-y-1">
+   884→                    {reviewDialogData.weaknesses.map((w, i) => (
+   885→                      <li key={i} className="text-xs text-rose-700 flex items-start gap-1.5">
+   886→                        <XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+   887→                        <span>{w}</span>
+   888→                      </li>
+   889→                    ))}
+   890→                  </ul>
+   891→                </div>
+   892→              )}
+   893→
+   894→              {/* Missing Elements */}
+   895→              {reviewDialogData.missingElements && reviewDialogData.missingElements.length > 0 && (
+   896→                <div>
+   897→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+   898→                    <AlertOctagon className="h-3 w-3 text-amber-600" /> Missing Elements
+   899→                  </h4>
+   900→                  <ul className="space-y-1">
+   901→                    {reviewDialogData.missingElements.map((m, i) => (
+   902→                      <li key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
+   903→                        <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+   904→                        <span>{m}</span>
+   905→                      </li>
+   906→                    ))}
+   907→                  </ul>
+   908→                </div>
+   909→              )}
+   910→
+   911→              {/* Recommendations */}
+   912→              {reviewDialogData.recommendations && reviewDialogData.recommendations.length > 0 && (
+   913→                <div>
+   914→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+   915→                    <Sparkles className="h-3 w-3 text-sky-600" /> Recommendations
+   916→                  </h4>
+   917→                  <ul className="space-y-1">
+   918→                    {reviewDialogData.recommendations.map((r, i) => (
+   919→                      <li key={i} className="text-xs text-sky-700 flex items-start gap-1.5">
+   920→                        <ArrowRight className="h-3 w-3 mt-0.5 flex-shrink-0" />
+   921→                        <span>{r}</span>
+   922→                      </li>
+   923→                    ))}
+   924→                  </ul>
+   925→                </div>
+   926→              )}
+   927→            </div>
+   928→          ) : (
+   929→            <div className="py-8 text-center text-muted-foreground">
+   930→              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+   931→              <p className="text-sm">Loading review data...</p>
+   932→            </div>
+   933→          )}
+   934→        </DialogContent>
+   935→      </Dialog>
+   936→
+   937→      {/* Stamp & Signature Selector Dialog */}
+   938→      <StampSignatureSelector
+   939→        hook={stampSigHook}
+   940→        open={stampSelectorOpen}
+   941→        onClose={() => { setStampSelectorOpen(false); setSelectedDocId(null); }}
+   942→        onSelect={(item) => {
+   943→          if (selectedDocId) {
+   944→            setDocStamps(prev => ({
+   945→              ...prev,
+   946→              [selectedDocId]: [...(prev[selectedDocId] || []), item],
+   947→            }));
+   948→            toast.success(`${item.label} applied to document`);
+   949→          }
+   950→          setStampSelectorOpen(false);
+   951→          setSelectedDocId(null);
+   952→        }}
+   953→        title="Select Stamp or Signature for Document"
+   954→      />
+   955→    </div>
+   956→  );
+   957→}
+   958→

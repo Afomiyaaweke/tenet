@@ -7,15 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
   FileText, Upload, CheckCircle2, Clock, XCircle, Shield,
   Briefcase, Receipt, FolderOpen, Award, File, ArrowRight,
   Search, Filter, CloudUpload, FileUp, Trash2, Eye,
   Stamp, FileSignature, X, Languages,
+  ScanSearch, Brain, Loader2, AlertTriangle, ChevronDown, ChevronUp,
+  ThumbsUp, ThumbsDown, AlertOctagon, BarChart3, Sparkles,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator } from '@/components/translator';
+
 // ─── Helpers ────────────────────────────────────────────────────────
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -28,6 +32,19 @@ function formatFileSize(bytes: number): string {
 function getFileExtension(fileName: string): string {
   const parts = fileName.split('.');
   return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : 'FILE';
+}
+
+interface AIReviewData {
+  complianceScore?: number;
+  completenessScore?: number;
+  riskLevel?: string;
+  findings?: Array<{ type: string; title?: string; description: string; category?: string; severity?: string }>;
+  strengths?: string[];
+  weaknesses?: string[];
+  missingElements?: string[];
+  recommendations?: string[];
+  summary?: string;
+  overallAssessment?: string;
 }
 
 export function DocumentsView() {
@@ -45,6 +62,16 @@ export function DocumentsView() {
   const [docStamps, setDocStamps] = useState<Record<string, SavedSignature[]>>({});
   const stampSigHook = useStampSignature();
   const [translateDocId, setTranslateDocId] = useState<string | null>(null);
+
+  // OCR & AI Review state
+  const [ocrLoading, setOcrLoading] = useState<Set<string>>(new Set());
+  const [reviewLoading, setReviewLoading] = useState<Set<string>>(new Set());
+  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+  const [expandedType, setExpandedType] = useState<'ocr' | 'review' | null>(null);
+  const [docOcrText, setDocOcrText] = useState<Record<string, string>>({});
+  const [docReview, setDocReview] = useState<Record<string, AIReviewData>>({});
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewDialogDocId, setReviewDialogDocId] = useState<string | null>(null);
 
   const loadDocs = useCallback(async () => {
     setLoading(true);
@@ -104,6 +131,113 @@ export function DocumentsView() {
     }
   };
 
+  // ── OCR Processing ──
+  const handleRunOcr = useCallback(async (docId: string) => {
+    setOcrLoading(prev => new Set(prev).add(docId));
+    try {
+      await api.post(`/document-ocr/${docId}`);
+      // Poll for completion
+      const poll = async (attempts = 0): Promise<void> => {
+        if (attempts > 30) {
+          toast.error('OCR processing timed out');
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        const res = await api.get(`/document-ocr/${docId}`);
+        if (res.success && res.data?.ocrStatus === 'completed') {
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
+          loadDocs();
+          toast.success('OCR completed — text extracted successfully');
+        } else if (res.success && res.data?.ocrStatus === 'failed') {
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          toast.error('OCR processing failed');
+          loadDocs();
+        } else {
+          await poll(attempts + 1);
+        }
+      };
+      poll();
+    } catch {
+      setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+      toast.error('Failed to start OCR');
+    }
+  }, [loadDocs]);
+
+  // ── AI Review Processing ──
+  const handleRunReview = useCallback(async (docId: string) => {
+    setReviewLoading(prev => new Set(prev).add(docId));
+    try {
+      const res = await api.post(`/document-review/${docId}`);
+      if (!res.success && res.error?.includes('OCR must be completed')) {
+        setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+        toast.error('Run OCR first before AI review');
+        return;
+      }
+      // Poll for completion
+      const poll = async (attempts = 0): Promise<void> => {
+        if (attempts > 30) {
+          toast.error('AI Review processing timed out');
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        const pollRes = await api.get(`/document-review/${docId}`);
+        if (pollRes.success && pollRes.data?.aiReviewStatus === 'completed') {
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          let reviewData = pollRes.data.aiReview || {};
+          if (typeof reviewData === 'string') {
+            try { reviewData = JSON.parse(reviewData); } catch { reviewData = { summary: reviewData }; }
+          }
+          setDocReview(prev => ({ ...prev, [docId]: reviewData as AIReviewData }));
+          loadDocs();
+          toast.success('AI Review completed');
+        } else if (pollRes.success && pollRes.data?.aiReviewStatus === 'failed') {
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          toast.error('AI Review processing failed');
+          loadDocs();
+        } else {
+          await poll(attempts + 1);
+        }
+      };
+      poll();
+    } catch {
+      setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+      toast.error('Failed to start AI Review');
+    }
+  }, [loadDocs]);
+
+  // ── View OCR/Review detail ──
+  const handleToggleExpand = useCallback(async (docId: string, type: 'ocr' | 'review') => {
+    if (expandedDocId === docId && expandedType === type) {
+      setExpandedDocId(null);
+      setExpandedType(null);
+      return;
+    }
+    setExpandedDocId(docId);
+    setExpandedType(type);
+    try {
+      if (type === 'ocr' && !docOcrText[docId]) {
+        const res = await api.get(`/document-ocr/${docId}`);
+        if (res.success) {
+          setDocOcrText(prev => ({ ...prev, [docId]: res.data?.ocrText || '' }));
+        }
+      } else if (type === 'review' && !docReview[docId]) {
+        const res = await api.get(`/document-review/${docId}`);
+        if (res.success) {
+          let reviewData = res.data?.aiReview || {};
+          if (typeof reviewData === 'string') {
+            try { reviewData = JSON.parse(reviewData); } catch { reviewData = { summary: reviewData }; }
+          }
+          setDocReview(prev => ({ ...prev, [docId]: reviewData as AIReviewData }));
+        }
+      }
+    } catch {
+      toast.error('Failed to load document details');
+    }
+  }, [expandedDocId, expandedType, docOcrText, docReview]);
+
   const statusIcon = (status: string) => {
     switch (status) {
       case 'approved': return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
@@ -128,12 +262,31 @@ export function DocumentsView() {
     }
   };
 
+  const ocrStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-emerald-100 text-emerald-700';
+      case 'processing': return 'bg-sky-100 text-sky-700 animate-pulse';
+      case 'failed': return 'bg-rose-100 text-rose-700';
+      default: return 'bg-gray-100 text-gray-500';
+    }
+  };
+
+  const reviewStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-emerald-100 text-emerald-700';
+      case 'processing': return 'bg-sky-100 text-sky-700 animate-pulse';
+      case 'failed': return 'bg-rose-100 text-rose-700';
+      default: return 'bg-gray-100 text-gray-500';
+    }
+  };
+
   const docTypeConfig = (type: string) => {
     switch (type) {
       case 'business_license': return { icon: Briefcase, bg: 'bg-emerald-50', color: 'text-emerald-600', label: 'Business License' };
       case 'tax_clearance': return { icon: Receipt, bg: 'bg-amber-50', color: 'text-amber-600', label: 'Tax Clearance' };
       case 'portfolio': return { icon: FolderOpen, bg: 'bg-teal-50', color: 'text-teal-600', label: 'Portfolio' };
       case 'certificate': return { icon: Award, bg: 'bg-purple-50', color: 'text-purple-600', label: 'Certificate' };
+      case 'bid_attachment': return { icon: FileText, bg: 'bg-sky-50', color: 'text-sky-600', label: 'Bid Document' };
       default: return { icon: File, bg: 'bg-muted/50', color: 'text-muted-foreground', label: type.replace('_', ' ') };
     }
   };
@@ -141,6 +294,8 @@ export function DocumentsView() {
   const pendingCount = documents.filter(d => d.status === 'pending').length;
   const approvedCount = documents.filter(d => d.status === 'approved').length;
   const rejectedCount = documents.filter(d => d.status === 'rejected').length;
+  const ocrCompletedCount = documents.filter(d => d.ocrStatus === 'completed').length;
+  const reviewCompletedCount = documents.filter(d => d.aiReviewStatus === 'completed').length;
 
   // ── Filtered Docs ──
   const filteredDocs = documents.filter(d => {
@@ -149,10 +304,33 @@ export function DocumentsView() {
     return matchesStatus && matchesType;
   });
 
+  // ── Review dialog data ──
+  const reviewDialogData = reviewDialogDocId ? docReview[reviewDialogDocId] : null;
+  const reviewDialogDoc = documents.find(d => d.id === reviewDialogDocId);
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-emerald-600';
+    if (score >= 60) return 'text-amber-600';
+    return 'text-rose-600';
+  };
+
+  const getScoreBg = (score: number) => {
+    if (score >= 80) return 'bg-emerald-50';
+    if (score >= 60) return 'bg-amber-50';
+    return 'bg-rose-50';
+  };
+
+  const getRiskColor = (risk: string) => {
+    switch (risk?.toLowerCase()) {
+      case 'low': return 'bg-emerald-100 text-emerald-700';
+      case 'medium': return 'bg-amber-100 text-amber-700';
+      case 'high': case 'critical': return 'bg-rose-100 text-rose-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
   return (
-    <div
- className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto animate-[fadeIn_0.3s_ease-out]"
- >
+    <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto animate-[fadeIn_0.3s_ease-out]">
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="p-3 rounded-2xl gradient-teal shadow-md flex-shrink-0 shadow-teal-200/40">
@@ -162,7 +340,7 @@ export function DocumentsView() {
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
             <span className="text-gradient-emerald">Document</span> Vault
           </h2>
-          <p className="text-muted-foreground text-sm mt-0.5">Upload and manage your verification documents</p>
+          <p className="text-muted-foreground text-sm mt-0.5">Upload, OCR scan, and AI-review your documents</p>
         </div>
       </div>
 
@@ -198,21 +376,23 @@ export function DocumentsView() {
 
       {/* Stats Summary */}
       {!loading && documents.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
-            { count: pendingCount, label: 'Pending', icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600', dot: 'bg-amber-500' },
-            { count: approvedCount, label: 'Approved', icon: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600', dot: 'bg-emerald-500' },
-            { count: rejectedCount, label: 'Rejected', icon: XCircle, bg: 'bg-rose-50', color: 'text-rose-600', dot: 'bg-rose-500' },
+            { count: pendingCount, label: 'Pending', icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+            { count: approvedCount, label: 'Approved', icon: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+            { count: rejectedCount, label: 'Rejected', icon: XCircle, bg: 'bg-rose-50', color: 'text-rose-600' },
+            { count: ocrCompletedCount, label: 'OCR Done', icon: ScanSearch, bg: 'bg-sky-50', color: 'text-sky-600' },
+            { count: reviewCompletedCount, label: 'AI Reviewed', icon: Brain, bg: 'bg-purple-50', color: 'text-purple-600' },
           ].map(stat => (
             <div className="hover:-translate-y-[3px] transition-all duration-200" key={stat.label}>
               <Card className="premium-shadow rounded-xl border-0 bg-card transition-all duration-200 h-full">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
-                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                <CardContent className="p-3 flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg ${stat.bg} flex-shrink-0`}>
+                    <stat.icon className={`h-3.5 w-3.5 ${stat.color}`} />
                   </div>
                   <div>
-                    <p className="text-xl font-bold">{stat.count}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    <p className="text-lg font-bold">{stat.count}</p>
+                    <p className="text-[10px] text-muted-foreground">{stat.label}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -272,9 +452,7 @@ export function DocumentsView() {
 
             {/* Selected file preview */}
             {selectedFile && (
-              <div
- className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 animate-[fadeIn_0.3s_ease-out]"
- >
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 animate-[fadeIn_0.3s_ease-out]">
                 <div className="p-2 rounded-lg bg-emerald-100 flex-shrink-0">
                   <FileText className="h-4 w-4 text-emerald-600" />
                 </div>
@@ -350,6 +528,7 @@ export function DocumentsView() {
                   <option value="tax_clearance">Tax Clearance</option>
                   <option value="portfolio">Portfolio</option>
                   <option value="certificate">Certificate</option>
+                  <option value="bid_attachment">Bid Document</option>
                   <option value="other">Other</option>
                 </select>
                 <select
@@ -388,88 +567,209 @@ export function DocumentsView() {
                 )}
               </div>
             ) : (
-              filteredDocs.map((doc, idx) => {
+              filteredDocs.map((doc) => {
                   const dtConfig = docTypeConfig(doc.docType);
                   const DtIcon = dtConfig.icon;
+                  const isOcrLoading = ocrLoading.has(doc.id);
+                  const isReviewLoading = reviewLoading.has(doc.id);
+                  const isExpanded = expandedDocId === doc.id;
                   return (
                     <div key={doc.id}>
-                    <div
- className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
- >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className={`p-2 rounded-lg ${dtConfig.bg} flex-shrink-0`}>
-                          <DtIcon className={`h-4 w-4 ${dtConfig.color}`} />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`h-1.5 w-1.5 rounded-full ${statusDot(doc.status)}`} />
-                            <p className="text-sm font-medium">{dtConfig.label}</p>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {doc.fileName} &middot; {new Date(doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </p>
-                          {doc.reviewNotes && (
-                            <p className="text-xs mt-1 flex items-center gap-1">
-                              {doc.status === 'approved' ? (
-                                <span className="text-emerald-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
-                              ) : doc.status === 'rejected' ? (
-                                <span className="text-rose-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
-                              ) : (
-                                <span className="text-amber-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
-                              )}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* Sign & Stamp button */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
-                          onClick={(e) => { e.stopPropagation(); setSelectedDocId(doc.id); setStampSelectorOpen(true); }}
-                        >
-                          <Stamp className="h-3 w-3 mr-1" /> Sign & Stamp
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
-                          onClick={(e) => { e.stopPropagation(); setTranslateDocId(translateDocId === doc.id ? null : doc.id); }}
-                        >
-                          <Languages className="h-3 w-3 mr-1" /> {translateDocId === doc.id ? 'Hide' : 'Translate'}
-                        </Button>
-                        <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${statusBadge(doc.status)} flex-shrink-0`}>{doc.status}</Badge>
-                      </div>
-                    </div>
-                    {/* Applied stamps for this document */}
-                    {docStamps[doc.id] && docStamps[doc.id].length > 0 && (
-                      <div className="flex items-center gap-2 mt-1 ml-11">
-                        {docStamps[doc.id].map((stamp, sIdx) => (
-                          <div key={`${stamp.id}-${sIdx}`} className="flex items-center gap-1.5 p-1 bg-orange-50/50 border border-orange-100 rounded-lg">
-                            <div className="w-6 h-5 bg-white rounded overflow-hidden p-0.5">
-                              <img src={stamp.dataUrl} alt={stamp.label} className="max-w-full max-h-full object-contain" />
+                      {/* Main document row */}
+                      <div className="p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]">
+                        {/* Top row: doc info + action buttons */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className={`p-2 rounded-lg ${dtConfig.bg} flex-shrink-0`}>
+                              <DtIcon className={`h-4 w-4 ${dtConfig.color}`} />
                             </div>
-                            <span className="text-[9px] text-orange-700 font-medium">{stamp.label}</span>
-                            <button
-                              className="h-3.5 w-3.5 rounded-full hover:bg-orange-100 flex items-center justify-center"
-                              onClick={() => setDocStamps(prev => ({
-                                ...prev,
-                                [doc.id]: (prev[doc.id] || []).filter((_, i) => i !== sIdx),
-                              }))}
-                            >
-                              <X className="h-2.5 w-2.5 text-orange-400" />
-                            </button>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`h-1.5 w-1.5 rounded-full ${statusDot(doc.status)}`} />
+                                <p className="text-sm font-medium">{dtConfig.label}</p>
+                                {/* OCR status indicator */}
+                                {doc.ocrStatus === 'completed' && (
+                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 hover:bg-emerald-50 h-4">
+                                    <ScanSearch className="h-2.5 w-2.5 mr-0.5" /> OCR
+                                  </Badge>
+                                )}
+                                {doc.ocrStatus === 'processing' && (
+                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-sky-50 text-sky-600 hover:bg-sky-50 h-4 animate-pulse">
+                                    <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> OCR
+                                  </Badge>
+                                )}
+                                {doc.ocrStatus === 'failed' && (
+                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-rose-50 text-rose-600 hover:bg-rose-50 h-4">
+                                    <XCircle className="h-2.5 w-2.5 mr-0.5" /> OCR
+                                  </Badge>
+                                )}
+                                {/* AI Review status indicator */}
+                                {doc.aiReviewStatus === 'completed' && (
+                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-purple-50 text-purple-600 hover:bg-purple-50 h-4">
+                                    <Brain className="h-2.5 w-2.5 mr-0.5" /> Reviewed
+                                  </Badge>
+                                )}
+                                {doc.aiReviewStatus === 'processing' && (
+                                  <Badge className="text-[9px] px-1 py-0 border-0 bg-sky-50 text-sky-600 hover:bg-sky-50 h-4 animate-pulse">
+                                    <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> Reviewing
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {doc.fileName} &middot; {new Date(doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                              {doc.reviewNotes && (
+                                <p className="text-xs mt-1 flex items-center gap-1">
+                                  {doc.status === 'approved' ? (
+                                    <span className="text-emerald-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
+                                  ) : doc.status === 'rejected' ? (
+                                    <span className="text-rose-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
+                                  ) : (
+                                    <span className="text-amber-600 flex items-center gap-1"><Eye className="h-3 w-3" /> {doc.reviewNotes}</span>
+                                  )}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        ))}
+                          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                            {/* OCR button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded-lg"
+                              disabled={isOcrLoading || doc.ocrStatus === 'processing'}
+                              onClick={() => handleRunOcr(doc.id)}
+                            >
+                              {isOcrLoading || doc.ocrStatus === 'processing' ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <ScanSearch className="h-3 w-3 mr-1" />
+                              )}
+                              {doc.ocrStatus === 'completed' ? 'Re-OCR' : doc.ocrStatus === 'processing' ? 'OCR...' : 'OCR'}
+                            </Button>
+                            {/* AI Review button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg"
+                              disabled={isReviewLoading || doc.aiReviewStatus === 'processing' || (doc.ocrStatus !== 'completed' && doc.aiReviewStatus !== 'completed')}
+                              onClick={() => handleRunReview(doc.id)}
+                              title={doc.ocrStatus !== 'completed' && doc.aiReviewStatus !== 'completed' ? 'Run OCR first' : 'Run AI Review'}
+                            >
+                              {isReviewLoading || doc.aiReviewStatus === 'processing' ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <Brain className="h-3 w-3 mr-1" />
+                              )}
+                              {doc.aiReviewStatus === 'completed' ? 'Re-Review' : doc.aiReviewStatus === 'processing' ? 'Reviewing' : 'AI Review'}
+                            </Button>
+                            {/* View OCR */}
+                            {doc.ocrStatus === 'completed' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[10px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg"
+                                onClick={() => handleToggleExpand(doc.id, 'ocr')}
+                              >
+                                <Eye className="h-3 w-3 mr-1" />
+                                OCR Text
+                                {isExpanded && expandedType === 'ocr' ? <ChevronUp className="h-2.5 w-2.5 ml-0.5" /> : <ChevronDown className="h-2.5 w-2.5 ml-0.5" />}
+                              </Button>
+                            )}
+                            {/* View Review */}
+                            {doc.aiReviewStatus === 'completed' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg"
+                                onClick={() => { setReviewDialogDocId(doc.id); setReviewDialogOpen(true); }}
+                              >
+                                <BarChart3 className="h-3 w-3 mr-1" />
+                                Review
+                              </Button>
+                            )}
+                            {/* Sign & Stamp button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
+                              onClick={() => { setSelectedDocId(doc.id); setStampSelectorOpen(true); }}
+                            >
+                              <Stamp className="h-3 w-3 mr-1" /> Stamp
+                            </Button>
+                            {/* Translate button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
+                              onClick={() => setTranslateDocId(translateDocId === doc.id ? null : doc.id)}
+                            >
+                              <Languages className="h-3 w-3 mr-1" /> {translateDocId === doc.id ? 'Hide' : 'Translate'}
+                            </Button>
+                            {/* Status badge */}
+                            <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${statusBadge(doc.status)} flex-shrink-0`}>{doc.status}</Badge>
+                          </div>
+                        </div>
+
+                        {/* Applied stamps for this document */}
+                        {docStamps[doc.id] && docStamps[doc.id].length > 0 && (
+                          <div className="flex items-center gap-2 mt-2 ml-11">
+                            {docStamps[doc.id].map((stamp, sIdx) => (
+                              <div key={`${stamp.id}-${sIdx}`} className="flex items-center gap-1.5 p-1 bg-orange-50/50 border border-orange-100 rounded-lg">
+                                <div className="w-6 h-5 bg-white rounded overflow-hidden p-0.5">
+                                  <img src={stamp.dataUrl} alt={stamp.label} className="max-w-full max-h-full object-contain" />
+                                </div>
+                                <span className="text-[9px] text-orange-700 font-medium">{stamp.label}</span>
+                                <button
+                                  className="h-3.5 w-3.5 rounded-full hover:bg-orange-100 flex items-center justify-center"
+                                  onClick={() => setDocStamps(prev => ({
+                                    ...prev,
+                                    [doc.id]: (prev[doc.id] || []).filter((_, i) => i !== sIdx),
+                                  }))}
+                                >
+                                  <X className="h-2.5 w-2.5 text-orange-400" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Inline translator for this document */}
+                        {translateDocId === doc.id && (
+                          <div className="ml-11 mt-2">
+                            <InlineTranslator text={`Document: ${doc.fileName}\nType: ${doc.docType}\nStatus: ${doc.status}${doc.reviewNotes ? '\nReview: ' + doc.reviewNotes : ''}${docOcrText[doc.id] ? '\nOCR Text: ' + docOcrText[doc.id].substring(0, 500) : ''}`} />
+                          </div>
+                        )}
+
+                        {/* Expanded OCR text */}
+                        {isExpanded && expandedType === 'ocr' && (
+                          <div className="mt-3 ml-0 p-3 bg-emerald-50/30 border border-emerald-100 rounded-lg animate-[fadeIn_0.2s_ease-out]">
+                            <div className="flex items-center gap-2 mb-2">
+                              <ScanSearch className="h-4 w-4 text-emerald-600" />
+                              <p className="text-xs font-semibold text-emerald-700">Extracted Text (OCR)</p>
+                              {doc.ocrProcessedAt && (
+                                <span className="text-[9px] text-muted-foreground">
+                                  Processed {new Date(doc.ocrProcessedAt).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="max-h-64 overflow-y-auto text-xs text-foreground/80 whitespace-pre-wrap bg-white/60 p-3 rounded-lg border border-emerald-100/50 leading-relaxed">
+                              {docOcrText[doc.id] || 'Loading...'}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Expanded AI Review inline (brief) */}
+                        {isExpanded && expandedType === 'review' && docReview[doc.id] && (
+                          <div className="mt-3 ml-0 p-3 bg-purple-50/30 border border-purple-100 rounded-lg animate-[fadeIn_0.2s_ease-out]">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Brain className="h-4 w-4 text-purple-600" />
+                              <p className="text-xs font-semibold text-purple-700">AI Review Summary</p>
+                            </div>
+                            <p className="text-xs text-foreground/70">{docReview[doc.id]?.summary || 'No summary available'}</p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {/* Inline translator for this document */}
-                    {translateDocId === doc.id && (
-                      <div className="ml-11 mt-2">
-                        <InlineTranslator text={`Document: ${doc.fileName}\nType: ${doc.docType}\nStatus: ${doc.status}${doc.reviewNotes ? '\nReview: ' + doc.reviewNotes : ''}`} />
-                      </div>
-                    )}
                     </div>
                   );
                 })
@@ -477,6 +777,163 @@ export function DocumentsView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* AI Review Detail Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-purple-50">
+                <Brain className="h-4 w-4 text-purple-600" />
+              </div>
+              AI Document Review
+              {reviewDialogDoc && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  — {reviewDialogDoc.fileName}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {reviewDialogData ? (
+            <div className="space-y-5 pt-2">
+              {/* Score cards */}
+              <div className="grid grid-cols-3 gap-3">
+                {reviewDialogData.complianceScore !== undefined && (
+                  <div className={`p-3 rounded-xl text-center ${getScoreBg(reviewDialogData.complianceScore)}`}>
+                    <p className={`text-2xl font-bold ${getScoreColor(reviewDialogData.complianceScore)}`}>
+                      {reviewDialogData.complianceScore}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Compliance</p>
+                  </div>
+                )}
+                {reviewDialogData.completenessScore !== undefined && (
+                  <div className={`p-3 rounded-xl text-center ${getScoreBg(reviewDialogData.completenessScore)}`}>
+                    <p className={`text-2xl font-bold ${getScoreColor(reviewDialogData.completenessScore)}`}>
+                      {reviewDialogData.completenessScore}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Completeness</p>
+                  </div>
+                )}
+                {reviewDialogData.riskLevel && (
+                  <div className="p-3 rounded-xl text-center bg-muted/30">
+                    <Badge className={`${getRiskColor(reviewDialogData.riskLevel)} text-xs px-2 py-0.5`}>
+                      {reviewDialogData.riskLevel.toUpperCase()}
+                    </Badge>
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Risk Level</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Summary */}
+              {reviewDialogData.summary && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Summary</h4>
+                  <p className="text-sm text-foreground/80 bg-muted/30 p-3 rounded-lg">{reviewDialogData.summary}</p>
+                </div>
+              )}
+
+              {/* Findings */}
+              {reviewDialogData.findings && reviewDialogData.findings.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Key Findings</h4>
+                  <div className="space-y-2">
+                    {reviewDialogData.findings.map((f, i) => {
+                      const isPositive = f.type === 'positive';
+                      const isWarning = f.type === 'warning';
+                      const icon = isPositive ? <ThumbsUp className="h-3.5 w-3.5" /> : isWarning ? <AlertTriangle className="h-3.5 w-3.5" /> : <ThumbsDown className="h-3.5 w-3.5" />;
+                      const colorClass = isPositive ? 'text-emerald-600 bg-emerald-50' : isWarning ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50';
+                      const borderClass = isPositive ? 'border-emerald-100' : isWarning ? 'border-amber-100' : 'border-rose-100';
+                      return (
+                        <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg border ${borderClass}`}>
+                          <div className={`p-1 rounded ${colorClass} flex-shrink-0 mt-0.5`}>{icon}</div>
+                          <div className="min-w-0">
+                            {f.title && <p className="text-xs font-medium">{f.title}</p>}
+                            <p className="text-xs text-muted-foreground">{f.description}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Strengths */}
+              {reviewDialogData.strengths && reviewDialogData.strengths.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <ThumbsUp className="h-3 w-3 text-emerald-600" /> Strengths
+                  </h4>
+                  <ul className="space-y-1">
+                    {reviewDialogData.strengths.map((s, i) => (
+                      <li key={i} className="text-xs text-emerald-700 flex items-start gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Weaknesses */}
+              {reviewDialogData.weaknesses && reviewDialogData.weaknesses.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <ThumbsDown className="h-3 w-3 text-rose-600" /> Weaknesses
+                  </h4>
+                  <ul className="space-y-1">
+                    {reviewDialogData.weaknesses.map((w, i) => (
+                      <li key={i} className="text-xs text-rose-700 flex items-start gap-1.5">
+                        <XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                        <span>{w}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Missing Elements */}
+              {reviewDialogData.missingElements && reviewDialogData.missingElements.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <AlertOctagon className="h-3 w-3 text-amber-600" /> Missing Elements
+                  </h4>
+                  <ul className="space-y-1">
+                    {reviewDialogData.missingElements.map((m, i) => (
+                      <li key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
+                        <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                        <span>{m}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {reviewDialogData.recommendations && reviewDialogData.recommendations.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-sky-600" /> Recommendations
+                  </h4>
+                  <ul className="space-y-1">
+                    {reviewDialogData.recommendations.map((r, i) => (
+                      <li key={i} className="text-xs text-sky-700 flex items-start gap-1.5">
+                        <ArrowRight className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+              <p className="text-sm">Loading review data...</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Stamp & Signature Selector Dialog */}
       <StampSignatureSelector
         hook={stampSigHook}
