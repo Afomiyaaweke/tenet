@@ -4,7 +4,11 @@ import { NextRequest } from 'next/server';
 
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('JWT_SECRET environment variable is not set');
+  if (!secret) {
+    // Fallback for development — must be set in production
+    console.warn('WARNING: JWT_SECRET not set. Using development fallback. Set JWT_SECRET in production!');
+    return 'dev-only-fallback-secret-change-in-production-please-32ch';
+  }
   if (secret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters long');
   return secret;
 }
