@@ -416,3 +416,41 @@ Stage Summary:
 - API fixed to include tasks/milestones for progress computation
 - All 3 project views (Board, List, Timeline) working
 - Project detail with Kanban task management working
+
+---
+Task ID: 11
+Agent: Main Agent
+Task: Make applicants only for user's published tenders + only visible after deadline closes
+
+Work Log:
+- Rewrote /src/app/api/applicants/route.ts:
+  - Changed from company-based filtering to createdBy-based: only shows applicants for tenders published by the current user
+  - Added deadline filter: `deadline: { lte: now }` so applicants are only visible after the tender closing time passes
+  - Added `openTenders` and `closedTenders` arrays to the API response for UI context
+  - openTenders: user's tenders still accepting bids (deadline in future), with bid counts
+  - closedTenders: user's tenders whose deadline has passed, with bid counts
+- Updated /src/components/modules/applicants.tsx:
+  - Added TenderInfo interface for open/closed tender data
+  - Added openTenders and closedTenders state
+  - Changed title from "Applicants Spreadsheet" to "My Applicants"
+  - Added info banner: "Applicants are visible only after the tender deadline closes" with explanation
+  - Added "Tenders Still Accepting Bids" panel showing open tenders with:
+    - Tender title, days left badge (color-coded: red ≤3d, amber ≤7d, green >7d)
+    - Deadline date, bid count, click-to-navigate to tender detail
+    - Message: "Applicant details will be revealed here once each tender's deadline passes."
+  - Updated empty state messaging: context-aware based on open/closed tender counts
+  - Updated subtitle: shows "X applicants across Y closed tenders" or "X tenders still accepting bids"
+  - Tender filter dropdown now uses closedTenders from API (not from rows)
+- Set Medical Equipment tender deadline to past (2026-06-30) and added 3 bids for testing
+- Browser verified: 
+  - Open tenders (Road Construction, IT Infrastructure) show in "Still Accepting Bids" panel with bid counts but NO applicants visible
+  - Closed tender (Medical Equipment) shows 3 applicants in spreadsheet
+  - Info banner explains the visibility rule
+  - Zero errors
+
+Stage Summary:
+- Applicants now only visible for tenders the user published (not all company tenders)
+- Applicants only shown after the tender deadline passes (not while still accepting bids)
+- "Waiting for Deadline" panel shows open tenders with countdown
+- Info banner explains the protection rule
+- All verified working in browser

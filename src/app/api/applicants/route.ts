@@ -4,8 +4,9 @@ import { requireAuth } from '@/lib/auth';
 
 /**
  * GET /api/applicants
- * Fetch all applicants (bidders) across the user's company tenders in a flat,
- * spreadsheet-friendly format. Supports filtering by tenderId, status, search.
+ * Fetch applicants (bidders) for tenders the user published,
+ * but ONLY after the tender deadline has closed.
+ * Supports filtering by tenderId, status, search.
  * Returns rich applicant data: bid info, user profile, company, tender details.
  */
 export async function GET(request: NextRequest) {
@@ -21,28 +22,28 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100', 10);
     const skip = (page - 1) * limit;
 
-    // Build where clause based on role
-    const where: Record<string, unknown> = {};
+    // Build where clause: only tenders published by this user
+    // AND only tenders whose deadline has passed
+    const now = new Date();
 
-    if (user!.role === 'team_admin' && user!.companyId) {
-      // Team admin sees applicants for their company's tenders
-      where.tender = { companyId: user!.companyId };
-    } else {
-      // Regular user sees applicants on tenders they submitted bids to
-      // OR they can see their own bids
-      where.OR = [
-        { userId: user!.id },
-        { tender: { createdBy: user!.id } },
-      ];
-    }
+    // Base tender filter: published by current user AND deadline passed
+    const baseTenderFilter: Record<string, unknown> = {
+      createdBy: user!.id,
+      deadline: { lte: now },
+    };
+
+    const where: Record<string, unknown> = {
+      tender: baseTenderFilter,
+    };
 
     if (tenderId) {
-      delete where.OR;
+      // Additional filter for specific tender
       where.tenderId = tenderId;
-      // Still enforce company isolation
-      if (user!.role === 'team_admin' && user!.companyId) {
-        where.tender = { companyId: user!.companyId };
-      }
+      // Still enforce: must be user's own tender AND closed
+      where.tender = {
+        ...baseTenderFilter,
+        id: tenderId,
+      };
     }
 
     if (bidStatus) {
@@ -59,11 +60,8 @@ export async function GET(request: NextRequest) {
           { technicalProposal: { contains: search } },
         ],
       };
-      if (where.OR) {
-        where.AND = [searchFilter];
-      } else {
-        Object.assign(where, searchFilter);
-      }
+      // Merge search into where using AND
+      where.AND = [searchFilter];
     }
 
     const [bids, total] = await Promise.all([
@@ -120,6 +118,39 @@ export async function GET(request: NextRequest) {
       db.bid.count({ where }),
     ]);
 
+    // Also get the user's tenders that are still open (deadline not yet passed)
+    // so the UI can show "waiting for deadline" info
+    const myOpenTenders = await db.tender.findMany({
+      where: {
+        createdBy: user!.id,
+        deadline: { gt: now },
+      },
+      select: {
+        id: true,
+        title: true,
+        deadline: true,
+        status: true,
+        _count: { select: { bids: true } },
+      },
+      orderBy: { deadline: 'asc' },
+    });
+
+    // Also get the user's closed tenders (for the tender filter dropdown)
+    const myClosedTenders = await db.tender.findMany({
+      where: {
+        createdBy: user!.id,
+        deadline: { lte: now },
+      },
+      select: {
+        id: true,
+        title: true,
+        deadline: true,
+        status: true,
+        _count: { select: { bids: true } },
+      },
+      orderBy: { deadline: 'desc' },
+    });
+
     // Flatten to spreadsheet-friendly rows
     const rows = bids.map((bid) => ({
       id: bid.id,
@@ -162,12 +193,10 @@ export async function GET(request: NextRequest) {
       submittedAt: bid.createdAt,
     }));
 
-    // Get summary stats
-    const statsWhere = user!.role === 'team_admin' && user!.companyId
-      ? { tender: { companyId: user!.companyId } }
-      : tenderId
-        ? { tenderId }
-        : { userId: user!.id };
+    // Get summary stats (only for user's closed tenders)
+    const statsWhere = {
+      tender: { createdBy: user!.id, deadline: { lte: now } },
+    };
 
     const statusCounts = await db.bid.groupBy({
       by: ['status'],
@@ -195,6 +224,22 @@ export async function GET(request: NextRequest) {
         uniqueTenders,
         uniqueCompanies,
       },
+      // Additional context: open tenders still accepting bids
+      openTenders: myOpenTenders.map(t => ({
+        id: t.id,
+        title: t.title,
+        deadline: t.deadline,
+        status: t.status,
+        bidCount: t._count.bids,
+      })),
+      // Closed tenders (eligible for viewing applicants)
+      closedTenders: myClosedTenders.map(t => ({
+        id: t.id,
+        title: t.title,
+        deadline: t.deadline,
+        status: t.status,
+        bidCount: t._count.bids,
+      })),
     });
   } catch (err) {
     console.error('List applicants error:', err);
