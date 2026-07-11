@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
               deadline: true,
               location: true,
               categoryTags: true,
+              requiredDocs: true,
             },
           },
           user: {
@@ -112,6 +113,21 @@ export async function GET(request: NextRequest) {
                 },
               },
             },
+          },
+          documents: {
+            select: {
+              id: true,
+              fileName: true,
+              docType: true,
+              fileUrl: true,
+              status: true,
+              ocrStatus: true,
+              ocrProcessedAt: true,
+              aiReviewStatus: true,
+              aiReviewProcessedAt: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
           },
         },
       }),
@@ -191,6 +207,21 @@ export async function GET(request: NextRequest) {
       bidStatus: bid.status,
       rejectionNote: bid.rejectionNote || '',
       submittedAt: bid.createdAt,
+      // Documents (from other sites / bid attachments)
+      documents: (bid.documents || []).map((d: { id: string; fileName: string; docType: string; fileUrl: string; status: string; ocrStatus: string; ocrProcessedAt: Date | null; aiReviewStatus: string; aiReviewProcessedAt: Date | null; createdAt: Date }) => ({
+        id: d.id,
+        fileName: d.fileName,
+        docType: d.docType,
+        fileUrl: d.fileUrl,
+        status: d.status,
+        ocrStatus: d.ocrStatus,
+        ocrProcessedAt: d.ocrProcessedAt,
+        aiReviewStatus: d.aiReviewStatus,
+        aiReviewProcessedAt: d.aiReviewProcessedAt,
+        createdAt: d.createdAt,
+      })),
+      // Tender required docs for context
+      requiredDocs: bid.tender.requiredDocs || '',
     }));
 
     // Get summary stats (only for user's closed tenders)

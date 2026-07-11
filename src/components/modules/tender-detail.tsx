@@ -323,7 +323,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
     { key: 'bids', label: 'Bids', icon: Gavel, count: bids.length },
     { key: 'documents', label: 'Documents', icon: FileStack },
     { key: 'ai-overview', label: 'AI Overview', icon: Sparkles },
-    ...(isCreatorOrSuperAdmin ? [{ key: 'analysis' as DetailTab, label: 'Analysis', icon: BrainCircuit, count: analyses.length || undefined }] : []),
+    ...(isCreatorOrAdmin ? [{ key: 'analysis' as DetailTab, label: 'Analysis', icon: BrainCircuit, count: analyses.length || undefined }] : []),
   ];
 
   return (

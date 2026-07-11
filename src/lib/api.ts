@@ -164,7 +164,31 @@ export interface Document {
   status: 'pending' | 'approved' | 'rejected';
   reviewNotes?: string;
   reviewedAt?: string;
+  ocrText?: string;
+  ocrStatus: 'none' | 'processing' | 'completed' | 'failed';
+  ocrProcessedAt?: string;
+  aiReview?: string; // JSON string of AIReviewResult
+  aiReviewStatus: 'none' | 'processing' | 'completed' | 'failed';
+  aiReviewProcessedAt?: string;
+  bidId?: string;
   createdAt: string;
+}
+
+export interface AIReviewResult {
+  overallAssessment: 'approved' | 'conditionally_approved' | 'rejected' | 'needs_clarification';
+  complianceScore: number;
+  completenessScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  findings: Array<{
+    category: string;
+    severity: string;
+    description: string;
+  }>;
+  strengths: string[];
+  weaknesses: string[];
+  missingElements: string[];
+  recommendations: string[];
+  summary: string;
 }
 
 export interface Tender {

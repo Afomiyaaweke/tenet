@@ -100,16 +100,26 @@ model Document {
   id          String   @id @default(cuid())
   userId      String?
   companyId   String?
-  docType     String   // business_license, tax_clearance, portfolio, certificate, other
+  docType     String   // business_license, tax_clearance, portfolio, certificate, other, bid_attachment
   fileUrl     String
   fileName    String
   status      String   @default("pending") // pending, approved, rejected
   reviewNotes String?
   reviewedAt  DateTime?
+  // OCR & AI Review fields
+  ocrText     String?  // Extracted text from OCR
+  ocrStatus   String   @default("none") // none, processing, completed, failed
+  ocrProcessedAt DateTime?
+  aiReview    String?  // AI review result (JSON string)
+  aiReviewStatus String @default("none") // none, processing, completed, failed
+  aiReviewProcessedAt DateTime?
+  // Link to bid (for documents from other sites / bid attachments)
+  bidId       String?
   createdAt   DateTime @default(now())
 
   user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   company Company? @relation(fields: [companyId], references: [id])
+  bid     Bid?     @relation(fields: [bidId], references: [id], onDelete: Cascade)
 }
 
 // ==========================================
@@ -160,6 +170,7 @@ model Bid {
   tender  Tender  @relation(fields: [tenderId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   project Project?
+  documents Document[]
 }
 
 // ==========================================
