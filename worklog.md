@@ -348,3 +348,46 @@ Stage Summary:
 - Load More pagination at bottom
 - Saved Tenders tab in Bids view for working on bookmarked tenders later
 - Critical auth fix: JWT_SECRET now read lazily instead of at module load time
+
+---
+Task ID: 9
+Agent: Main Agent
+Task: Show applicants in spreadsheet view
+
+Work Log:
+- Created /src/app/api/applicants/route.ts - GET endpoint that fetches all bids (applicants) with full user profile, company info, and tender details in a flat spreadsheet-friendly format
+- API supports filtering by tenderId, status, search query with company-scoped data isolation (team_admin sees company tenders' applicants, user sees own bids)
+- Created /src/components/modules/applicants.tsx - Full-featured Applicants Spreadsheet component with:
+  - Stats bar: Total Applicants, Total Bid Value, Tenders, Companies
+  - Status filter pills: All, Pending Review, Shortlisted, Awarded, Rejected (with counts)
+  - Search bar for filtering by name, email, company, tender title
+  - Two view modes: Table (spreadsheet) and Card
+  - Column picker dropdown with 29 columns across 4 groups (Applicant, Company, Tender, Bid)
+  - Default visible columns: Applicant, Email, Verified, Company, Tender, Bid Amount, Timeline, Status, Submitted
+  - Column group headers with color-coded badges (orange=Applicant, violet=Company, blue=Tender, emerald=Bid)
+  - Sortable columns with asc/desc indicators
+  - Expandable row detail panel with Applicant Details, Company Details, Bid Details sections
+  - Technical proposal excerpt in expanded view
+  - Skills badges for applicant skill tags
+  - Export CSV button that generates downloadable spreadsheet
+  - Pagination with page controls
+  - Custom cell renderers for each column type (badges, currency, dates, verified icons, etc.)
+  - Empty state with helpful message and CTA button
+- Updated /src/store/index.ts - Added 'applicants' to View type union
+- Updated /src/components/app-shell.tsx:
+  - Added ClipboardList icon import from lucide-react
+  - Added ApplicantsView dynamic import
+  - Added 'Applicants' nav item with ClipboardList icon in MAIN section (after Bids)
+  - Added 'applicants' to View type
+  - Added render case for ApplicantsView component
+- Seeded sample data: 3 tenders + 6 bids with various statuses for testing
+- Browser verified: all features work correctly - table renders with data, expand row shows detail, status filters work, card view works, export CSV works, no errors
+
+Stage Summary:
+- Full Applicants Spreadsheet page implemented and verified
+- API endpoint with company-scoped data isolation
+- 29 configurable columns across 4 groups with sort/filter/search
+- Table and Card view modes
+- Expandable row detail panels
+- CSV export functionality
+- Zero lint errors, zero browser errors
