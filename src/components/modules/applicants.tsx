@@ -25,7 +25,8 @@ import {
   Gavel, FileSpreadsheet, LayoutGrid, List, TrendingUp,
   Calendar, Tag, CheckCircle, XCircle, CircleDot, Award,
   Ban, ClipboardCheck, MoreHorizontal, ExternalLink, Sparkles,
-  RefreshCw, Columns3, CheckSquare, Square,
+  RefreshCw, Columns3, CheckSquare, Square, Timer, Lock,
+  Hourglass,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -76,6 +77,14 @@ interface ApplicantMeta {
   totalBudgetSum: number;
   uniqueTenders: number;
   uniqueCompanies: number;
+}
+
+interface TenderInfo {
+  id: string;
+  title: string;
+  deadline: string;
+  status: string;
+  bidCount: number;
 }
 
 type SortField = keyof ApplicantRow;
@@ -166,6 +175,8 @@ export function ApplicantsView() {
   const { setView } = useNavStore();
   const [rows, setRows] = useState<ApplicantRow[]>([]);
   const [meta, setMeta] = useState<ApplicantMeta | null>(null);
+  const [openTenders, setOpenTenders] = useState<TenderInfo[]>([]);
+  const [closedTenders, setClosedTenders] = useState<TenderInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -197,6 +208,8 @@ export function ApplicantsView() {
       if (res.success) {
         setRows(res.data);
         setMeta(res.meta);
+        setOpenTenders(res.openTenders || []);
+        setClosedTenders(res.closedTenders || []);
       }
     } catch (err) {
       console.error('Fetch applicants error:', err);
@@ -210,12 +223,10 @@ export function ApplicantsView() {
     fetchData();
   }, [fetchData]);
 
-  // Get unique tenders for filter dropdown
+  // Get unique tenders for filter dropdown (from closedTenders API data)
   const tenderOptions = useMemo(() => {
-    const seen = new Map<string, string>();
-    rows.forEach(r => { if (!seen.has(r.tenderId)) seen.set(r.tenderId, r.tenderTitle); });
-    return Array.from(seen.entries());
-  }, [rows]);
+    return closedTenders.map(t => [t.id, t.title] as [string, string]);
+  }, [closedTenders]);
 
   // Sorted rows (client-side sorting on current page)
   const sortedRows = useMemo(() => {
@@ -329,9 +340,14 @@ export function ApplicantsView() {
             <FileSpreadsheet className="h-6 w-6 text-orange-600 dark:text-orange-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Applicants Spreadsheet</h1>
+            <h1 className="text-xl font-bold">My Applicants</h1>
             <p className="text-sm text-muted-foreground">
-              {totalApplicants} applicant{totalApplicants !== 1 ? 's' : ''} across {uniqueTenders} tender{uniqueTenders !== 1 ? 's' : ''}
+              {totalApplicants > 0
+                ? `${totalApplicants} applicant${totalApplicants !== 1 ? 's' : ''} across ${uniqueTenders} closed tender${uniqueTenders !== 1 ? 's' : ''}`
+                : openTenders.length > 0
+                  ? `${openTenders.length} tender${openTenders.length !== 1 ? 's' : ''} still accepting bids`
+                  : 'Applicants for your published tenders'
+              }
             </p>
           </div>
         </div>
@@ -394,6 +410,72 @@ export function ApplicantsView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Info banner: explain visibility rules */}
+      <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/30">
+        <CardContent className="p-3 flex items-start gap-3">
+          <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicants are visible only after the tender deadline closes</p>
+            <p className="text-xs text-amber-700/70 dark:text-amber-400/60 mt-0.5">
+              To protect bid integrity, applicant details remain sealed while your tender is still accepting bids.
+              {closedTenders.length > 0 && ` You have ${closedTenders.length} closed tender${closedTenders.length !== 1 ? 's' : ''} with visible applicants.`}
+              {openTenders.length > 0 && ` ${openTenders.length} tender${openTenders.length !== 1 ? 's' : ''} still open.`}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Open tenders still accepting bids */}
+      {openTenders.length > 0 && (
+        <Card className="border-amber-200/60 dark:border-amber-800/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Hourglass className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <h3 className="text-sm font-semibold">Tenders Still Accepting Bids</h3>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                {openTenders.length} open
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Applicant details will be revealed here once each tender's deadline passes.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {openTenders.map(tender => {
+                const daysLeft = daysUntil(tender.deadline);
+                const urgency = daysLeft <= 3 ? 'text-red-600 bg-red-50 dark:bg-red-950/30' : daysLeft <= 7 ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/30' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30';
+                return (
+                  <div
+                    key={tender.id}
+                    className="flex items-center justify-between p-3 rounded-xl border bg-card hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => setView('tender-detail', { id: tender.id })}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{tender.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-md ${urgency}`}>
+                          <Timer className="h-3 w-3 mr-0.5" />
+                          {daysLeft <= 0 ? 'Closing today' : `${daysLeft}d left`}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          Deadline: {formatDate(tender.deadline)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-3">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        <Users className="h-3 w-3 mr-0.5" />
+                        {tender.bidCount} bid{tender.bidCount !== 1 ? 's' : ''}
+                      </Badge>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Status filter pills */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -515,19 +597,21 @@ export function ApplicantsView() {
               <Users className="h-10 w-10 text-muted-foreground" />
             </div>
             <div className="text-center">
-              <h3 className="text-lg font-semibold">No Applicants Found</h3>
+              <h3 className="text-lg font-semibold">No Applicants Visible Yet</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 {search || statusFilter !== 'all'
                   ? 'Try adjusting your filters or search'
-                  : 'Applicants will appear here when bids are submitted on your tenders'}
+                  : closedTenders.length === 0 && openTenders.length > 0
+                    ? 'Your tenders are still accepting bids. Applicants will appear here once the deadline closes.'
+                    : closedTenders.length > 0
+                      ? 'No bids were submitted on your closed tenders yet.'
+                      : 'Applicants for your published tenders will appear here after the deadline closes.'}
               </p>
             </div>
-            {user?.role === 'team_admin' && (
-              <Button variant="outline" onClick={() => setView('tenders')}>
-                <FileSearch className="h-4 w-4 mr-2" />
-                View Tenders
-              </Button>
-            )}
+            <Button variant="outline" onClick={() => setView('tenders')}>
+              <FileSearch className="h-4 w-4 mr-2" />
+              View My Tenders
+            </Button>
           </CardContent>
         </Card>
       ) : viewMode === 'table' ? (
