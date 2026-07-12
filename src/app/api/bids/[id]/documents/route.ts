@@ -118,11 +118,9 @@ export async function POST(
       },
     });
 
-    // If auto-OCR is requested, trigger it asynchronously
+    // If auto-OCR is requested, trigger it asynchronously (and auto-chain AI Review if requested)
     if (autoOcr) {
-      // We'll process OCR in the background after returning the response
-      // The client can poll for status
-      triggerOcrAsync(document.id, safeName, `/uploads/${uniqueName}`).catch(err => {
+      triggerOcrAsync(document.id, safeName, `/uploads/${uniqueName}`, autoReview).catch(err => {
         console.error('Async OCR trigger failed:', err);
       });
     }
@@ -197,8 +195,8 @@ export async function GET(
   }
 }
 
-// Helper: trigger OCR asynchronously
-async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string) {
+// Helper: trigger OCR asynchronously, and optionally auto-chain AI Review
+async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string, autoReview: boolean = false) {
   try {
     const fs = await import('fs/promises');
     const filePath = process.cwd() + '/uploads/' + fileUrl.split('/uploads/')[1];
@@ -211,8 +209,6 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string)
     if (ext === 'txt') {
       ocrText = fileBuffer.toString('utf-8');
     } else {
-      // For images and documents (PDF, DOCX), use Vision API with image_url type
-      // image_url accepts data: URLs, file_url does NOT accept data: URLs
       const base64File = fileBuffer.toString('base64');
       const mimeMap: Record<string, string> = {
         pdf: 'application/pdf',
@@ -227,7 +223,6 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string)
       const ZAI = (await import('z-ai-web-dev-sdk')).default;
       const zai = await ZAI.create();
 
-      // Always use image_url type — it supports data: URLs for both images and PDFs
       const contentItem = { type: 'image_url' as const, image_url: { url: dataUrl } };
 
       const response = await zai.chat.completions.createVision({
@@ -260,6 +255,13 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string)
           ocrProcessedAt: new Date(),
         },
       });
+
+      // Auto-chain AI Review if requested
+      if (autoReview) {
+        triggerReviewAsync(docId, ocrText).catch(err => {
+          console.error('Auto AI Review trigger failed:', err);
+        });
+      }
     } else {
       await db.document.update({
         where: { id: docId },
@@ -271,6 +273,75 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string)
     await db.document.update({
       where: { id: docId },
       data: { ocrStatus: 'failed' },
+    }).catch(() => {});
+  }
+}
+
+// Helper: trigger AI Review asynchronously after OCR completes
+async function triggerReviewAsync(docId: string, ocrText: string) {
+  try {
+    await db.document.update({
+      where: { id: docId },
+      data: { aiReviewStatus: 'processing' },
+    });
+
+    const ZAI = (await import('z-ai-web-dev-sdk')).default;
+    const zai = await ZAI.create();
+
+    const completion = await zai.chat.completions.create({
+      messages: [
+        {
+          role: 'assistant',
+          content: `You are an expert procurement document reviewer. Analyze the provided document text and produce a structured review in JSON format with these fields:
+- complianceScore: number 0-100 (how well the document meets procurement standards)
+- completenessScore: number 0-100 (how complete the document is)
+- riskLevel: "low" | "medium" | "high" (overall risk assessment)
+- findings: array of { type: "positive"|"negative"|"warning", title: string, description: string }
+- strengths: array of strings
+- weaknesses: array of strings
+- missingElements: array of strings (what's missing or incomplete)
+- recommendations: array of strings
+
+Respond ONLY with valid JSON, no other text.`,
+        },
+        {
+          role: 'user',
+          content: `Please review this document:\n\n${ocrText}`,
+        },
+      ],
+      thinking: { type: 'disabled' },
+    });
+
+    const rawResponse = completion.choices?.[0]?.message?.content || '';
+
+    if (!rawResponse || rawResponse.trim().length === 0) {
+      throw new Error('AI review returned empty result');
+    }
+
+    let reviewData: Record<string, unknown>;
+    try {
+      const cleaned = rawResponse
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+      reviewData = JSON.parse(cleaned);
+    } catch {
+      reviewData = { summary: rawResponse };
+    }
+
+    await db.document.update({
+      where: { id: docId },
+      data: {
+        aiReview: JSON.stringify(reviewData),
+        aiReviewStatus: 'completed',
+        aiReviewProcessedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    console.error('Async AI Review error:', err);
+    await db.document.update({
+      where: { id: docId },
+      data: { aiReviewStatus: 'failed' },
     }).catch(() => {});
   }
 }

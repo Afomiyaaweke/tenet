@@ -560,3 +560,36 @@ Stage Summary:
 - Bids section now has full OCR + AI Review workflow for external documents
 - Document upload, OCR scanning, AI review all functional
 - Fixed critical OCR API bug (data: URL + file_url incompatibility)
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Add OCR for external documents on the bid section
+
+Work Log:
+- Examined current bid section components (bids.tsx, applicants.tsx) and API routes
+- Found existing External Documents section in bids.tsx with basic upload + manual OCR/AI Review
+- Enhanced the bid section with auto-OCR and auto-AI Review pipeline:
+  - Document upload now sends autoOcr=true and autoReview=true flags
+  - After upload, frontend polls for OCR completion then auto-triggers AI Review
+  - Added pollOcrThenReview function with ref-based callback to avoid circular deps
+- Added drag-and-drop upload support for external documents (handleDocDrop)
+- Redesigned the External Documents section with:
+  - Pipeline summary badges (pending, OCR, extracted, reviewed)
+  - Visual processing pipeline indicator (3-step: Upload → OCR → AI Review dots with connecting lines)
+  - Enhanced drag-drop upload zone with gradient background and pipeline flow visualization
+  - Empty state now shows clickable drag-drop zone
+  - Fully processed documents get green ring highlight
+  - "Run AI Review on this text" button in OCR text viewer
+- Updated backend (bids/[id]/documents/route.ts) to support auto-chaining AI Review after OCR:
+  - triggerOcrAsync now accepts autoReview parameter
+  - Added triggerReviewAsync helper that runs after OCR completes
+- Added gradient-purple CSS class to globals.css for the AI Review button
+- Browser-verified: Bids view loads with no errors, External Documents section visible with drag-drop zone and pipeline indicators
+
+Stage Summary:
+- External documents in bid section now have full OCR + AI Review auto-pipeline
+- Upload triggers automatic OCR text extraction and AI review
+- Visual pipeline indicators show document processing status
+- Drag-and-drop support for easy external document upload
+- Backend auto-chains OCR → AI Review when autoReview flag is set
