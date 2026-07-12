@@ -37,7 +37,7 @@ import {
   Sparkles, FileText, PenTool, Search, Users, X, Plus, ChevronDown,
   Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
   Award, Zap, AlertTriangle, CheckCircle2, XCircle,
-  Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2,
+  Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare,
 } from 'lucide-react';
 import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
 /* ══════════════════════════════════════════════════════════════
@@ -234,6 +234,12 @@ export function AIDocStudio() {
   const [reviewPrompts, setReviewPrompts] = useState<Record<string, string>>({});
   const [submitUrls, setSubmitUrls] = useState<Record<string, string>>({});
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+
+  // AI Extract state
+  const [extractPrompt, setExtractPrompt] = useState<Record<string, string>>({});
+  const [extractLoading, setExtractLoading] = useState<Set<string>>(new Set());
+  const [extractResults, setExtractResults] = useState<Record<string, string>>({});
+  const [showExtract, setShowExtract] = useState<Set<string>>(new Set());
 
   const { user } = useAuthStore();
 
@@ -653,6 +659,31 @@ export function AIDocStudio() {
       // silent fail for prompt save
     }
   };
+
+  /* ════════════════════════════════════════════════════════════
+     DOC REVIEW: AI Extract
+     ════════════════════════════════════════════════════════════ */
+  const handleAiExtract = useCallback(async (docId: string) => {
+    const prompt = extractPrompt[docId]?.trim();
+    if (!prompt) {
+      toast.error('Please enter a prompt');
+      return;
+    }
+    setExtractLoading(prev => new Set(prev).add(docId));
+    try {
+      const res = await api.post('/documents/ai-extract', { documentId: docId, prompt });
+      if (res.success) {
+        setExtractResults(prev => ({ ...prev, [docId]: res.data.extractedInfo }));
+        toast.success('Information extracted successfully');
+      } else {
+        toast.error(res.error || 'Extraction failed');
+      }
+    } catch {
+      toast.error('Extraction failed');
+    } finally {
+      setExtractLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+    }
+  }, [extractPrompt]);
 
   /* ════════════════════════════════════════════════════════════
      RIBBON: HOME TAB
@@ -1335,6 +1366,25 @@ export function AIDocStudio() {
                             {DOC_TYPE_OPTIONS.find(o => o.value === doc.docType)?.label || doc.docType}
                           </p>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!confirm(`Remove "${doc.fileName}"? This cannot be undone.`)) return;
+                            const res = await api.delete(`/documents/${doc.id}`);
+                            if (res.success) {
+                              toast.success('Document removed');
+                              loadDocuments();
+                            } else {
+                              toast.error(res.error || 'Failed to remove');
+                            }
+                          }}
+                          title="Remove document"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                         <button
                           onClick={e => { e.stopPropagation(); setExpandedDocId(isExpanded ? null : doc.id); }}
                           className="p-0.5 hover:bg-muted rounded transition-colors"
@@ -1488,6 +1538,96 @@ export function AIDocStudio() {
                               <ExternalLink className="h-3 w-3 mr-1.5" />
                               Submit Document
                             </Button>
+                          )}
+
+                          {/* AI Extract Section */}
+                          {ocrDone && (
+                            <div className="border-t border-border/30 pt-2">
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2"
+                                  onClick={() => {
+                                    setShowExtract(prev => {
+                                      const s = new Set(prev);
+                                      if (s.has(doc.id)) s.delete(doc.id);
+                                      else s.add(doc.id);
+                                      return s;
+                                    });
+                                  }}
+                                >
+                                  <Sparkles className="h-3 w-3 mr-1" />
+                                  {showExtract.has(doc.id) ? 'Hide Extract' : 'AI Extract'}
+                                </Button>
+                              </div>
+
+                              {showExtract.has(doc.id) && (
+                                <div className="mt-2 space-y-1.5">
+                                  <Input
+                                    placeholder="What do you want to extract?"
+                                    value={extractPrompt[doc.id] || ''}
+                                    onChange={e => setExtractPrompt(prev => ({ ...prev, [doc.id]: e.target.value }))}
+                                    className="h-6 text-[11px] bg-muted/30 border-border/50"
+                                    onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(doc.id); }}
+                                  />
+                                  {/* Quick prompt suggestions */}
+                                  <div className="flex flex-wrap gap-1">
+                                    {[
+                                      'Extract financial figures',
+                                      'List deadlines',
+                                      'Summarize requirements',
+                                      'Find contact info',
+                                      'Identify compliance issues',
+                                    ].map(suggestion => (
+                                      <button
+                                        key={suggestion}
+                                        type="button"
+                                        onClick={() => setExtractPrompt(prev => ({ ...prev, [doc.id]: suggestion }))}
+                                        className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                      >
+                                        {suggestion}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    className="h-6 text-[10px] px-2 w-full gradient-emerald text-white border-0 hover:opacity-90"
+                                    disabled={extractLoading.has(doc.id) || !extractPrompt[doc.id]?.trim()}
+                                    onClick={() => handleAiExtract(doc.id)}
+                                  >
+                                    {extractLoading.has(doc.id) ? (
+                                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Extracting...</>
+                                    ) : (
+                                      <><MessageSquare className="h-3 w-3 mr-1" /> Extract</>
+                                    )}
+                                  </Button>
+                                  {extractResults[doc.id] && (
+                                    <div className="rounded border border-border/40 bg-muted/20 overflow-hidden">
+                                      <div className="flex items-center justify-between px-2 py-1 border-b border-border/30">
+                                        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted Info</span>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-4 text-[9px] px-1"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(extractResults[doc.id]);
+                                            toast.success('Copied to clipboard');
+                                          }}
+                                        >
+                                          <Copy className="h-2.5 w-2.5 mr-0.5" /> Copy
+                                        </Button>
+                                      </div>
+                                      <ScrollArea className="max-h-[150px]">
+                                        <pre className="p-2 text-[10px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                                          {extractResults[doc.id]}
+                                        </pre>
+                                      </ScrollArea>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
@@ -1674,6 +1814,138 @@ export function AIDocStudio() {
                   prompt={selectedDoc.aiReviewPrompt || reviewPrompts[selectedDoc.id] || ''}
                 />
               )}
+
+              {/* AI Extract Panel */}
+              {ocrDone && (
+                <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+                  <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+                    <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                      AI Prompt Writer — Extract Information
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px]"
+                      onClick={() => {
+                        setShowExtract(prev => {
+                          const s = new Set(prev);
+                          if (s.has(selectedDoc.id)) s.delete(selectedDoc.id);
+                          else s.add(selectedDoc.id);
+                          return s;
+                        });
+                      }}
+                    >
+                      {showExtract.has(selectedDoc.id) ? <><ChevronDown className="h-3 w-3 mr-1" /> Hide</> : <><ChevronRight className="h-3 w-3 mr-1" /> Open</>}
+                    </Button>
+                  </div>
+
+                  {showExtract.has(selectedDoc.id) && (
+                    <div className="p-3 space-y-2.5">
+                      <div>
+                        <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+                          <MessageSquare className="h-3 w-3" /> What do you want to extract?
+                        </Label>
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            placeholder="e.g., Extract all financial figures, List deadlines, Find contact info..."
+                            value={extractPrompt[selectedDoc.id] || ''}
+                            onChange={e => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: e.target.value }))}
+                            className="h-7 text-xs bg-muted/30 border-border/50 flex-1"
+                            onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(selectedDoc.id); }}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gradient-emerald text-white border-0 hover:opacity-90 px-3 flex-shrink-0"
+                            disabled={extractLoading.has(selectedDoc.id) || !extractPrompt[selectedDoc.id]?.trim()}
+                            onClick={() => handleAiExtract(selectedDoc.id)}
+                          >
+                            {extractLoading.has(selectedDoc.id) ? (
+                              <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Extracting...</>
+                            ) : (
+                              <><Sparkles className="h-3.5 w-3.5 mr-1" /> Extract</>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Quick Prompt Suggestions */}
+                      <div>
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Quick Prompts</p>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            'Extract financial figures',
+                            'List deadlines',
+                            'Summarize requirements',
+                            'Find contact info',
+                            'Identify compliance issues',
+                          ].map(suggestion => (
+                            <button
+                              key={suggestion}
+                              type="button"
+                              onClick={() => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: suggestion }))}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors border ${
+                                extractPrompt[selectedDoc.id] === suggestion
+                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                                  : 'bg-muted/50 text-muted-foreground border-border/50 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700'
+                              }`}
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Extract Results */}
+                      {extractResults[selectedDoc.id] && (
+                        <div className="rounded-lg border border-border/40 bg-muted/20 overflow-hidden">
+                          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted Information</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 text-[10px] px-1.5"
+                              onClick={() => {
+                                navigator.clipboard.writeText(extractResults[selectedDoc.id]);
+                                toast.success('Copied to clipboard');
+                              }}
+                            >
+                              <Copy className="h-3 w-3 mr-0.5" /> Copy
+                            </Button>
+                          </div>
+                          <ScrollArea className="max-h-[300px]">
+                            <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                              {extractResults[selectedDoc.id]}
+                            </pre>
+                          </ScrollArea>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Remove Document */}
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                  onClick={async () => {
+                    if (!confirm(`Remove "${selectedDoc.fileName}"? This cannot be undone.`)) return;
+                    const res = await api.delete(`/documents/${selectedDoc.id}`);
+                    if (res.success) {
+                      toast.success('Document removed');
+                      setSelectedDocId(null);
+                      loadDocuments();
+                    } else {
+                      toast.error(res.error || 'Failed to remove');
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove Document
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">

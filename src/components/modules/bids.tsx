@@ -18,7 +18,7 @@ import {
   Bookmark, MapPin, Calendar, ExternalLink, Trash2, PenLine,
   ScanSearch, Brain, Loader2, AlertTriangle, Upload, FileText,
   CloudUpload, FileUp, ThumbsUp, ThumbsDown, AlertOctagon,
-  BarChart3, CheckCircle2, XCircle, Globe, MessageSquare,
+  BarChart3, CheckCircle2, XCircle, Globe, MessageSquare, Copy,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator } from '@/components/translator';
@@ -64,6 +64,10 @@ export function BidsView() {
   const [docUploadBidId, setDocUploadBidId] = useState<string | null>(null);
   const docFileRef = useRef<HTMLInputElement>(null);
   const [docUploadType, setDocUploadType] = useState('bid_attachment');
+  const [extractPrompt, setExtractPrompt] = useState<Record<string, string>>({});
+  const [extractLoading, setExtractLoading] = useState<Set<string>>(new Set());
+  const [extractResults, setExtractResults] = useState<Record<string, string>>({});
+  const [showExtract, setShowExtract] = useState<Set<string>>(new Set());
   const [submitUrlForBid, setSubmitUrlForBid] = useState<Record<string, string>>({});
   const [reviewPromptForBid, setReviewPromptForBid] = useState<Record<string, string>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -286,6 +290,29 @@ export function BidsView() {
       }
     }
   }, [expandedDocId, docOcrText]);
+
+  // ── AI Extract: extract specific info from document via prompt ──
+  const handleAiExtract = useCallback(async (docId: string) => {
+    const prompt = extractPrompt[docId]?.trim();
+    if (!prompt) {
+      toast.error('Please enter a prompt describing what to extract');
+      return;
+    }
+    setExtractLoading(prev => new Set(prev).add(docId));
+    try {
+      const res = await api.post('/documents/ai-extract', { documentId: docId, prompt });
+      if (res.success) {
+        setExtractResults(prev => ({ ...prev, [docId]: res.data.extractedInfo }));
+        toast.success('Information extracted successfully');
+      } else {
+        toast.error(res.error || 'AI extraction failed');
+      }
+    } catch {
+      toast.error('AI extraction failed');
+    } finally {
+      setExtractLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+    }
+  }, [extractPrompt]);
 
   const stats = useMemo(() => ({
     pending: bids.filter(b => b.status === 'pending_review').length,
@@ -1178,6 +1205,50 @@ export function BidsView() {
                                                   <ExternalLink className="h-2.5 w-2.5 mr-0.5" /> Submit
                                                 </Button>
                                               )}
+                                              {/* AI Extract button */}
+                                              {doc.ocrStatus === 'completed' && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className={`h-5 px-1.5 text-[9px] rounded ${showExtract.has(doc.id) ? 'text-emerald-600 bg-emerald-50' : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowExtract(prev => {
+                                                      const s = new Set(prev);
+                                                      if (s.has(doc.id)) s.delete(doc.id);
+                                                      else s.add(doc.id);
+                                                      return s;
+                                                    });
+                                                  }}
+                                                  title="AI Extract - Extract specific information"
+                                                >
+                                                  <Sparkles className="h-2.5 w-2.5" />
+                                                </Button>
+                                              )}
+                                              {/* Remove document button */}
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-5 px-1.5 text-[9px] text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  if (!confirm(`Remove "${doc.fileName}"? This cannot be undone.`)) return;
+                                                  try {
+                                                    const res = await api.delete(`/documents/${doc.id}`);
+                                                    if (res.success) {
+                                                      toast.success('Document removed');
+                                                      loadBids();
+                                                    } else {
+                                                      toast.error(res.error || 'Failed to remove document');
+                                                    }
+                                                  } catch {
+                                                    toast.error('Failed to remove document');
+                                                  }
+                                                }}
+                                                title="Remove document"
+                                              >
+                                                <Trash2 className="h-2.5 w-2.5" />
+                                              </Button>
                                             </div>
                                           </div>
 
@@ -1208,6 +1279,80 @@ export function BidsView() {
                                                   >
                                                     <Brain className="h-3 w-3 mr-1" /> Run AI Review on this text
                                                   </Button>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                          {/* AI Extract Panel */}
+                                          {showExtract.has(doc.id) && (
+                                            <div className="px-3 pb-3 animate-[fadeIn_0.2s_ease-out]">
+                                              <div className="p-3 bg-emerald-50/30 border border-emerald-100 rounded-lg">
+                                                <div className="flex items-center gap-1.5 mb-2">
+                                                  <Sparkles className="h-3 w-3 text-emerald-600" />
+                                                  <p className="text-[10px] font-semibold text-emerald-700">AI Prompt Writer — Extract Information</p>
+                                                </div>
+                                                <p className="text-[9px] text-muted-foreground mb-2">Ask AI to extract any kind of information from this document</p>
+                                                <div className="flex gap-2">
+                                                  <input
+                                                    type="text"
+                                                    placeholder="e.g., Extract all financial figures, List contract terms, Find deadline dates..."
+                                                    value={extractPrompt[doc.id] || ''}
+                                                    onChange={(e) => {
+                                                      e.stopPropagation();
+                                                      setExtractPrompt(prev => ({ ...prev, [doc.id]: e.target.value }));
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Enter') { e.stopPropagation(); handleAiExtract(doc.id); }
+                                                    }}
+                                                    className="flex-1 h-7 px-2 text-[11px] bg-white border border-emerald-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                  />
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-7 px-3 text-[10px] gradient-emerald text-white rounded-lg hover:opacity-90"
+                                                    disabled={extractLoading.has(doc.id) || !extractPrompt[doc.id]?.trim()}
+                                                    onClick={(e) => { e.stopPropagation(); handleAiExtract(doc.id); }}
+                                                  >
+                                                    {extractLoading.has(doc.id) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                                                    Extract
+                                                  </Button>
+                                                </div>
+                                                {/* Quick prompt suggestions */}
+                                                <div className="flex flex-wrap gap-1 mt-2">
+                                                  {[
+                                                    'Extract key financial figures',
+                                                    'List all deadlines and dates',
+                                                    'Summarize main requirements',
+                                                    'Extract contact information',
+                                                    'Identify risks and compliance issues',
+                                                  ].map(suggestion => (
+                                                    <button
+                                                      key={suggestion}
+                                                      onClick={(e) => { e.stopPropagation(); setExtractPrompt(prev => ({ ...prev, [doc.id]: suggestion })); }}
+                                                      className="text-[8px] px-1.5 py-0.5 rounded-full bg-white/80 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                                    >
+                                                      {suggestion}
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                                {/* Extract results */}
+                                                {extractResults[doc.id] && (
+                                                  <div className="mt-3 p-3 bg-white/80 border border-emerald-200 rounded-lg">
+                                                    <div className="flex items-center justify-between mb-1.5">
+                                                      <p className="text-[10px] font-semibold text-emerald-700">Extracted Information</p>
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-4 px-1 text-[8px]"
+                                                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(extractResults[doc.id]); toast.success('Copied to clipboard'); }}
+                                                      >
+                                                        <Copy className="h-2.5 w-2.5" />
+                                                      </Button>
+                                                    </div>
+                                                    <div className="max-h-48 overflow-y-auto text-[11px] text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                                                      {extractResults[doc.id]}
+                                                    </div>
+                                                  </div>
                                                 )}
                                               </div>
                                             </div>

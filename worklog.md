@@ -698,3 +698,141 @@ Stage Summary:
 - AI Doc Studio has full document review pipeline with user-customizable prompts
 - Submit link button opens external tender portals for document submission
 - Dashboard has AI Doc Studio card in Quick Actions section
+
+---
+Task ID: 1-2
+Agent: Sub Agent
+Task: Add Remove/Delete button and AI Prompt Writer for documents in Bids view
+
+Work Log:
+- Added 4 new state variables to bids.tsx: extractPrompt, extractLoading, extractResults, showExtract
+- Added handleAiExtract callback function that calls POST /api/documents/ai-extract with documentId and prompt
+- Added Copy icon import to lucide-react imports
+- Added Remove document button (Trash2 icon, rose-500 color) as LAST button in action buttons row
+  - Shows confirmation dialog before deleting via DELETE /api/documents/[docId]
+  - Refreshes bid list after successful deletion
+  - Shows success/error toasts
+- Added AI Extract button (Sparkles icon, emerald-600 color) for documents with ocrStatus === 'completed'
+  - Toggles showExtract panel open/closed
+  - Active state shows emerald-50 background
+- Added AI Extract Panel UI below the expanded OCR text section:
+  - Input field for custom extraction prompt
+  - Extract button with loading spinner
+  - 5 quick prompt suggestions (financial figures, deadlines, requirements, contacts, risks)
+  - Results display with copy-to-clipboard button
+- Verified both API routes already exist:
+  - DELETE /api/documents/[id] - handles document deletion with access control
+  - POST /api/documents/ai-extract - handles AI extraction with z-ai-web-dev-sdk
+- All lint checks pass (0 errors, 1 pre-existing warning in tender-detail.tsx)
+- Dev server compiles without errors
+
+Stage Summary:
+- Documents in Bids view now have a Remove button for deletion with confirmation
+- Documents with completed OCR have an AI Extract feature with custom prompts
+- AI Extract panel includes quick suggestions and copy-to-clipboard for results
+
+---
+Task ID: 3
+Agent: Code Agent
+Task: Change bid submission in tender-detail.tsx from form-style to document-upload style
+
+Work Log:
+- Replaced `bidData` state with two separate states: `bidFormData` (for financialProposal, timeline, technicalProposal text) and `bidDocFiles` (for File objects: technical, financial, timeline)
+- Added `submittingBid` state for loading indicator on submit button
+- Added `Upload` icon to lucide-react imports
+- Replaced `handleSubmitBid` with `handleSubmitBidWithDocs` using `useCallback`:
+  - First creates the bid record via POST /bids with technicalProposal auto-filled from document name if no summary provided
+  - Then uploads documents in parallel via api.upload() to /bids/{bidId}/documents with autoOcr and autoReview flags
+  - Handles partial upload failures with warning toast
+  - Resets form state on success and calls loadTender() to refresh
+- Replaced the dialog content from 3 text inputs (Textarea + 2 Inputs) to:
+  - 3 document upload zones (Technical, Financial, Timeline) with drag-style dashed borders, file name display, and X to remove
+  - Color-coded: emerald for Technical, amber for Financial, sky for Timeline
+  - Grid of 2 required fields: Financial Amount (ETB) and Timeline text
+  - Brief Technical Summary textarea (optional, with note about OCR processing)
+  - Submit button with loading spinner, disabled when required fields missing
+- All old `bidData` references removed; no stale references remain
+- Lint check passes (0 errors, 1 pre-existing warning)
+- Dev server compiles without errors
+
+Stage Summary:
+- Bid submission dialog now uses document-upload approach instead of form-style text inputs
+- Users upload Technical Proposal, Financial Proposal, and optional Timeline documents
+- Financial Amount and Timeline text fields retained for the bid record
+- Documents are uploaded after bid creation via /bids/{bidId}/documents API with auto OCR & AI Review
+
+---
+Task ID: 4
+Agent: Fullstack Agent
+Task: Add Remove button and AI Prompt Writer (Extract feature) to AI Doc Studio's Doc Review tab
+
+Work Log:
+- Read full ai-doc-studio.tsx component (2170+ lines) to understand existing structure
+- Confirmed existing API routes: DELETE /api/documents/[id] and POST /api/documents/ai-extract
+- Added Trash2 and MessageSquare icons to lucide-react imports
+- Added 4 new state variables for AI Extract feature:
+  - extractPrompt (Record<string, string>) — per-document custom prompt text
+  - extractLoading (Set<string>) — per-document loading state
+  - extractResults (Record<string, string>) — per-document extraction results
+  - showExtract (Set<string>) — per-document panel open/close toggle
+- Added handleAiExtract callback that calls POST /api/documents/ai-extract with { documentId, prompt }
+- Added Remove (Trash2) button to each document card in the left panel Doc Vault list:
+  - Small icon button next to the expand/collapse chevron
+  - Confirms deletion via browser confirm() dialog
+  - Calls DELETE /api/documents/[docId] then refreshes list
+- Added AI Extract section to the expanded content of each document card (left panel):
+  - "AI Extract" toggle button (Sparkles icon) — only shown when OCR is completed
+  - Prompt text input with Enter key support
+  - Quick prompt suggestion pills (5 options: financial figures, deadlines, requirements, contact info, compliance issues)
+  - "Extract" button with loading state
+  - Scrollable result display area with Copy button
+- Added AI Extract panel to the right-side detail view for selected document:
+  - "AI Prompt Writer — Extract Information" collapsible card
+  - Full-width prompt input with inline "Extract" button
+  - Quick Prompts suggestion row with active-state highlighting
+  - Scrollable extracted info display (max-h-[300px]) with Copy button
+- Added "Remove Document" button at bottom-right of selected document detail view
+  - Ghost variant with rose color scheme
+  - Confirmation dialog before deletion
+  - Clears selectedDocId and refreshes list on success
+- Lint check passes (0 errors, 1 pre-existing warning unrelated to changes)
+- Dev server compiles without errors
+
+Stage Summary:
+- Doc Review tab now has full document deletion capability via Trash2 remove buttons in both left panel and detail view
+- AI Prompt Writer (Extract) feature added to both left panel (expanded card) and right detail view
+- Users can type custom prompts or use quick suggestions to extract any information from OCR'd documents
+- API endpoints used: DELETE /api/documents/[id], POST /api/documents/ai-extract
+
+---
+Task ID: 1-3
+Agent: Main Agent + Subagents
+Task: Add remove button on OCR documents, AI prompt writer for extraction, change bid submission to doc upload
+
+Work Log:
+- Created DELETE /api/documents/[id] route for document deletion (removes file + DB record)
+- Created POST /api/documents/ai-extract route for AI-powered info extraction from OCR'd documents
+- Modified BidsView (bids.tsx):
+  - Added Trash2 remove button on each document in the list (with confirm dialog)
+  - Added AI Prompt Writer panel with custom prompt input, quick suggestions, and extract button
+  - Added state: extractPrompt, extractLoading, extractResults, showExtract
+  - Added handleAiExtract callback calling POST /documents/ai-extract
+- Modified TenderDetailView (tender-detail.tsx):
+  - Replaced form-style bid submission with document upload approach
+  - Added 3 upload zones (Technical, Financial, Timeline) with drag-and-drop
+  - Kept Financial Amount and Timeline text fields for the bid record
+  - Added handleSubmitBidWithDocs that creates bid then uploads docs in parallel
+  - Documents are auto-processed with OCR and AI Review on upload
+- Modified AI Doc Studio (ai-doc-studio.tsx):
+  - Added Remove document buttons in both Doc Vault list and detail panel
+  - Added AI Prompt Writer with custom prompt, quick suggestions, extract results
+  - Added state: extractPrompt, extractLoading, extractResults, showExtract
+  - Added handleAiExtract callback
+
+Stage Summary:
+- Document delete API route created at /api/documents/[id] (DELETE method)
+- AI extract API route created at /api/documents/ai-extract (POST method with documentId + prompt)
+- All three components updated with remove and AI extract features
+- Bid submission changed from form-style to document upload approach
+- Lint passes with 0 errors, dev server compiles cleanly
+- Browser verified: Bids view shows Remove + AI Extract buttons, AI Doc Studio shows Remove + AI Prompt Writer, all working

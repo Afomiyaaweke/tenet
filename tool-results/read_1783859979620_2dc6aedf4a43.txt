@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useCallback } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api, type Document } from '@/lib/api';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Textarea } from '@/components/ui/textarea';
+     9→import { Label } from '@/components/ui/label';
+    10→import { Badge } from '@/components/ui/badge';
+    11→import { Separator } from '@/components/ui/separator';
+    12→import { ScrollArea } from '@/components/ui/scroll-area';
+    13→import { Skeleton } from '@/components/ui/skeleton';
+    14→import {
+    15→  Select,
+    16→  SelectContent,
+    17→  SelectItem,
+    18→  SelectTrigger,
+    19→  SelectValue,
+    20→} from '@/components/ui/select';
+    21→import {
+    22→  Dialog,
+    23→  DialogContent,
+    24→  DialogHeader,
+    25→  DialogTitle,
+    26→} from '@/components/ui/dialog';
+    27→import {
+    28→  Popover,
+    29→  PopoverContent,
+    30→  PopoverTrigger,
+    31→} from '@/components/ui/popover';
+    32→import { toast } from 'sonner';
+    33→import {
+    34→  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+    35→  List, ListOrdered, Type, Image as ImageIcon, Table, Minus, Pen, Stamp, FileSignature,
+    36→  Eraser, Undo2, Redo2, Save, Download, Printer, ZoomIn, ZoomOut,
+    37→  Sparkles, FileText, PenTool, Search, Users, X, Plus, ChevronDown,
+    38→  Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
+    39→  Award, Zap, AlertTriangle, CheckCircle2, XCircle,
+    40→  Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2,
+    41→} from 'lucide-react';
+    42→import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
+    43→/* ══════════════════════════════════════════════════════════════
+    44→   TYPES
+    45→   ══════════════════════════════════════════════════════════════ */
+    46→
+    47→type RibbonTab = 'home' | 'insert' | 'review' | 'ai-tools' | 'sign' | 'doc-review';
+    48→type AITool = 'tender-builder' | 'bid-builder' | 'requirement-analyzer' | 'applicant-analyzer';
+    49→
+    50→interface TenderOption {
+    51→  id: string;
+    52→  title: string;
+    53→  scope?: string;
+    54→  budgetMin?: number;
+    55→  budgetMax?: number;
+    56→  categoryTags?: string;
+    57→  requiredDocs?: string;
+    58→  deadline?: string;
+    59→  _count?: { bids: number };
+    60→}
+    61→
+    62→// SavedSignature type is imported from shared stamp-signature component
+    63→
+    64→/* ══════════════════════════════════════════════════════════════
+    65→   CONSTANTS
+    66→   ══════════════════════════════════════════════════════════════ */
+    67→
+    68→const CATEGORIES = [
+    69→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    70→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics',
+    71→  'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications',
+    72→];
+    73→
+    74→const COMMON_SKILLS = [
+    75→  'Project Management', 'Construction', 'Engineering', 'IT Solutions',
+    76→  'Consulting', 'Architecture', 'Electrical Work', 'Plumbing',
+    77→  'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance',
+    78→  'Agriculture', 'Telecommunications', 'Web Development', 'Software',
+    79→  'Design', 'Research', 'Training', 'Maintenance', 'Procurement',
+    80→  'Supply Chain', 'Quality Assurance', 'Safety Management',
+    81→];
+    82→
+    83→const FONT_FAMILIES = ['Arial', 'Times New Roman', 'Courier New', 'Calibri', 'Georgia', 'Verdana'];
+    84→const FONT_SIZES = ['10', '11', '12', '14', '16', '18', '20', '24', '28', '36'];
+    85→const TEXT_COLORS = ['#000000', '#dc2626', '#2563eb', '#16a34a', '#9333ea', '#ea580c'];
+    86→const HIGHLIGHT_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fecaca', '#e9d5ff', '#fed7aa'];
+    87→const ZOOM_LEVELS = [75, 100, 125, 150];
+    88→
+    89→const AI_TOOLS: { id: AITool; label: string; icon: React.ElementType }[] = [
+    90→  { id: 'tender-builder', label: 'Tender Builder', icon: FileText },
+    91→  { id: 'bid-builder', label: 'Bid Proposal', icon: PenTool },
+    92→  { id: 'requirement-analyzer', label: 'Req Analyzer', icon: Search },
+    93→  { id: 'applicant-analyzer', label: 'Applicant Rank', icon: Users },
+    94→];
+    95→
+    96→const DOC_TYPE_OPTIONS = [
+    97→  { value: 'external_doc', label: 'External Document' },
+    98→  { value: 'business_license', label: 'Business License' },
+    99→  { value: 'tax_clearance', label: 'Tax Clearance' },
+   100→  { value: 'technical_proposal', label: 'Technical Proposal' },
+   101→  { value: 'financial_proposal', label: 'Financial Proposal' },
+   102→  { value: 'timeline_doc', label: 'Timeline Document' },
+   103→  { value: 'bid_attachment', label: 'Bid Attachment' },
+   104→  { value: 'portfolio', label: 'Portfolio' },
+   105→  { value: 'certificate', label: 'Certificate' },
+   106→  { value: 'other', label: 'Other' },
+   107→];
+   108→
+   109→const PROMPT_SUGGESTIONS: Record<string, string> = {
+   110→  external_doc: 'Check if this document meets Ethiopian procurement law requirements and international standards',
+   111→  business_license: 'Verify if this business license is valid, complete, and meets procurement requirements',
+   112→  tax_clearance: 'Review this tax clearance document for completeness and validity',
+   113→  technical_proposal: 'Evaluate this technical proposal against standard procurement evaluation criteria',
+   114→  financial_proposal: 'Review this financial proposal for completeness, accuracy, and compliance',
+   115→  timeline_doc: 'Analyze this timeline document for feasibility and compliance with deadline requirements',
+   116→  bid_attachment: 'Review this bid attachment for completeness and compliance with tender requirements',
+   117→  portfolio: 'Evaluate this portfolio for relevant experience and capability demonstration',
+   118→  certificate: 'Verify this certificate for authenticity, validity, and relevance to procurement requirements',
+   119→  other: 'Review this document for completeness, accuracy, and compliance with applicable standards',
+   120→};
+   121→
+   122→// STAMP_TEMPLATES imported from shared stamp-signature component
+   123→
+   124→/* ══════════════════════════════════════════════════════════════
+   125→   HELPERS
+   126→   ══════════════════════════════════════════════════════════════ */
+   127→
+   128→// generateSeal is now handled by useStampSignature hook's generateStamp method
+   129→
+   130→function formatAIResultToHTML(data: Record<string, unknown>): string {
+   131→  let html = '';
+   132→  for (const [key, value] of Object.entries(data)) {
+   133→    const title = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+   134→    const content = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+   135→    const formattedContent = content
+   136→      .replace(/&/g, '&amp;')
+   137→      .replace(/</g, '&lt;')
+   138→      .replace(/>/g, '&gt;')
+   139→      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+   140→      .replace(/^[-*•]\s+(.*)/gm, '<li>$1</li>')
+   141→      .replace(/^(\d+)[.)]\s+(.*)/gm, '<li>$2</li>')
+   142→      .replace(/^#{1,3}\s+(.*)/gm, '<strong>$1</strong>')
+   143→      .replace(/\n\n/g, '</p><p>')
+   144→      .replace(/\n/g, '<br/>');
+   145→    html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">${title}</h2>`;
+   146→    html += `<p>${formattedContent}</p>`;
+   147→  }
+   148→  return html;
+   149→}
+   150→
+   151→function getFileExtBadge(fileName: string): { color: string; label: string } {
+   152→  const ext = fileName.toLowerCase().split('.').pop() || '';
+   153→  const map: Record<string, { color: string; label: string }> = {
+   154→    pdf: { color: 'bg-rose-100 text-rose-700', label: 'PDF' },
+   155→    docx: { color: 'bg-blue-100 text-blue-700', label: 'DOCX' },
+   156→    doc: { color: 'bg-blue-100 text-blue-700', label: 'DOC' },
+   157→    txt: { color: 'bg-gray-100 text-gray-700', label: 'TXT' },
+   158→    jpg: { color: 'bg-amber-100 text-amber-700', label: 'JPG' },
+   159→    jpeg: { color: 'bg-amber-100 text-amber-700', label: 'JPEG' },
+   160→    png: { color: 'bg-emerald-100 text-emerald-700', label: 'PNG' },
+   161→  };
+   162→  return map[ext] || { color: 'bg-gray-100 text-gray-600', label: ext.toUpperCase() };
+   163→}
+   164→
+   165→// Signature loading/saving is now handled by useStampSignature hook
+   166→
+   167→/* ══════════════════════════════════════════════════════════════
+   168→   SKILL TAG SELECTOR
+   169→   ══════════════════════════════════════════════════════════════ */
+   170→
+   171→function SkillTagSelector({ selected, onChange }: { selected: string[]; onChange: (s: string[]) => void }) {
+   172→  const toggle = (skill: string) => {
+   173→    if (selected.includes(skill)) onChange(selected.filter(s => s !== skill));
+   174→    else onChange([...selected, skill]);
+   175→  };
+   176→  return (
+   177→    <div className="flex flex-wrap gap-1">
+   178→      {COMMON_SKILLS.map(skill => (
+   179→        <button key={skill} type="button" onClick={() => toggle(skill)}
+   180→          className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all border ${
+   181→            selected.includes(skill)
+   182→              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+   183→              : 'bg-muted/50 text-muted-foreground border-border hover:border-emerald-300'
+   184→          }`}>
+   185→          {skill}
+   186→        </button>
+   187→      ))}
+   188→    </div>
+   189→  );
+   190→}
+   191→
+   192→/* ══════════════════════════════════════════════════════════════
+   193→   MAIN COMPONENT
+   194→   ══════════════════════════════════════════════════════════════ */
+   195→
+   196→export function AIDocStudio() {
+   197→  /* ── State ── */
+   198→  const editorRef = useRef<HTMLDivElement>(null);
+   199→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   200→  const fileInputRef = useRef<HTMLInputElement>(null);
+   201→
+   202→  const [ribbonTab, setRibbonTab] = useState<RibbonTab>('home');
+   203→  const [docTitle, setDocTitle] = useState('Untitled Document');
+   204→  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+   205→  const [zoom, setZoom] = useState(100);
+   206→  const [wordCount, setWordCount] = useState(0);
+   207→  const [charCount, setCharCount] = useState(0);
+   208→
+   209→  // AI Tools panel
+   210→  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+   211→  const [activeAITool, setActiveAITool] = useState<AITool>('tender-builder');
+   212→  const [aiLoading, setAiLoading] = useState(false);
+   213→
+   214→  // Sign panel - use shared hook
+   215→  const stampSigHook = useStampSignature();
+   216→  const { savedItems: savedSignatures, addSignature, removeItem: deleteSignature, uploadFromFile, generateStamp } = stampSigHook;
+   217→  const [drawDialogOpen, setDrawDialogOpen] = useState(false);
+   218→  const [isDrawing, setIsDrawing] = useState(false);
+   219→  const [placementMode, setPlacementMode] = useState(false);
+   220→  const [placementDataUrl, setPlacementDataUrl] = useState('');
+   221→
+   222→  // Tender list for some tools
+   223→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   224→
+   225→  // Doc Review state
+   226→  const [documents, setDocuments] = useState<Document[]>([]);
+   227→  const [docsLoading, setDocsLoading] = useState(false);
+   228→  const [uploading, setUploading] = useState(false);
+   229→  const [dragOver, setDragOver] = useState(false);
+   230→  const [uploadDocType, setUploadDocType] = useState('external_doc');
+   231→  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+   232→  const [ocrStatusMap, setOcrStatusMap] = useState<Record<string, { loading: boolean; text?: string }>>({});
+   233→  const [reviewStatusMap, setReviewStatusMap] = useState<Record<string, { loading: boolean; result?: string }>>({});
+   234→  const [reviewPrompts, setReviewPrompts] = useState<Record<string, string>>({});
+   235→  const [submitUrls, setSubmitUrls] = useState<Record<string, string>>({});
+   236→  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+   237→
+   238→  const { user } = useAuthStore();
+   239→
+   240→  /* ── Load tenders ── */
+   241→  useEffect(() => {
+   242→    api.get('/tenders', { status: 'open', limit: '50' }).then(res => {
+   243→      if (res.success) setTenders(res.data || []);
+   244→    }).catch(() => {});
+   245→  }, []);
+   246→
+   247→  /* ── Load documents for review ── */
+   248→  const loadDocuments = useCallback(async () => {
+   249→    setDocsLoading(true);
+   250→    try {
+   251→      const res = await api.get('/documents');
+   252→      if (res.success && res.data) {
+   253→        setDocuments(res.data);
+   254→        // Initialize prompts/urls from loaded data
+   255→        const prompts: Record<string, string> = {};
+   256→        const urls: Record<string, string> = {};
+   257→        for (const doc of res.data as Document[]) {
+   258→          if (doc.aiReviewPrompt) prompts[doc.id] = doc.aiReviewPrompt;
+   259→          if (doc.submitUrl) urls[doc.id] = doc.submitUrl;
+   260→        }
+   261→        setReviewPrompts(prev => ({ ...prev, ...prompts }));
+   262→        setSubmitUrls(prev => ({ ...prev, ...urls }));
+   263→      }
+   264→    } catch {
+   265→      // ignore
+   266→    } finally {
+   267→      setDocsLoading(false);
+   268→    }
+   269→  }, []);
+   270→
+   271→  useEffect(() => {
+   272→    if (ribbonTab === 'doc-review') {
+   273→      loadDocuments();
+   274→    }
+   275→  }, [ribbonTab, loadDocuments]);
+   276→
+   277→  /* ── Word count ── */
+   278→  const updateCounts = useCallback(() => {
+   279→    const el = editorRef.current;
+   280→    if (!el) return;
+   281→    const text = el.innerText || '';
+   282→    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+   283→    setWordCount(words.length);
+   284→    setCharCount(text.length);
+   285→  }, []);
+   286→
+   287→  useEffect(() => {
+   288→    const el = editorRef.current;
+   289→    if (!el) return;
+   290→    const observer = new MutationObserver(updateCounts);
+   291→    observer.observe(el, { childList: true, subtree: true, characterData: true });
+   292→    return () => observer.disconnect();
+   293→  }, [updateCounts]);
+   294→
+   295→  /* ── Format commands ── */
+   296→  const handleFormat = (command: string, value?: string) => {
+   297→    document.execCommand(command, false, value || undefined);
+   298→    editorRef.current?.focus();
+   299→    setSaveStatus('unsaved');
+   300→    updateCounts();
+   301→  };
+   302→
+   303→  const handleDocChange = () => {
+   304→    setSaveStatus('unsaved');
+   305→    updateCounts();
+   306→  };
+   307→
+   308→  /* ── Save ── */
+   309→  const handleSave = () => {
+   310→    setSaveStatus('saving');
+   311→    setTimeout(() => {
+   312→      setSaveStatus('saved');
+   313→      toast.success('Document saved');
+   314→    }, 600);
+   315→  };
+   316→
+   317→  /* ── Insert helpers ── */
+   318→  const insertTable = (rows: number, cols: number) => {
+   319→    let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0;">';
+   320→    for (let r = 0; r < rows; r++) {
+   321→      html += '<tr>';
+   322→      for (let c = 0; c < cols; c++) {
+   323→        html += '<td style="border:1px solid #d1d5db;padding:6px 8px;min-width:60px;">&nbsp;</td>';
+   324→      }
+   325→      html += '</tr>';
+   326→    }
+   327→    html += '</table>';
+   328→    document.execCommand('insertHTML', false, html);
+   329→    editorRef.current?.focus();
+   330→    setSaveStatus('unsaved');
+   331→  };
+   332→
+   333→  const insertImageFromFile = () => {
+   334→    const input = document.createElement('input');
+   335→    input.type = 'file';
+   336→    input.accept = 'image/*';
+   337→    input.onchange = (e) => {
+   338→      const file = (e.target as HTMLInputElement).files?.[0];
+   339→      if (!file) return;
+   340→      const reader = new FileReader();
+   341→      reader.onload = (ev) => {
+   342→        const dataUrl = ev.target?.result as string;
+   343→        document.execCommand('insertHTML', false, `<img src="${dataUrl}" style="max-width:100%;height:auto;margin:8px 0;" />`);
+   344→        editorRef.current?.focus();
+   345→        setSaveStatus('unsaved');
+   346→      };
+   347→      reader.readAsDataURL(file);
+   348→    };
+   349→    input.click();
+   350→  };
+   351→
+   352→  const insertDateTime = () => {
+   353→    const now = new Date();
+   354→    const str = now.toLocaleString();
+   355→    document.execCommand('insertText', false, str);
+   356→    editorRef.current?.focus();
+   357→    setSaveStatus('unsaved');
+   358→  };
+   359→
+   360→  const insertPageBreak = () => {
+   361→    document.execCommand('insertHTML', false, '<div style="page-break-after:always;border-top:2px dashed #d1d5db;margin:16px 0;padding-top:4px;text-align:center;color:#9ca3af;font-size:10px;">--- Page Break ---</div>');
+   362→    editorRef.current?.focus();
+   363→    setSaveStatus('unsaved');
+   364→  };
+   365→
+   366→  const insertPageNumber = () => {
+   367→    document.execCommand('insertHTML', false, '<span style="color:#6b7280;font-size:11px;">[Page 1]</span>');
+   368→    editorRef.current?.focus();
+   369→    setSaveStatus('unsaved');
+   370→  };
+   371→
+   372→  /* ── Signature Drawing ── */
+   373→  const startDraw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+   374→    const ctx = canvasRef.current?.getContext('2d');
+   375→    if (!ctx) return;
+   376→    ctx.beginPath();
+   377→    ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+   378→    setIsDrawing(true);
+   379→  };
+   380→
+   381→  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+   382→    if (!isDrawing) return;
+   383→    const ctx = canvasRef.current?.getContext('2d');
+   384→    if (!ctx) return;
+   385→    ctx.lineWidth = 2;
+   386→    ctx.lineCap = 'round';
+   387→    ctx.strokeStyle = '#1a1a1a';
+   388→    ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+   389→    ctx.stroke();
+   390→  };
+   391→
+   392→  const endDraw = () => { setIsDrawing(false); };
+   393→
+   394→  const clearCanvas = () => {
+   395→    const ctx = canvasRef.current?.getContext('2d');
+   396→    if (ctx && canvasRef.current) {
+   397→      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+   398→    }
+   399→  };
+   400→
+   401→  const saveDrawnSignature = () => {
+   402→    const dataUrl = canvasRef.current?.toDataURL('image/png');
+   403→    if (dataUrl) {
+   404→      const sigCount = savedSignatures.filter(s => s.type === 'signature').length + 1;
+   405→      addSignature(dataUrl, `Signature ${sigCount}`, 'signature');
+   406→      toast.success('Signature saved');
+   407→      setDrawDialogOpen(false);
+   408→      clearCanvas();
+   409→    }
+   410→  };
+   411→
+   412→  const uploadSignature = () => {
+   413→    uploadFromFile('signature');
+   414→  };
+   415→
+   416→  const addStamp = (text: string) => {
+   417→    const dataUrl = generateStamp(text);
+   418→    addSignature(dataUrl, `${text} Stamp`, 'stamp');
+   419→    toast.success(`${text} stamp created`);
+   420→  };
+   421→
+   422→  const startPlacement = (dataUrl: string) => {
+   423→    setPlacementDataUrl(dataUrl);
+   424→    setPlacementMode(true);
+   425→    toast.info('Click on the document to place the signature/stamp');
+   426→  };
+   427→
+   428→  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+   429→    if (!placementMode || !placementDataUrl) return;
+   430→    e.preventDefault();
+   431→    const sel = window.getSelection();
+   432→    if (sel && sel.rangeCount > 0) {
+   433→      const range = sel.getRangeAt(0);
+   434→      range.collapse(false);
+   435→      const img = document.createElement('img');
+   436→      img.src = placementDataUrl;
+   437→      img.setAttribute('data-signature', 'true');
+   438→      img.style.maxHeight = '80px';
+   439→      img.style.margin = '4px';
+   440→      img.style.cursor = 'pointer';
+   441→      img.onclick = () => {
+   442→        if (confirm('Remove this signature/stamp?')) {
+   443→          img.remove();
+   444→          setSaveStatus('unsaved');
+   445→          updateCounts();
+   446→        }
+   447→      };
+   448→      range.insertNode(img);
+   449→      range.collapse(false);
+   450→    } else {
+   451→      document.execCommand('insertHTML', false,
+   452→        `<img src="${placementDataUrl}" data-signature="true" style="max-height:80px;margin:4px;cursor:pointer;" onclick="if(confirm('Remove?'))this.remove()" />`
+   453→      );
+   454→    }
+   455→    setPlacementMode(false);
+   456→    setPlacementDataUrl('');
+   457→    setSaveStatus('unsaved');
+   458→    updateCounts();
+   459→  };
+   460→
+   461→  // deleteSignature is now provided by useStampSignature hook as removeItem
+   462→
+   463→  /* ── AI Generation ── */
+   464→  const setDocumentContent = (html: string) => {
+   465→    if (editorRef.current) {
+   466→      editorRef.current.innerHTML = html;
+   467→      setSaveStatus('unsaved');
+   468→      updateCounts();
+   469→    }
+   470→  };
+   471→
+   472→  /* ════════════════════════════════════════════════════════════
+   473→     DOC REVIEW: Upload
+   474→     ════════════════════════════════════════════════════════════ */
+   475→  const handleFileUpload = async (files: FileList | File[]) => {
+   476→    const file = files[0];
+   477→    if (!file) return;
+   478→
+   479→    setUploading(true);
+   480→    try {
+   481→      const formData = new FormData();
+   482→      formData.append('file', file);
+   483→      formData.append('docType', uploadDocType);
+   484→      const res = await api.upload('/documents', formData);
+   485→      if (res.success) {
+   486→        toast.success(`"${file.name}" uploaded successfully`);
+   487→        loadDocuments();
+   488→      } else {
+   489→        toast.error(res.error || 'Upload failed');
+   490→      }
+   491→    } catch {
+   492→      toast.error('Upload failed');
+   493→    } finally {
+   494→      setUploading(false);
+   495→    }
+   496→  };
+   497→
+   498→  const handleDrop = (e: React.DragEvent) => {
+   499→    e.preventDefault();
+   500→    setDragOver(false);
+   501→    if (e.dataTransfer.files.length > 0) {
+   502→      handleFileUpload(e.dataTransfer.files);
+   503→    }
+   504→  };
+   505→
+   506→  /* ════════════════════════════════════════════════════════════
+   507→     DOC REVIEW: OCR
+   508→     ════════════════════════════════════════════════════════════ */
+   509→  const triggerOCR = async (docId: string) => {
+   510→    setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: true } }));
+   511→    try {
+   512→      const res = await api.post(`/document-ocr/${docId}`);
+   513→      if (res.success) {
+   514→        toast.success('OCR processing started');
+   515→        // Poll for completion
+   516→        pollOCRStatus(docId);
+   517→      } else {
+   518→        toast.error(res.error || 'OCR failed');
+   519→        setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   520→      }
+   521→    } catch {
+   522→      toast.error('OCR request failed');
+   523→      setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   524→    }
+   525→  };
+   526→
+   527→  const pollOCRStatus = async (docId: string) => {
+   528→    let attempts = 0;
+   529→    const maxAttempts = 30;
+   530→    const poll = async () => {
+   531→      try {
+   532→        const res = await api.get(`/document-ocr/${docId}`);
+   533→        if (res.success && res.data) {
+   534→          const status = res.data.ocrStatus;
+   535→          if (status === 'completed') {
+   536→            setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false, text: res.data.ocrText } }));
+   537→            toast.success('OCR completed');
+   538→            // Refresh document list
+   539→            loadDocuments();
+   540→            return;
+   541→          } else if (status === 'failed') {
+   542→            setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   543→            toast.error('OCR failed');
+   544→            return;
+   545→          }
+   546→        }
+   547→        attempts++;
+   548→        if (attempts < maxAttempts) {
+   549→          setTimeout(poll, 2000);
+   550→        } else {
+   551→          setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   552→          toast.info('OCR is taking longer than expected. Check back later.');
+   553→        }
+   554→      } catch {
+   555→        attempts++;
+   556→        if (attempts < maxAttempts) {
+   557→          setTimeout(poll, 3000);
+   558→        }
+   559→      }
+   560→    };
+   561→    setTimeout(poll, 2000);
+   562→  };
+   563→
+   564→  /* ════════════════════════════════════════════════════════════
+   565→     DOC REVIEW: AI Review
+   566→     ════════════════════════════════════════════════════════════ */
+   567→  const triggerReview = async (docId: string) => {
+   568→    const prompt = reviewPrompts[docId]?.trim() || '';
+   569→    setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: true } }));
+   570→    try {
+   571→      const res = await api.post(`/document-review/${docId}`, prompt ? { prompt } : {});
+   572→      if (res.success) {
+   573→        toast.success('AI Review started');
+   574→        pollReviewStatus(docId);
+   575→      } else {
+   576→        toast.error(res.error || 'AI Review failed');
+   577→        setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   578→      }
+   579→    } catch {
+   580→      toast.error('AI Review request failed');
+   581→      setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   582→    }
+   583→  };
+   584→
+   585→  const pollReviewStatus = async (docId: string) => {
+   586→    let attempts = 0;
+   587→    const maxAttempts = 40;
+   588→    const poll = async () => {
+   589→      try {
+   590→        const res = await api.get(`/document-review/${docId}`);
+   591→        if (res.success && res.data) {
+   592→          const status = res.data.aiReviewStatus;
+   593→          if (status === 'completed') {
+   594→            setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false, result: res.data.aiReview } }));
+   595→            toast.success('AI Review completed');
+   596→            loadDocuments();
+   597→            return;
+   598→          } else if (status === 'failed') {
+   599→            setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   600→            toast.error('AI Review failed');
+   601→            return;
+   602→          }
+   603→        }
+   604→        attempts++;
+   605→        if (attempts < maxAttempts) {
+   606→          setTimeout(poll, 3000);
+   607→        } else {
+   608→          setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   609→          toast.info('AI Review is taking longer than expected. Check back later.');
+   610→        }
+   611→      } catch {
+   612→        attempts++;
+   613→        if (attempts < maxAttempts) {
+   614→          setTimeout(poll, 4000);
+   615→        }
+   616→      }
+   617→    };
+   618→    setTimeout(poll, 3000);
+   619→  };
+   620→
+   621→  /* ════════════════════════════════════════════════════════════
+   622→     DOC REVIEW: Submit URL
+   623→     ════════════════════════════════════════════════════════════ */
+   624→  const saveSubmitUrl = async (docId: string) => {
+   625→    const url = submitUrls[docId]?.trim() || '';
+   626→    try {
+   627→      const res = await api.patch(`/documents/${docId}`, { submitUrl: url || null });
+   628→      if (res.success) {
+   629→        toast.success(url ? 'Submit URL saved' : 'Submit URL removed');
+   630→      } else {
+   631→        toast.error(res.error || 'Failed to save URL');
+   632→      }
+   633→    } catch {
+   634→      toast.error('Failed to save URL');
+   635→    }
+   636→  };
+   637→
+   638→  const openSubmitUrl = (docId: string) => {
+   639→    const url = submitUrls[docId];
+   640→    if (url) {
+   641→      window.open(url, '_blank', 'noopener,noreferrer');
+   642→    }
+   643→  };
+   644→
+   645→  /* ════════════════════════════════════════════════════════════
+   646→     DOC REVIEW: Save prompt
+   647→     ════════════════════════════════════════════════════════════ */
+   648→  const saveReviewPrompt = async (docId: string) => {
+   649→    const prompt = reviewPrompts[docId]?.trim() || '';
+   650→    try {
+   651→      await api.patch(`/documents/${docId}`, { aiReviewPrompt: prompt || null });
+   652→    } catch {
+   653→      // silent fail for prompt save
+   654→    }
+   655→  };
+   656→
+   657→  /* ════════════════════════════════════════════════════════════
+   658→     RIBBON: HOME TAB
+   659→     ════════════════════════════════════════════════════════════ */
+   660→  const HomeRibbon = () => (
+   661→    <div className="flex items-center gap-1 flex-wrap px-2 py-1.5">
+   662→      {/* Undo / Redo */}
+   663→      <RibbonBtn icon={Undo2} title="Undo" onClick={() => handleFormat('undo')} />
+   664→      <RibbonBtn icon={Redo2} title="Redo" onClick={() => handleFormat('redo')} />
+   665→      <Separator orientation="vertical" className="h-6 mx-1" />
+   666→
+   667→      {/* Heading */}
+   668→      <Popover>
+   669→        <PopoverTrigger asChild>
+   670→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   671→            <Type className="h-3.5 w-3.5" />
+   672→            Heading
+   673→            <ChevronDown className="h-3 w-3" />
+   674→          </button>
+   675→        </PopoverTrigger>
+   676→        <PopoverContent className="w-40 p-1" align="start">
+   677→          {['Normal', 'H1', 'H2', 'H3'].map(h => (
+   678→            <button key={h} onClick={() => handleFormat('formatBlock', h === 'Normal' ? '<p>' : `<${h.toLowerCase()}>`)}
+   679→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+   680→              style={h !== 'Normal' ? { fontSize: h === 'H1' ? 18 : h === 'H2' ? 16 : 14, fontWeight: 700 } : {}}>
+   681→              {h}
+   682→            </button>
+   683→          ))}
+   684→        </PopoverContent>
+   685→      </Popover>
+   686→
+   687→      {/* Font Family */}
+   688→      <Popover>
+   689→        <PopoverTrigger asChild>
+   690→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors max-w-[110px]">
+   691→            <span className="truncate">Font</span>
+   692→            <ChevronDown className="h-3 w-3 flex-shrink-0" />
+   693→          </button>
+   694→        </PopoverTrigger>
+   695→        <PopoverContent className="w-44 p-1" align="start">
+   696→          {FONT_FAMILIES.map(f => (
+   697→            <button key={f} onClick={() => handleFormat('fontName', f)}
+   698→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+   699→              style={{ fontFamily: f }}>
+   700→              {f}
+   701→            </button>
+   702→          ))}
+   703→        </PopoverContent>
+   704→      </Popover>
+   705→
+   706→      {/* Font Size */}
+   707→      <Popover>
+   708→        <PopoverTrigger asChild>
+   709→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   710→            <span>Size</span>
+   711→            <ChevronDown className="h-3 w-3" />
+   712→          </button>
+   713→        </PopoverTrigger>
+   714→        <PopoverContent className="w-32 p-1" align="start">
+   715→          {FONT_SIZES.map(s => (
+   716→            <button key={s} onClick={() => handleFormat('fontSize', s)}
+   717→              className="w-full text-left px-3 py-1 text-xs rounded hover:bg-muted transition-colors">
+   718→              {s}pt
+   719→            </button>
+   720→          ))}
+   721→        </PopoverContent>
+   722→      </Popover>
+   723→
+   724→      <Separator orientation="vertical" className="h-6 mx-1" />
+   725→
+   726→      {/* Bold / Italic / Underline */}
+   727→      <RibbonBtn icon={Bold} title="Bold (Ctrl+B)" onClick={() => handleFormat('bold')} />
+   728→      <RibbonBtn icon={Italic} title="Italic (Ctrl+I)" onClick={() => handleFormat('italic')} />
+   729→      <RibbonBtn icon={Underline} title="Underline (Ctrl+U)" onClick={() => handleFormat('underline')} />
+   730→
+   731→      <Separator orientation="vertical" className="h-6 mx-1" />
+   732→
+   733→      {/* Text Color */}
+   734→      <Popover>
+   735→        <PopoverTrigger asChild>
+   736→          <button className="h-7 w-7 rounded border border-border hover:bg-muted transition-colors flex items-center justify-center" title="Text Color">
+   737→            <div className="flex flex-col items-center">
+   738→              <span className="text-[10px] font-bold leading-none">A</span>
+   739→              <div className="w-4 h-1 rounded-sm mt-0.5" style={{ backgroundColor: '#000000' }} />
+   740→            </div>
+   741→          </button>
+   742→        </PopoverTrigger>
+   743→        <PopoverContent className="w-auto p-2" align="start">
+   744→          <div className="flex gap-1">
+   745→            {TEXT_COLORS.map(c => (
+   746→              <button key={c} onClick={() => handleFormat('foreColor', c)}
+   747→                className="w-6 h-6 rounded border border-border hover:scale-110 transition-transform" style={{ backgroundColor: c }} />
+   748→            ))}
+   749→          </div>
+   750→        </PopoverContent>
+   751→      </Popover>
+   752→
+   753→      {/* Highlight */}
+   754→      <Popover>
+   755→        <PopoverTrigger asChild>
+   756→          <button className="h-7 w-7 rounded border border-border hover:bg-muted transition-colors flex items-center justify-center" title="Highlight">
+   757→            <div className="flex flex-col items-center">
+   758→              <span className="text-[10px] font-bold leading-none bg-yellow-200 px-0.5">A</span>
+   759→            </div>
+   760→          </button>
+   761→        </PopoverTrigger>
+   762→        <PopoverContent className="w-auto p-2" align="start">
+   763→          <div className="flex gap-1">
+   764→            {HIGHLIGHT_COLORS.map(c => (
+   765→              <button key={c} onClick={() => handleFormat('hiliteColor', c)}
+   766→                className="w-6 h-6 rounded border border-border hover:scale-110 transition-transform" style={{ backgroundColor: c }} />
+   767→            ))}
+   768→          </div>
+   769→        </PopoverContent>
+   770→      </Popover>
+   771→
+   772→      <Separator orientation="vertical" className="h-6 mx-1" />
+   773→
+   774→      {/* Alignment */}
+   775→      <RibbonBtn icon={AlignLeft} title="Align Left" onClick={() => handleFormat('justifyLeft')} />
+   776→      <RibbonBtn icon={AlignCenter} title="Align Center" onClick={() => handleFormat('justifyCenter')} />
+   777→      <RibbonBtn icon={AlignRight} title="Align Right" onClick={() => handleFormat('justifyRight')} />
+   778→      <RibbonBtn icon={AlignJustify} title="Justify" onClick={() => handleFormat('justifyFull')} />
+   779→
+   780→      <Separator orientation="vertical" className="h-6 mx-1" />
+   781→
+   782→      {/* Lists */}
+   783→      <RibbonBtn icon={List} title="Bullet List" onClick={() => handleFormat('insertUnorderedList')} />
+   784→      <RibbonBtn icon={ListOrdered} title="Numbered List" onClick={() => handleFormat('insertOrderedList')} />
+   785→    </div>
+   786→  );
+   787→
+   788→  /* ════════════════════════════════════════════════════════════
+   789→     RIBBON: INSERT TAB
+   790→     ════════════════════════════════════════════════════════════ */
+   791→  const InsertRibbon = () => (
+   792→    <div className="flex items-center gap-1 flex-wrap px-2 py-1.5">
+   793→      <Popover>
+   794→        <PopoverTrigger asChild>
+   795→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   796→            <Table className="h-3.5 w-3.5" /> Table <ChevronDown className="h-3 w-3" />
+   797→          </button>
+   798→        </PopoverTrigger>
+   799→        <PopoverContent className="w-36 p-1" align="start">
+   800→          <button onClick={() => insertTable(2, 2)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">2 x 2</button>
+   801→          <button onClick={() => insertTable(3, 3)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">3 x 3</button>
+   802→          <button onClick={() => insertTable(4, 4)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">4 x 4</button>
+   803→        </PopoverContent>
+   804→      </Popover>
+   805→      <RibbonBtn icon={Minus} title="Horizontal Rule" onClick={() => handleFormat('insertHorizontalRule')} />
+   806→      <RibbonBtn icon={ImageIcon} title="Insert Image" onClick={insertImageFromFile} />
+   807→      <RibbonBtn icon={Clock} title="Insert Date/Time" onClick={insertDateTime} />
+   808→      <RibbonBtn icon={FileText} title="Page Break" onClick={insertPageBreak} />
+   809→      <RibbonBtn icon={Type} title="Page Number" onClick={insertPageNumber} />
+   810→    </div>
+   811→  );
+   812→
+   813→  /* ════════════════════════════════════════════════════════════
+   814→     RIBBON: REVIEW TAB
+   815→     ════════════════════════════════════════════════════════════ */
+   816→  const ReviewRibbon = () => (
+   817→    <div className="flex items-center gap-3 px-2 py-1.5 text-xs text-muted-foreground">
+   818→      <div className="flex items-center gap-1.5">
+   819→        <FileText className="h-3.5 w-3.5" />
+   820→        <span>Words: <strong className="text-foreground">{wordCount}</strong></span>
+   821→      </div>
+   822→      <div className="flex items-center gap-1.5">
+   823→        <Type className="h-3.5 w-3.5" />
+   824→        <span>Chars: <strong className="text-foreground">{charCount}</strong></span>
+   825→      </div>
+   826→      <Separator orientation="vertical" className="h-6" />
+   827→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.info('Spell check coming soon')}>
+   828→        <Check className="h-3.5 w-3.5 mr-1" /> Spell Check
+   829→      </Button>
+   830→      <Separator orientation="vertical" className="h-6" />
+   831→      <div className="text-[11px]">
+   832→        <span className="text-muted-foreground">Author: </span>
+   833→        <strong className="text-foreground">{user?.profile?.fullName || 'Unknown'}</strong>
+   834→      </div>
+   835→      <div className="text-[11px]">
+   836→        <span className="text-muted-foreground">Created: </span>
+   837→        <strong className="text-foreground">{new Date().toLocaleDateString()}</strong>
+   838→      </div>
+   839→    </div>
+   840→  );
+   841→
+   842→  /* ════════════════════════════════════════════════════════════
+   843→     RIBBON: AI TOOLS TAB
+   844→     ════════════════════════════════════════════════════════════ */
+   845→  const AIToolsRibbon = () => (
+   846→    <div className="flex items-center gap-2 px-2 py-1.5">
+   847→      {AI_TOOLS.map(tool => {
+   848→        const Icon = tool.icon;
+   849→        const isActive = aiPanelOpen && activeAITool === tool.id;
+   850→        return (
+   851→          <button key={tool.id} onClick={() => { setActiveAITool(tool.id); setAiPanelOpen(true); }}
+   852→            className={`flex items-center gap-1.5 h-7 px-3 text-xs rounded border transition-colors ${
+   853→              isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border hover:bg-muted text-foreground'
+   854→            }`}>
+   855→            <Icon className="h-3.5 w-3.5" />
+   856→            {tool.label}
+   857→          </button>
+   858→        );
+   859→      })}
+   860→    </div>
+   861→  );
+   862→
+   863→  /* ════════════════════════════════════════════════════════════
+   864→     RIBBON: SIGN TAB
+   865→     ════════════════════════════════════════════════════════════ */
+   866→  const SignRibbon = () => (
+   867→    <div className="flex items-center gap-2 px-2 py-1.5">
+   868→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDrawDialogOpen(true)}>
+   869→        <Pen className="h-3.5 w-3.5 mr-1" /> Draw Signature
+   870→      </Button>
+   871→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={uploadSignature}>
+   872→        <ImageIcon className="h-3.5 w-3.5 mr-1" /> Upload Signature
+   873→      </Button>
+   874→      <Separator orientation="vertical" className="h-6" />
+   875→      <Popover>
+   876→        <PopoverTrigger asChild>
+   877→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   878→            <Stamp className="h-3.5 w-3.5" /> Add Stamp <ChevronDown className="h-3 w-3" />
+   879→          </button>
+   880→        </PopoverTrigger>
+   881→        <PopoverContent className="w-40 p-1" align="start">
+   882→          {STAMP_TEMPLATES.map(st => (
+   883→            <button key={st.text} onClick={() => addStamp(st.text)}
+   884→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors">
+   885→              {st.label}
+   886→            </button>
+   887→          ))}
+   888→        </PopoverContent>
+   889→      </Popover>
+   890→      <Separator orientation="vertical" className="h-6" />
+   891→      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   892→        <FileSignature className="h-3.5 w-3.5" />
+   893→        Saved: {savedSignatures.length}
+   894→      </div>
+   895→    </div>
+   896→  );
+   897→
+   898→  /* ════════════════════════════════════════════════════════════
+   899→     RIBBON: DOC REVIEW TAB
+   900→     ════════════════════════════════════════════════════════════ */
+   901→  const DocReviewRibbon = () => (
+   902→    <div className="flex items-center gap-2 px-2 py-1.5">
+   903→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
+   904→        <FileUp className="h-3.5 w-3.5 mr-1" /> Upload Document
+   905→      </Button>
+   906→      <Separator orientation="vertical" className="h-6" />
+   907→      <Select value={uploadDocType} onValueChange={setUploadDocType}>
+   908→        <SelectTrigger className="h-7 text-xs w-[160px] border-border">
+   909→          <SelectValue />
+   910→        </SelectTrigger>
+   911→        <SelectContent>
+   912→          {DOC_TYPE_OPTIONS.map(opt => (
+   913→            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+   914→          ))}
+   915→        </SelectContent>
+   916→      </Select>
+   917→      <Separator orientation="vertical" className="h-6" />
+   918→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={loadDocuments}>
+   919→        <RefreshCw className={`h-3.5 w-3.5 mr-1 ${docsLoading ? 'animate-spin' : ''}`} /> Refresh
+   920→      </Button>
+   921→      <Separator orientation="vertical" className="h-6" />
+   922→      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   923→        <FileSearch className="h-3.5 w-3.5" />
+   924→        {documents.length} document{documents.length !== 1 ? 's' : ''}
+   925→      </div>
+   926→    </div>
+   927→  );
+   928→
+   929→  const RIBBON_MAP: Record<RibbonTab, () => React.JSX.Element> = {
+   930→    home: HomeRibbon,
+   931→    insert: InsertRibbon,
+   932→    review: ReviewRibbon,
+   933→    'ai-tools': AIToolsRibbon,
+   934→    sign: SignRibbon,
+   935→    'doc-review': DocReviewRibbon,
+   936→  };
+   937→
+   938→  /* ════════════════════════════════════════════════════════════
+   939→     AI TOOL FORMS (for right panel)
+   940→     ════════════════════════════════════════════════════════════ */
+   941→
+   942→  /* -- Tender Builder Form -- */
+   943→  const [tenderForm, setTenderForm] = useState({
+   944→    title: '', category: '', location: '', budgetMin: '', budgetMax: '',
+   945→    deadline: '', description: '', notes: '',
+   946→  });
+   947→  const updateTenderField = (f: string, v: string) => setTenderForm(prev => ({ ...prev, [f]: v }));
+   948→
+   949→  const generateTender = async () => {
+   950→    if (!tenderForm.title || !tenderForm.category || !tenderForm.description) {
+   951→      toast.error('Please fill in Title, Category, and Description');
+   952→      return;
+   953→    }
+   954→    setAiLoading(true);
+   955→    try {
+   956→      const res = await api.post('/ai/tender-prep', {
+   957→        title: tenderForm.title, category: tenderForm.category, location: tenderForm.location,
+   958→        budgetMin: tenderForm.budgetMin, budgetMax: tenderForm.budgetMax, deadline: tenderForm.deadline,
+   959→        description: tenderForm.description, notes: tenderForm.notes,
+   960→        skills: user?.profile?.skillTags || '', userName: user?.profile?.fullName || '',
+   961→      });
+   962→      if (res.success && res.data) {
+   963→        setDocumentContent(formatAIResultToHTML(res.data));
+   964→        toast.success('Tender document generated!');
+   965→      } else { toast.error(res.error || 'Failed to generate'); }
+   966→    } catch { toast.error('AI generation failed'); }
+   967→    finally { setAiLoading(false); }
+   968→  };
+   969→
+   970→  /* -- Bid Builder Form -- */
+   971→  const [bidForm, setBidForm] = useState({
+   972→    tenderTitle: '', scope: '', budgetRange: '', category: '',
+   973→    companyName: '', experience: '', proposedBudget: '', proposedTimeline: '', notes: '',
+   974→  });
+   975→  const [bidSelectedTender, setBidSelectedTender] = useState('');
+   976→  const [bidSkills, setBidSkills] = useState<string[]>([]);
+   977→  const updateBidField = (f: string, v: string) => setBidForm(prev => ({ ...prev, [f]: v }));
+   978→
+   979→  const selectBidTender = (tenderId: string) => {
+   980→    setBidSelectedTender(tenderId);
+   981→    const t = tenders.find(t => t.id === tenderId);
+   982→    if (t) {
+   983→      setBidForm(prev => ({
+   984→        ...prev, tenderTitle: t.title, scope: t.scope || '',
+   985→        budgetRange: t.budgetMin && t.budgetMax ? `${t.budgetMin} - ${t.budgetMax} ETB` : '',
+   986→        category: t.categoryTags || '',
+   987→      }));
+   988→    }
+   989→  };
+   990→
+   991→  const generateBid = async () => {
+   992→    if (!bidForm.tenderTitle && !bidSelectedTender) {
+   993→      toast.error('Please select a tender or enter details'); return;
+   994→    }
+   995→    setAiLoading(true);
+   996→    try {
+   997→      const res = await api.post('/ai/bid-prep', {
+   998→        tenderId: bidSelectedTender || undefined, tenderTitle: bidForm.tenderTitle,
+   999→        scope: bidForm.scope, budgetRange: bidForm.budgetRange, category: bidForm.category,
+  1000→        skills: bidSkills.join(', '), companyName: bidForm.companyName, experience: bidForm.experience,
+  1001→        proposedBudget: bidForm.proposedBudget, proposedTimeline: bidForm.proposedTimeline,
+  1002→        notes: bidForm.notes, userName: user?.profile?.fullName || '', userSkills: user?.profile?.skillTags || '',
+  1003→      });
+  1004→      if (res.success && res.data) {
+  1005→        setDocumentContent(formatAIResultToHTML(res.data));
+  1006→        toast.success('Bid proposal generated!');
+  1007→      } else { toast.error(res.error || 'Failed to generate'); }
+  1008→    } catch { toast.error('AI generation failed'); }
+  1009→    finally { setAiLoading(false); }
+  1010→  };
+  1011→
+  1012→  /* -- Requirement Analyzer Form -- */
+  1013→  const [reqForm, setReqForm] = useState({
+  1014→    tenderTitle: '', scope: '', budget: '', category: '', requiredDocs: '', deadline: '',
+  1015→  });
+  1016→  const [reqSelectedTender, setReqSelectedTender] = useState('');
+  1017→  const [reqSkills, setReqSkills] = useState<string[]>([]);
+  1018→  const updateReqField = (f: string, v: string) => setReqForm(prev => ({ ...prev, [f]: v }));
+  1019→
+  1020→  const selectReqTender = (tenderId: string) => {
+  1021→    setReqSelectedTender(tenderId);
+  1022→    const t = tenders.find(t => t.id === tenderId);
+  1023→    if (t) {
+  1024→      setReqForm({
+  1025→        tenderTitle: t.title, scope: t.scope || '',
+  1026→        budget: t.budgetMin && t.budgetMax ? `${t.budgetMin} - ${t.budgetMax} ETB` : '',
+  1027→        category: t.categoryTags || '', requiredDocs: t.requiredDocs || '',
+  1028→        deadline: t.deadline ? new Date(t.deadline).toISOString().split('T')[0] : '',
+  1029→      });
+  1030→    }
+  1031→  };
+  1032→
+  1033→  const generateReq = async () => {
+  1034→    if (!reqForm.tenderTitle && !reqSelectedTender) {
+  1035→      toast.error('Please select a tender or enter details'); return;
+  1036→    }
+  1037→    setAiLoading(true);
+  1038→    try {
+  1039→      const res = await api.post('/ai/analyze-requirements', {
+  1040→        tenderId: reqSelectedTender || undefined, tenderTitle: reqForm.tenderTitle,
+  1041→        scope: reqForm.scope, budget: reqForm.budget, category: reqForm.category,
+  1042→        requiredDocs: reqForm.requiredDocs, deadline: reqForm.deadline,
+  1043→        skills: reqSkills.join(', '), userName: user?.profile?.fullName || '',
+  1044→        userSkills: user?.profile?.skillTags || '',
+  1045→      });
+  1046→      if (res.success && res.data) {
+  1047→        setDocumentContent(formatAIResultToHTML(res.data as Record<string, unknown>));
+  1048→        toast.success('Requirements analyzed!');
+  1049→      } else { toast.error(res.error || 'Failed to analyze'); }
+  1050→    } catch { toast.error('AI analysis failed'); }
+  1051→    finally { setAiLoading(false); }
+  1052→  };
+  1053→
+  1054→  /* -- Applicant Analyzer Form -- */
+  1055→  const [appSelectedTender, setAppSelectedTender] = useState('');
+  1056→
+  1057→  const generateApplicant = async () => {
+  1058→    if (!appSelectedTender) { toast.error('Please select a tender'); return; }
+  1059→    setAiLoading(true);
+  1060→    try {
+  1061→      const res = await api.post('/ai/analyze-applicants', { tenderId: appSelectedTender });
+  1062→      if (res.success && res.data) {
+  1063→        const d = res.data as Record<string, unknown>;
+  1064→        let html = '';
+  1065→        if (d.summary) {
+  1066→          const s = d.summary as Record<string, unknown>;
+  1067→          html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">Summary</h2>`;
+  1068→          html += `<p>Total Bids: <strong>${s.totalBids ?? 0}</strong> | Average Score: <strong>${s.averageScore ?? 0}</strong></p>`;
+  1069→        }
+  1070→        if (d.applicants && Array.isArray(d.applicants)) {
+  1071→          html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">Ranked Applicants</h2>`;
+  1072→          for (const a of d.applicants as Record<string, unknown>[]) {
+  1073→            html += `<div style="margin:8px 0;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+  1074→              <strong>#${a.rank} ${a.name}</strong> (${a.company}) — Score: <strong>${a.overallScore}</strong>
+  1075→              <br/>Technical: ${a.technicalScore}% | Financial: ${a.financialScore}%
+  1076→              <br/>Risk: ${a.riskLevel} | Recommendation: ${a.recommendation}
+  1077→            </div>`;
+  1078→          }
+  1079→        }
+  1080→        if (d.budgetAnalysis) html += formatAIResultToHTML({ budgetAnalysis: d.budgetAnalysis });
+  1081→        if (d.riskSummary) html += formatAIResultToHTML({ riskSummary: d.riskSummary });
+  1082→        if (d.finalRecommendation) html += formatAIResultToHTML({ finalRecommendation: d.finalRecommendation });
+  1083→        setDocumentContent(html || '<p>No results</p>');
+  1084→        toast.success('Applicants analyzed!');
+  1085→      } else { toast.error(res.error || 'Failed to analyze'); }
+  1086→    } catch { toast.error('AI analysis failed'); }
+  1087→    finally { setAiLoading(false); }
+  1088→  };
+  1089→
+  1090→  /* ── AI Panel Content ── */
+  1091→  const AIPanelContent = () => {
+  1092→    const formClass = "h-8 text-xs bg-muted/50 border-border/50";
+  1093→    return (
+  1094→      <ScrollArea className="h-full">
+  1095→        <div className="p-3 space-y-3">
+  1096→          {/* Close button */}
+  1097→          <div className="flex items-center justify-between">
+  1098→            <div className="flex items-center gap-2">
+  1099→              <Sparkles className="h-4 w-4 text-emerald-600" />
+  1100→              <span className="text-sm font-semibold">AI Assistant</span>
+  1101→            </div>
+  1102→            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setAiPanelOpen(false)}>
+  1103→              <X className="h-3.5 w-3.5" />
+  1104→            </Button>
+  1105→          </div>
+  1106→
+  1107→          {/* Tool selector */}
+  1108→          <div className="flex flex-wrap gap-1">
+  1109→            {AI_TOOLS.map(tool => {
+  1110→              const Icon = tool.icon;
+  1111→              const isActive = activeAITool === tool.id;
+  1112→              return (
+  1113→                <button key={tool.id} onClick={() => setActiveAITool(tool.id)}
+  1114→                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border transition-colors ${
+  1115→                    isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border text-muted-foreground hover:bg-muted'
+  1116→                  }`}>
+  1117→                  <Icon className="h-3 w-3" /> {tool.label}
+  1118→                </button>
+  1119→              );
+  1120→            })}
+  1121→          </div>
+  1122→
+  1123→          <Separator />
+  1124→
+  1125→          {/* Tender Builder Form */}
+  1126→          {activeAITool === 'tender-builder' && (
+  1127→            <div className="space-y-2">
+  1128→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tender Builder</Label>
+  1129→              <div><Label className="text-[10px]">Title *</Label><Input placeholder="Tender title" value={tenderForm.title} onChange={e => updateTenderField('title', e.target.value)} className={formClass} /></div>
+  1130→              <div><Label className="text-[10px]">Category *</Label>
+  1131→                <Select value={tenderForm.category} onValueChange={v => updateTenderField('category', v)}>
+  1132→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+  1133→                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+  1134→                </Select>
+  1135→              </div>
+  1136→              <div><Label className="text-[10px]">Location</Label><Input placeholder="e.g., Addis Ababa" value={tenderForm.location} onChange={e => updateTenderField('location', e.target.value)} className={formClass} /></div>
+  1137→              <div className="grid grid-cols-2 gap-2">
+  1138→                <div><Label className="text-[10px]">Budget Min</Label><Input type="number" placeholder="0" value={tenderForm.budgetMin} onChange={e => updateTenderField('budgetMin', e.target.value)} className={formClass} /></div>
+  1139→                <div><Label className="text-[10px]">Budget Max</Label><Input type="number" placeholder="0" value={tenderForm.budgetMax} onChange={e => updateTenderField('budgetMax', e.target.value)} className={formClass} /></div>
+  1140→              </div>
+  1141→              <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={tenderForm.deadline} onChange={e => updateTenderField('deadline', e.target.value)} className={formClass} /></div>
+  1142→              <div><Label className="text-[10px]">Description *</Label><Textarea placeholder="Scope and requirements..." value={tenderForm.description} onChange={e => updateTenderField('description', e.target.value)} className="min-h-[60px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1143→              <div><Label className="text-[10px]">Notes</Label><Textarea placeholder="Optional notes..." value={tenderForm.notes} onChange={e => updateTenderField('notes', e.target.value)} className="min-h-[40px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1144→              <GenerateButton onClick={generateTender} loading={aiLoading} />
+  1145→            </div>
+  1146→          )}
+  1147→
+  1148→          {/* Bid Builder Form */}
+  1149→          {activeAITool === 'bid-builder' && (
+  1150→            <div className="space-y-2">
+  1151→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Bid Proposal</Label>
+  1152→              <div><Label className="text-[10px]">Select Tender</Label>
+  1153→                <Select value={bidSelectedTender} onValueChange={selectBidTender}>
+  1154→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1155→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1156→                </Select>
+  1157→              </div>
+  1158→              <Separator />
+  1159→              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+  1160→              <div><Label className="text-[10px]">Tender Title</Label><Input value={bidForm.tenderTitle} onChange={e => updateBidField('tenderTitle', e.target.value)} className={formClass} /></div>
+  1161→              <div><Label className="text-[10px]">Scope</Label><Textarea value={bidForm.scope} onChange={e => updateBidField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1162→              <div className="grid grid-cols-2 gap-2">
+  1163→                <div><Label className="text-[10px]">Budget Range</Label><Input value={bidForm.budgetRange} onChange={e => updateBidField('budgetRange', e.target.value)} className={formClass} /></div>
+  1164→                <div><Label className="text-[10px]">Category</Label>
+  1165→                  <Select value={bidForm.category} onValueChange={v => updateBidField('category', v)}>
+  1166→                    <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+  1167→                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+  1168→                  </Select>
+  1169→                </div>
+  1170→              </div>
+  1171→              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={bidSkills} onChange={setBidSkills} /></div>
+  1172→              <div><Label className="text-[10px]">Company</Label><Input value={bidForm.companyName} onChange={e => updateBidField('companyName', e.target.value)} className={formClass} /></div>
+  1173→              <div><Label className="text-[10px]">Experience</Label><Textarea value={bidForm.experience} onChange={e => updateBidField('experience', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1174→              <div className="grid grid-cols-2 gap-2">
+  1175→                <div><Label className="text-[10px]">Proposed Budget</Label><Input type="number" value={bidForm.proposedBudget} onChange={e => updateBidField('proposedBudget', e.target.value)} className={formClass} /></div>
+  1176→                <div><Label className="text-[10px]">Timeline</Label><Input value={bidForm.proposedTimeline} onChange={e => updateBidField('proposedTimeline', e.target.value)} className={formClass} /></div>
+  1177→              </div>
+  1178→              <GenerateButton onClick={generateBid} loading={aiLoading} />
+  1179→            </div>
+  1180→          )}
+  1181→
+  1182→          {/* Requirement Analyzer Form */}
+  1183→          {activeAITool === 'requirement-analyzer' && (
+  1184→            <div className="space-y-2">
+  1185→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Requirement Analyzer</Label>
+  1186→              <div><Label className="text-[10px]">Select Tender</Label>
+  1187→                <Select value={reqSelectedTender} onValueChange={selectReqTender}>
+  1188→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1189→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1190→                </Select>
+  1191→              </div>
+  1192→              <Separator />
+  1193→              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+  1194→              <div><Label className="text-[10px]">Tender Title</Label><Input value={reqForm.tenderTitle} onChange={e => updateReqField('tenderTitle', e.target.value)} className={formClass} /></div>
+  1195→              <div><Label className="text-[10px]">Scope</Label><Textarea value={reqForm.scope} onChange={e => updateReqField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1196→              <div className="grid grid-cols-2 gap-2">
+  1197→                <div><Label className="text-[10px]">Budget</Label><Input value={reqForm.budget} onChange={e => updateReqField('budget', e.target.value)} className={formClass} /></div>
+  1198→                <div><Label className="text-[10px]">Category</Label><Input value={reqForm.category} onChange={e => updateReqField('category', e.target.value)} className={formClass} /></div>
+  1199→              </div>
+  1200→              <div className="grid grid-cols-2 gap-2">
+  1201→                <div><Label className="text-[10px]">Required Docs</Label><Input value={reqForm.requiredDocs} onChange={e => updateReqField('requiredDocs', e.target.value)} className={formClass} /></div>
+  1202→                <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={reqForm.deadline} onChange={e => updateReqField('deadline', e.target.value)} className={formClass} /></div>
+  1203→              </div>
+  1204→              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={reqSkills} onChange={setReqSkills} /></div>
+  1205→              <GenerateButton onClick={generateReq} loading={aiLoading} />
+  1206→            </div>
+  1207→          )}
+  1208→
+  1209→          {/* Applicant Analyzer Form */}
+  1210→          {activeAITool === 'applicant-analyzer' && (
+  1211→            <div className="space-y-2">
+  1212→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Applicant Analyzer</Label>
+  1213→              <div><Label className="text-[10px]">Select Your Tender</Label>
+  1214→                <Select value={appSelectedTender} onValueChange={setAppSelectedTender}>
+  1215→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1216→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1217→                </Select>
+  1218→              </div>
+  1219→              <GenerateButton onClick={generateApplicant} loading={aiLoading} disabled={!appSelectedTender} />
+  1220→            </div>
+  1221→          )}
+  1222→        </div>
+  1223→      </ScrollArea>
+  1224→    );
+  1225→  };
+  1226→
+  1227→  /* ════════════════════════════════════════════════════════════
+  1228→     DOC REVIEW MAIN CONTENT
+  1229→     ════════════════════════════════════════════════════════════ */
+  1230→  const DocReviewContent = () => {
+  1231→    const selectedDoc = documents.find(d => d.id === selectedDocId);
+  1232→    const expandedDoc = documents.find(d => d.id === expandedDocId);
+  1233→
+  1234→    return (
+  1235→      <div className="flex-1 flex overflow-hidden bg-muted/30">
+  1236→        {/* Left: Document List */}
+  1237→        <div className="w-[380px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+  1238→          <div className="p-3 border-b border-border/40">
+  1239→            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+  1240→              <FileSearch className="h-4 w-4 text-emerald-600" />
+  1241→              Document Vault
+  1242→            </h3>
+  1243→
+  1244→            {/* Upload Drop Zone */}
+  1245→            <div
+  1246→              className={`border-2 border-dashed rounded-lg p-4 text-center transition-all cursor-pointer ${
+  1247→                dragOver
+  1248→                  ? 'border-emerald-500 bg-emerald-50/50'
+  1249→                  : 'border-border/60 hover:border-emerald-300 hover:bg-muted/30'
+  1250→              }`}
+  1251→              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+  1252→              onDragLeave={() => setDragOver(false)}
+  1253→              onDrop={handleDrop}
+  1254→              onClick={() => fileInputRef.current?.click()}
+  1255→            >
+  1256→              {uploading ? (
+  1257→                <div className="flex flex-col items-center gap-1">
+  1258→                  <Loader2 className="h-6 w-6 text-emerald-600 animate-spin" />
+  1259→                  <p className="text-xs text-muted-foreground">Uploading...</p>
+  1260→                </div>
+  1261→              ) : (
+  1262→                <div className="flex flex-col items-center gap-1">
+  1263→                  <Upload className="h-6 w-6 text-muted-foreground" />
+  1264→                  <p className="text-xs font-medium text-muted-foreground">
+  1265→                    Drag & drop or click to upload
+  1266→                  </p>
+  1267→                  <p className="text-[10px] text-muted-foreground/70">
+  1268→                    PDF, DOCX, DOC, TXT, JPG, PNG
+  1269→                  </p>
+  1270→                </div>
+  1271→              )}
+  1272→            </div>
+  1273→
+  1274→            {/* Hidden file input */}
+  1275→            <input
+  1276→              ref={fileInputRef}
+  1277→              type="file"
+  1278→              accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png"
+  1279→              className="hidden"
+  1280→              onChange={e => {
+  1281→                if (e.target.files) handleFileUpload(e.target.files);
+  1282→                e.target.value = '';
+  1283→              }}
+  1284→            />
+  1285→          </div>
+  1286→
+  1287→          {/* Document List */}
+  1288→          <ScrollArea className="flex-1">
+  1289→            <div className="p-2 space-y-1.5">
+  1290→              {docsLoading ? (
+  1291→                <div className="space-y-2 p-2">
+  1292→                  {[1, 2, 3].map(i => (
+  1293→                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+  1294→                  ))}
+  1295→                </div>
+  1296→              ) : documents.length === 0 ? (
+  1297→                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+  1298→                  <FileText className="h-8 w-8 mb-2 opacity-30" />
+  1299→                  <p className="text-xs">No documents uploaded yet</p>
+  1300→                  <p className="text-[10px] mt-1">Upload a document to start reviewing</p>
+  1301→                </div>
+  1302→              ) : (
+  1303→                documents.map(doc => {
+  1304→                  const extBadge = getFileExtBadge(doc.fileName);
+  1305→                  const isOcrLoading = ocrStatusMap[doc.id]?.loading;
+  1306→                  const isReviewLoading = reviewStatusMap[doc.id]?.loading;
+  1307→                  const ocrDone = doc.ocrStatus === 'completed';
+  1308→                  const reviewDone = doc.aiReviewStatus === 'completed';
+  1309→                  const isSelected = selectedDocId === doc.id;
+  1310→                  const isExpanded = expandedDocId === doc.id;
+  1311→
+  1312→                  return (
+  1313→                    <div
+  1314→                      key={doc.id}
+  1315→                      className={`rounded-lg border p-2.5 transition-all cursor-pointer ${
+  1316→                        isSelected
+  1317→                          ? 'border-emerald-300 bg-emerald-50/30 shadow-sm'
+  1318→                          : 'border-border/40 hover:border-emerald-200 hover:bg-muted/20'
+  1319→                      }`}
+  1320→                      onClick={() => setSelectedDocId(doc.id)}
+  1321→                    >
+  1322→                      {/* Doc Header */}
+  1323→                      <div className="flex items-start gap-2">
+  1324→                        <div className="p-1.5 rounded bg-muted/50 flex-shrink-0">
+  1325→                          <FileText className="h-4 w-4 text-muted-foreground" />
+  1326→                        </div>
+  1327→                        <div className="min-w-0 flex-1">
+  1328→                          <div className="flex items-center gap-1.5">
+  1329→                            <p className="text-xs font-medium truncate">{doc.fileName}</p>
+  1330→                            <Badge className={`text-[9px] px-1 py-0 border-0 ${extBadge.color}`}>
+  1331→                              {extBadge.label}
+  1332→                            </Badge>
+  1333→                          </div>
+  1334→                          <p className="text-[10px] text-muted-foreground mt-0.5">
+  1335→                            {DOC_TYPE_OPTIONS.find(o => o.value === doc.docType)?.label || doc.docType}
+  1336→                          </p>
+  1337→                        </div>
+  1338→                        <button
+  1339→                          onClick={e => { e.stopPropagation(); setExpandedDocId(isExpanded ? null : doc.id); }}
+  1340→                          className="p-0.5 hover:bg-muted rounded transition-colors"
+  1341→                        >
+  1342→                          <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+  1343→                        </button>
+  1344→                      </div>
+  1345→
+  1346→                      {/* Status Row */}
+  1347→                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+  1348→                        {/* OCR Status */}
+  1349→                        <div className="flex items-center gap-1">
+  1350→                          {doc.ocrStatus === 'completed' ? (
+  1351→                            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  1352→                              <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> OCR
+  1353→                            </Badge>
+  1354→                          ) : doc.ocrStatus === 'processing' ? (
+  1355→                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 hover:bg-amber-100">
+  1356→                              <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> OCR
+  1357→                            </Badge>
+  1358→                          ) : doc.ocrStatus === 'failed' ? (
+  1359→                            <Badge className="text-[9px] px-1.5 py-0 bg-rose-100 text-rose-700 border-0 hover:bg-rose-100">
+  1360→                              <XCircle className="h-2.5 w-2.5 mr-0.5" /> OCR
+  1361→                            </Badge>
+  1362→                          ) : (
+  1363→                            <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-600 border-0 hover:bg-gray-100">
+  1364→                              OCR
+  1365→                            </Badge>
+  1366→                          )}
+  1367→                        </div>
+  1368→
+  1369→                        {/* AI Review Status */}
+  1370→                        <div className="flex items-center gap-1">
+  1371→                          {doc.aiReviewStatus === 'completed' ? (
+  1372→                            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  1373→                              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> Reviewed
+  1374→                            </Badge>
+  1375→                          ) : doc.aiReviewStatus === 'processing' ? (
+  1376→                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 hover:bg-amber-100">
+  1377→                              <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> Reviewing
+  1378→                            </Badge>
+  1379→                          ) : doc.aiReviewStatus === 'failed' ? (
+  1380→                            <Badge className="text-[9px] px-1.5 py-0 bg-rose-100 text-rose-700 border-0 hover:bg-rose-100">
+  1381→                              <XCircle className="h-2.5 w-2.5 mr-0.5" /> Review
+  1382→                            </Badge>
+  1383→                          ) : (
+  1384→                            <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-600 border-0 hover:bg-gray-100">
+  1385→                              AI Review
+  1386→                            </Badge>
+  1387→                          )}
+  1388→                        </div>
+  1389→                      </div>
+  1390→
+  1391→                      {/* Expanded Content */}
+  1392→                      {isExpanded && (
+  1393→                        <div className="mt-2.5 space-y-2 border-t border-border/30 pt-2.5" onClick={e => e.stopPropagation()}>
+  1394→                          {/* Action Buttons Row */}
+  1395→                          <div className="flex items-center gap-1.5">
+  1396→                            {/* OCR Button */}
+  1397→                            <Button
+  1398→                              size="sm"
+  1399→                              variant="outline"
+  1400→                              className="h-6 text-[10px] px-2"
+  1401→                              disabled={isOcrLoading || doc.ocrStatus === 'processing' || doc.ocrStatus === 'completed'}
+  1402→                              onClick={() => triggerOCR(doc.id)}
+  1403→                            >
+  1404→                              {isOcrLoading || doc.ocrStatus === 'processing' ? (
+  1405→                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> OCR...</>
+  1406→                              ) : doc.ocrStatus === 'completed' ? (
+  1407→                                <><CheckCircle2 className="h-3 w-3 mr-1" /> OCR Done</>
+  1408→                              ) : (
+  1409→                                <><Eye className="h-3 w-3 mr-1" /> Run OCR</>
+  1410→                              )}
+  1411→                            </Button>
+  1412→
+  1413→                            {/* AI Review Button */}
+  1414→                            <Button
+  1415→                              size="sm"
+  1416→                              variant="outline"
+  1417→                              className="h-6 text-[10px] px-2"
+  1418→                              disabled={isReviewLoading || doc.aiReviewStatus === 'processing' || !ocrDone}
+  1419→                              onClick={() => triggerReview(doc.id)}
+  1420→                              title={!ocrDone ? 'Run OCR first' : 'Run AI Review'}
+  1421→                            >
+  1422→                              {isReviewLoading || doc.aiReviewStatus === 'processing' ? (
+  1423→                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Review...</>
+  1424→                              ) : doc.aiReviewStatus === 'completed' ? (
+  1425→                                <><Sparkles className="h-3 w-3 mr-1" /> Re-Review</>
+  1426→                              ) : (
+  1427→                                <><Sparkles className="h-3 w-3 mr-1" /> AI Review</>
+  1428→                              )}
+  1429→                            </Button>
+  1430→                          </div>
+  1431→
+  1432→                          {!ocrDone && (
+  1433→                            <p className="text-[10px] text-amber-600 flex items-center gap-1">
+  1434→                              <AlertTriangle className="h-3 w-3" /> Run OCR first before AI Review
+  1435→                            </p>
+  1436→                          )}
+  1437→
+  1438→                          {/* Custom Review Prompt */}
+  1439→                          <div>
+  1440→                            <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1441→                              <Bot className="h-3 w-3" /> Review Instructions
+  1442→                            </Label>
+  1443→                            <Textarea
+  1444→                              placeholder={PROMPT_SUGGESTIONS[doc.docType] || 'Enter custom review instructions...'}
+  1445→                              value={reviewPrompts[doc.id] || ''}
+  1446→                              onChange={e => setReviewPrompts(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1447→                              onBlur={() => saveReviewPrompt(doc.id)}
+  1448→                              className="min-h-[60px] text-[11px] bg-muted/30 border-border/50 resize-none"
+  1449→                            />
+  1450→                            <p className="text-[9px] text-muted-foreground mt-0.5">
+  1451→                              Leave empty for default procurement review
+  1452→                            </p>
+  1453→                          </div>
+  1454→
+  1455→                          {/* Submit URL */}
+  1456→                          <div>
+  1457→                            <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1458→                              <Link2 className="h-3 w-3" /> Submit URL
+  1459→                            </Label>
+  1460→                            <div className="flex items-center gap-1.5">
+  1461→                              <Input
+  1462→                                placeholder="https://portal.example.com/submit"
+  1463→                                value={submitUrls[doc.id] || ''}
+  1464→                                onChange={e => setSubmitUrls(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1465→                                onBlur={() => saveSubmitUrl(doc.id)}
+  1466→                                className="h-6 text-[11px] bg-muted/30 border-border/50 flex-1"
+  1467→                              />
+  1468→                              <Button
+  1469→                                size="sm"
+  1470→                                variant="outline"
+  1471→                                className="h-6 text-[10px] px-2 flex-shrink-0"
+  1472→                                disabled={!submitUrls[doc.id]?.trim()}
+  1473→                                onClick={() => openSubmitUrl(doc.id)}
+  1474→                                title="Open submit URL"
+  1475→                              >
+  1476→                                <ExternalLink className="h-3 w-3" />
+  1477→                              </Button>
+  1478→                            </div>
+  1479→                          </div>
+  1480→
+  1481→                          {/* Submit Document Button */}
+  1482→                          {submitUrls[doc.id]?.trim() && (
+  1483→                            <Button
+  1484→                              size="sm"
+  1485→                              className="h-7 text-[10px] w-full gradient-emerald text-white border-0 hover:opacity-90"
+  1486→                              onClick={() => openSubmitUrl(doc.id)}
+  1487→                            >
+  1488→                              <ExternalLink className="h-3 w-3 mr-1.5" />
+  1489→                              Submit Document
+  1490→                            </Button>
+  1491→                          )}
+  1492→                        </div>
+  1493→                      )}
+  1494→                    </div>
+  1495→                  );
+  1496→                })
+  1497→              )}
+  1498→            </div>
+  1499→          </ScrollArea>
+  1500→        </div>
+  1501→
+  1502→        {/* Right: Document Detail / Results */}
+  1503→        <div className="flex-1 overflow-auto bg-muted/30">
+  1504→          {selectedDoc ? (
+  1505→            <div className="p-4 space-y-4 max-w-3xl mx-auto">
+  1506→              {/* Document Header */}
+  1507→              <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/40">
+  1508→                <div className="p-3 rounded-xl gradient-emerald shadow-sm">
+  1509→                  <FileText className="h-6 w-6 text-white" />
+  1510→                </div>
+  1511→                <div className="min-w-0 flex-1">
+  1512→                  <h3 className="text-base font-semibold truncate">{selectedDoc.fileName}</h3>
+  1513→                  <p className="text-xs text-muted-foreground mt-0.5">
+  1514→                    {DOC_TYPE_OPTIONS.find(o => o.value === selectedDoc.docType)?.label || selectedDoc.docType} · Uploaded {new Date(selectedDoc.createdAt).toLocaleDateString()}
+  1515→                  </p>
+  1516→                </div>
+  1517→                <div className="flex items-center gap-2 flex-shrink-0">
+  1518→                  {getFileExtBadge(selectedDoc.fileName).label && (
+  1519→                    <Badge className={`text-xs px-2 py-0.5 border-0 ${getFileExtBadge(selectedDoc.fileName).color}`}>
+  1520→                      {getFileExtBadge(selectedDoc.fileName).label}
+  1521→                    </Badge>
+  1522→                  )}
+  1523→                </div>
+  1524→              </div>
+  1525→
+  1526→              {/* Status Cards */}
+  1527→              <div className="grid grid-cols-3 gap-3">
+  1528→                {/* OCR Status Card */}
+  1529→                <div className={`p-3 rounded-lg border ${
+  1530→                  selectedDoc.ocrStatus === 'completed' ? 'border-emerald-200 bg-emerald-50/30' :
+  1531→                  selectedDoc.ocrStatus === 'processing' ? 'border-amber-200 bg-amber-50/30' :
+  1532→                  selectedDoc.ocrStatus === 'failed' ? 'border-rose-200 bg-rose-50/30' :
+  1533→                  'border-border/40 bg-card'
+  1534→                }`}>
+  1535→                  <div className="flex items-center justify-between mb-1">
+  1536→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">OCR</span>
+  1537→                    {selectedDoc.ocrStatus === 'completed' ? (
+  1538→                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+  1539→                    ) : selectedDoc.ocrStatus === 'processing' ? (
+  1540→                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+  1541→                    ) : (
+  1542→                      <Eye className="h-4 w-4 text-muted-foreground" />
+  1543→                    )}
+  1544→                  </div>
+  1545→                  <p className="text-xs font-medium capitalize">{selectedDoc.ocrStatus === 'none' ? 'Not Started' : selectedDoc.ocrStatus}</p>
+  1546→                  {selectedDoc.ocrProcessedAt && (
+  1547→                    <p className="text-[10px] text-muted-foreground mt-0.5">
+  1548→                      {new Date(selectedDoc.ocrProcessedAt).toLocaleString()}
+  1549→                    </p>
+  1550→                  )}
+  1551→                </div>
+  1552→
+  1553→                {/* AI Review Status Card */}
+  1554→                <div className={`p-3 rounded-lg border ${
+  1555→                  selectedDoc.aiReviewStatus === 'completed' ? 'border-emerald-200 bg-emerald-50/30' :
+  1556→                  selectedDoc.aiReviewStatus === 'processing' ? 'border-amber-200 bg-amber-50/30' :
+  1557→                  selectedDoc.aiReviewStatus === 'failed' ? 'border-rose-200 bg-rose-50/30' :
+  1558→                  'border-border/40 bg-card'
+  1559→                }`}>
+  1560→                  <div className="flex items-center justify-between mb-1">
+  1561→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">AI Review</span>
+  1562→                    {selectedDoc.aiReviewStatus === 'completed' ? (
+  1563→                      <Sparkles className="h-4 w-4 text-emerald-600" />
+  1564→                    ) : selectedDoc.aiReviewStatus === 'processing' ? (
+  1565→                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+  1566→                    ) : (
+  1567→                      <Bot className="h-4 w-4 text-muted-foreground" />
+  1568→                    )}
+  1569→                  </div>
+  1570→                  <p className="text-xs font-medium capitalize">{selectedDoc.aiReviewStatus === 'none' ? 'Not Started' : selectedDoc.aiReviewStatus}</p>
+  1571→                  {selectedDoc.aiReviewProcessedAt && (
+  1572→                    <p className="text-[10px] text-muted-foreground mt-0.5">
+  1573→                      {new Date(selectedDoc.aiReviewProcessedAt).toLocaleString()}
+  1574→                    </p>
+  1575→                  )}
+  1576→                </div>
+  1577→
+  1578→                {/* Submit Status Card */}
+  1579→                <div className={`p-3 rounded-lg border ${
+  1580→                  selectedDoc.submitUrl ? 'border-teal-200 bg-teal-50/30' : 'border-border/40 bg-card'
+  1581→                }`}>
+  1582→                  <div className="flex items-center justify-between mb-1">
+  1583→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Submit</span>
+  1584→                    {selectedDoc.submitUrl ? (
+  1585→                      <ExternalLink className="h-4 w-4 text-teal-600" />
+  1586→                    ) : (
+  1587→                      <Link2 className="h-4 w-4 text-muted-foreground" />
+  1588→                    )}
+  1589→                  </div>
+  1590→                  <p className="text-xs font-medium">{selectedDoc.submitUrl ? 'URL Set' : 'No URL'}</p>
+  1591→                </div>
+  1592→              </div>
+  1593→
+  1594→              {/* Action Buttons */}
+  1595→              <div className="flex items-center gap-2 flex-wrap">
+  1596→                <Button
+  1597→                  size="sm"
+  1598→                  variant="outline"
+  1599→                  className="h-8 text-xs"
+  1600→                  disabled={selectedDoc.ocrStatus === 'processing' || selectedDoc.ocrStatus === 'completed'}
+  1601→                  onClick={() => triggerOCR(selectedDoc.id)}
+  1602→                >
+  1603→                  {ocrStatusMap[selectedDoc.id]?.loading || selectedDoc.ocrStatus === 'processing' ? (
+  1604→                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Processing OCR...</>
+  1605→                  ) : selectedDoc.ocrStatus === 'completed' ? (
+  1606→                    <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> OCR Complete</>
+  1607→                  ) : (
+  1608→                    <><Eye className="h-3.5 w-3.5 mr-1.5" /> Run OCR</>
+  1609→                  )}
+  1610→                </Button>
+  1611→                <Button
+  1612→                  size="sm"
+  1613→                  variant="outline"
+  1614→                  className="h-8 text-xs"
+  1615→                  disabled={
+  1616→                    selectedDoc.aiReviewStatus === 'processing' ||
+  1617→                    !ocrDone
+  1618→                  }
+  1619→                  onClick={() => triggerReview(selectedDoc.id)}
+  1620→                  title={!ocrDone ? 'Run OCR first' : 'Run AI Review with custom prompt'}
+  1621→                >
+  1622→                  {reviewStatusMap[selectedDoc.id]?.loading || selectedDoc.aiReviewStatus === 'processing' ? (
+  1623→                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> AI Reviewing...</>
+  1624→                  ) : selectedDoc.aiReviewStatus === 'completed' ? (
+  1625→                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Re-Run AI Review</>
+  1626→                  ) : (
+  1627→                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Run AI Review</>
+  1628→                  )}
+  1629→                </Button>
+  1630→                {selectedDoc.submitUrl && (
+  1631→                  <Button
+  1632→                    size="sm"
+  1633→                    className="h-8 text-xs gradient-emerald text-white border-0 hover:opacity-90"
+  1634→                    onClick={() => openSubmitUrl(selectedDoc.id)}
+  1635→                  >
+  1636→                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Submit Document
+  1637→                  </Button>
+  1638→                )}
+  1639→              </div>
+  1640→
+  1641→              {/* OCR Text Display */}
+  1642→              {(selectedDoc.ocrStatus === 'completed' || ocrStatusMap[selectedDoc.id]?.text) && (
+  1643→                <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  1644→                  <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+  1645→                    <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  1646→                      <Eye className="h-3.5 w-3.5 text-emerald-600" />
+  1647→                      Extracted Text (OCR)
+  1648→                    </h4>
+  1649→                    <Button
+  1650→                      variant="ghost"
+  1651→                      size="sm"
+  1652→                      className="h-6 text-[10px]"
+  1653→                      onClick={() => {
+  1654→                        const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+  1655→                        navigator.clipboard.writeText(text);
+  1656→                        toast.success('OCR text copied');
+  1657→                      }}
+  1658→                    >
+  1659→                      <Copy className="h-3 w-3 mr-1" /> Copy
+  1660→                    </Button>
+  1661→                  </div>
+  1662→                  <ScrollArea className="max-h-[200px]">
+  1663→                    <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+  1664→                      {selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || 'No text extracted'}
+  1665→                    </pre>
+  1666→                  </ScrollArea>
+  1667→                </div>
+  1668→              )}
+  1669→
+  1670→              {/* AI Review Result Display */}
+  1671→              {(selectedDoc.aiReviewStatus === 'completed' || reviewStatusMap[selectedDoc.id]?.result) && (
+  1672→                <ReviewResultDisplay
+  1673→                  reviewJson={selectedDoc.aiReview || reviewStatusMap[selectedDoc.id]?.result || ''}
+  1674→                  prompt={selectedDoc.aiReviewPrompt || reviewPrompts[selectedDoc.id] || ''}
+  1675→                />
+  1676→              )}
+  1677→            </div>
+  1678→          ) : (
+  1679→            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+  1680→              <Bot className="h-12 w-12 mb-3 opacity-20" />
+  1681→              <p className="text-sm font-medium">Select a document to review</p>
+  1682→              <p className="text-xs mt-1">Upload and select a document from the vault to begin</p>
+  1683→            </div>
+  1684→          )}
+  1685→        </div>
+  1686→      </div>
+  1687→    );
+  1688→  };
+  1689→
+  1690→  /* ════════════════════════════════════════════════════════════
+  1691→     RENDER
+  1692→     ════════════════════════════════════════════════════════════ */
+  1693→  const ActiveRibbon = RIBBON_MAP[ribbonTab];
+  1694→
+  1695→  // Check if ocrDone for the selected doc
+  1696→  const ocrDone = selectedDocId ? (documents.find(d => d.id === selectedDocId)?.ocrStatus === 'completed') : false;
+  1697→
+  1698→  return (
+  1699→    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/30 view-enter">
+  1700→      {/* ── Title Bar ── */}
+  1701→      <div className="flex items-center h-10 px-3 bg-card border-b border-border/60 flex-shrink-0 gap-2">
+  1702→        {/* Left: Logo + Doc Title */}
+  1703→        <div className="flex items-center gap-2 flex-1 min-w-0">
+  1704→          <div className="w-6 h-6 rounded gradient-emerald flex items-center justify-center flex-shrink-0">
+  1705→            <Sparkles className="h-3.5 w-3.5 text-white" />
+  1706→          </div>
+  1707→          <Input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }}
+  1708→            className="h-7 text-sm font-medium border-0 bg-transparent focus:bg-muted/50 px-1 max-w-[240px]" />
+  1709→        </div>
+  1710→        {/* Center: Save status */}
+  1711→        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+  1712→          {saveStatus === 'saved' && <><Check className="h-3 w-3 text-emerald-600" /> Saved</>}
+  1713→          {saveStatus === 'saving' && <><span className="animate-pulse">Saving...</span></>}
+  1714→          {saveStatus === 'unsaved' && <><span className="text-amber-600">Unsaved</span></>}
+  1715→        </div>
+  1716→        {/* Right: Actions */}
+  1717→        <div className="flex items-center gap-1 flex-1 justify-end">
+  1718→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleSave}>
+  1719→            <Save className="h-3.5 w-3.5 mr-1" /> Save
+  1720→          </Button>
+  1721→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.info('PDF export coming soon')}>
+  1722→            <Download className="h-3.5 w-3.5 mr-1" /> Export
+  1723→          </Button>
+  1724→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => window.print()}>
+  1725→            <Printer className="h-3.5 w-3.5 mr-1" /> Print
+  1726→          </Button>
+  1727→        </div>
+  1728→      </div>
+  1729→
+  1730→      {/* ── Ribbon Tabs ── */}
+  1731→      <div className="flex items-center h-8 bg-card border-b border-border/40 px-2 flex-shrink-0 gap-0.5">
+  1732→        {(['home', 'insert', 'review', 'ai-tools', 'sign', 'doc-review'] as RibbonTab[]).map(tab => (
+  1733→          <button key={tab} onClick={() => setRibbonTab(tab)}
+  1734→            className={`px-3 py-1 text-xs font-medium rounded-t transition-colors flex items-center gap-1 ${
+  1735→              ribbonTab === tab
+  1736→                ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500'
+  1737→                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+  1738→            }`}>
+  1739→            {tab === 'ai-tools' ? <><Sparkles className="h-3 w-3" /> AI Tools</> :
+  1740→             tab === 'sign' ? <><Pen className="h-3 w-3" /> Sign</> :
+  1741→             tab === 'doc-review' ? <><Bot className="h-3 w-3" /> Doc Review</> :
+  1742→             tab.charAt(0).toUpperCase() + tab.slice(1)}
+  1743→          </button>
+  1744→        ))}
+  1745→      </div>
+  1746→
+  1747→      {/* ── Ribbon Controls ── */}
+  1748→      <div className="bg-card border-b border-border/40 flex-shrink-0 min-h-[40px]">
+  1749→        <ActiveRibbon />
+  1750→      </div>
+  1751→
+  1752→      {/* ── Main Area ── */}
+  1753→      {ribbonTab === 'doc-review' ? (
+  1754→        <DocReviewContent />
+  1755→      ) : (
+  1756→        <div className="flex-1 flex overflow-hidden">
+  1757→          {/* Document Canvas Area */}
+  1758→          <div className="flex-1 overflow-auto bg-muted/60 p-6" onClick={() => { if (placementMode) { /* handled by editor click */ } }}>
+  1759→            <div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+  1760→              <div
+  1761→                className="bg-white shadow-lg relative"
+  1762→                style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}
+  1763→              >
+  1764→                {/* Document Header */}
+  1765→                <div className="border-b-2 border-emerald-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
+  1766→                  <div className="text-center">
+  1767→                    <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">Tenet Tender Ecosystem</p>
+  1768→                    <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
+  1769→                  </div>
+  1770→                </div>
+  1771→
+  1772→                {/* Editable Area */}
+  1773→                <div
+  1774→                  ref={editorRef}
+  1775→                  contentEditable
+  1776→                  suppressContentEditableWarning
+  1777→                  onInput={handleDocChange}
+  1778→                  onClick={handleCanvasClick}
+  1779→                  className="outline-none min-h-[800px] text-[13px] leading-[1.6] text-gray-800"
+  1780→                  style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }}
+  1781→                  data-placeholder="Start typing or use AI tools to generate content..."
+  1782→                />
+  1783→
+  1784→                {/* Document Footer */}
+  1785→                <div className="absolute bottom-8 left-0 right-0 text-center">
+  1786→                  <div className="border-t border-gray-200 pt-2">
+  1787→                    <p className="text-[10px] text-gray-400">Page 1 of 1</p>
+  1788→                  </div>
+  1789→                </div>
+  1790→              </div>
+  1791→            </div>
+  1792→          </div>
+  1793→
+  1794→          {/* Right Panel: AI Assistant */}
+  1795→          {aiPanelOpen && (
+  1796→              <div
+  1797→ className="border-l border-border/60 bg-card flex-shrink-0 overflow-hidden transition-[width] duration-700" style={{ width: 350 }}
+  1798→ >
+  1799→                <AIPanelContent />
+  1800→              </div>
+  1801→            )}
+  1802→        </div>
+  1803→      )}
+  1804→
+  1805→      {/* ── Status Bar ── */}
+  1806→      {ribbonTab !== 'doc-review' && (
+  1807→        <div className="flex items-center h-6 px-3 bg-card border-t border-border/40 text-[10px] text-muted-foreground flex-shrink-0">
+  1808→          <div className="flex-1">Page 1 of 1</div>
+  1809→          <div className="flex items-center gap-3">
+  1810→            <span>{wordCount} words</span>
+  1811→            <span>{charCount} chars</span>
+  1812→          </div>
+  1813→          <div className="flex-1 flex items-center justify-end gap-1">
+  1814→            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.max(75, zoom - 25))}>
+  1815→              <ZoomOut className="h-3 w-3" />
+  1816→            </Button>
+  1817→            <Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}>
+  1818→              <SelectTrigger className="h-4 w-14 text-[10px] border-0 p-0 bg-transparent">
+  1819→                <SelectValue />
+  1820→              </SelectTrigger>
+  1821→              <SelectContent>
+  1822→                {ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}
+  1823→              </SelectContent>
+  1824→            </Select>
+  1825→            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.min(150, zoom + 25))}>
+  1826→              <ZoomIn className="h-3 w-3" />
+  1827→            </Button>
+  1828→          </div>
+  1829→        </div>
+  1830→      )}
+  1831→
+  1832→      {/* ── Signature Drawing Dialog ── */}
+  1833→      <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}>
+  1834→        <DialogContent className="sm:max-w-[500px]">
+  1835→          <DialogHeader>
+  1836→            <DialogTitle className="flex items-center gap-2">
+  1837→              <Pen className="h-4 w-4 text-emerald-600" /> Draw Your Signature
+  1838→            </DialogTitle>
+  1839→          </DialogHeader>
+  1840→          <div className="space-y-3">
+  1841→            <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
+  1842→              <canvas
+  1843→                ref={canvasRef}
+  1844→                width={460}
+  1845→                height={200}
+  1846→                onMouseDown={startDraw}
+  1847→                onMouseMove={draw}
+  1848→                onMouseUp={endDraw}
+  1849→                onMouseLeave={endDraw}
+  1850→                className="w-full cursor-crosshair touch-none"
+  1851→              />
+  1852→            </div>
+  1853→            <div className="flex items-center justify-between">
+  1854→              <Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs">
+  1855→                <Eraser className="h-3.5 w-3.5 mr-1" /> Clear
+  1856→              </Button>
+  1857→              <div className="flex gap-2">
+  1858→                <Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button>
+  1859→                <Button size="sm" onClick={saveDrawnSignature}
+  1860→                  className="text-xs gradient-emerald text-white border-0 premium-shadow hover:opacity-90">
+  1861→                  <Check className="h-3.5 w-3.5 mr-1" /> Save Signature
+  1862→                </Button>
+  1863→              </div>
+  1864→            </div>
+  1865→          </div>
+  1866→        </DialogContent>
+  1867→      </Dialog>
+  1868→
+  1869→      {/* ── Signature Gallery (shows when Sign tab is active) ── */}
+  1870→      {ribbonTab === 'sign' && savedSignatures.length > 0 && (
+  1871→          <div
+  1872→ className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]"
+  1873→ >
+  1874→            <div className="flex items-center justify-between mb-2">
+  1875→              <span className="text-xs font-semibold">Saved Signatures &amp; Stamps</span>
+  1876→              <span className="text-[10px] text-muted-foreground">Click to place on document</span>
+  1877→            </div>
+  1878→            <div className="flex gap-3 overflow-x-auto pb-1">
+  1879→              {savedSignatures.map(sig => (
+  1880→                <div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative">
+  1881→                  <button onClick={() => startPlacement(sig.dataUrl)}
+  1882→                    className="w-20 h-16 border border-border rounded hover:border-emerald-400 transition-colors overflow-hidden bg-white p-1">
+  1883→                    <img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" />
+  1884→                  </button>
+  1885→                  <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{sig.label}</span>
+  1886→                  <button onClick={() => deleteSignature(sig.id)}
+  1887→                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+  1888→                    <X className="h-2.5 w-2.5" />
+  1889→                  </button>
+  1890→                </div>
+  1891→              ))}
+  1892→            </div>
+  1893→          </div>
+  1894→        )}
+  1895→</div>
+  1896→  );
+  1897→}
+  1898→
+  1899→/* ══════════════════════════════════════════════════════════════
+  1900→   REVIEW RESULT DISPLAY COMPONENT
+  1901→   ══════════════════════════════════════════════════════════════ */
+  1902→
+  1903→function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; prompt: string }) {
+  1904→  let review: Record<string, unknown> = {};
+  1905→  try {
+  1906→    review = JSON.parse(reviewJson);
+  1907→  } catch {
+  1908→    // If not JSON, display as raw text
+  1909→    return (
+  1910→      <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  1911→        <div className="p-3 border-b border-border/30 bg-muted/20">
+  1912→          <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  1913→            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+  1914→            AI Review Result
+  1915→          </h4>
+  1916→        </div>
+  1917→        <ScrollArea className="max-h-[400px]">
+  1918→          <div className="p-3 text-xs whitespace-pre-wrap">{reviewJson}</div>
+  1919→        </ScrollArea>
+  1920→      </div>
+  1921→    );
+  1922→  }
+  1923→
+  1924→  const complianceScore = typeof review.complianceScore === 'number' ? review.complianceScore : null;
+  1925→  const completenessScore = typeof review.completenessScore === 'number' ? review.completenessScore : null;
+  1926→  const riskLevel = typeof review.riskLevel === 'string' ? review.riskLevel : null;
+  1927→  const findings = Array.isArray(review.findings) ? review.findings : [];
+  1928→  const strengths = Array.isArray(review.strengths) ? review.strengths : [];
+  1929→  const weaknesses = Array.isArray(review.weaknesses) ? review.weaknesses : [];
+  1930→  const missingElements = Array.isArray(review.missingElements) ? review.missingElements : [];
+  1931→  const recommendations = Array.isArray(review.recommendations) ? review.recommendations : [];
+  1932→  const overallAssessment = typeof review.overallAssessment === 'string' ? review.overallAssessment : null;
+  1933→  const summary = typeof review.summary === 'string' ? review.summary : null;
+  1934→
+  1935→  const riskColorMap: Record<string, string> = {
+  1936→    low: 'bg-emerald-100 text-emerald-700',
+  1937→    medium: 'bg-amber-100 text-amber-700',
+  1938→    high: 'bg-rose-100 text-rose-700',
+  1939→    critical: 'bg-rose-200 text-rose-800',
+  1940→  };
+  1941→
+  1942→  const findingIconMap: Record<string, React.ElementType> = {
+  1943→    positive: CheckCircle2,
+  1944→    negative: XCircle,
+  1945→    warning: AlertTriangle,
+  1946→  };
+  1947→  const findingColorMap: Record<string, string> = {
+  1948→    positive: 'text-emerald-600',
+  1949→    negative: 'text-rose-600',
+  1950→    warning: 'text-amber-600',
+  1951→  };
+  1952→  const findingBgMap: Record<string, string> = {
+  1953→    positive: 'bg-emerald-50',
+  1954→    negative: 'bg-rose-50',
+  1955→    warning: 'bg-amber-50',
+  1956→  };
+  1957→
+  1958→  return (
+  1959→    <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  1960→      <div className="p-3 border-b border-border/30 bg-muted/20 flex items-center justify-between">
+  1961→        <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  1962→          <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+  1963→          AI Review Result
+  1964→        </h4>
+  1965→        {prompt && (
+  1966→          <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  1967→            Custom Prompt
+  1968→          </Badge>
+  1969→        )}
+  1970→      </div>
+  1971→
+  1972→      <div className="p-4 space-y-4">
+  1973→        {/* Score Cards */}
+  1974→        <div className="grid grid-cols-3 gap-3">
+  1975→          {complianceScore !== null && (
+  1976→            <div className="text-center p-3 rounded-lg bg-muted/30">
+  1977→              <p className="text-2xl font-bold" style={{ color: complianceScore >= 70 ? '#10b981' : complianceScore >= 40 ? '#f59e0b' : '#ef4444' }}>
+  1978→                {complianceScore}
+  1979→              </p>
+  1980→              <p className="text-[10px] text-muted-foreground mt-0.5">Compliance</p>
+  1981→            </div>
+  1982→          )}
+  1983→          {completenessScore !== null && (
+  1984→            <div className="text-center p-3 rounded-lg bg-muted/30">
+  1985→              <p className="text-2xl font-bold" style={{ color: completenessScore >= 70 ? '#10b981' : completenessScore >= 40 ? '#f59e0b' : '#ef4444' }}>
+  1986→                {completenessScore}
+  1987→              </p>
+  1988→              <p className="text-[10px] text-muted-foreground mt-0.5">Completeness</p>
+  1989→            </div>
+  1990→          )}
+  1991→          {riskLevel && (
+  1992→            <div className="text-center p-3 rounded-lg bg-muted/30">
+  1993→              <Badge className={`text-xs px-3 py-1 border-0 ${riskColorMap[riskLevel] || 'bg-gray-100 text-gray-700'}`}>
+  1994→                {riskLevel.toUpperCase()}
+  1995→              </Badge>
+  1996→              <p className="text-[10px] text-muted-foreground mt-1">Risk Level</p>
+  1997→            </div>
+  1998→          )}
+  1999→        </div>
+  2000→
+
+[showing lines 1-2000 of 2139; use offset=2001 with limit to continue reading]

@@ -1,6 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, requireAdmin } from '@/lib/auth';
+import { unlink } from 'fs/promises';
+import path from 'path';
+
+/**
+ * DELETE /api/documents/[id]
+ * Delete a document by ID. Only the document owner or company admin can delete.
+ * Also removes the physical file from the uploads directory.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const { user, error } = await requireAuth(request);
+    if (error) return error;
+
+    const document = await db.document.findUnique({ where: { id } });
+    if (!document) {
+      return NextResponse.json(
+        { success: false, error: 'Document not found' },
+        { status: 404 }
+      );
+    }
+
+    // Access control: owner or company admin
+    const isOwner = document.userId === user!.id;
+    const isCompanyAdmin = user!.role === 'team_admin' && document.companyId === user!.companyId;
+    if (!isOwner && !isCompanyAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only delete your own documents' },
+        { status: 403 }
+      );
+    }
+
+    // Delete physical file
+    try {
+      if (document.fileUrl) {
+        const filePath = path.join(process.cwd(), document.fileUrl);
+        await unlink(filePath);
+      }
+    } catch {
+      // File may already be deleted or not exist — that's OK
+    }
+
+    // Delete database record (cascades to related data)
+    await db.document.delete({ where: { id } });
+
+    return NextResponse.json({ success: true, message: 'Document deleted' });
+  } catch (err) {
+    console.error('Delete document error:', err);
+    return NextResponse.json(
+      { success: false, error: 'An error occurred while deleting the document' },
+      { status: 500 }
+    );
+  }
+}
 
 /**
  * PATCH /api/documents/[id]
