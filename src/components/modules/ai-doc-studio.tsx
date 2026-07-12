@@ -44,7 +44,7 @@ import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/compo
    TYPES
    ══════════════════════════════════════════════════════════════ */
 
-type RibbonTab = 'home' | 'insert' | 'review' | 'ai-tools' | 'sign' | 'doc-review';
+type RibbonTab = 'home' | 'insert' | 'review' | 'ai-tools' | 'sign' | 'doc-review' | 'ai-extract';
 type AITool = 'tender-builder' | 'bid-builder' | 'requirement-analyzer' | 'applicant-analyzer';
 
 interface TenderOption {
@@ -240,6 +240,8 @@ export function AIDocStudio() {
   const [extractLoading, setExtractLoading] = useState<Set<string>>(new Set());
   const [extractResults, setExtractResults] = useState<Record<string, string>>({});
   const [showExtract, setShowExtract] = useState<Set<string>>(new Set());
+  // AI Extract tab: per-document extraction history (allows multiple extractions with different prompts)
+  const [extractHistory, setExtractHistory] = useState<Record<string, Array<{ prompt: string; result: string; timestamp: string }>>>({});
 
   const { user } = useAuthStore();
 
@@ -673,7 +675,12 @@ export function AIDocStudio() {
     try {
       const res = await api.post('/documents/ai-extract', { documentId: docId, prompt });
       if (res.success) {
-        setExtractResults(prev => ({ ...prev, [docId]: res.data.extractedInfo }));
+        const extractedInfo = res.data.extractedInfo;
+        setExtractResults(prev => ({ ...prev, [docId]: extractedInfo }));
+        setExtractHistory(prev => ({
+          ...prev,
+          [docId]: [...(prev[docId] || []), { prompt, result: extractedInfo, timestamp: new Date().toLocaleString() }],
+        }));
         toast.success('Information extracted successfully');
       } else {
         toast.error(res.error || 'Extraction failed');
@@ -957,6 +964,23 @@ export function AIDocStudio() {
     </div>
   );
 
+  const AIExtractRibbon = () => (
+    <div className="flex items-center gap-2 px-2 py-1.5">
+      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
+        <FileUp className="h-3.5 w-3.5 mr-1" /> Upload Document
+      </Button>
+      <Separator orientation="vertical" className="h-6" />
+      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={loadDocuments}>
+        <RefreshCw className={`h-3.5 w-3.5 mr-1 ${docsLoading ? 'animate-spin' : ''}`} /> Refresh
+      </Button>
+      <Separator orientation="vertical" className="h-6" />
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Sparkles className="h-3.5 w-3.5" />
+        Extract info from {documents.filter(d => d.ocrStatus === 'completed').length} OCR-ready document{documents.filter(d => d.ocrStatus === 'completed').length !== 1 ? 's' : ''}
+      </div>
+    </div>
+  );
+
   const RIBBON_MAP: Record<RibbonTab, () => React.JSX.Element> = {
     home: HomeRibbon,
     insert: InsertRibbon,
@@ -964,6 +988,7 @@ export function AIDocStudio() {
     'ai-tools': AIToolsRibbon,
     sign: SignRibbon,
     'doc-review': DocReviewRibbon,
+    'ai-extract': AIExtractRibbon,
   };
 
   /* ════════════════════════════════════════════════════════════
@@ -1369,19 +1394,19 @@ export function AIDocStudio() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-5 w-5 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
                           onClick={async (e) => {
                             e.stopPropagation();
-                            if (!confirm(`Remove "${doc.fileName}"? This cannot be undone.`)) return;
+                            if (!confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
                             const res = await api.delete(`/documents/${doc.id}`);
                             if (res.success) {
-                              toast.success('Document removed');
+                              toast.success('Document deleted');
                               loadDocuments();
                             } else {
-                              toast.error(res.error || 'Failed to remove');
+                              toast.error(res.error || 'Failed to delete');
                             }
                           }}
-                          title="Remove document"
+                          title="Delete document"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -1930,20 +1955,20 @@ export function AIDocStudio() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                  className="h-7 text-xs text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
                   onClick={async () => {
-                    if (!confirm(`Remove "${selectedDoc.fileName}"? This cannot be undone.`)) return;
+                    if (!confirm(`Delete "${selectedDoc.fileName}"? This cannot be undone.`)) return;
                     const res = await api.delete(`/documents/${selectedDoc.id}`);
                     if (res.success) {
-                      toast.success('Document removed');
+                      toast.success('Document deleted');
                       setSelectedDocId(null);
                       loadDocuments();
                     } else {
-                      toast.error(res.error || 'Failed to remove');
+                      toast.error(res.error || 'Failed to delete');
                     }
                   }}
                 >
-                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove Document
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Document
                 </Button>
               </div>
             </div>
@@ -1952,6 +1977,298 @@ export function AIDocStudio() {
               <Bot className="h-12 w-12 mb-3 opacity-20" />
               <p className="text-sm font-medium">Select a document to review</p>
               <p className="text-xs mt-1">Upload and select a document from the vault to begin</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  /* ════════════════════════════════════════════════════════════
+     AI EXTRACT TAB CONTENT
+     ════════════════════════════════════════════════════════════ */
+  const AIExtractContent = () => {
+    const ocrReadyDocs = documents.filter(d => d.ocrStatus === 'completed');
+    const [localSelectedDocId, setLocalSelectedDocId] = useState<string | null>(null);
+    const selectedDoc = localSelectedDocId ? documents.find(d => d.id === localSelectedDocId) : null;
+    const docHistory = localSelectedDocId ? (extractHistory[localSelectedDocId] || []) : [];
+
+    return (
+      <div className="flex-1 flex overflow-hidden bg-muted/30">
+        {/* Left: OCR-Ready Document List */}
+        <div className="w-[320px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+          <div className="p-3 border-b border-border/40">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-emerald-600" />
+              AI Extract
+            </h3>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Ask AI to extract specific information from your OCR-processed documents
+            </p>
+          </div>
+
+          <div className="p-2 space-y-1.5 overflow-y-auto flex-1">
+            {docsLoading ? (
+              <div className="space-y-2 p-2">
+                {[1, 2, 3].map(i => (
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : ocrReadyDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <FileSearch className="h-8 w-8 mb-2 opacity-30" />
+                <p className="text-xs">No OCR-ready documents</p>
+                <p className="text-[10px] mt-1">Upload & run OCR on documents first</p>
+              </div>
+            ) : (
+              ocrReadyDocs.map(doc => {
+                const isSelected = localSelectedDocId === doc.id;
+                const extBadge = getFileExtBadge(doc.fileName);
+                return (
+                  <div
+                    key={doc.id}
+                    className={`rounded-lg border p-2.5 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-emerald-300 bg-emerald-50/30 shadow-sm'
+                        : 'border-border/40 hover:border-emerald-200 hover:bg-muted/20'
+                    }`}
+                    onClick={() => setLocalSelectedDocId(doc.id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded bg-muted/50 flex-shrink-0">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-medium truncate">{doc.fileName}</p>
+                          {extBadge.label && (
+                            <Badge className={`text-[9px] px-1 py-0 border-0 ${extBadge.color}`}>
+                              {extBadge.label}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {DOC_TYPE_OPTIONS.find(o => o.value === doc.docType)?.label || doc.docType}
+                          {extractHistory[doc.id]?.length ? ` · ${extractHistory[doc.id].length} extraction${extractHistory[doc.id].length > 1 ? 's' : ''}` : ''}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
+                          const res = await api.delete(`/documents/${doc.id}`);
+                          if (res.success) {
+                            toast.success('Document deleted');
+                            if (localSelectedDocId === doc.id) setLocalSelectedDocId(null);
+                            loadDocuments();
+                          } else {
+                            toast.error(res.error || 'Failed to delete');
+                          }
+                        }}
+                        title="Delete document"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Right: Extract Interface */}
+        <div className="flex-1 overflow-auto bg-muted/30">
+          {selectedDoc ? (
+            <div className="p-4 space-y-4 max-w-3xl mx-auto">
+              {/* Document Header */}
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/40">
+                <div className="p-3 rounded-xl gradient-emerald shadow-sm">
+                  <MessageSquare className="h-6 w-6 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold truncate">{selectedDoc.fileName}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {DOC_TYPE_OPTIONS.find(o => o.value === selectedDoc.docType)?.label || selectedDoc.docType} · OCR Completed
+                  </p>
+                </div>
+                <Badge className="text-xs px-2 py-0.5 border-0 bg-emerald-100 text-emerald-700">
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> OCR Ready
+                </Badge>
+              </div>
+
+              {/* Extract Prompt Input */}
+              <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+                <div className="p-3 border-b border-border/30 bg-muted/20">
+                  <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                    Ask AI to Extract Information
+                  </h4>
+                </div>
+                <div className="p-3 space-y-2.5">
+                  <div>
+                    <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+                      <MessageSquare className="h-3 w-3" /> Your extraction prompt
+                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        placeholder="e.g., Extract all financial figures, List deadlines, Find contact info..."
+                        value={extractPrompt[selectedDoc.id] || ''}
+                        onChange={e => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: e.target.value }))}
+                        className="h-8 text-xs bg-muted/30 border-border/50 flex-1"
+                        onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(selectedDoc.id); }}
+                      />
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs gradient-emerald text-white border-0 hover:opacity-90 px-4 flex-shrink-0"
+                        disabled={extractLoading.has(selectedDoc.id) || !extractPrompt[selectedDoc.id]?.trim()}
+                        onClick={() => handleAiExtract(selectedDoc.id)}
+                      >
+                        {extractLoading.has(selectedDoc.id) ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Extracting...</>
+                        ) : (
+                          <><Sparkles className="h-3.5 w-3.5 mr-1" /> Extract</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Quick Prompt Suggestions */}
+                  <div>
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Quick Prompts</p>
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        'Extract financial figures',
+                        'List all deadlines and dates',
+                        'Summarize key requirements',
+                        'Find contact information',
+                        'Identify compliance issues',
+                        'What is the total budget?',
+                        'List all contract terms',
+                        'Extract scope of work',
+                      ].map(suggestion => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: suggestion }))}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors border ${
+                            extractPrompt[selectedDoc.id] === suggestion
+                              ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                              : 'bg-muted/50 text-muted-foreground border-border/50 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700'
+                          }`}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Extraction History */}
+              {docHistory.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                    <Clock className="h-3.5 w-3.5" /> Extraction History ({docHistory.length})
+                  </h4>
+                  {[...docHistory].reverse().map((entry, idx) => (
+                    <div key={idx} className="rounded-xl border border-border/40 bg-card overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-border/30 bg-muted/20">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Sparkles className="h-3 w-3 text-emerald-600 flex-shrink-0" />
+                          <span className="text-[10px] font-medium text-emerald-700 truncate">{entry.prompt}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[9px] text-muted-foreground">{entry.timestamp}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 text-[9px] px-1"
+                            onClick={() => {
+                              navigator.clipboard.writeText(entry.result);
+                              toast.success('Copied to clipboard');
+                            }}
+                          >
+                            <Copy className="h-2.5 w-2.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <ScrollArea className="max-h-[250px]">
+                        <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                          {entry.result}
+                        </pre>
+                      </ScrollArea>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Latest extraction loading */}
+              {extractLoading.has(selectedDoc.id) && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-6 flex flex-col items-center justify-center">
+                  <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-3" />
+                  <p className="text-sm font-medium text-emerald-700">Extracting information...</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">AI is reading your document and answering your prompt</p>
+                </div>
+              )}
+
+              {/* OCR Text Preview */}
+              <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+                <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+                  <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                    OCR Text Source
+                  </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[10px]"
+                    onClick={() => {
+                      const text = selectedDoc.ocrText || '';
+                      navigator.clipboard.writeText(text);
+                      toast.success('OCR text copied');
+                    }}
+                  >
+                    <Copy className="h-3 w-3 mr-1" /> Copy
+                  </Button>
+                </div>
+                <ScrollArea className="max-h-[150px]">
+                  <pre className="p-3 text-[10px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                    {selectedDoc.ocrText || 'No OCR text available'}
+                  </pre>
+                </ScrollArea>
+              </div>
+
+              {/* Delete Document */}
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+                  onClick={async () => {
+                    if (!confirm(`Delete "${selectedDoc.fileName}"? This cannot be undone.`)) return;
+                    const res = await api.delete(`/documents/${selectedDoc.id}`);
+                    if (res.success) {
+                      toast.success('Document deleted');
+                      setLocalSelectedDocId(null);
+                      loadDocuments();
+                    } else {
+                      toast.error(res.error || 'Failed to delete');
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Document
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <MessageSquare className="h-12 w-12 mb-3 opacity-20" />
+              <p className="text-sm font-medium">Select a document to extract info</p>
+              <p className="text-xs mt-1">Choose an OCR-ready document from the left panel</p>
             </div>
           )}
         </div>
@@ -2001,7 +2318,7 @@ export function AIDocStudio() {
 
       {/* ── Ribbon Tabs ── */}
       <div className="flex items-center h-8 bg-card border-b border-border/40 px-2 flex-shrink-0 gap-0.5">
-        {(['home', 'insert', 'review', 'ai-tools', 'sign', 'doc-review'] as RibbonTab[]).map(tab => (
+        {(['home', 'insert', 'review', 'ai-tools', 'sign', 'doc-review', 'ai-extract'] as RibbonTab[]).map(tab => (
           <button key={tab} onClick={() => setRibbonTab(tab)}
             className={`px-3 py-1 text-xs font-medium rounded-t transition-colors flex items-center gap-1 ${
               ribbonTab === tab
@@ -2011,6 +2328,7 @@ export function AIDocStudio() {
             {tab === 'ai-tools' ? <><Sparkles className="h-3 w-3" /> AI Tools</> :
              tab === 'sign' ? <><Pen className="h-3 w-3" /> Sign</> :
              tab === 'doc-review' ? <><Bot className="h-3 w-3" /> Doc Review</> :
+             tab === 'ai-extract' ? <><MessageSquare className="h-3 w-3" /> AI Extract</> :
              tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
@@ -2024,6 +2342,8 @@ export function AIDocStudio() {
       {/* ── Main Area ── */}
       {ribbonTab === 'doc-review' ? (
         <DocReviewContent />
+      ) : ribbonTab === 'ai-extract' ? (
+        <AIExtractContent />
       ) : (
         <div className="flex-1 flex overflow-hidden">
           {/* Document Canvas Area */}
@@ -2075,7 +2395,7 @@ export function AIDocStudio() {
       )}
 
       {/* ── Status Bar ── */}
-      {ribbonTab !== 'doc-review' && (
+      {ribbonTab !== 'doc-review' && ribbonTab !== 'ai-extract' && (
         <div className="flex items-center h-6 px-3 bg-card border-t border-border/40 text-[10px] text-muted-foreground flex-shrink-0">
           <div className="flex-1">Page 1 of 1</div>
           <div className="flex items-center gap-3">

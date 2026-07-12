@@ -243,7 +243,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Everything You Need to Win Tenders
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              From discovery to award, Tenet streamlines every step of your procurement journey with AI-powered tools.
+              From discovery to award, Published Tender World Bank streamlines every step of your procurement journey with AI-powered tools.
             </p>
           </div>
 
@@ -408,7 +408,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
 
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-500">&copy; 2025 Tenet &middot; Transforming Procurement Through Technology</p>
+            <p className="text-xs text-gray-500">&copy; 2025 Published Tender World Bank &middot; Transforming Procurement Through Technology</p>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Users className="w-4 h-4" />

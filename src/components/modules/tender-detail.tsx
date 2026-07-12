@@ -6,8 +6,6 @@ import { api, Tender, Bid, BidAnalysis, BidAnalysisResult } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
@@ -85,14 +83,16 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBid, setShowBid] = useState(false);
-  const [bidFormData, setBidFormData] = useState({
-    technicalProposal: '', financialProposal: '', timeline: '',
-  });
   const [bidDocFiles, setBidDocFiles] = useState<{
     technical: File | null;
     financial: File | null;
     timeline: File | null;
   }>({ technical: null, financial: null, timeline: null });
+  const [uploadProgress, setUploadProgress] = useState<{
+    technical: 'idle' | 'uploading' | 'done' | 'error';
+    financial: 'idle' | 'uploading' | 'done' | 'error';
+    timeline: 'idle' | 'uploading' | 'done' | 'error';
+  }>({ technical: 'idle', financial: 'idle', timeline: 'idle' });
   const [submittingBid, setSubmittingBid] = useState(false);
   const [hasBid, setHasBid] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>(initialTab && initialTab !== 'overview' ? initialTab : 'overview');
@@ -145,7 +145,6 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
     setAnalysesLoading(false);
   }, [tenderId, selectedAnalysisId]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (tenderId) loadTender();
   }, [tenderId, loadTender]);
@@ -153,7 +152,6 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
   useEffect(() => {
     if (tenderId && activeTab === 'analysis') loadAnalyses();
   }, [tenderId, activeTab, loadAnalyses]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleRunAnalysis = async () => {
     if (!tenderId) return;
@@ -217,36 +215,33 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
   };
 
   const handleSubmitBidWithDocs = useCallback(async () => {
-    if (!bidFormData.financialProposal || !bidFormData.timeline) {
-      toast.error('Financial amount and timeline are required');
-      return;
-    }
-    if (!bidDocFiles.technical || !bidDocFiles.financial) {
-      toast.error('Technical and Financial proposal documents are required');
+    if (!bidDocFiles.technical || !bidDocFiles.financial || !bidDocFiles.timeline) {
+      toast.error('All three documents (Technical, Financial, and Timeline) are required');
       return;
     }
 
     setSubmittingBid(true);
+    setUploadProgress({ technical: 'uploading', financial: 'uploading', timeline: 'uploading' });
     try {
-      // 1. Create the bid record first
-      const technicalText = bidFormData.technicalProposal || `Technical proposal submitted via document: ${bidDocFiles.technical.name}`;
+      // 1. Create the bid record with placeholder values (real content is in uploaded documents)
       const res = await api.post('/bids', {
         tenderId: tender!.id,
-        technicalProposal: technicalText,
-        financialProposal: parseFloat(bidFormData.financialProposal),
-        timeline: bidFormData.timeline,
+        technicalProposal: `Technical proposal submitted via document: ${bidDocFiles.technical.name}`,
+        financialProposal: 0,
+        timeline: `Timeline submitted via document: ${bidDocFiles.timeline.name}`,
       });
 
       if (!res.success) {
         toast.error(res.error || 'Failed to submit bid');
         setSubmittingBid(false);
+        setUploadProgress({ technical: 'idle', financial: 'idle', timeline: 'idle' });
         return;
       }
 
       const bidId = res.data.id;
 
       // 2. Upload documents to the bid
-      const uploadDoc = async (file: File, docType: string) => {
+      const uploadDoc = async (file: File, docType: string, key: 'technical' | 'financial' | 'timeline') => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('docType', docType);
@@ -254,39 +249,46 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
         formData.append('autoReview', 'true');
         try {
           const uploadRes = await api.upload(`/bids/${bidId}/documents`, formData);
+          if (uploadRes.success) {
+            setUploadProgress(prev => ({ ...prev, [key]: 'done' }));
+          } else {
+            setUploadProgress(prev => ({ ...prev, [key]: 'error' }));
+          }
           return uploadRes.success;
         } catch {
+          setUploadProgress(prev => ({ ...prev, [key]: 'error' }));
           return false;
         }
       };
 
       // Upload all three documents in parallel
       const results = await Promise.all([
-        uploadDoc(bidDocFiles.technical!, 'technical_proposal'),
-        uploadDoc(bidDocFiles.financial!, 'financial_proposal'),
-        bidDocFiles.timeline ? uploadDoc(bidDocFiles.timeline, 'timeline_doc') : Promise.resolve(true),
+        uploadDoc(bidDocFiles.technical!, 'technical_proposal', 'technical'),
+        uploadDoc(bidDocFiles.financial!, 'financial_proposal', 'financial'),
+        uploadDoc(bidDocFiles.timeline!, 'timeline_doc', 'timeline'),
       ]);
 
       const failedUploads = results.filter(r => !r).length;
       if (failedUploads > 0) {
         toast.warning(`Bid submitted but ${failedUploads} document(s) failed to upload`);
       } else {
-        toast.success('Bid submitted successfully! Documents will be processed via OCR & AI Review');
+        toast.success('Bid submitted successfully! All documents will be processed via OCR & AI Review');
       }
 
       setShowBid(false);
       setHasBid(true);
       setBidDocFiles({ technical: null, financial: null, timeline: null });
-      setBidFormData({ financialProposal: '', timeline: '', technicalProposal: '' });
+      setUploadProgress({ technical: 'idle', financial: 'idle', timeline: 'idle' });
 
       // Refresh tender data
       loadTender();
     } catch {
       toast.error('Failed to submit bid');
+      setUploadProgress({ technical: 'idle', financial: 'idle', timeline: 'idle' });
     } finally {
       setSubmittingBid(false);
     }
-  }, [bidFormData, bidDocFiles, tender, loadTender]);
+  }, [bidDocFiles, tender, loadTender]);
 
   const handleStatusChange = async (status: string) => {
     const res = await api.patch(`/tenders/${tenderId}/status`, { status });
@@ -525,9 +527,13 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                         </DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                        {/* Document Upload Section */}
+                        {/* Document Upload Section - All uploads are required */}
                         <div className="space-y-3">
-                          <p className="text-sm font-semibold">Upload Bid Documents</p>
+                          <p className="text-sm font-semibold flex items-center gap-1.5">
+                            <FileStack className="h-4 w-4 text-primary" />
+                            Upload Bid Documents
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">All three documents are required. Files will be automatically processed via OCR & AI Review.</p>
 
                           {/* Technical Proposal Upload */}
                           <div className="space-y-1.5">
@@ -535,31 +541,49 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                               <div className="p-1 rounded bg-emerald-50"><Briefcase className="h-3 w-3 text-emerald-600" /></div>
                               Technical Proposal Document *
                             </Label>
-                            <div className="flex items-center gap-2">
-                              <label className="flex-1 cursor-pointer">
-                                <div className={`p-3 border-2 border-dashed rounded-xl text-center transition-all ${
-                                  bidDocFiles.technical ? 'border-emerald-300 bg-emerald-50/50' : 'border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/20'
-                                }`}>
-                                  {bidDocFiles.technical ? (
-                                    <div className="flex items-center justify-center gap-2">
-                                      <FileText className="h-4 w-4 text-emerald-600" />
-                                      <span className="text-xs font-medium text-emerald-700">{bidDocFiles.technical.name}</span>
-                                      <X className="h-3 w-3 text-muted-foreground hover:text-rose-500" onClick={(e) => { e.stopPropagation(); setBidDocFiles(prev => ({ ...prev, technical: null })); }} />
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <Upload className="h-4 w-4 text-emerald-400 mx-auto mb-1" />
-                                      <p className="text-[10px] text-muted-foreground">Upload Technical Proposal (PDF, DOCX)</p>
-                                    </>
-                                  )}
-                                </div>
-                                <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) setBidDocFiles(prev => ({ ...prev, technical: file }));
-                                  }} />
-                              </label>
-                            </div>
+                            <label className="cursor-pointer block">
+                              <div className={`p-4 border-2 border-dashed rounded-xl text-center transition-all ${
+                                uploadProgress.technical === 'done' ? 'border-emerald-400 bg-emerald-50/60' :
+                                uploadProgress.technical === 'error' ? 'border-rose-300 bg-rose-50/30' :
+                                bidDocFiles.technical ? 'border-emerald-300 bg-emerald-50/50' : 'border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/20'
+                              }`}>
+                                {uploadProgress.technical === 'done' ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <CircleCheck className="h-4 w-4 text-emerald-600" />
+                                    <span className="text-xs font-medium text-emerald-700">{bidDocFiles.technical?.name}</span>
+                                    <span className="text-[9px] text-emerald-500 bg-emerald-100 px-1.5 py-0.5 rounded-full">Uploaded</span>
+                                  </div>
+                                ) : uploadProgress.technical === 'error' ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <AlertCircle className="h-4 w-4 text-rose-500" />
+                                    <span className="text-xs text-rose-600">Upload failed - try again</span>
+                                  </div>
+                                ) : bidDocFiles.technical ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <FileText className="h-4 w-4 text-emerald-600" />
+                                    <span className="text-xs font-medium text-emerald-700">{bidDocFiles.technical.name}</span>
+                                    <X className="h-3 w-3 text-muted-foreground hover:text-rose-500" onClick={(e) => { e.stopPropagation(); setBidDocFiles(prev => ({ ...prev, technical: null })); }} />
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Upload className="h-5 w-5 text-emerald-400 mx-auto mb-1.5" />
+                                    <p className="text-xs font-medium text-emerald-700">Drop Technical Proposal here or click to browse</p>
+                                    <p className="text-[10px] text-muted-foreground mt-1">PDF, DOCX, DOC, TXT, JPG, PNG (max 10MB)</p>
+                                  </>
+                                )}
+                              </div>
+                              <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    if (file.size > 10 * 1024 * 1024) {
+                                      toast.error('File must be under 10MB');
+                                      return;
+                                    }
+                                    setBidDocFiles(prev => ({ ...prev, technical: file }));
+                                  }
+                                }} />
+                            </label>
                           </div>
 
                           {/* Financial Proposal Upload */}
@@ -568,44 +592,75 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                               <div className="p-1 rounded bg-amber-50"><DollarSign className="h-3 w-3 text-amber-600" /></div>
                               Financial Proposal Document *
                             </Label>
-                            <div className="flex items-center gap-2">
-                              <label className="flex-1 cursor-pointer">
-                                <div className={`p-3 border-2 border-dashed rounded-xl text-center transition-all ${
-                                  bidDocFiles.financial ? 'border-amber-300 bg-amber-50/50' : 'border-amber-200 hover:border-amber-300 hover:bg-amber-50/20'
-                                }`}>
-                                  {bidDocFiles.financial ? (
-                                    <div className="flex items-center justify-center gap-2">
-                                      <FileText className="h-4 w-4 text-amber-600" />
-                                      <span className="text-xs font-medium text-amber-700">{bidDocFiles.financial.name}</span>
-                                      <X className="h-3 w-3 text-muted-foreground hover:text-rose-500" onClick={(e) => { e.stopPropagation(); setBidDocFiles(prev => ({ ...prev, financial: null })); }} />
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <Upload className="h-4 w-4 text-amber-400 mx-auto mb-1" />
-                                      <p className="text-[10px] text-muted-foreground">Upload Financial Proposal (PDF, DOCX)</p>
-                                    </>
-                                  )}
-                                </div>
-                                <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) setBidDocFiles(prev => ({ ...prev, financial: file }));
-                                  }} />
-                              </label>
-                            </div>
+                            <label className="cursor-pointer block">
+                              <div className={`p-4 border-2 border-dashed rounded-xl text-center transition-all ${
+                                uploadProgress.financial === 'done' ? 'border-amber-400 bg-amber-50/60' :
+                                uploadProgress.financial === 'error' ? 'border-rose-300 bg-rose-50/30' :
+                                bidDocFiles.financial ? 'border-amber-300 bg-amber-50/50' : 'border-amber-200 hover:border-amber-300 hover:bg-amber-50/20'
+                              }`}>
+                                {uploadProgress.financial === 'done' ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <CircleCheck className="h-4 w-4 text-amber-600" />
+                                    <span className="text-xs font-medium text-amber-700">{bidDocFiles.financial?.name}</span>
+                                    <span className="text-[9px] text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded-full">Uploaded</span>
+                                  </div>
+                                ) : uploadProgress.financial === 'error' ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <AlertCircle className="h-4 w-4 text-rose-500" />
+                                    <span className="text-xs text-rose-600">Upload failed - try again</span>
+                                  </div>
+                                ) : bidDocFiles.financial ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <FileText className="h-4 w-4 text-amber-600" />
+                                    <span className="text-xs font-medium text-amber-700">{bidDocFiles.financial.name}</span>
+                                    <X className="h-3 w-3 text-muted-foreground hover:text-rose-500" onClick={(e) => { e.stopPropagation(); setBidDocFiles(prev => ({ ...prev, financial: null })); }} />
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Upload className="h-5 w-5 text-amber-400 mx-auto mb-1.5" />
+                                    <p className="text-xs font-medium text-amber-700">Drop Financial Proposal here or click to browse</p>
+                                    <p className="text-[10px] text-muted-foreground mt-1">PDF, DOCX, DOC, TXT, JPG, PNG (max 10MB)</p>
+                                  </>
+                                )}
+                              </div>
+                              <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    if (file.size > 10 * 1024 * 1024) {
+                                      toast.error('File must be under 10MB');
+                                      return;
+                                    }
+                                    setBidDocFiles(prev => ({ ...prev, financial: file }));
+                                  }
+                                }} />
+                            </label>
                           </div>
 
-                          {/* Timeline Document Upload */}
+                          {/* Timeline Document Upload - Now Required */}
                           <div className="space-y-1.5">
                             <Label className="text-xs font-medium flex items-center gap-1.5">
                               <div className="p-1 rounded bg-sky-50"><Calendar className="h-3 w-3 text-sky-600" /></div>
-                              Timeline Document
+                              Timeline / Schedule Document *
                             </Label>
-                            <label className="flex-1 cursor-pointer block">
-                              <div className={`p-3 border-2 border-dashed rounded-xl text-center transition-all ${
+                            <label className="cursor-pointer block">
+                              <div className={`p-4 border-2 border-dashed rounded-xl text-center transition-all ${
+                                uploadProgress.timeline === 'done' ? 'border-sky-400 bg-sky-50/60' :
+                                uploadProgress.timeline === 'error' ? 'border-rose-300 bg-rose-50/30' :
                                 bidDocFiles.timeline ? 'border-sky-300 bg-sky-50/50' : 'border-sky-200 hover:border-sky-300 hover:bg-sky-50/20'
                               }`}>
-                                {bidDocFiles.timeline ? (
+                                {uploadProgress.timeline === 'done' ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <CircleCheck className="h-4 w-4 text-sky-600" />
+                                    <span className="text-xs font-medium text-sky-700">{bidDocFiles.timeline?.name}</span>
+                                    <span className="text-[9px] text-sky-500 bg-sky-100 px-1.5 py-0.5 rounded-full">Uploaded</span>
+                                  </div>
+                                ) : uploadProgress.timeline === 'error' ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <AlertCircle className="h-4 w-4 text-rose-500" />
+                                    <span className="text-xs text-rose-600">Upload failed - try again</span>
+                                  </div>
+                                ) : bidDocFiles.timeline ? (
                                   <div className="flex items-center justify-center gap-2">
                                     <FileText className="h-4 w-4 text-sky-600" />
                                     <span className="text-xs font-medium text-sky-700">{bidDocFiles.timeline.name}</span>
@@ -613,52 +668,41 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                                   </div>
                                 ) : (
                                   <>
-                                    <Upload className="h-4 w-4 text-sky-400 mx-auto mb-1" />
-                                    <p className="text-[10px] text-muted-foreground">Upload Timeline/Schedule (optional)</p>
+                                    <Upload className="h-5 w-5 text-sky-400 mx-auto mb-1.5" />
+                                    <p className="text-xs font-medium text-sky-700">Drop Timeline/Schedule here or click to browse</p>
+                                    <p className="text-[10px] text-muted-foreground mt-1">PDF, DOCX, DOC, TXT, JPG, PNG (max 10MB)</p>
                                   </>
                                 )}
                               </div>
                               <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
-                                  if (file) setBidDocFiles(prev => ({ ...prev, timeline: file }));
+                                  if (file) {
+                                    if (file.size > 10 * 1024 * 1024) {
+                                      toast.error('File must be under 10MB');
+                                      return;
+                                    }
+                                    setBidDocFiles(prev => ({ ...prev, timeline: file }));
+                                  }
                                 }} />
                             </label>
                           </div>
                         </div>
 
-                        {/* Required Fields (still needed for the Bid record) */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Financial Amount (ETB) *</Label>
-                            <Input type="number" placeholder="e.g. 250000"
-                              value={bidFormData.financialProposal} onChange={e => setBidFormData(d => ({ ...d, financialProposal: e.target.value }))}
-                              className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
+                        {/* Info Notice */}
+                        <div className="flex items-start gap-2 p-3 bg-primary/5 rounded-xl border border-primary/10">
+                          <Sparkles className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                          <div className="text-[11px] text-muted-foreground leading-relaxed">
+                            All uploaded documents will be automatically processed via <strong>OCR</strong> for text extraction and <strong>AI Review</strong> for compliance analysis. Results will appear in the Documents tab after processing.
                           </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Timeline *</Label>
-                            <Input placeholder="e.g. 30 days or 6 weeks"
-                              value={bidFormData.timeline} onChange={e => setBidFormData(d => ({ ...d, timeline: e.target.value }))}
-                              className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
-                          </div>
-                        </div>
-
-                        {/* Brief Technical Summary */}
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium">Technical Summary (Brief)</Label>
-                          <Textarea placeholder="Brief summary of your technical approach (your detailed document will be processed via OCR)"
-                            rows={3}
-                            value={bidFormData.technicalProposal} onChange={e => setBidFormData(d => ({ ...d, technicalProposal: e.target.value }))}
-                            className="bg-muted/50 border-border/60 rounded-xl focus:ring-primary/20" />
-                          <p className="text-[9px] text-muted-foreground">Your uploaded Technical Proposal document will be processed via OCR & AI Review automatically</p>
                         </div>
 
                         {/* Submit Button */}
                         <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
                           onClick={handleSubmitBidWithDocs}
-                          disabled={submittingBid || !bidDocFiles.technical || !bidDocFiles.financial || !bidFormData.financialProposal || !bidFormData.timeline}>
+                          disabled={submittingBid || !bidDocFiles.technical || !bidDocFiles.financial || !bidDocFiles.timeline}>
                           {submittingBid ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Gavel className="h-4 w-4 mr-2" />}
-                          Submit Bid
+                          {submittingBid ? 'Submitting Bid...' : 'Submit Bid with Documents'}
                         </Button>
                       </div>
                     </DialogContent>
@@ -1897,10 +1941,10 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
-            <DollarSign className="h-3 w-3 mr-1" /> ETB {bid.financialProposal.toLocaleString()}
+            <DollarSign className="h-3 w-3 mr-1" /> {bid.financialProposal > 0 ? `ETB ${bid.financialProposal.toLocaleString()}` : 'See document'}
           </Badge>
           <Badge className="text-xs border-0 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-50">
-            <Clock className="h-3 w-3 mr-1" /> {bid.timeline}
+            <Clock className="h-3 w-3 mr-1" /> {bid.timeline.startsWith('Uploaded via document') || bid.timeline.includes('submitted via document') ? 'See document' : bid.timeline}
           </Badge>
           <div className="flex items-center gap-1.5">
             <span className={`h-1.5 w-1.5 rounded-full ${bidStatusDot(bid.status)}`} />
@@ -1927,7 +1971,7 @@ function BidCard({ bid, onUpdate }: { bid: Bid; onUpdate: () => void }) {
                   </div>
                   <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Technical Proposal</p>
                 </div>
-                <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-xl p-4 leading-relaxed">{bid.technicalProposal}</p>
+                <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-xl p-4 leading-relaxed">{bid.technicalProposal.startsWith('Uploaded via document') || bid.technicalProposal.includes('submitted via document') ? <span className="italic text-muted-foreground">See uploaded Technical Proposal document</span> : bid.technicalProposal}</p>
               </div>
 
               {/* Admin Actions */}

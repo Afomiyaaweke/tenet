@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { tenderId, technicalProposal, financialProposal, timeline, attachments } = body;
 
-    if (!tenderId || !technicalProposal || financialProposal === undefined || !timeline) {
+    if (!tenderId) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: tenderId, technicalProposal, financialProposal, timeline' },
+        { success: false, error: 'Missing required field: tenderId' },
         { status: 400 }
       );
     }
@@ -56,13 +56,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use provided values or placeholder defaults for document-upload-based bids
+    const bidTechnicalProposal = technicalProposal || 'Uploaded via document';
+    const bidFinancialProposal = financialProposal !== undefined && financialProposal !== null
+      ? parseFloat(String(financialProposal))
+      : 0;
+    const bidTimeline = timeline || 'Uploaded via document';
+
     const bid = await db.bid.create({
       data: {
         tenderId,
         userId: user!.id,
-        technicalProposal,
-        financialProposal: parseFloat(String(financialProposal)),
-        timeline,
+        technicalProposal: bidTechnicalProposal,
+        financialProposal: bidFinancialProposal,
+        timeline: bidTimeline,
         attachments: attachments || '',
       },
     });
