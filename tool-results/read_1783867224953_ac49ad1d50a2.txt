@@ -1,0 +1,742 @@
+  1990→  const AIExtractContent = () => {
+  1991→    const ocrReadyDocs = documents.filter(d => d.ocrStatus === 'completed');
+  1992→    const [localSelectedDocId, setLocalSelectedDocId] = useState<string | null>(null);
+  1993→    const selectedDoc = localSelectedDocId ? documents.find(d => d.id === localSelectedDocId) : null;
+  1994→    const docHistory = localSelectedDocId ? (extractHistory[localSelectedDocId] || []) : [];
+  1995→
+  1996→    return (
+  1997→      <div className="flex-1 flex overflow-hidden bg-muted/30">
+  1998→        {/* Left: OCR-Ready Document List */}
+  1999→        <div className="w-[320px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+  2000→          <div className="p-3 border-b border-border/40">
+  2001→            <h3 className="text-sm font-semibold flex items-center gap-2">
+  2002→              <MessageSquare className="h-4 w-4 text-emerald-600" />
+  2003→              AI Extract
+  2004→            </h3>
+  2005→            <p className="text-[10px] text-muted-foreground mt-1">
+  2006→              Ask AI to extract specific information from your OCR-processed documents
+  2007→            </p>
+  2008→          </div>
+  2009→
+  2010→          <div className="p-2 space-y-1.5 overflow-y-auto flex-1">
+  2011→            {docsLoading ? (
+  2012→              <div className="space-y-2 p-2">
+  2013→                {[1, 2, 3].map(i => (
+  2014→                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+  2015→                ))}
+  2016→              </div>
+  2017→            ) : ocrReadyDocs.length === 0 ? (
+  2018→              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+  2019→                <FileSearch className="h-8 w-8 mb-2 opacity-30" />
+  2020→                <p className="text-xs">No OCR-ready documents</p>
+  2021→                <p className="text-[10px] mt-1">Upload & run OCR on documents first</p>
+  2022→              </div>
+  2023→            ) : (
+  2024→              ocrReadyDocs.map(doc => {
+  2025→                const isSelected = localSelectedDocId === doc.id;
+  2026→                const extBadge = getFileExtBadge(doc.fileName);
+  2027→                return (
+  2028→                  <div
+  2029→                    key={doc.id}
+  2030→                    className={`rounded-lg border p-2.5 transition-all cursor-pointer ${
+  2031→                      isSelected
+  2032→                        ? 'border-emerald-300 bg-emerald-50/30 shadow-sm'
+  2033→                        : 'border-border/40 hover:border-emerald-200 hover:bg-muted/20'
+  2034→                    }`}
+  2035→                    onClick={() => setLocalSelectedDocId(doc.id)}
+  2036→                  >
+  2037→                    <div className="flex items-center gap-2">
+  2038→                      <div className="p-1.5 rounded bg-muted/50 flex-shrink-0">
+  2039→                        <FileText className="h-4 w-4 text-muted-foreground" />
+  2040→                      </div>
+  2041→                      <div className="min-w-0 flex-1">
+  2042→                        <div className="flex items-center gap-1.5">
+  2043→                          <p className="text-xs font-medium truncate">{doc.fileName}</p>
+  2044→                          {extBadge.label && (
+  2045→                            <Badge className={`text-[9px] px-1 py-0 border-0 ${extBadge.color}`}>
+  2046→                              {extBadge.label}
+  2047→                            </Badge>
+  2048→                          )}
+  2049→                        </div>
+  2050→                        <p className="text-[10px] text-muted-foreground mt-0.5">
+  2051→                          {DOC_TYPE_OPTIONS.find(o => o.value === doc.docType)?.label || doc.docType}
+  2052→                          {extractHistory[doc.id]?.length ? ` · ${extractHistory[doc.id].length} extraction${extractHistory[doc.id].length > 1 ? 's' : ''}` : ''}
+  2053→                        </p>
+  2054→                      </div>
+  2055→                      <Button
+  2056→                        variant="ghost"
+  2057→                        size="sm"
+  2058→                        className="h-5 w-5 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+  2059→                        onClick={async (e) => {
+  2060→                          e.stopPropagation();
+  2061→                          if (!confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
+  2062→                          const res = await api.delete(`/documents/${doc.id}`);
+  2063→                          if (res.success) {
+  2064→                            toast.success('Document deleted');
+  2065→                            if (localSelectedDocId === doc.id) setLocalSelectedDocId(null);
+  2066→                            loadDocuments();
+  2067→                          } else {
+  2068→                            toast.error(res.error || 'Failed to delete');
+  2069→                          }
+  2070→                        }}
+  2071→                        title="Delete document"
+  2072→                      >
+  2073→                        <Trash2 className="h-3 w-3" />
+  2074→                      </Button>
+  2075→                    </div>
+  2076→                  </div>
+  2077→                );
+  2078→              })
+  2079→            )}
+  2080→          </div>
+  2081→        </div>
+  2082→
+  2083→        {/* Right: Extract Interface */}
+  2084→        <div className="flex-1 overflow-auto bg-muted/30">
+  2085→          {selectedDoc ? (
+  2086→            <div className="p-4 space-y-4 max-w-3xl mx-auto">
+  2087→              {/* Document Header */}
+  2088→              <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/40">
+  2089→                <div className="p-3 rounded-xl gradient-emerald shadow-sm">
+  2090→                  <MessageSquare className="h-6 w-6 text-white" />
+  2091→                </div>
+  2092→                <div className="min-w-0 flex-1">
+  2093→                  <h3 className="text-base font-semibold truncate">{selectedDoc.fileName}</h3>
+  2094→                  <p className="text-xs text-muted-foreground mt-0.5">
+  2095→                    {DOC_TYPE_OPTIONS.find(o => o.value === selectedDoc.docType)?.label || selectedDoc.docType} · OCR Completed
+  2096→                  </p>
+  2097→                </div>
+  2098→                <Badge className="text-xs px-2 py-0.5 border-0 bg-emerald-100 text-emerald-700">
+  2099→                  <CheckCircle2 className="h-3 w-3 mr-1" /> OCR Ready
+  2100→                </Badge>
+  2101→              </div>
+  2102→
+  2103→              {/* Extract Prompt Input */}
+  2104→              <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  2105→                <div className="p-3 border-b border-border/30 bg-muted/20">
+  2106→                  <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  2107→                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+  2108→                    Ask AI to Extract Information
+  2109→                  </h4>
+  2110→                </div>
+  2111→                <div className="p-3 space-y-2.5">
+  2112→                  <div>
+  2113→                    <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  2114→                      <MessageSquare className="h-3 w-3" /> Your extraction prompt
+  2115→                    </Label>
+  2116→                    <div className="flex items-center gap-1.5">
+  2117→                      <Input
+  2118→                        placeholder="e.g., Extract all financial figures, List deadlines, Find contact info..."
+  2119→                        value={extractPrompt[selectedDoc.id] || ''}
+  2120→                        onChange={e => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: e.target.value }))}
+  2121→                        className="h-8 text-xs bg-muted/30 border-border/50 flex-1"
+  2122→                        onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(selectedDoc.id); }}
+  2123→                      />
+  2124→                      <Button
+  2125→                        size="sm"
+  2126→                        className="h-8 text-xs gradient-emerald text-white border-0 hover:opacity-90 px-4 flex-shrink-0"
+  2127→                        disabled={extractLoading.has(selectedDoc.id) || !extractPrompt[selectedDoc.id]?.trim()}
+  2128→                        onClick={() => handleAiExtract(selectedDoc.id)}
+  2129→                      >
+  2130→                        {extractLoading.has(selectedDoc.id) ? (
+  2131→                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Extracting...</>
+  2132→                        ) : (
+  2133→                          <><Sparkles className="h-3.5 w-3.5 mr-1" /> Extract</>
+  2134→                        )}
+  2135→                      </Button>
+  2136→                    </div>
+  2137→                  </div>
+  2138→
+  2139→                  {/* Quick Prompt Suggestions */}
+  2140→                  <div>
+  2141→                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Quick Prompts</p>
+  2142→                    <div className="flex flex-wrap gap-1">
+  2143→                      {[
+  2144→                        'Extract financial figures',
+  2145→                        'List all deadlines and dates',
+  2146→                        'Summarize key requirements',
+  2147→                        'Find contact information',
+  2148→                        'Identify compliance issues',
+  2149→                        'What is the total budget?',
+  2150→                        'List all contract terms',
+  2151→                        'Extract scope of work',
+  2152→                      ].map(suggestion => (
+  2153→                        <button
+  2154→                          key={suggestion}
+  2155→                          type="button"
+  2156→                          onClick={() => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: suggestion }))}
+  2157→                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors border ${
+  2158→                            extractPrompt[selectedDoc.id] === suggestion
+  2159→                              ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+  2160→                              : 'bg-muted/50 text-muted-foreground border-border/50 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700'
+  2161→                          }`}
+  2162→                        >
+  2163→                          {suggestion}
+  2164→                        </button>
+  2165→                      ))}
+  2166→                    </div>
+  2167→                  </div>
+  2168→                </div>
+  2169→              </div>
+  2170→
+  2171→              {/* Extraction History */}
+  2172→              {docHistory.length > 0 && (
+  2173→                <div className="space-y-3">
+  2174→                  <h4 className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+  2175→                    <Clock className="h-3.5 w-3.5" /> Extraction History ({docHistory.length})
+  2176→                  </h4>
+  2177→                  {[...docHistory].reverse().map((entry, idx) => (
+  2178→                    <div key={idx} className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  2179→                      <div className="flex items-center justify-between px-3 py-2 border-b border-border/30 bg-muted/20">
+  2180→                        <div className="flex items-center gap-2 min-w-0">
+  2181→                          <Sparkles className="h-3 w-3 text-emerald-600 flex-shrink-0" />
+  2182→                          <span className="text-[10px] font-medium text-emerald-700 truncate">{entry.prompt}</span>
+  2183→                        </div>
+  2184→                        <div className="flex items-center gap-2 flex-shrink-0">
+  2185→                          <span className="text-[9px] text-muted-foreground">{entry.timestamp}</span>
+  2186→                          <Button
+  2187→                            variant="ghost"
+  2188→                            size="sm"
+  2189→                            className="h-5 text-[9px] px-1"
+  2190→                            onClick={() => {
+  2191→                              navigator.clipboard.writeText(entry.result);
+  2192→                              toast.success('Copied to clipboard');
+  2193→                            }}
+  2194→                          >
+  2195→                            <Copy className="h-2.5 w-2.5" />
+  2196→                          </Button>
+  2197→                        </div>
+  2198→                      </div>
+  2199→                      <ScrollArea className="max-h-[250px]">
+  2200→                        <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+  2201→                          {entry.result}
+  2202→                        </pre>
+  2203→                      </ScrollArea>
+  2204→                    </div>
+  2205→                  ))}
+  2206→                </div>
+  2207→              )}
+  2208→
+  2209→              {/* Latest extraction loading */}
+  2210→              {extractLoading.has(selectedDoc.id) && (
+  2211→                <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-6 flex flex-col items-center justify-center">
+  2212→                  <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-3" />
+  2213→                  <p className="text-sm font-medium text-emerald-700">Extracting information...</p>
+  2214→                  <p className="text-[10px] text-muted-foreground mt-1">AI is reading your document and answering your prompt</p>
+  2215→                </div>
+  2216→              )}
+  2217→
+  2218→              {/* OCR Text Preview */}
+  2219→              <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  2220→                <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+  2221→                  <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  2222→                    <Eye className="h-3.5 w-3.5 text-emerald-600" />
+  2223→                    OCR Text Source
+  2224→                  </h4>
+  2225→                  <Button
+  2226→                    variant="ghost"
+  2227→                    size="sm"
+  2228→                    className="h-6 text-[10px]"
+  2229→                    onClick={() => {
+  2230→                      const text = selectedDoc.ocrText || '';
+  2231→                      navigator.clipboard.writeText(text);
+  2232→                      toast.success('OCR text copied');
+  2233→                    }}
+  2234→                  >
+  2235→                    <Copy className="h-3 w-3 mr-1" /> Copy
+  2236→                  </Button>
+  2237→                </div>
+  2238→                <ScrollArea className="max-h-[150px]">
+  2239→                  <pre className="p-3 text-[10px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+  2240→                    {selectedDoc.ocrText || 'No OCR text available'}
+  2241→                  </pre>
+  2242→                </ScrollArea>
+  2243→              </div>
+  2244→
+  2245→              {/* Delete Document */}
+  2246→              <div className="flex justify-end">
+  2247→                <Button
+  2248→                  variant="ghost"
+  2249→                  size="sm"
+  2250→                  className="h-7 text-xs text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+  2251→                  onClick={async () => {
+  2252→                    if (!confirm(`Delete "${selectedDoc.fileName}"? This cannot be undone.`)) return;
+  2253→                    const res = await api.delete(`/documents/${selectedDoc.id}`);
+  2254→                    if (res.success) {
+  2255→                      toast.success('Document deleted');
+  2256→                      setLocalSelectedDocId(null);
+  2257→                      loadDocuments();
+  2258→                    } else {
+  2259→                      toast.error(res.error || 'Failed to delete');
+  2260→                    }
+  2261→                  }}
+  2262→                >
+  2263→                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Document
+  2264→                </Button>
+  2265→              </div>
+  2266→            </div>
+  2267→          ) : (
+  2268→            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+  2269→              <MessageSquare className="h-12 w-12 mb-3 opacity-20" />
+  2270→              <p className="text-sm font-medium">Select a document to extract info</p>
+  2271→              <p className="text-xs mt-1">Choose an OCR-ready document from the left panel</p>
+  2272→            </div>
+  2273→          )}
+  2274→        </div>
+  2275→      </div>
+  2276→    );
+  2277→  };
+  2278→
+  2279→  /* ════════════════════════════════════════════════════════════
+  2280→     RENDER
+  2281→     ════════════════════════════════════════════════════════════ */
+  2282→  const ActiveRibbon = RIBBON_MAP[ribbonTab];
+  2283→
+  2284→  // Check if ocrDone for the selected doc
+  2285→  const ocrDone = selectedDocId ? (documents.find(d => d.id === selectedDocId)?.ocrStatus === 'completed') : false;
+  2286→
+  2287→  return (
+  2288→    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/30 view-enter">
+  2289→      {/* ── Title Bar ── */}
+  2290→      <div className="flex items-center h-10 px-3 bg-card border-b border-border/60 flex-shrink-0 gap-2">
+  2291→        {/* Left: Logo + Doc Title */}
+  2292→        <div className="flex items-center gap-2 flex-1 min-w-0">
+  2293→          <div className="w-6 h-6 rounded gradient-emerald flex items-center justify-center flex-shrink-0">
+  2294→            <Sparkles className="h-3.5 w-3.5 text-white" />
+  2295→          </div>
+  2296→          <Input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }}
+  2297→            className="h-7 text-sm font-medium border-0 bg-transparent focus:bg-muted/50 px-1 max-w-[240px]" />
+  2298→        </div>
+  2299→        {/* Center: Save status */}
+  2300→        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+  2301→          {saveStatus === 'saved' && <><Check className="h-3 w-3 text-emerald-600" /> Saved</>}
+  2302→          {saveStatus === 'saving' && <><span className="animate-pulse">Saving...</span></>}
+  2303→          {saveStatus === 'unsaved' && <><span className="text-amber-600">Unsaved</span></>}
+  2304→        </div>
+  2305→        {/* Right: Actions */}
+  2306→        <div className="flex items-center gap-1 flex-1 justify-end">
+  2307→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleSave}>
+  2308→            <Save className="h-3.5 w-3.5 mr-1" /> Save
+  2309→          </Button>
+  2310→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.info('PDF export coming soon')}>
+  2311→            <Download className="h-3.5 w-3.5 mr-1" /> Export
+  2312→          </Button>
+  2313→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => window.print()}>
+  2314→            <Printer className="h-3.5 w-3.5 mr-1" /> Print
+  2315→          </Button>
+  2316→        </div>
+  2317→      </div>
+  2318→
+  2319→      {/* ── Ribbon Tabs ── */}
+  2320→      <div className="flex items-center h-8 bg-card border-b border-border/40 px-2 flex-shrink-0 gap-0.5">
+  2321→        {(['home', 'insert', 'review', 'ai-tools', 'sign', 'doc-review', 'ai-extract'] as RibbonTab[]).map(tab => (
+  2322→          <button key={tab} onClick={() => setRibbonTab(tab)}
+  2323→            className={`px-3 py-1 text-xs font-medium rounded-t transition-colors flex items-center gap-1 ${
+  2324→              ribbonTab === tab
+  2325→                ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500'
+  2326→                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+  2327→            }`}>
+  2328→            {tab === 'ai-tools' ? <><Sparkles className="h-3 w-3" /> AI Tools</> :
+  2329→             tab === 'sign' ? <><Pen className="h-3 w-3" /> Sign</> :
+  2330→             tab === 'doc-review' ? <><Bot className="h-3 w-3" /> Doc Review</> :
+  2331→             tab === 'ai-extract' ? <><MessageSquare className="h-3 w-3" /> AI Extract</> :
+  2332→             tab.charAt(0).toUpperCase() + tab.slice(1)}
+  2333→          </button>
+  2334→        ))}
+  2335→      </div>
+  2336→
+  2337→      {/* ── Ribbon Controls ── */}
+  2338→      <div className="bg-card border-b border-border/40 flex-shrink-0 min-h-[40px]">
+  2339→        <ActiveRibbon />
+  2340→      </div>
+  2341→
+  2342→      {/* ── Main Area ── */}
+  2343→      {ribbonTab === 'doc-review' ? (
+  2344→        <DocReviewContent />
+  2345→      ) : ribbonTab === 'ai-extract' ? (
+  2346→        <AIExtractContent />
+  2347→      ) : (
+  2348→        <div className="flex-1 flex overflow-hidden">
+  2349→          {/* Document Canvas Area */}
+  2350→          <div className="flex-1 overflow-auto bg-muted/60 p-6" onClick={() => { if (placementMode) { /* handled by editor click */ } }}>
+  2351→            <div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+  2352→              <div
+  2353→                className="bg-white shadow-lg relative"
+  2354→                style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}
+  2355→              >
+  2356→                {/* Document Header */}
+  2357→                <div className="border-b-2 border-emerald-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
+  2358→                  <div className="text-center">
+  2359→                    <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">Tenet Tender Ecosystem</p>
+  2360→                    <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
+  2361→                  </div>
+  2362→                </div>
+  2363→
+  2364→                {/* Editable Area */}
+  2365→                <div
+  2366→                  ref={editorRef}
+  2367→                  contentEditable
+  2368→                  suppressContentEditableWarning
+  2369→                  onInput={handleDocChange}
+  2370→                  onClick={handleCanvasClick}
+  2371→                  className="outline-none min-h-[800px] text-[13px] leading-[1.6] text-gray-800"
+  2372→                  style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }}
+  2373→                  data-placeholder="Start typing or use AI tools to generate content..."
+  2374→                />
+  2375→
+  2376→                {/* Document Footer */}
+  2377→                <div className="absolute bottom-8 left-0 right-0 text-center">
+  2378→                  <div className="border-t border-gray-200 pt-2">
+  2379→                    <p className="text-[10px] text-gray-400">Page 1 of 1</p>
+  2380→                  </div>
+  2381→                </div>
+  2382→              </div>
+  2383→            </div>
+  2384→          </div>
+  2385→
+  2386→          {/* Right Panel: AI Assistant */}
+  2387→          {aiPanelOpen && (
+  2388→              <div
+  2389→ className="border-l border-border/60 bg-card flex-shrink-0 overflow-hidden transition-[width] duration-700" style={{ width: 350 }}
+  2390→ >
+  2391→                <AIPanelContent />
+  2392→              </div>
+  2393→            )}
+  2394→        </div>
+  2395→      )}
+  2396→
+  2397→      {/* ── Status Bar ── */}
+  2398→      {ribbonTab !== 'doc-review' && ribbonTab !== 'ai-extract' && (
+  2399→        <div className="flex items-center h-6 px-3 bg-card border-t border-border/40 text-[10px] text-muted-foreground flex-shrink-0">
+  2400→          <div className="flex-1">Page 1 of 1</div>
+  2401→          <div className="flex items-center gap-3">
+  2402→            <span>{wordCount} words</span>
+  2403→            <span>{charCount} chars</span>
+  2404→          </div>
+  2405→          <div className="flex-1 flex items-center justify-end gap-1">
+  2406→            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.max(75, zoom - 25))}>
+  2407→              <ZoomOut className="h-3 w-3" />
+  2408→            </Button>
+  2409→            <Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}>
+  2410→              <SelectTrigger className="h-4 w-14 text-[10px] border-0 p-0 bg-transparent">
+  2411→                <SelectValue />
+  2412→              </SelectTrigger>
+  2413→              <SelectContent>
+  2414→                {ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}
+  2415→              </SelectContent>
+  2416→            </Select>
+  2417→            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.min(150, zoom + 25))}>
+  2418→              <ZoomIn className="h-3 w-3" />
+  2419→            </Button>
+  2420→          </div>
+  2421→        </div>
+  2422→      )}
+  2423→
+  2424→      {/* ── Signature Drawing Dialog ── */}
+  2425→      <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}>
+  2426→        <DialogContent className="sm:max-w-[500px]">
+  2427→          <DialogHeader>
+  2428→            <DialogTitle className="flex items-center gap-2">
+  2429→              <Pen className="h-4 w-4 text-emerald-600" /> Draw Your Signature
+  2430→            </DialogTitle>
+  2431→          </DialogHeader>
+  2432→          <div className="space-y-3">
+  2433→            <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
+  2434→              <canvas
+  2435→                ref={canvasRef}
+  2436→                width={460}
+  2437→                height={200}
+  2438→                onMouseDown={startDraw}
+  2439→                onMouseMove={draw}
+  2440→                onMouseUp={endDraw}
+  2441→                onMouseLeave={endDraw}
+  2442→                className="w-full cursor-crosshair touch-none"
+  2443→              />
+  2444→            </div>
+  2445→            <div className="flex items-center justify-between">
+  2446→              <Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs">
+  2447→                <Eraser className="h-3.5 w-3.5 mr-1" /> Clear
+  2448→              </Button>
+  2449→              <div className="flex gap-2">
+  2450→                <Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button>
+  2451→                <Button size="sm" onClick={saveDrawnSignature}
+  2452→                  className="text-xs gradient-emerald text-white border-0 premium-shadow hover:opacity-90">
+  2453→                  <Check className="h-3.5 w-3.5 mr-1" /> Save Signature
+  2454→                </Button>
+  2455→              </div>
+  2456→            </div>
+  2457→          </div>
+  2458→        </DialogContent>
+  2459→      </Dialog>
+  2460→
+  2461→      {/* ── Signature Gallery (shows when Sign tab is active) ── */}
+  2462→      {ribbonTab === 'sign' && savedSignatures.length > 0 && (
+  2463→          <div
+  2464→ className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]"
+  2465→ >
+  2466→            <div className="flex items-center justify-between mb-2">
+  2467→              <span className="text-xs font-semibold">Saved Signatures &amp; Stamps</span>
+  2468→              <span className="text-[10px] text-muted-foreground">Click to place on document</span>
+  2469→            </div>
+  2470→            <div className="flex gap-3 overflow-x-auto pb-1">
+  2471→              {savedSignatures.map(sig => (
+  2472→                <div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative">
+  2473→                  <button onClick={() => startPlacement(sig.dataUrl)}
+  2474→                    className="w-20 h-16 border border-border rounded hover:border-emerald-400 transition-colors overflow-hidden bg-white p-1">
+  2475→                    <img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" />
+  2476→                  </button>
+  2477→                  <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{sig.label}</span>
+  2478→                  <button onClick={() => deleteSignature(sig.id)}
+  2479→                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+  2480→                    <X className="h-2.5 w-2.5" />
+  2481→                  </button>
+  2482→                </div>
+  2483→              ))}
+  2484→            </div>
+  2485→          </div>
+  2486→        )}
+  2487→</div>
+  2488→  );
+  2489→}
+  2490→
+  2491→/* ══════════════════════════════════════════════════════════════
+  2492→   REVIEW RESULT DISPLAY COMPONENT
+  2493→   ══════════════════════════════════════════════════════════════ */
+  2494→
+  2495→function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; prompt: string }) {
+  2496→  let review: Record<string, unknown> = {};
+  2497→  try {
+  2498→    review = JSON.parse(reviewJson);
+  2499→  } catch {
+  2500→    // If not JSON, display as raw text
+  2501→    return (
+  2502→      <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  2503→        <div className="p-3 border-b border-border/30 bg-muted/20">
+  2504→          <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  2505→            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+  2506→            AI Review Result
+  2507→          </h4>
+  2508→        </div>
+  2509→        <ScrollArea className="max-h-[400px]">
+  2510→          <div className="p-3 text-xs whitespace-pre-wrap">{reviewJson}</div>
+  2511→        </ScrollArea>
+  2512→      </div>
+  2513→    );
+  2514→  }
+  2515→
+  2516→  const complianceScore = typeof review.complianceScore === 'number' ? review.complianceScore : null;
+  2517→  const completenessScore = typeof review.completenessScore === 'number' ? review.completenessScore : null;
+  2518→  const riskLevel = typeof review.riskLevel === 'string' ? review.riskLevel : null;
+  2519→  const findings = Array.isArray(review.findings) ? review.findings : [];
+  2520→  const strengths = Array.isArray(review.strengths) ? review.strengths : [];
+  2521→  const weaknesses = Array.isArray(review.weaknesses) ? review.weaknesses : [];
+  2522→  const missingElements = Array.isArray(review.missingElements) ? review.missingElements : [];
+  2523→  const recommendations = Array.isArray(review.recommendations) ? review.recommendations : [];
+  2524→  const overallAssessment = typeof review.overallAssessment === 'string' ? review.overallAssessment : null;
+  2525→  const summary = typeof review.summary === 'string' ? review.summary : null;
+  2526→
+  2527→  const riskColorMap: Record<string, string> = {
+  2528→    low: 'bg-emerald-100 text-emerald-700',
+  2529→    medium: 'bg-amber-100 text-amber-700',
+  2530→    high: 'bg-rose-100 text-rose-700',
+  2531→    critical: 'bg-rose-200 text-rose-800',
+  2532→  };
+  2533→
+  2534→  const findingIconMap: Record<string, React.ElementType> = {
+  2535→    positive: CheckCircle2,
+  2536→    negative: XCircle,
+  2537→    warning: AlertTriangle,
+  2538→  };
+  2539→  const findingColorMap: Record<string, string> = {
+  2540→    positive: 'text-emerald-600',
+  2541→    negative: 'text-rose-600',
+  2542→    warning: 'text-amber-600',
+  2543→  };
+  2544→  const findingBgMap: Record<string, string> = {
+  2545→    positive: 'bg-emerald-50',
+  2546→    negative: 'bg-rose-50',
+  2547→    warning: 'bg-amber-50',
+  2548→  };
+  2549→
+  2550→  return (
+  2551→    <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  2552→      <div className="p-3 border-b border-border/30 bg-muted/20 flex items-center justify-between">
+  2553→        <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  2554→          <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+  2555→          AI Review Result
+  2556→        </h4>
+  2557→        {prompt && (
+  2558→          <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  2559→            Custom Prompt
+  2560→          </Badge>
+  2561→        )}
+  2562→      </div>
+  2563→
+  2564→      <div className="p-4 space-y-4">
+  2565→        {/* Score Cards */}
+  2566→        <div className="grid grid-cols-3 gap-3">
+  2567→          {complianceScore !== null && (
+  2568→            <div className="text-center p-3 rounded-lg bg-muted/30">
+  2569→              <p className="text-2xl font-bold" style={{ color: complianceScore >= 70 ? '#10b981' : complianceScore >= 40 ? '#f59e0b' : '#ef4444' }}>
+  2570→                {complianceScore}
+  2571→              </p>
+  2572→              <p className="text-[10px] text-muted-foreground mt-0.5">Compliance</p>
+  2573→            </div>
+  2574→          )}
+  2575→          {completenessScore !== null && (
+  2576→            <div className="text-center p-3 rounded-lg bg-muted/30">
+  2577→              <p className="text-2xl font-bold" style={{ color: completenessScore >= 70 ? '#10b981' : completenessScore >= 40 ? '#f59e0b' : '#ef4444' }}>
+  2578→                {completenessScore}
+  2579→              </p>
+  2580→              <p className="text-[10px] text-muted-foreground mt-0.5">Completeness</p>
+  2581→            </div>
+  2582→          )}
+  2583→          {riskLevel && (
+  2584→            <div className="text-center p-3 rounded-lg bg-muted/30">
+  2585→              <Badge className={`text-xs px-3 py-1 border-0 ${riskColorMap[riskLevel] || 'bg-gray-100 text-gray-700'}`}>
+  2586→                {riskLevel.toUpperCase()}
+  2587→              </Badge>
+  2588→              <p className="text-[10px] text-muted-foreground mt-1">Risk Level</p>
+  2589→            </div>
+  2590→          )}
+  2591→        </div>
+  2592→
+  2593→        {/* Overall Assessment */}
+  2594→        {(overallAssessment || summary) && (
+  2595→          <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-100">
+  2596→            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 mb-1">Overall Assessment</p>
+  2597→            <p className="text-xs text-foreground leading-relaxed">{overallAssessment || summary}</p>
+  2598→          </div>
+  2599→        )}
+  2600→
+  2601→        {/* Findings */}
+  2602→        {findings.length > 0 && (
+  2603→          <div>
+  2604→            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Key Findings</p>
+  2605→            <div className="space-y-1.5">
+  2606→              {findings.map((f, i) => {
+  2607→                const finding = f as Record<string, string>;
+  2608→                const Icon = findingIconMap[finding.type] || AlertTriangle;
+  2609→                const color = findingColorMap[finding.type] || 'text-muted-foreground';
+  2610→                const bg = findingBgMap[finding.type] || 'bg-muted/50';
+  2611→                return (
+  2612→                  <div key={i} className={`flex items-start gap-2 p-2 rounded ${bg}`}>
+  2613→                    <Icon className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${color}`} />
+  2614→                    <div>
+  2615→                      <p className="text-xs font-medium">{finding.title || finding.category}</p>
+  2616→                      <p className="text-[11px] text-muted-foreground">{finding.description}</p>
+  2617→                    </div>
+  2618→                  </div>
+  2619→                );
+  2620→              })}
+  2621→            </div>
+  2622→          </div>
+  2623→        )}
+  2624→
+  2625→        {/* Strengths & Weaknesses in 2 columns */}
+  2626→        <div className="grid grid-cols-2 gap-3">
+  2627→          {strengths.length > 0 && (
+  2628→            <div>
+  2629→              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 mb-1.5 flex items-center gap-1">
+  2630→                <CheckCircle2 className="h-3 w-3" /> Strengths
+  2631→              </p>
+  2632→              <ul className="space-y-1">
+  2633→                {strengths.map((s, i) => (
+  2634→                  <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
+  2635→                    <Check className="h-3 w-3 text-emerald-500 mt-0.5 flex-shrink-0" />
+  2636→                    <span>{String(s)}</span>
+  2637→                  </li>
+  2638→                ))}
+  2639→              </ul>
+  2640→            </div>
+  2641→          )}
+  2642→          {weaknesses.length > 0 && (
+  2643→            <div>
+  2644→              <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 mb-1.5 flex items-center gap-1">
+  2645→                <XCircle className="h-3 w-3" /> Weaknesses
+  2646→              </p>
+  2647→              <ul className="space-y-1">
+  2648→                {weaknesses.map((w, i) => (
+  2649→                  <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
+  2650→                    <X className="h-3 w-3 text-rose-500 mt-0.5 flex-shrink-0" />
+  2651→                    <span>{String(w)}</span>
+  2652→                  </li>
+  2653→                ))}
+  2654→              </ul>
+  2655→            </div>
+  2656→          )}
+  2657→        </div>
+  2658→
+  2659→        {/* Missing Elements */}
+  2660→        {missingElements.length > 0 && (
+  2661→          <div>
+  2662→            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 mb-1.5 flex items-center gap-1">
+  2663→              <AlertTriangle className="h-3 w-3" /> Missing Elements
+  2664→            </p>
+  2665→            <ul className="space-y-1">
+  2666→              {missingElements.map((m, i) => (
+  2667→                <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
+  2668→                  <Minus className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" />
+  2669→                  <span>{String(m)}</span>
+  2670→                </li>
+  2671→              ))}
+  2672→            </ul>
+  2673→          </div>
+  2674→        )}
+  2675→
+  2676→        {/* Recommendations */}
+  2677→        {recommendations.length > 0 && (
+  2678→          <div>
+  2679→            <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-600 mb-1.5 flex items-center gap-1">
+  2680→              <Zap className="h-3 w-3" /> Recommendations
+  2681→            </p>
+  2682→            <ul className="space-y-1">
+  2683→              {recommendations.map((r, i) => (
+  2684→                <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
+  2685→                  <ChevronRight className="h-3 w-3 text-teal-500 mt-0.5 flex-shrink-0" />
+  2686→                  <span>{String(r)}</span>
+  2687→                </li>
+  2688→              ))}
+  2689→            </ul>
+  2690→          </div>
+  2691→        )}
+  2692→
+  2693→        {/* Custom Prompt Used */}
+  2694→        {prompt && (
+  2695→          <div className="p-2 rounded bg-muted/30 border border-border/30">
+  2696→            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Custom Review Prompt</p>
+  2697→            <p className="text-[11px] text-muted-foreground italic">&ldquo;{prompt}&rdquo;</p>
+  2698→          </div>
+  2699→        )}
+  2700→      </div>
+  2701→    </div>
+  2702→  );
+  2703→}
+  2704→
+  2705→/* ══════════════════════════════════════════════════════════════
+  2706→   SMALL UTILITY COMPONENTS
+  2707→   ══════════════════════════════════════════════════════════════ */
+  2708→
+  2709→function RibbonBtn({ icon: Icon, title, onClick }: { icon: React.ElementType; title: string; onClick: () => void }) {
+  2710→  return (
+  2711→    <button onClick={onClick} title={title}
+  2712→      className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted transition-colors text-foreground">
+  2713→      <Icon className="h-4 w-4" />
+  2714→    </button>
+  2715→  );
+  2716→}
+  2717→
+  2718→function GenerateButton({ onClick, loading, disabled }: { onClick: () => void; loading: boolean; disabled?: boolean }) {
+  2719→  return (
+  2720→    <Button onClick={onClick} disabled={loading || disabled}
+  2721→      className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-9 text-xs">
+  2722→      {loading ? (
+  2723→        <><span
+  2724→ className="inline-block"><Sparkles className="h-3.5 w-3.5 mr-1.5" /></span>Generating...</>
+  2725→      ) : (
+  2726→        <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Generate with AI</>
+  2727→      )}
+  2728→    </Button>
+  2729→  );
+  2730→}
+  2731→

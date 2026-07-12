@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import path from 'path';
 
 const UPLOAD_DIR = process.cwd() + '/uploads';
@@ -194,6 +194,98 @@ export async function GET(
     console.error('Get bid documents error:', err);
     return NextResponse.json(
       { success: false, error: 'An error occurred' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/bids/[id]/documents
+ * Delete a document from a bid. Accepts { documentId } in request body.
+ * Only the document owner, the bid's tender creator, or company admin can delete.
+ * Also removes the physical file from the uploads directory.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { user, error } = await requireAuth(request);
+    if (error) return error;
+
+    const { id: bidId } = await params;
+    const body = await request.json();
+    const { documentId } = body;
+
+    if (!documentId) {
+      return NextResponse.json(
+        { success: false, error: 'documentId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Find the bid with tender info for access control
+    const bid = await db.bid.findUnique({
+      where: { id: bidId },
+      include: {
+        tender: { select: { createdBy: true, companyId: true } },
+      },
+    });
+
+    if (!bid) {
+      return NextResponse.json(
+        { success: false, error: 'Bid not found' },
+        { status: 404 }
+      );
+    }
+
+    // Find the document
+    const document = await db.document.findUnique({ where: { id: documentId } });
+    if (!document) {
+      return NextResponse.json(
+        { success: false, error: 'Document not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify document belongs to this bid
+    if (document.bidId !== bidId) {
+      return NextResponse.json(
+        { success: false, error: 'Document does not belong to this bid' },
+        { status: 400 }
+      );
+    }
+
+    // Access control: document owner OR tender creator OR company admin
+    const isOwner = document.userId === user!.id;
+    const isTenderCreator = bid.tender.createdBy === user!.id;
+    const isCompanyAdmin = user!.role === 'team_admin' && bid.tender.companyId === user!.companyId;
+
+    if (!isOwner && !isTenderCreator && !isCompanyAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You cannot delete this document' },
+        { status: 403 }
+      );
+    }
+
+    // Delete physical file
+    try {
+      if (document.fileUrl) {
+        const filePath = path.join(process.cwd(), document.fileUrl);
+        await unlink(filePath);
+      }
+    } catch {
+      // File may already be deleted or not exist — that's OK
+    }
+
+    // Delete database record (cascades to related data)
+    await db.document.delete({ where: { id: documentId } });
+
+    return NextResponse.json({ success: true, message: 'Document deleted' });
+  } catch (err) {
+    console.error('Delete bid document error:', err);
+    return NextResponse.json(
+      { success: false, error: 'An error occurred while deleting the document' },
       { status: 500 }
     );
   }

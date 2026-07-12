@@ -95,7 +95,7 @@ function getNavItemsForRole(role: string): NavSection[] {
     label: 'MAIN',
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'tenders', label: 'Tenders', icon: FileSearch },
+      { id: 'tenders', label: 'World Bank Tenders', icon: FileSearch },
       { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
       { id: 'bids', label: 'Bids', icon: Gavel },
       { id: 'applicants', label: 'Published Tenders', icon: ClipboardList },

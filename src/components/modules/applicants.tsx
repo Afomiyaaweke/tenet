@@ -550,7 +550,7 @@ export function ApplicantsView() {
             <div>
               <h1 className="text-xl font-bold">{selectedTenderInfo.title}</h1>
               <p className="text-sm text-muted-foreground">
-                {rows.length} applicant{rows.length !== 1 ? 's' : ''} for this tender
+                {rows.length} applicant{rows.length !== 1 ? 's' : ''} for this <span className="text-emerald-600 dark:text-emerald-400 font-medium">Published Tender</span>
               </p>
             </div>
           </div>
@@ -614,7 +614,7 @@ export function ApplicantsView() {
             <CardContent className="p-3 flex items-start gap-3">
               <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicant details are sealed while this tender is still open</p>
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicant details are sealed while this Published Tender is still open</p>
                 <p className="text-xs text-amber-700/70 dark:text-amber-400/60 mt-0.5">
                   To protect bid integrity, applicant details will be revealed once the deadline passes on {formatDate(selectedTenderInfo.deadline)}.
                 </p>
@@ -749,7 +749,7 @@ export function ApplicantsView() {
               <div className="text-center">
                 <h3 className="text-lg font-semibold">Applicants Not Yet Visible</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  This tender is still accepting bids. Applicant details will be revealed after the deadline on {formatDate(selectedTenderInfo.deadline)}.
+                  This Published Tender is still accepting bids. Applicant details will be revealed after the deadline on {formatDate(selectedTenderInfo.deadline)}.
                 </p>
               </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -771,7 +771,7 @@ export function ApplicantsView() {
                 <Users className="h-10 w-10 text-muted-foreground" />
               </div>
               <div className="text-center">
-                <h3 className="text-lg font-semibold">No Applicants for This Tender</h3>
+                <h3 className="text-lg font-semibold">No Applicants for This Published Tender</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   {search || statusFilter !== 'all'
                     ? 'Try adjusting your filters or search'
@@ -1018,7 +1018,7 @@ export function ApplicantsView() {
             <FolderOpen className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Published Tenders</h1>
+            <h1 className="text-xl font-bold">Published Tenders <span className="text-emerald-600 dark:text-emerald-400 text-base font-medium">World Bank</span></h1>
             <p className="text-sm text-muted-foreground">
               {totalPublishedTenders > 0
                 ? `${totalPublishedTenders} published tender${totalPublishedTenders !== 1 ? 's' : ''} · ${totalBidsAcrossTenders} total bid${totalBidsAcrossTenders !== 1 ? 's' : ''} received`
@@ -1043,7 +1043,7 @@ export function ApplicantsView() {
               <FileSearch className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Published Tenders</p>
+              <p className="text-xs text-muted-foreground">World Bank Tenders</p>
               <p className="text-lg font-bold">{totalPublishedTenders}</p>
             </div>
           </CardContent>
@@ -1088,7 +1088,7 @@ export function ApplicantsView() {
         <CardContent className="p-3 flex items-start gap-3">
           <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicant details are visible only after the tender deadline closes</p>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicant details are visible only after the Published Tender deadline closes</p>
             <p className="text-xs text-amber-700/70 dark:text-amber-400/60 mt-0.5">
               To protect bid integrity, applicant details remain sealed while your tender is still accepting bids.
               Click on a closed tender to view its applicants.
@@ -1113,7 +1113,7 @@ export function ApplicantsView() {
             <div className="text-center">
               <h3 className="text-lg font-semibold">No Published Tenders Yet</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Create and publish tenders to start receiving bids from applicants.
+                Create and publish World Bank tenders to start receiving bids from applicants.
               </p>
             </div>
             <Button variant="outline" onClick={() => setView('tenders')}>
@@ -1212,14 +1212,23 @@ export function ApplicantsView() {
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
                         <Users className="h-3 w-3 mr-1" />
-                        {tender.bidCount} bid{tender.bidCount !== 1 ? 's' : ''}
+                        {tender.applicantCount || tender.bidCount} bid{((tender.applicantCount || tender.bidCount) !== 1) ? 's' : ''}
                       </Badge>
-                      {tender.isClosed && tender.bidCount > 0 && (
+                      {tender.isClosed && (tender.applicantCount || tender.bidCount) > 0 && (
                         <Badge className="text-[9px] px-1.5 py-0 bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 border-0">
                           <Eye className="h-2.5 w-2.5 mr-0.5" />
                           View applicants
                         </Badge>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-0.5 text-[9px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 h-5 px-1"
+                        onClick={(e) => { e.stopPropagation(); setView('bids', { tenderId: tender.id }); }}
+                      >
+                        <Gavel className="h-2.5 w-2.5" />
+                        Track Bids
+                      </Button>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>

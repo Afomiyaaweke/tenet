@@ -319,7 +319,7 @@ function InlineTenderDetail({ tender, onClose, setView }: {
           {tender.status === 'open' && (
             <Button
               className="flex-1 gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
-              onClick={() => setView('bids', { tenderId: tender.id })}
+              onClick={() => setView('tender-detail', { id: tender.id, action: 'apply' })}
             >
               <Gavel className="h-4 w-4 mr-2" />
               Apply / Submit Bid
@@ -328,10 +328,18 @@ function InlineTenderDetail({ tender, onClose, setView }: {
           <Button
             variant="outline"
             className="flex-1 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+            onClick={() => setView('bids', { tenderId: tender.id })}
+          >
+            <Briefcase className="h-4 w-4 mr-2" />
+            Track Application
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
             onClick={() => setView('tender-detail', { id: tender.id })}
           >
             <Eye className="h-4 w-4 mr-2" />
-            View Full Details
+            Full Details
           </Button>
           <Button
             variant="ghost"
@@ -482,15 +490,37 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
 
                       {/* Expand indicator */}
                       <div className="flex items-center justify-between pt-0.5">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
-                          onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          AI Review
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {tender.status === 'open' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 h-6 px-1.5 font-medium"
+                              onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, action: 'apply' }); }}
+                            >
+                              <Gavel className="h-3 w-3" />
+                              Apply
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
+                            onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            AI Review
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-[10px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 h-6 px-1.5"
+                            onClick={(e) => { e.stopPropagation(); setView('bids', { tenderId: tender.id }); }}
+                          >
+                            <Briefcase className="h-3 w-3" />
+                            Track
+                          </Button>
+                        </div>
                         <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                           {isExpanded ? 'Collapse' : 'Expand'} Details
                           <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
@@ -655,9 +685,9 @@ export function TendersView() {
           </div>
           <div>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-              <span className="text-gradient-emerald">Tender</span> Discovery
+              <span className="text-gradient-emerald">World Bank</span> Tenders
             </h2>
-            <p className="text-muted-foreground text-sm mt-0.5">Find and explore tender opportunities by category</p>
+            <p className="text-muted-foreground text-sm mt-0.5">Explore published tender opportunities by sector — click to apply</p>
           </div>
         </div>
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -1022,15 +1052,37 @@ export function TendersView() {
                       )}
 
                       <div className="flex items-center justify-between pt-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
-                          onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          Review with AI
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {tender.status === 'open' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 h-6 px-1.5 font-medium"
+                              onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, action: 'apply' }); }}
+                            >
+                              <Gavel className="h-3 w-3" />
+                              Apply
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
+                            onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            AI Review
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-[10px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 h-6 px-1.5"
+                            onClick={(e) => { e.stopPropagation(); setView('bids', { tenderId: tender.id }); }}
+                          >
+                            <Briefcase className="h-3 w-3" />
+                            Track
+                          </Button>
+                        </div>
                         <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                           {isExpanded ? 'Collapse' : 'Expand'} Details
                           <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>

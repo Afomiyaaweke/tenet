@@ -1,0 +1,502 @@
+     1→     1→  1990→  const AIExtractContent = () => {
+     2→     2→  1991→    const ocrReadyDocs = documents.filter(d => d.ocrStatus === 'completed');
+     3→     3→  1992→    const [localSelectedDocId, setLocalSelectedDocId] = useState<string | null>(null);
+     4→     4→  1993→    const selectedDoc = localSelectedDocId ? documents.find(d => d.id === localSelectedDocId) : null;
+     5→     5→  1994→    const docHistory = localSelectedDocId ? (extractHistory[localSelectedDocId] || []) : [];
+     6→     6→  1995→
+     7→     7→  1996→    return (
+     8→     8→  1997→      <div className="flex-1 flex overflow-hidden bg-muted/30">
+     9→     9→  1998→        {/* Left: OCR-Ready Document List */}
+    10→    10→  1999→        <div className="w-[320px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+    11→    11→  2000→          <div className="p-3 border-b border-border/40">
+    12→    12→  2001→            <h3 className="text-sm font-semibold flex items-center gap-2">
+    13→    13→  2002→              <MessageSquare className="h-4 w-4 text-emerald-600" />
+    14→    14→  2003→              AI Extract
+    15→    15→  2004→            </h3>
+    16→    16→  2005→            <p className="text-[10px] text-muted-foreground mt-1">
+    17→    17→  2006→              Ask AI to extract specific information from your OCR-processed documents
+    18→    18→  2007→            </p>
+    19→    19→  2008→          </div>
+    20→    20→  2009→
+    21→    21→  2010→          <div className="p-2 space-y-1.5 overflow-y-auto flex-1">
+    22→    22→  2011→            {docsLoading ? (
+    23→    23→  2012→              <div className="space-y-2 p-2">
+    24→    24→  2013→                {[1, 2, 3].map(i => (
+    25→    25→  2014→                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+    26→    26→  2015→                ))}
+    27→    27→  2016→              </div>
+    28→    28→  2017→            ) : ocrReadyDocs.length === 0 ? (
+    29→    29→  2018→              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+    30→    30→  2019→                <FileSearch className="h-8 w-8 mb-2 opacity-30" />
+    31→    31→  2020→                <p className="text-xs">No OCR-ready documents</p>
+    32→    32→  2021→                <p className="text-[10px] mt-1">Upload & run OCR on documents first</p>
+    33→    33→  2022→              </div>
+    34→    34→  2023→            ) : (
+    35→    35→  2024→              ocrReadyDocs.map(doc => {
+    36→    36→  2025→                const isSelected = localSelectedDocId === doc.id;
+    37→    37→  2026→                const extBadge = getFileExtBadge(doc.fileName);
+    38→    38→  2027→                return (
+    39→    39→  2028→                  <div
+    40→    40→  2029→                    key={doc.id}
+    41→    41→  2030→                    className={`rounded-lg border p-2.5 transition-all cursor-pointer ${
+    42→    42→  2031→                      isSelected
+    43→    43→  2032→                        ? 'border-emerald-300 bg-emerald-50/30 shadow-sm'
+    44→    44→  2033→                        : 'border-border/40 hover:border-emerald-200 hover:bg-muted/20'
+    45→    45→  2034→                    }`}
+    46→    46→  2035→                    onClick={() => setLocalSelectedDocId(doc.id)}
+    47→    47→  2036→                  >
+    48→    48→  2037→                    <div className="flex items-center gap-2">
+    49→    49→  2038→                      <div className="p-1.5 rounded bg-muted/50 flex-shrink-0">
+    50→    50→  2039→                        <FileText className="h-4 w-4 text-muted-foreground" />
+    51→    51→  2040→                      </div>
+    52→    52→  2041→                      <div className="min-w-0 flex-1">
+    53→    53→  2042→                        <div className="flex items-center gap-1.5">
+    54→    54→  2043→                          <p className="text-xs font-medium truncate">{doc.fileName}</p>
+    55→    55→  2044→                          {extBadge.label && (
+    56→    56→  2045→                            <Badge className={`text-[9px] px-1 py-0 border-0 ${extBadge.color}`}>
+    57→    57→  2046→                              {extBadge.label}
+    58→    58→  2047→                            </Badge>
+    59→    59→  2048→                          )}
+    60→    60→  2049→                        </div>
+    61→    61→  2050→                        <p className="text-[10px] text-muted-foreground mt-0.5">
+    62→    62→  2051→                          {DOC_TYPE_OPTIONS.find(o => o.value === doc.docType)?.label || doc.docType}
+    63→    63→  2052→                          {extractHistory[doc.id]?.length ? ` · ${extractHistory[doc.id].length} extraction${extractHistory[doc.id].length > 1 ? 's' : ''}` : ''}
+    64→    64→  2053→                        </p>
+    65→    65→  2054→                      </div>
+    66→    66→  2055→                      <Button
+    67→    67→  2056→                        variant="ghost"
+    68→    68→  2057→                        size="sm"
+    69→    69→  2058→                        className="h-5 w-5 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+    70→    70→  2059→                        onClick={async (e) => {
+    71→    71→  2060→                          e.stopPropagation();
+    72→    72→  2061→                          if (!confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
+    73→    73→  2062→                          const res = await api.delete(`/documents/${doc.id}`);
+    74→    74→  2063→                          if (res.success) {
+    75→    75→  2064→                            toast.success('Document deleted');
+    76→    76→  2065→                            if (localSelectedDocId === doc.id) setLocalSelectedDocId(null);
+    77→    77→  2066→                            loadDocuments();
+    78→    78→  2067→                          } else {
+    79→    79→  2068→                            toast.error(res.error || 'Failed to delete');
+    80→    80→  2069→                          }
+    81→    81→  2070→                        }}
+    82→    82→  2071→                        title="Delete document"
+    83→    83→  2072→                      >
+    84→    84→  2073→                        <Trash2 className="h-3 w-3" />
+    85→    85→  2074→                      </Button>
+    86→    86→  2075→                    </div>
+    87→    87→  2076→                  </div>
+    88→    88→  2077→                );
+    89→    89→  2078→              })
+    90→    90→  2079→            )}
+    91→    91→  2080→          </div>
+    92→    92→  2081→        </div>
+    93→    93→  2082→
+    94→    94→  2083→        {/* Right: Extract Interface */}
+    95→    95→  2084→        <div className="flex-1 overflow-auto bg-muted/30">
+    96→    96→  2085→          {selectedDoc ? (
+    97→    97→  2086→            <div className="p-4 space-y-4 max-w-3xl mx-auto">
+    98→    98→  2087→              {/* Document Header */}
+    99→    99→  2088→              <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/40">
+   100→   100→  2089→                <div className="p-3 rounded-xl gradient-emerald shadow-sm">
+   101→   101→  2090→                  <MessageSquare className="h-6 w-6 text-white" />
+   102→   102→  2091→                </div>
+   103→   103→  2092→                <div className="min-w-0 flex-1">
+   104→   104→  2093→                  <h3 className="text-base font-semibold truncate">{selectedDoc.fileName}</h3>
+   105→   105→  2094→                  <p className="text-xs text-muted-foreground mt-0.5">
+   106→   106→  2095→                    {DOC_TYPE_OPTIONS.find(o => o.value === selectedDoc.docType)?.label || selectedDoc.docType} · OCR Completed
+   107→   107→  2096→                  </p>
+   108→   108→  2097→                </div>
+   109→   109→  2098→                <Badge className="text-xs px-2 py-0.5 border-0 bg-emerald-100 text-emerald-700">
+   110→   110→  2099→                  <CheckCircle2 className="h-3 w-3 mr-1" /> OCR Ready
+   111→   111→  2100→                </Badge>
+   112→   112→  2101→              </div>
+   113→   113→  2102→
+   114→   114→  2103→              {/* Extract Prompt Input */}
+   115→   115→  2104→              <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+   116→   116→  2105→                <div className="p-3 border-b border-border/30 bg-muted/20">
+   117→   117→  2106→                  <h4 className="text-xs font-semibold flex items-center gap-1.5">
+   118→   118→  2107→                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+   119→   119→  2108→                    Ask AI to Extract Information
+   120→   120→  2109→                  </h4>
+   121→   121→  2110→                </div>
+   122→   122→  2111→                <div className="p-3 space-y-2.5">
+   123→   123→  2112→                  <div>
+   124→   124→  2113→                    <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+   125→   125→  2114→                      <MessageSquare className="h-3 w-3" /> Your extraction prompt
+   126→   126→  2115→                    </Label>
+   127→   127→  2116→                    <div className="flex items-center gap-1.5">
+   128→   128→  2117→                      <Input
+   129→   129→  2118→                        placeholder="e.g., Extract all financial figures, List deadlines, Find contact info..."
+   130→   130→  2119→                        value={extractPrompt[selectedDoc.id] || ''}
+   131→   131→  2120→                        onChange={e => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: e.target.value }))}
+   132→   132→  2121→                        className="h-8 text-xs bg-muted/30 border-border/50 flex-1"
+   133→   133→  2122→                        onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(selectedDoc.id); }}
+   134→   134→  2123→                      />
+   135→   135→  2124→                      <Button
+   136→   136→  2125→                        size="sm"
+   137→   137→  2126→                        className="h-8 text-xs gradient-emerald text-white border-0 hover:opacity-90 px-4 flex-shrink-0"
+   138→   138→  2127→                        disabled={extractLoading.has(selectedDoc.id) || !extractPrompt[selectedDoc.id]?.trim()}
+   139→   139→  2128→                        onClick={() => handleAiExtract(selectedDoc.id)}
+   140→   140→  2129→                      >
+   141→   141→  2130→                        {extractLoading.has(selectedDoc.id) ? (
+   142→   142→  2131→                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Extracting...</>
+   143→   143→  2132→                        ) : (
+   144→   144→  2133→                          <><Sparkles className="h-3.5 w-3.5 mr-1" /> Extract</>
+   145→   145→  2134→                        )}
+   146→   146→  2135→                      </Button>
+   147→   147→  2136→                    </div>
+   148→   148→  2137→                  </div>
+   149→   149→  2138→
+   150→   150→  2139→                  {/* Quick Prompt Suggestions */}
+   151→   151→  2140→                  <div>
+   152→   152→  2141→                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Quick Prompts</p>
+   153→   153→  2142→                    <div className="flex flex-wrap gap-1">
+   154→   154→  2143→                      {[
+   155→   155→  2144→                        'Extract financial figures',
+   156→   156→  2145→                        'List all deadlines and dates',
+   157→   157→  2146→                        'Summarize key requirements',
+   158→   158→  2147→                        'Find contact information',
+   159→   159→  2148→                        'Identify compliance issues',
+   160→   160→  2149→                        'What is the total budget?',
+   161→   161→  2150→                        'List all contract terms',
+   162→   162→  2151→                        'Extract scope of work',
+   163→   163→  2152→                      ].map(suggestion => (
+   164→   164→  2153→                        <button
+   165→   165→  2154→                          key={suggestion}
+   166→   166→  2155→                          type="button"
+   167→   167→  2156→                          onClick={() => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: suggestion }))}
+   168→   168→  2157→                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors border ${
+   169→   169→  2158→                            extractPrompt[selectedDoc.id] === suggestion
+   170→   170→  2159→                              ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+   171→   171→  2160→                              : 'bg-muted/50 text-muted-foreground border-border/50 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700'
+   172→   172→  2161→                          }`}
+   173→   173→  2162→                        >
+   174→   174→  2163→                          {suggestion}
+   175→   175→  2164→                        </button>
+   176→   176→  2165→                      ))}
+   177→   177→  2166→                    </div>
+   178→   178→  2167→                  </div>
+   179→   179→  2168→                </div>
+   180→   180→  2169→              </div>
+   181→   181→  2170→
+   182→   182→  2171→              {/* Extraction History */}
+   183→   183→  2172→              {docHistory.length > 0 && (
+   184→   184→  2173→                <div className="space-y-3">
+   185→   185→  2174→                  <h4 className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+   186→   186→  2175→                    <Clock className="h-3.5 w-3.5" /> Extraction History ({docHistory.length})
+   187→   187→  2176→                  </h4>
+   188→   188→  2177→                  {[...docHistory].reverse().map((entry, idx) => (
+   189→   189→  2178→                    <div key={idx} className="rounded-xl border border-border/40 bg-card overflow-hidden">
+   190→   190→  2179→                      <div className="flex items-center justify-between px-3 py-2 border-b border-border/30 bg-muted/20">
+   191→   191→  2180→                        <div className="flex items-center gap-2 min-w-0">
+   192→   192→  2181→                          <Sparkles className="h-3 w-3 text-emerald-600 flex-shrink-0" />
+   193→   193→  2182→                          <span className="text-[10px] font-medium text-emerald-700 truncate">{entry.prompt}</span>
+   194→   194→  2183→                        </div>
+   195→   195→  2184→                        <div className="flex items-center gap-2 flex-shrink-0">
+   196→   196→  2185→                          <span className="text-[9px] text-muted-foreground">{entry.timestamp}</span>
+   197→   197→  2186→                          <Button
+   198→   198→  2187→                            variant="ghost"
+   199→   199→  2188→                            size="sm"
+   200→   200→  2189→                            className="h-5 text-[9px] px-1"
+   201→   201→  2190→                            onClick={() => {
+   202→   202→  2191→                              navigator.clipboard.writeText(entry.result);
+   203→   203→  2192→                              toast.success('Copied to clipboard');
+   204→   204→  2193→                            }}
+   205→   205→  2194→                          >
+   206→   206→  2195→                            <Copy className="h-2.5 w-2.5" />
+   207→   207→  2196→                          </Button>
+   208→   208→  2197→                        </div>
+   209→   209→  2198→                      </div>
+   210→   210→  2199→                      <ScrollArea className="max-h-[250px]">
+   211→   211→  2200→                        <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+   212→   212→  2201→                          {entry.result}
+   213→   213→  2202→                        </pre>
+   214→   214→  2203→                      </ScrollArea>
+   215→   215→  2204→                    </div>
+   216→   216→  2205→                  ))}
+   217→   217→  2206→                </div>
+   218→   218→  2207→              )}
+   219→   219→  2208→
+   220→   220→  2209→              {/* Latest extraction loading */}
+   221→   221→  2210→              {extractLoading.has(selectedDoc.id) && (
+   222→   222→  2211→                <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-6 flex flex-col items-center justify-center">
+   223→   223→  2212→                  <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-3" />
+   224→   224→  2213→                  <p className="text-sm font-medium text-emerald-700">Extracting information...</p>
+   225→   225→  2214→                  <p className="text-[10px] text-muted-foreground mt-1">AI is reading your document and answering your prompt</p>
+   226→   226→  2215→                </div>
+   227→   227→  2216→              )}
+   228→   228→  2217→
+   229→   229→  2218→              {/* OCR Text Preview */}
+   230→   230→  2219→              <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+   231→   231→  2220→                <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+   232→   232→  2221→                  <h4 className="text-xs font-semibold flex items-center gap-1.5">
+   233→   233→  2222→                    <Eye className="h-3.5 w-3.5 text-emerald-600" />
+   234→   234→  2223→                    OCR Text Source
+   235→   235→  2224→                  </h4>
+   236→   236→  2225→                  <Button
+   237→   237→  2226→                    variant="ghost"
+   238→   238→  2227→                    size="sm"
+   239→   239→  2228→                    className="h-6 text-[10px]"
+   240→   240→  2229→                    onClick={() => {
+   241→   241→  2230→                      const text = selectedDoc.ocrText || '';
+   242→   242→  2231→                      navigator.clipboard.writeText(text);
+   243→   243→  2232→                      toast.success('OCR text copied');
+   244→   244→  2233→                    }}
+   245→   245→  2234→                  >
+   246→   246→  2235→                    <Copy className="h-3 w-3 mr-1" /> Copy
+   247→   247→  2236→                  </Button>
+   248→   248→  2237→                </div>
+   249→   249→  2238→                <ScrollArea className="max-h-[150px]">
+   250→   250→  2239→                  <pre className="p-3 text-[10px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+   251→   251→  2240→                    {selectedDoc.ocrText || 'No OCR text available'}
+   252→   252→  2241→                  </pre>
+   253→   253→  2242→                </ScrollArea>
+   254→   254→  2243→              </div>
+   255→   255→  2244→
+   256→   256→  2245→              {/* Delete Document */}
+   257→   257→  2246→              <div className="flex justify-end">
+   258→   258→  2247→                <Button
+   259→   259→  2248→                  variant="ghost"
+   260→   260→  2249→                  size="sm"
+   261→   261→  2250→                  className="h-7 text-xs text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+   262→   262→  2251→                  onClick={async () => {
+   263→   263→  2252→                    if (!confirm(`Delete "${selectedDoc.fileName}"? This cannot be undone.`)) return;
+   264→   264→  2253→                    const res = await api.delete(`/documents/${selectedDoc.id}`);
+   265→   265→  2254→                    if (res.success) {
+   266→   266→  2255→                      toast.success('Document deleted');
+   267→   267→  2256→                      setLocalSelectedDocId(null);
+   268→   268→  2257→                      loadDocuments();
+   269→   269→  2258→                    } else {
+   270→   270→  2259→                      toast.error(res.error || 'Failed to delete');
+   271→   271→  2260→                    }
+   272→   272→  2261→                  }}
+   273→   273→  2262→                >
+   274→   274→  2263→                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Document
+   275→   275→  2264→                </Button>
+   276→   276→  2265→              </div>
+   277→   277→  2266→            </div>
+   278→   278→  2267→          ) : (
+   279→   279→  2268→            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+   280→   280→  2269→              <MessageSquare className="h-12 w-12 mb-3 opacity-20" />
+   281→   281→  2270→              <p className="text-sm font-medium">Select a document to extract info</p>
+   282→   282→  2271→              <p className="text-xs mt-1">Choose an OCR-ready document from the left panel</p>
+   283→   283→  2272→            </div>
+   284→   284→  2273→          )}
+   285→   285→  2274→        </div>
+   286→   286→  2275→      </div>
+   287→   287→  2276→    );
+   288→   288→  2277→  };
+   289→   289→  2278→
+   290→   290→  2279→  /* ════════════════════════════════════════════════════════════
+   291→   291→  2280→     RENDER
+   292→   292→  2281→     ════════════════════════════════════════════════════════════ */
+   293→   293→  2282→  const ActiveRibbon = RIBBON_MAP[ribbonTab];
+   294→   294→  2283→
+   295→   295→  2284→  // Check if ocrDone for the selected doc
+   296→   296→  2285→  const ocrDone = selectedDocId ? (documents.find(d => d.id === selectedDocId)?.ocrStatus === 'completed') : false;
+   297→   297→  2286→
+   298→   298→  2287→  return (
+   299→   299→  2288→    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/30 view-enter">
+   300→   300→  2289→      {/* ── Title Bar ── */}
+   301→   301→  2290→      <div className="flex items-center h-10 px-3 bg-card border-b border-border/60 flex-shrink-0 gap-2">
+   302→   302→  2291→        {/* Left: Logo + Doc Title */}
+   303→   303→  2292→        <div className="flex items-center gap-2 flex-1 min-w-0">
+   304→   304→  2293→          <div className="w-6 h-6 rounded gradient-emerald flex items-center justify-center flex-shrink-0">
+   305→   305→  2294→            <Sparkles className="h-3.5 w-3.5 text-white" />
+   306→   306→  2295→          </div>
+   307→   307→  2296→          <Input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }}
+   308→   308→  2297→            className="h-7 text-sm font-medium border-0 bg-transparent focus:bg-muted/50 px-1 max-w-[240px]" />
+   309→   309→  2298→        </div>
+   310→   310→  2299→        {/* Center: Save status */}
+   311→   311→  2300→        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+   312→   312→  2301→          {saveStatus === 'saved' && <><Check className="h-3 w-3 text-emerald-600" /> Saved</>}
+   313→   313→  2302→          {saveStatus === 'saving' && <><span className="animate-pulse">Saving...</span></>}
+   314→   314→  2303→          {saveStatus === 'unsaved' && <><span className="text-amber-600">Unsaved</span></>}
+   315→   315→  2304→        </div>
+   316→   316→  2305→        {/* Right: Actions */}
+   317→   317→  2306→        <div className="flex items-center gap-1 flex-1 justify-end">
+   318→   318→  2307→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleSave}>
+   319→   319→  2308→            <Save className="h-3.5 w-3.5 mr-1" /> Save
+   320→   320→  2309→          </Button>
+   321→   321→  2310→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.info('PDF export coming soon')}>
+   322→   322→  2311→            <Download className="h-3.5 w-3.5 mr-1" /> Export
+   323→   323→  2312→          </Button>
+   324→   324→  2313→          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => window.print()}>
+   325→   325→  2314→            <Printer className="h-3.5 w-3.5 mr-1" /> Print
+   326→   326→  2315→          </Button>
+   327→   327→  2316→        </div>
+   328→   328→  2317→      </div>
+   329→   329→  2318→
+   330→   330→  2319→      {/* ── Ribbon Tabs ── */}
+   331→   331→  2320→      <div className="flex items-center h-8 bg-card border-b border-border/40 px-2 flex-shrink-0 gap-0.5">
+   332→   332→  2321→        {(['home', 'insert', 'review', 'ai-tools', 'sign', 'doc-review', 'ai-extract'] as RibbonTab[]).map(tab => (
+   333→   333→  2322→          <button key={tab} onClick={() => setRibbonTab(tab)}
+   334→   334→  2323→            className={`px-3 py-1 text-xs font-medium rounded-t transition-colors flex items-center gap-1 ${
+   335→   335→  2324→              ribbonTab === tab
+   336→   336→  2325→                ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500'
+   337→   337→  2326→                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+   338→   338→  2327→            }`}>
+   339→   339→  2328→            {tab === 'ai-tools' ? <><Sparkles className="h-3 w-3" /> AI Tools</> :
+   340→   340→  2329→             tab === 'sign' ? <><Pen className="h-3 w-3" /> Sign</> :
+   341→   341→  2330→             tab === 'doc-review' ? <><Bot className="h-3 w-3" /> Doc Review</> :
+   342→   342→  2331→             tab === 'ai-extract' ? <><MessageSquare className="h-3 w-3" /> AI Extract</> :
+   343→   343→  2332→             tab.charAt(0).toUpperCase() + tab.slice(1)}
+   344→   344→  2333→          </button>
+   345→   345→  2334→        ))}
+   346→   346→  2335→      </div>
+   347→   347→  2336→
+   348→   348→  2337→      {/* ── Ribbon Controls ── */}
+   349→   349→  2338→      <div className="bg-card border-b border-border/40 flex-shrink-0 min-h-[40px]">
+   350→   350→  2339→        <ActiveRibbon />
+   351→   351→  2340→      </div>
+   352→   352→  2341→
+   353→   353→  2342→      {/* ── Main Area ── */}
+   354→   354→  2343→      {ribbonTab === 'doc-review' ? (
+   355→   355→  2344→        <DocReviewContent />
+   356→   356→  2345→      ) : ribbonTab === 'ai-extract' ? (
+   357→   357→  2346→        <AIExtractContent />
+   358→   358→  2347→      ) : (
+   359→   359→  2348→        <div className="flex-1 flex overflow-hidden">
+   360→   360→  2349→          {/* Document Canvas Area */}
+   361→   361→  2350→          <div className="flex-1 overflow-auto bg-muted/60 p-6" onClick={() => { if (placementMode) { /* handled by editor click */ } }}>
+   362→   362→  2351→            <div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+   363→   363→  2352→              <div
+   364→   364→  2353→                className="bg-white shadow-lg relative"
+   365→   365→  2354→                style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}
+   366→   366→  2355→              >
+   367→   367→  2356→                {/* Document Header */}
+   368→   368→  2357→                <div className="border-b-2 border-emerald-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
+   369→   369→  2358→                  <div className="text-center">
+   370→   370→  2359→                    <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">Tenet Tender Ecosystem</p>
+   371→   371→  2360→                    <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
+   372→   372→  2361→                  </div>
+   373→   373→  2362→                </div>
+   374→   374→  2363→
+   375→   375→  2364→                {/* Editable Area */}
+   376→   376→  2365→                <div
+   377→   377→  2366→                  ref={editorRef}
+   378→   378→  2367→                  contentEditable
+   379→   379→  2368→                  suppressContentEditableWarning
+   380→   380→  2369→                  onInput={handleDocChange}
+   381→   381→  2370→                  onClick={handleCanvasClick}
+   382→   382→  2371→                  className="outline-none min-h-[800px] text-[13px] leading-[1.6] text-gray-800"
+   383→   383→  2372→                  style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }}
+   384→   384→  2373→                  data-placeholder="Start typing or use AI tools to generate content..."
+   385→   385→  2374→                />
+   386→   386→  2375→
+   387→   387→  2376→                {/* Document Footer */}
+   388→   388→  2377→                <div className="absolute bottom-8 left-0 right-0 text-center">
+   389→   389→  2378→                  <div className="border-t border-gray-200 pt-2">
+   390→   390→  2379→                    <p className="text-[10px] text-gray-400">Page 1 of 1</p>
+   391→   391→  2380→                  </div>
+   392→   392→  2381→                </div>
+   393→   393→  2382→              </div>
+   394→   394→  2383→            </div>
+   395→   395→  2384→          </div>
+   396→   396→  2385→
+   397→   397→  2386→          {/* Right Panel: AI Assistant */}
+   398→   398→  2387→          {aiPanelOpen && (
+   399→   399→  2388→              <div
+   400→   400→  2389→ className="border-l border-border/60 bg-card flex-shrink-0 overflow-hidden transition-[width] duration-700" style={{ width: 350 }}
+   401→   401→  2390→ >
+   402→   402→  2391→                <AIPanelContent />
+   403→   403→  2392→              </div>
+   404→   404→  2393→            )}
+   405→   405→  2394→        </div>
+   406→   406→  2395→      )}
+   407→   407→  2396→
+   408→   408→  2397→      {/* ── Status Bar ── */}
+   409→   409→  2398→      {ribbonTab !== 'doc-review' && ribbonTab !== 'ai-extract' && (
+   410→   410→  2399→        <div className="flex items-center h-6 px-3 bg-card border-t border-border/40 text-[10px] text-muted-foreground flex-shrink-0">
+   411→   411→  2400→          <div className="flex-1">Page 1 of 1</div>
+   412→   412→  2401→          <div className="flex items-center gap-3">
+   413→   413→  2402→            <span>{wordCount} words</span>
+   414→   414→  2403→            <span>{charCount} chars</span>
+   415→   415→  2404→          </div>
+   416→   416→  2405→          <div className="flex-1 flex items-center justify-end gap-1">
+   417→   417→  2406→            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.max(75, zoom - 25))}>
+   418→   418→  2407→              <ZoomOut className="h-3 w-3" />
+   419→   419→  2408→            </Button>
+   420→   420→  2409→            <Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}>
+   421→   421→  2410→              <SelectTrigger className="h-4 w-14 text-[10px] border-0 p-0 bg-transparent">
+   422→   422→  2411→                <SelectValue />
+   423→   423→  2412→              </SelectTrigger>
+   424→   424→  2413→              <SelectContent>
+   425→   425→  2414→                {ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}
+   426→   426→  2415→              </SelectContent>
+   427→   427→  2416→            </Select>
+   428→   428→  2417→            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.min(150, zoom + 25))}>
+   429→   429→  2418→              <ZoomIn className="h-3 w-3" />
+   430→   430→  2419→            </Button>
+   431→   431→  2420→          </div>
+   432→   432→  2421→        </div>
+   433→   433→  2422→      )}
+   434→   434→  2423→
+   435→   435→  2424→      {/* ── Signature Drawing Dialog ── */}
+   436→   436→  2425→      <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}>
+   437→   437→  2426→        <DialogContent className="sm:max-w-[500px]">
+   438→   438→  2427→          <DialogHeader>
+   439→   439→  2428→            <DialogTitle className="flex items-center gap-2">
+   440→   440→  2429→              <Pen className="h-4 w-4 text-emerald-600" /> Draw Your Signature
+   441→   441→  2430→            </DialogTitle>
+   442→   442→  2431→          </DialogHeader>
+   443→   443→  2432→          <div className="space-y-3">
+   444→   444→  2433→            <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
+   445→   445→  2434→              <canvas
+   446→   446→  2435→                ref={canvasRef}
+   447→   447→  2436→                width={460}
+   448→   448→  2437→                height={200}
+   449→   449→  2438→                onMouseDown={startDraw}
+   450→   450→  2439→                onMouseMove={draw}
+   451→   451→  2440→                onMouseUp={endDraw}
+   452→   452→  2441→                onMouseLeave={endDraw}
+   453→   453→  2442→                className="w-full cursor-crosshair touch-none"
+   454→   454→  2443→              />
+   455→   455→  2444→            </div>
+   456→   456→  2445→            <div className="flex items-center justify-between">
+   457→   457→  2446→              <Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs">
+   458→   458→  2447→                <Eraser className="h-3.5 w-3.5 mr-1" /> Clear
+   459→   459→  2448→              </Button>
+   460→   460→  2449→              <div className="flex gap-2">
+   461→   461→  2450→                <Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button>
+   462→   462→  2451→                <Button size="sm" onClick={saveDrawnSignature}
+   463→   463→  2452→                  className="text-xs gradient-emerald text-white border-0 premium-shadow hover:opacity-90">
+   464→   464→  2453→                  <Check className="h-3.5 w-3.5 mr-1" /> Save Signature
+   465→   465→  2454→                </Button>
+   466→   466→  2455→              </div>
+   467→   467→  2456→            </div>
+   468→   468→  2457→          </div>
+   469→   469→  2458→        </DialogContent>
+   470→   470→  2459→      </Dialog>
+   471→   471→  2460→
+   472→   472→  2461→      {/* ── Signature Gallery (shows when Sign tab is active) ── */}
+   473→   473→  2462→      {ribbonTab === 'sign' && savedSignatures.length > 0 && (
+   474→   474→  2463→          <div
+   475→   475→  2464→ className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]"
+   476→   476→  2465→ >
+   477→   477→  2466→            <div className="flex items-center justify-between mb-2">
+   478→   478→  2467→              <span className="text-xs font-semibold">Saved Signatures &amp; Stamps</span>
+   479→   479→  2468→              <span className="text-[10px] text-muted-foreground">Click to place on document</span>
+   480→   480→  2469→            </div>
+   481→   481→  2470→            <div className="flex gap-3 overflow-x-auto pb-1">
+   482→   482→  2471→              {savedSignatures.map(sig => (
+   483→   483→  2472→                <div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative">
+   484→   484→  2473→                  <button onClick={() => startPlacement(sig.dataUrl)}
+   485→   485→  2474→                    className="w-20 h-16 border border-border rounded hover:border-emerald-400 transition-colors overflow-hidden bg-white p-1">
+   486→   486→  2475→                    <img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" />
+   487→   487→  2476→                  </button>
+   488→   488→  2477→                  <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{sig.label}</span>
+   489→   489→  2478→                  <button onClick={() => deleteSignature(sig.id)}
+   490→   490→  2479→                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+   491→   491→  2480→                    <X className="h-2.5 w-2.5" />
+   492→   492→  2481→                  </button>
+   493→   493→  2482→                </div>
+   494→   494→  2483→              ))}
+   495→   495→  2484→            </div>
+   496→   496→  2485→          </div>
+   497→   497→  2486→        )}
+   498→   498→  2487→</div>
+   499→   499→  2488→  );
+   500→   500→  2489→}
+
+[showing lines 1-500 of 742; use offset=501 with limit to continue reading]
