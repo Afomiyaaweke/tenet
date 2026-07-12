@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const tenderId = searchParams.get('tenderId') || '';
     const bidStatus = searchParams.get('status') || '';
     const search = searchParams.get('search') || '';
+    const tendersOnly = searchParams.get('tendersOnly') === 'true';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '100', 10);
     const skip = (page - 1) * limit;
@@ -25,6 +26,58 @@ export async function GET(request: NextRequest) {
     // Build where clause: only tenders published by this user
     // AND only tenders whose deadline has passed
     const now = new Date();
+
+    // Get ALL published tenders for the published tenders list view (always needed)
+    const myPublishedTenders = await db.tender.findMany({
+      where: {
+        createdBy: user!.id,
+        status: { not: 'draft' },
+      },
+      select: {
+        id: true,
+        title: true,
+        deadline: true,
+        status: true,
+        budgetMin: true,
+        budgetMax: true,
+        categoryTags: true,
+        location: true,
+        createdAt: true,
+        _count: { select: { bids: true } },
+      },
+      orderBy: [
+        { deadline: 'asc' },
+        { createdAt: 'desc' },
+      ],
+    });
+
+    // If tendersOnly=true, skip bid fetching and just return tenders list
+    if (tendersOnly) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        meta: { page: 1, limit: 0, total: 0, totalPages: 0, statusCounts: {}, totalBudgetSum: 0, uniqueTenders: 0, uniqueCompanies: 0 },
+        openTenders: myPublishedTenders.filter(t => new Date(t.deadline) > now).map(t => ({
+          id: t.id, title: t.title, deadline: t.deadline, status: t.status,
+          budgetMin: t.budgetMin, budgetMax: t.budgetMax, categoryTags: t.categoryTags,
+          location: t.location, bidCount: t._count.bids,
+        })),
+        closedTenders: myPublishedTenders.filter(t => new Date(t.deadline) <= now).map(t => ({
+          id: t.id, title: t.title, deadline: t.deadline, status: t.status,
+          budgetMin: t.budgetMin, budgetMax: t.budgetMax, categoryTags: t.categoryTags,
+          location: t.location, bidCount: t._count.bids,
+        })),
+        publishedTenders: myPublishedTenders.map(t => {
+          const isClosed = new Date(t.deadline) <= now;
+          return {
+            id: t.id, title: t.title, deadline: t.deadline, status: t.status,
+            budgetMin: t.budgetMin, budgetMax: t.budgetMax, categoryTags: t.categoryTags,
+            location: t.location, createdAt: t.createdAt, bidCount: t._count.bids,
+            isClosed, applicantCount: isClosed ? t._count.bids : 0,
+          };
+        }),
+      });
+    }
 
     // Base tender filter: published by current user AND deadline passed
     const baseTenderFilter: Record<string, unknown> = {
@@ -134,71 +187,6 @@ export async function GET(request: NextRequest) {
       db.bid.count({ where }),
     ]);
 
-    // Also get the user's tenders that are still open (deadline not yet passed)
-    // so the UI can show "waiting for deadline" info
-    const myOpenTenders = await db.tender.findMany({
-      where: {
-        createdBy: user!.id,
-        deadline: { gt: now },
-      },
-      select: {
-        id: true,
-        title: true,
-        deadline: true,
-        status: true,
-        budgetMin: true,
-        budgetMax: true,
-        categoryTags: true,
-        location: true,
-        _count: { select: { bids: true } },
-      },
-      orderBy: { deadline: 'asc' },
-    });
-
-    // Also get the user's closed tenders (for the tender filter dropdown)
-    const myClosedTenders = await db.tender.findMany({
-      where: {
-        createdBy: user!.id,
-        deadline: { lte: now },
-      },
-      select: {
-        id: true,
-        title: true,
-        deadline: true,
-        status: true,
-        budgetMin: true,
-        budgetMax: true,
-        categoryTags: true,
-        location: true,
-        _count: { select: { bids: true } },
-      },
-      orderBy: { deadline: 'desc' },
-    });
-
-    // Get ALL published tenders for the published tenders list view
-    const myPublishedTenders = await db.tender.findMany({
-      where: {
-        createdBy: user!.id,
-        status: { not: 'draft' },
-      },
-      select: {
-        id: true,
-        title: true,
-        deadline: true,
-        status: true,
-        budgetMin: true,
-        budgetMax: true,
-        categoryTags: true,
-        location: true,
-        createdAt: true,
-        _count: { select: { bids: true } },
-      },
-      orderBy: [
-        { deadline: 'asc' },
-        { createdAt: 'desc' },
-      ],
-    });
-
     // Flatten to spreadsheet-friendly rows
     const rows = bids.map((bid) => ({
       id: bid.id,
@@ -287,46 +275,23 @@ export async function GET(request: NextRequest) {
         uniqueTenders,
         uniqueCompanies,
       },
-      // Additional context: open tenders still accepting bids
-      openTenders: myOpenTenders.map(t => ({
-        id: t.id,
-        title: t.title,
-        deadline: t.deadline,
-        status: t.status,
-        budgetMin: t.budgetMin,
-        budgetMax: t.budgetMax,
-        categoryTags: t.categoryTags,
-        location: t.location,
-        bidCount: t._count.bids,
+      openTenders: myPublishedTenders.filter(t => new Date(t.deadline) > now).map(t => ({
+        id: t.id, title: t.title, deadline: t.deadline, status: t.status,
+        budgetMin: t.budgetMin, budgetMax: t.budgetMax, categoryTags: t.categoryTags,
+        location: t.location, bidCount: t._count.bids,
       })),
-      // Closed tenders (eligible for viewing applicants)
-      closedTenders: myClosedTenders.map(t => ({
-        id: t.id,
-        title: t.title,
-        deadline: t.deadline,
-        status: t.status,
-        budgetMin: t.budgetMin,
-        budgetMax: t.budgetMax,
-        categoryTags: t.categoryTags,
-        location: t.location,
-        bidCount: t._count.bids,
+      closedTenders: myPublishedTenders.filter(t => new Date(t.deadline) <= now).map(t => ({
+        id: t.id, title: t.title, deadline: t.deadline, status: t.status,
+        budgetMin: t.budgetMin, budgetMax: t.budgetMax, categoryTags: t.categoryTags,
+        location: t.location, bidCount: t._count.bids,
       })),
-      // All published tenders (for the published tenders list view)
       publishedTenders: myPublishedTenders.map(t => {
         const isClosed = new Date(t.deadline) <= now;
         return {
-          id: t.id,
-          title: t.title,
-          deadline: t.deadline,
-          status: t.status,
-          budgetMin: t.budgetMin,
-          budgetMax: t.budgetMax,
-          categoryTags: t.categoryTags,
-          location: t.location,
-          createdAt: t.createdAt,
-          bidCount: t._count.bids,
-          isClosed,
-          applicantCount: isClosed ? t._count.bids : 0,
+          id: t.id, title: t.title, deadline: t.deadline, status: t.status,
+          budgetMin: t.budgetMin, budgetMax: t.budgetMax, categoryTags: t.categoryTags,
+          location: t.location, createdAt: t.createdAt, bidCount: t._count.bids,
+          isClosed, applicantCount: isClosed ? t._count.bids : 0,
         };
       }),
     });

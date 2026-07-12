@@ -61,8 +61,7 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
       {!iconOnly && (
         <span className={`${s.text} font-bold tracking-tight whitespace-nowrap`}>
           <span style={{ color: darkColor }}>Published</span>{' '}
-          <span style={{ color: '#F97316' }}>Tender</span>{' '}
-          <span style={{ color: lightColor }}>World Bank</span>
+          <span style={{ color: '#F97316' }}>Tender</span>
         </span>
       )}
     </div>

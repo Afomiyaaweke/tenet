@@ -1,0 +1,658 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useMemo, Suspense } from 'react';
+     4→import dynamic from 'next/dynamic';
+     5→import { useAuthStore, useNavStore, useDataStore } from '@/store';
+     6→import { api } from '@/lib/api';
+     7→import { Button } from '@/components/ui/button';
+     8→import { Badge } from '@/components/ui/badge';
+     9→import { ScrollArea } from '@/components/ui/scroll-area';
+    10→import { Separator } from '@/components/ui/separator';
+    11→import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+    12→import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+    13→import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+    14→import {
+    15→  LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
+    16→  GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
+    17→  ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
+    18→  Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
+    19→} from 'lucide-react';
+    20→import { ThemeToggle } from '@/components/theme-toggle';
+    21→import { TenetLogo } from '@/components/logo';
+    22→
+    23→/* ──────────────────────────── Dynamic imports (lazy load modules) ──────────────────────────── */
+    24→
+    25→const DashboardView = dynamic(() => import('@/components/modules/dashboard').then(m => ({ default: m.DashboardView })), { ssr: false });
+    26→const TendersView = dynamic(() => import('@/components/modules/tenders').then(m => ({ default: m.TendersView })), { ssr: false });
+    27→const LiveTendersView = dynamic(() => import('@/components/modules/live-tenders').then(m => ({ default: m.LiveTendersView })), { ssr: false });
+    28→const TenderDetailView = dynamic(() => import('@/components/modules/tender-detail').then(m => ({ default: m.TenderDetailView })), { ssr: false });
+    29→const TenderCompareView = dynamic(() => import('@/components/modules/tender-compare').then(m => ({ default: m.TenderCompareView })), { ssr: false });
+    30→const BidCompareView = dynamic(() => import('@/components/modules/tender-compare').then(m => ({ default: m.BidCompareView })), { ssr: false });
+    31→const BidsView = dynamic(() => import('@/components/modules/bids').then(m => ({ default: m.BidsView })), { ssr: false });
+    32→const ApplicantsView = dynamic(() => import('@/components/modules/applicants').then(m => ({ default: m.ApplicantsView })), { ssr: false });
+    33→const ProjectsView = dynamic(() => import('@/components/modules/projects').then(m => ({ default: m.ProjectsView })), { ssr: false });
+    34→const ProjectDetailView = dynamic(() => import('@/components/modules/project-detail').then(m => ({ default: m.ProjectDetailView })), { ssr: false });
+    35→const ChatView = dynamic(() => import('@/components/modules/chat').then(m => ({ default: m.ChatView })), { ssr: false });
+    36→const EventsView = dynamic(() => import('@/components/modules/events').then(m => ({ default: m.EventsView })), { ssr: false });
+    37→const ProfileView = dynamic(() => import('@/components/modules/profile').then(m => ({ default: m.ProfileView })), { ssr: false });
+    38→const DocumentsView = dynamic(() => import('@/components/modules/documents').then(m => ({ default: m.DocumentsView })), { ssr: false });
+    39→const AgentView = dynamic(() => import('@/components/modules/agent').then(m => ({ default: m.AgentView })), { ssr: false });
+    40→const StaffView = dynamic(() => import('@/components/modules/staff').then(m => ({ default: m.StaffView })), { ssr: false });
+    41→const ContactUsView = dynamic(() => import('@/components/modules/contact-us').then(m => ({ default: m.ContactUsView })), { ssr: false });
+    42→const PrivacyPolicyView = dynamic(() => import('@/components/modules/privacy-policy').then(m => ({ default: m.PrivacyPolicyView })), { ssr: false });
+    43→
+    44→/* ──────────────────────────── Loading spinner ──────────────────────────── */
+    45→
+    46→function ViewLoader() {
+    47→  return (
+    48→    <div className="flex items-center justify-center h-64">
+    49→      <div className="flex flex-col items-center gap-3">
+    50→        <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+    51→        <p className="text-xs text-muted-foreground">Loading...</p>
+    52→      </div>
+    53→    </div>
+    54→  );
+    55→}
+    56→
+    57→/* ──────────────────────────── constants ──────────────────────────── */
+    58→
+    59→const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
+    60→  success: CheckCircle,
+    61→  warning: AlertTriangle,
+    62→  alert: AlertCircle,
+    63→  info: Info,
+    64→};
+    65→
+    66→const NOTIFICATION_COLORS: Record<string, string> = {
+    67→  success: 'text-orange-500',
+    68→  warning: 'text-amber-500',
+    69→  alert: 'text-red-500',
+    70→  info: 'text-orange-500',
+    71→};
+    72→
+    73→const NOTIFICATION_BG: Record<string, string> = {
+    74→  success: 'bg-orange-50 dark:bg-orange-950/30',
+    75→  warning: 'bg-amber-50 dark:bg-amber-950/30',
+    76→  alert: 'bg-red-50 dark:bg-red-950/30',
+    77→  info: 'bg-orange-50 dark:bg-orange-950/30',
+    78→};
+    79→
+    80→interface NavItem {
+    81→  id: string;
+    82→  label: string;
+    83→  icon: React.ComponentType<{ className?: string }>;
+    84→}
+    85→
+    86→interface NavSection {
+    87→  label: string;
+    88→  items: NavItem[];
+    89→}
+    90→
+    91→/* ──────────────────── Role-aware navigation ──────────────────── */
+    92→
+    93→function getNavItemsForRole(role: string): NavSection[] {
+    94→  const main: NavSection = {
+    95→    label: 'MAIN',
+    96→    items: [
+    97→      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    98→      { id: 'tenders', label: 'World Bank Tenders', icon: FileSearch },
+    99→      { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
+   100→      { id: 'bids', label: 'Bids', icon: Gavel },
+   101→      { id: 'applicants', label: 'Published Tenders', icon: ClipboardList },
+   102→    ],
+   103→  };
+   104→
+   105→  const manage: NavSection = {
+   106→    label: 'MANAGE',
+   107→    items: [
+   108→      { id: 'projects', label: 'Projects', icon: FolderKanban },
+   109→      { id: 'chat', label: 'Messages', icon: MessageSquare },
+   110→      { id: 'events', label: 'Workshops', icon: GraduationCap },
+   111→    ],
+   112→  };
+   113→
+   114→  const tools: NavSection = {
+   115→    label: 'TOOLS',
+   116→    items: [
+   117→      { id: 'profile', label: 'Profile', icon: User },
+   118→      { id: 'documents', label: 'Documents', icon: FileText },
+   119→      { id: 'agent', label: 'AI Doc Studio', icon: Bot },
+   120→    ],
+   121→  };
+   122→
+   123→  const support: NavSection = {
+   124→    label: 'SUPPORT',
+   125→    items: [
+   126→      { id: 'contact-us', label: 'Contact Us', icon: Mail },
+   127→      { id: 'privacy-policy', label: 'Privacy Policy', icon: Lock },
+   128→    ],
+   129→  };
+   130→
+   131→  if (role === 'team_admin') {
+   132→    return [
+   133→      main,
+   134→      manage,
+   135→      tools,
+   136→      support,
+   137→      {
+   138→        label: 'TEAM',
+   139→        items: [
+   140→          { id: 'staff', label: 'Staff', icon: Users },
+   141→          { id: 'company-settings', label: 'Company Settings', icon: Building2 },
+   142→        ],
+   143→      },
+   144→    ];
+   145→  }
+   146→
+   147→  // Regular user
+   148→  return [main, tools, support];
+   149→}
+   150→
+   151→/* ──────────────────── Role badge config ──────────────────── */
+   152→
+   153→const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = {
+   154→  team_admin: {
+   155→    label: 'Team Admin',
+   156→    className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+   157→  },
+   158→  user: {
+   159→    label: 'User',
+   160→    className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+   161→  },
+   162→};
+   163→
+   164→type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy';
+   165→
+   166→/* ──────────────────────────── helpers ──────────────────────────── */
+   167→
+   168→function relativeTime(dateStr: string): string {
+   169→  const now = Date.now();
+   170→  const then = new Date(dateStr).getTime();
+   171→  const diff = Math.max(0, now - then);
+   172→  const seconds = Math.floor(diff / 1000);
+   173→  if (seconds < 60) return 'just now';
+   174→  const minutes = Math.floor(seconds / 60);
+   175→  if (minutes < 60) return `${minutes}m ago`;
+   176→  const hours = Math.floor(minutes / 60);
+   177→  if (hours < 24) return `${hours}h ago`;
+   178→  const days = Math.floor(hours / 24);
+   179→  if (days < 7) return `${days}d ago`;
+   180→  return new Date(dateStr).toLocaleDateString();
+   181→}
+   182→
+   183→function getUserInitial(user: { profile?: { fullName?: string }; email?: string } | null): string {
+   184→  return (user?.profile?.fullName || user?.email || 'U')[0].toUpperCase();
+   185→}
+   186→
+   187→function getCompanyInitial(company: { name?: string } | null): string {
+   188→  return (company?.name || 'C')[0].toUpperCase();
+   189→}
+   190→
+   191→/* ──────────────────────── SidebarContent ──────────────────────── */
+   192→
+   193→function SidebarContent({
+   194→  user,
+   195→  role,
+   196→  company,
+   197→  navSections,
+   198→  view,
+   199→  setView,
+   200→  unreadCount,
+   201→  logout,
+   202→}: {
+   203→  user: { profile?: { fullName?: string; verified?: boolean }; email?: string; role?: string; companyId?: string; company?: { name?: string } } | null;
+   204→  role: string;
+   205→  company: { name?: string; verified?: boolean } | null;
+   206→  navSections: NavSection[];
+   207→  view: string;
+   208→  setView: (view: View, params?: Record<string, string>) => void;
+   209→  unreadCount: number;
+   210→  logout: () => void;
+   211→}) {
+   212→  const displayName = user?.profile?.fullName || user?.email || 'User';
+   213→  const isVerified = (user?.profile as { verified?: boolean })?.verified ?? false;
+   214→  const companyName = company?.name || user?.company?.name;
+   215→  const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
+   216→
+   217→  return (
+   218→    <div className="flex flex-col h-full bg-card">
+   219→      {/* ── Logo ── */}
+   220→      <div className="px-5 pt-5 pb-4">
+   221→        <div className="flex items-center gap-3">
+   222→          <TenetLogo size="sm" />
+   223→          <div className="min-w-0">
+   224→            <p className="text-[11px] text-muted-foreground font-medium">Published Tender World Bank</p>
+   225→          </div>
+   226→        </div>
+   227→      </div>
+   228→
+   229→      <Separator className="opacity-60" />
+   230→
+   231→      {/* ── User Profile Card ── */}
+   232→      <div className="px-4 py-4">
+   233→        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors">
+   234→          <div className="relative flex-shrink-0">
+   235→            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center shadow-sm shadow-slate-200 dark:shadow-slate-900/30">
+   236→              <span className="text-white font-bold text-sm">{getUserInitial(user)}</span>
+   237→            </div>
+   238→            {isVerified && (
+   239→              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-orange-500 rounded-full border-2 border-card flex items-center justify-center">
+   240→                <Check className="w-2 h-2 text-white" strokeWidth={3} />
+   241→              </span>
+   242→            )}
+   243→            {companyName && (
+   244→              <span className="absolute -bottom-1 -left-1 w-4 h-4 bg-orange-600 rounded-full border-2 border-card flex items-center justify-center" title={companyName}>
+   245→                <span className="text-white font-bold text-[7px]">{getCompanyInitial({ name: companyName })}</span>
+   246→              </span>
+   247→            )}
+   248→          </div>
+   249→          <div className="min-w-0 flex-1">
+   250→            <p className="text-sm font-semibold truncate text-foreground">{displayName}</p>
+   251→            {companyName && (
+   252→              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{companyName}</p>
+   253→            )}
+   254→            <div className="flex items-center gap-1.5 mt-0.5">
+   255→              <Badge
+   256→                variant="secondary"
+   257→                className={`text-[10px] px-1.5 py-0 font-semibold border-0 ${badgeConfig.className}`}
+   258→              >
+   259→                {badgeConfig.label}
+   260→              </Badge>
+   261→              {isVerified && (
+   262→                <span className="flex items-center gap-0.5 text-[10px] text-orange-600 font-medium">
+   263→                  <Verified className="w-3 h-3" /> Verified
+   264→                </span>
+   265→              )}
+   266→            </div>
+   267→          </div>
+   268→        </div>
+   269→      </div>
+   270→
+   271→      <Separator className="opacity-40" />
+   272→
+   273→      {/* ── Navigation ── */}
+   274→      <ScrollArea className="flex-1 px-3 py-2">
+   275→        <nav className="space-y-5">
+   276→          {navSections.map((section) => (
+   277→            <div key={section.label}>
+   278→              <p className="px-3 mb-1.5 text-[10px] font-bold tracking-[0.12em] text-muted-foreground/70 uppercase select-none">
+   279→                {section.label}
+   280→              </p>
+   281→              <div className="space-y-0.5">
+   282→                {section.items.map((item) => {
+   283→                  const Icon = item.icon;
+   284→                  const isActive =
+   285→                    view === item.id ||
+   286→                    (item.id === 'tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare' || view === 'bid-analysis')) ||
+   287→                    (item.id === 'projects' && view === 'project-detail');
+   288→
+   289→                  return (
+   290→                    <button
+   291→                      key={item.id}
+   292→                      onClick={() => setView(item.id as View)}
+   293→                      className={`
+   294→                        group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
+   295→                        transition-all duration-150 relative
+   296→                        ${
+   297→                          isActive
+   298→                            ? 'bg-primary/10 text-primary border-l-[3px] border-primary pl-[9px] font-semibold'
+   299→                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border-l-[3px] border-transparent pl-[9px]'
+   300→                        }
+   301→                      `}
+   302→                    >
+   303→                      <Icon
+   304→                        className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
+   305→                          isActive ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-primary'
+   306→                        }`}
+   307→                      />
+   308→                      <span className="truncate flex-1 text-left">{item.label}</span>
+   309→                      {item.id === 'chat' && unreadCount > 0 && (
+   310→                        <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-red-200">
+   311→                          {unreadCount > 99 ? '99+' : unreadCount}
+   312→                        </span>
+   313→                      )}
+   314→                      {isActive && (
+   315→                        <ChevronRight className="h-3.5 w-3.5 ml-auto flex-shrink-0 text-primary" />
+   316→                      )}
+   317→                    </button>
+   318→                  );
+   319→                })}
+   320→              </div>
+   321→            </div>
+   322→          ))}
+   323→        </nav>
+   324→      </ScrollArea>
+   325→
+   326→      {/* ── Bottom Section ── */}
+   327→      <div className="px-4 pb-4 pt-2 space-y-3">
+   328→        {/* Sign Out */}
+   329→        <Button
+   330→          variant="ghost"
+   331→          size="sm"
+   332→          className="w-full justify-start text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+   333→          onClick={logout}
+   334→        >
+   335→          <LogOut className="h-4 w-4 mr-2" />
+   336→          Sign Out
+   337→        </Button>
+   338→      </div>
+   339→    </div>
+   340→  );
+   341→}
+   342→
+   343→/* ──────────────────── NotificationDropdown ──────────────────── */
+   344→
+   345→function NotificationDropdown({
+   346→  notifications,
+   347→  onMarkAsRead,
+   348→  onMarkAllRead,
+   349→}: {
+   350→  notifications: { id: string; title: string; message: string; type: string; read: boolean; createdAt: string }[];
+   351→  onMarkAsRead: (id: string) => void;
+   352→  onMarkAllRead: () => void;
+   353→}) {
+   354→  const [open, setOpen] = useState(false);
+   355→  const unread = useMemo(() => notifications.filter((n) => !n.read), [notifications]);
+   356→  const displayItems = useMemo(() => unread.slice(0, 6), [unread]);
+   357→
+   358→  return (
+   359→    <Popover open={open} onOpenChange={setOpen}>
+   360→      <PopoverTrigger asChild>
+   361→        <Button variant="ghost" size="icon" className="relative h-9 w-9 hover:bg-muted/80 transition-colors">
+   362→          <Bell className="h-[18px] w-[18px] text-muted-foreground" />
+   363→          {unread.length > 0 && (
+   364→            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm shadow-red-200 animate-in zoom-in-50 duration-200">
+   365→              {unread.length > 99 ? '99+' : unread.length}
+   366→            </span>
+   367→          )}
+   368→        </Button>
+   369→      </PopoverTrigger>
+   370→      <PopoverContent
+   371→        className="w-80 p-0 glass-card rounded-xl overflow-hidden animate-in slide-in-from-top-2 fade-in-0 duration-200"
+   372→        align="end"
+   373→        sideOffset={8}
+   374→      >
+   375→        {/* Header */}
+   376→        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+   377→          <div className="flex items-center gap-2">
+   378→            <h4 className="text-sm font-bold text-foreground">Notifications</h4>
+   379→            {unread.length > 0 && (
+   380→              <Badge className="text-[10px] px-1.5 py-0 bg-red-500 text-white font-bold border-0">
+   381→                {unread.length}
+   382→              </Badge>
+   383→            )}
+   384→          </div>
+   385→          {unread.length > 0 && (
+   386→            <Button
+   387→              variant="ghost"
+   388→              size="sm"
+   389→              className="text-[11px] h-7 px-2 text-primary hover:text-primary/80 hover:bg-primary/10 font-semibold"
+   390→              onClick={onMarkAllRead}
+   391→            >
+   392→              <Check className="h-3 w-3 mr-1" /> Mark all read
+   393→            </Button>
+   394→          )}
+   395→        </div>
+   396→
+   397→        {/* Items */}
+   398→        <ScrollArea className="max-h-[340px]">
+   399→          {displayItems.length === 0 ? (
+   400→            <div className="py-8 text-center">
+   401→              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center">
+   402→                <CheckCircle className="h-6 w-6 text-orange-400" />
+   403→              </div>
+   404→              <p className="text-sm font-medium text-muted-foreground">All caught up!</p>
+   405→              <p className="text-xs text-muted-foreground/60 mt-0.5">No new notifications</p>
+   406→            </div>
+   407→          ) : (
+   408→            <div className="divide-y divide-border/40">
+   409→              {displayItems.map((n, i) => {
+   410→                const Icon = NOTIFICATION_ICONS[n.type] || Info;
+   411→                const colorClass = NOTIFICATION_COLORS[n.type] || 'text-gray-500';
+   412→                const bgClass = NOTIFICATION_BG[n.type] || 'bg-gray-50';
+   413→                return (
+   414→                  <button
+   415→                    key={n.id}
+   416→                    onClick={() => {
+   417→                      onMarkAsRead(n.id);
+   418→                      setOpen(false);
+   419→                    }}
+   420→                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left group"
+   421→                    style={{ animationDelay: `${i * 40}ms` }}
+   422→                  >
+   423→                    <div
+   424→                      className={`w-8 h-8 rounded-lg ${bgClass} flex items-center justify-center flex-shrink-0 mt-0.5 transition-transform group-hover:scale-110`}
+   425→                    >
+   426→                      <Icon className={`h-4 w-4 ${colorClass}`} />
+   427→                    </div>
+   428→                    <div className="min-w-0 flex-1">
+   429→                      <p className="text-[13px] font-semibold truncate text-foreground">{n.title}</p>
+   430→                      <p className="text-[11px] text-muted-foreground truncate mt-0.5 leading-relaxed">{n.message}</p>
+   431→                      <p className="text-[10px] text-muted-foreground/50 mt-1 font-medium">{relativeTime(n.createdAt)}</p>
+   432→                    </div>
+   433→                    <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 mt-2 ring-2 ring-orange-100 dark:ring-orange-900/40" />
+   434→                  </button>
+   435→                );
+   436→              })}
+   437→            </div>
+   438→          )}
+   439→        </ScrollArea>
+   440→
+   441→        {/* Footer */}
+   442→        {notifications.length > 6 && (
+   443→          <div className="px-3 py-2 border-t border-border/40">
+   444→            <Button
+   445→              variant="ghost"
+   446→              size="sm"
+   447→              className="w-full text-[11px] text-muted-foreground hover:text-foreground font-medium"
+   448→              onClick={() => setOpen(false)}
+   449→            >
+   450→              View all notifications
+   451→            </Button>
+   452→          </div>
+   453→        )}
+   454→      </PopoverContent>
+   455→    </Popover>
+   456→  );
+   457→}
+   458→
+   459→/* ──────────────────────────── AppShell ──────────────────────────── */
+   460→
+   461→export function AppShell() {
+   462→  const { user, company, logout } = useAuthStore();
+   463→  const { view, viewParams, setView } = useNavStore();
+   464→  const { fetchNotifications, notifications } = useDataStore();
+   465→  const role = user?.role || 'user';
+   466→  const navSections = useMemo(() => getNavItemsForRole(role), [role]);
+   467→  const unreadCount = notifications.filter((n) => !n.read).length;
+   468→
+   469→  // Flat list for title lookup
+   470→  const allNavItems = useMemo(
+   471→    () => navSections.flatMap((s) => s.items),
+   472→    [navSections]
+   473→  );
+   474→
+   475→  useEffect(() => {
+   476→    fetchNotifications();
+   477→  }, [fetchNotifications]);
+   478→
+   479→  const handleMarkAsRead = async (id: string) => {
+   480→    await api.patch(`/notifications/${id}`, { read: true });
+   481→    fetchNotifications();
+   482→  };
+   483→
+   484→  const handleMarkAllRead = async () => {
+   485→    const unread = notifications.filter((n) => !n.read);
+   486→    await Promise.all(unread.map((n) => api.patch(`/notifications/${n.id}`, { read: true })));
+   487→    fetchNotifications();
+   488→  };
+   489→
+   490→  const renderView = () => {
+   491→    switch (view) {
+   492→      case 'dashboard':
+   493→        return <DashboardView />;
+   494→      case 'tenders':
+   495→        return <TendersView />;
+   496→      case 'live-tenders':
+   497→        return <LiveTendersView />;
+   498→      case 'tender-detail':
+   499→        return <TenderDetailView tenderId={viewParams.id} initialTab={viewParams.tab as any} />;
+   500→      case 'tender-compare':
+   501→        return <TenderCompareView tenderIds={viewParams.ids} />;
+   502→      case 'bid-compare':
+   503→        return <BidCompareView tenderId={viewParams.tenderId} />;
+   504→      case 'bid-analysis':
+   505→        return <BidsView />;
+   506→      case 'bids':
+   507→        return <BidsView />;
+   508→      case 'applicants':
+   509→        return <ApplicantsView />;
+   510→      case 'projects':
+   511→        return <ProjectsView />;
+   512→      case 'project-detail':
+   513→        return <ProjectDetailView projectId={viewParams.id} />;
+   514→      case 'chat':
+   515→        return <ChatView chatId={viewParams.id} />;
+   516→      case 'finance':
+   517→        return <ProjectDetailView projectId={viewParams.id} />;
+   518→      case 'events':
+   519→        return <EventsView />;
+   520→      case 'profile':
+   521→        return <ProfileView />;
+   522→      case 'company-settings':
+   523→        return <ProfileView />;
+   524→      case 'documents':
+   525→        return <DocumentsView />;
+   526→      case 'agent':
+   527→        return <AgentView />;
+   528→      case 'staff':
+   529→        return <StaffView />;
+   530→      case 'contact-us':
+   531→        return <ContactUsView />;
+   532→      case 'privacy-policy':
+   533→        return <PrivacyPolicyView />;
+   534→      default:
+   535→        return <DashboardView />;
+   536→    }
+   537→  };
+   538→
+   539→  const pageTitle = allNavItems.find((i) => i.id === view)?.label
+   540→    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : 'Dashboard');
+   541→  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' || view === 'bid-analysis' ? 'Tenders' : view === 'tender-compare' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
+   542→
+   543→  const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
+   544→  const companyName = company?.name || user?.company?.name;
+   545→
+   546→  const sidebarProps = { user, role, company, navSections, view, setView, unreadCount, logout };
+   547→
+   548→  return (
+   549→    <div className="min-h-screen flex bg-background">
+   550→      {/* ── Desktop Sidebar ── */}
+   551→      <aside className="hidden md:flex w-[260px] bg-card border-r border-border/50 flex-col flex-shrink-0 sidebar-shadow">
+   552→        <SidebarContent {...sidebarProps} />
+   553→      </aside>
+   554→
+   555→      {/* ── Main Area ── */}
+   556→      <div className="flex-1 flex flex-col min-w-0">
+   557→        {/* ── Top Bar ── */}
+   558→        <header className="h-14 bg-background/80 backdrop-blur-md border-b border-border/50 flex items-center px-4 gap-3 flex-shrink-0 sticky top-0 z-30">
+   559→          {/* Mobile hamburger */}
+   560→          <Sheet>
+   561→            <SheetTrigger asChild>
+   562→              <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 hover:bg-muted/80">
+   563→                <Menu className="h-5 w-5 text-muted-foreground" />
+   564→              </Button>
+   565→            </SheetTrigger>
+   566→            <SheetContent side="left" className="p-0 w-[260px]">
+   567→              <SidebarContent {...sidebarProps} />
+   568→            </SheetContent>
+   569→          </Sheet>
+   570→
+   571→          {/* Page Title & Breadcrumb */}
+   572→          <div className="flex-1 min-w-0 flex items-center gap-1.5">
+   573→            {breadcrumb && (
+   574→              <>
+   575→                <span className="text-sm text-muted-foreground/60 font-medium hidden sm:inline">
+   576→                  {breadcrumb}
+   577→                </span>
+   578→                <ChevronRight className="h-3 w-3 text-muted-foreground/40 hidden sm:inline" />
+   579→              </>
+   580→            )}
+   581→            <h1 className="text-base font-bold truncate text-foreground">{pageTitle}</h1>
+   582→          </div>
+   583→
+   584→          {/* Right Actions */}
+   585→          <div className="flex items-center gap-1">
+   586→            {/* Search */}
+   587→            <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted/80 transition-colors">
+   588→              <Search className="h-[18px] w-[18px] text-muted-foreground" />
+   589→            </Button>
+   590→
+   591→            {/* Theme Toggle */}
+   592→            <ThemeToggle />
+   593→
+   594→            {/* Notifications */}
+   595→            <NotificationDropdown
+   596→              notifications={notifications}
+   597→              onMarkAsRead={handleMarkAsRead}
+   598→              onMarkAllRead={handleMarkAllRead}
+   599→            />
+   600→
+   601→            {/* User Avatar Dropdown */}
+   602→            <DropdownMenu>
+   603→              <DropdownMenuTrigger asChild>
+   604→                <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted/80 transition-colors ml-0.5">
+   605→                  <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shadow-sm shadow-slate-200">
+   606→                    <span className="text-white font-bold text-[11px]">{getUserInitial(user)}</span>
+   607→                  </div>
+   608→                </Button>
+   609→              </DropdownMenuTrigger>
+   610→              <DropdownMenuContent align="end" className="w-56">
+   611→                <DropdownMenuLabel className="font-normal">
+   612→                  <div className="flex flex-col space-y-1">
+   613→                    <div className="flex items-center gap-2">
+   614→                      <p className="text-sm font-medium leading-none">{user?.profile?.fullName || user?.email || 'User'}</p>
+   615→                      <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 font-semibold border-0 ${badgeConfig.className}`}>
+   616→                        {badgeConfig.label}
+   617→                      </Badge>
+   618→                    </div>
+   619→                    <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+   620→                    {companyName && (
+   621→                      <p className="text-[11px] leading-none text-muted-foreground/70 flex items-center gap-1">
+   622→                        <Building2 className="w-3 h-3" /> {companyName}
+   623→                      </p>
+   624→                    )}
+   625→                  </div>
+   626→                </DropdownMenuLabel>
+   627→                <DropdownMenuSeparator />
+   628→                <DropdownMenuItem onClick={() => setView('profile' as View)} className="cursor-pointer">
+   629→                  <User className="mr-2 h-4 w-4" />
+   630→                  <span>Profile</span>
+   631→                </DropdownMenuItem>
+   632→                <DropdownMenuItem onClick={() => setView('documents' as View)} className="cursor-pointer">
+   633→                  <FileText className="mr-2 h-4 w-4" />
+   634→                  <span>Documents</span>
+   635→                </DropdownMenuItem>
+   636→                <DropdownMenuSeparator />
+   637→                <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30">
+   638→                  <LogOut className="mr-2 h-4 w-4" />
+   639→                  <span>Sign Out</span>
+   640→                </DropdownMenuItem>
+   641→              </DropdownMenuContent>
+   642→            </DropdownMenu>
+   643→          </div>
+   644→        </header>
+   645→
+   646→        {/* ── Content Area ── */}
+   647→        <main className="flex-1 overflow-auto">
+   648→          <div key={view} className="view-enter">
+   649→            <Suspense fallback={<ViewLoader />}>
+   650→              {renderView()}
+   651→            </Suspense>
+   652→          </div>
+   653→        </main>
+   654→      </div>
+   655→    </div>
+   656→  );
+   657→}
+   658→

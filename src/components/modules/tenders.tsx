@@ -685,7 +685,7 @@ export function TendersView() {
           </div>
           <div>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-              <span className="text-gradient-emerald">World Bank</span> Tenders
+              <span className="text-gradient-emerald">My</span> Tenders
             </h2>
             <p className="text-muted-foreground text-sm mt-0.5">Explore published tender opportunities by sector — click to apply</p>
           </div>
