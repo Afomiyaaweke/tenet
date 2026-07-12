@@ -1,0 +1,1748 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api } from '@/lib/api';
+     6→import { Card, CardContent } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import {
+    11→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    12→} from '@/components/ui/select';
+    13→import {
+    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→} from '@/components/ui/table';
+    16→import {
+    17→  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+    18→} from '@/components/ui/dropdown-menu';
+    19→import { toast } from 'sonner';
+    20→import {
+    21→  Users, Building2, DollarSign, FileSearch, Download, Search,
+    22→  ArrowUpDown, ArrowUp, ArrowDown, Filter, Eye, ChevronDown,
+    23→  ChevronUp, ChevronLeft, ChevronRight, Briefcase, MapPin,
+    24→  Phone, Mail, Clock, ShieldCheck, ShieldAlert, ShieldQuestion,
+    25→  Gavel, FileSpreadsheet, LayoutGrid, List, TrendingUp,
+    26→  Calendar, Tag, CheckCircle, XCircle, CircleDot, Award,
+    27→  Ban, ClipboardCheck, MoreHorizontal, ExternalLink, Sparkles,
+    28→  RefreshCw, Columns3, CheckSquare, Square, Timer, Lock,
+    29→  Hourglass,
+    30→  FileText, ScanSearch, Brain, Upload, FileCheck, FileX,
+    31→  Loader2, AlertTriangle, X, CheckCircle2, Info, ThumbsUp,
+    32→  ThumbsDown, AlertOctagon, BarChart3,
+    33→} from 'lucide-react';
+    34→
+    35→// ─── Types ────────────────────────────────────────────────────────────
+    36→
+    37→interface ApplicantRow {
+    38→  id: string;
+    39→  tenderId: string;
+    40→  tenderTitle: string;
+    41→  tenderStatus: string;
+    42→  tenderBudgetMin: number;
+    43→  tenderBudgetMax: number;
+    44→  tenderDeadline: string;
+    45→  tenderLocation: string;
+    46→  categoryTags: string;
+    47→  applicantId: string;
+    48→  applicantName: string;
+    49→  applicantEmail: string;
+    50→  applicantPhone: string;
+    51→  applicantJobTitle: string;
+    52→  applicantLocation: string;
+    53→  applicantSkills: string;
+    54→  applicantVerified: boolean;
+    55→  applicantLicense: string;
+    56→  applicantTin: string;
+    57→  companyId: string;
+    58→  companyName: string;
+    59→  companyIndustry: string;
+    60→  companyVerified: boolean;
+    61→  companyRegistration: string;
+    62→  companyTin: string;
+    63→  companyCity: string;
+    64→  companyCountry: string;
+    65→  financialProposal: number;
+    66→  timeline: string;
+    67→  technicalProposal: string;
+    68→  attachments: string;
+    69→  bidStatus: string;
+    70→  rejectionNote: string;
+    71→  submittedAt: string;
+    72→  documents: Array<{
+    73→    id: string;
+    74→    fileName: string;
+    75→    docType: string;
+    76→    fileUrl: string;
+    77→    status: string;
+    78→    ocrStatus: string; // 'none' | 'processing' | 'completed' | 'failed'
+    79→    ocrProcessedAt: string | null;
+    80→    aiReviewStatus: string; // 'none' | 'processing' | 'completed' | 'failed'
+    81→    aiReviewProcessedAt: string | null;
+    82→    createdAt: string;
+    83→  }>;
+    84→  requiredDocs: string;
+    85→}
+    86→
+    87→interface ApplicantMeta {
+    88→  page: number;
+    89→  limit: number;
+    90→  total: number;
+    91→  totalPages: number;
+    92→  statusCounts: Record<string, number>;
+    93→  totalBudgetSum: number;
+    94→  uniqueTenders: number;
+    95→  uniqueCompanies: number;
+    96→}
+    97→
+    98→interface TenderInfo {
+    99→  id: string;
+   100→  title: string;
+   101→  deadline: string;
+   102→  status: string;
+   103→  bidCount: number;
+   104→}
+   105→
+   106→type SortField = keyof ApplicantRow;
+   107→type SortDir = 'asc' | 'desc';
+   108→type ViewMode = 'table' | 'cards';
+   109→type NavView = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin';
+   110→
+   111→// ─── Column definitions ───────────────────────────────────────────────
+   112→
+   113→interface ColumnDef {
+   114→  key: keyof ApplicantRow;
+   115→  label: string;
+   116→  group: string;
+   117→  width?: string;
+   118→  sortable?: boolean;
+   119→  defaultVisible?: boolean;
+   120→}
+   121→
+   122→const COLUMNS: ColumnDef[] = [
+   123→  // Applicant Info
+   124→  { key: 'applicantName', label: 'Applicant', group: 'Applicant', width: '180px', sortable: true, defaultVisible: true },
+   125→  { key: 'applicantEmail', label: 'Email', group: 'Applicant', width: '200px', sortable: true, defaultVisible: true },
+   126→  { key: 'applicantPhone', label: 'Phone', group: 'Applicant', width: '130px', sortable: false, defaultVisible: false },
+   127→  { key: 'applicantJobTitle', label: 'Job Title', group: 'Applicant', width: '140px', sortable: true, defaultVisible: false },
+   128→  { key: 'applicantLocation', label: 'Location', group: 'Applicant', width: '120px', sortable: true, defaultVisible: false },
+   129→  { key: 'applicantSkills', label: 'Skills', group: 'Applicant', width: '180px', sortable: false, defaultVisible: false },
+   130→  { key: 'applicantVerified', label: 'Verified', group: 'Applicant', width: '80px', sortable: true, defaultVisible: true },
+   131→  { key: 'applicantLicense', label: 'License #', group: 'Applicant', width: '120px', sortable: false, defaultVisible: false },
+   132→  { key: 'applicantTin', label: 'TIN', group: 'Applicant', width: '120px', sortable: false, defaultVisible: false },
+   133→  // Company Info
+   134→  { key: 'companyName', label: 'Company', group: 'Company', width: '180px', sortable: true, defaultVisible: true },
+   135→  { key: 'companyIndustry', label: 'Industry', group: 'Company', width: '120px', sortable: true, defaultVisible: false },
+   136→  { key: 'companyVerified', label: 'Co. Verified', group: 'Company', width: '100px', sortable: true, defaultVisible: false },
+   137→  { key: 'companyRegistration', label: 'Reg. #', group: 'Company', width: '120px', sortable: false, defaultVisible: false },
+   138→  { key: 'companyTin', label: 'Co. TIN', group: 'Company', width: '120px', sortable: false, defaultVisible: false },
+   139→  { key: 'companyCity', label: 'City', group: 'Company', width: '100px', sortable: true, defaultVisible: false },
+   140→  { key: 'companyCountry', label: 'Country', group: 'Company', width: '100px', sortable: true, defaultVisible: false },
+   141→  // Tender Info
+   142→  { key: 'tenderTitle', label: 'Tender', group: 'Tender', width: '220px', sortable: true, defaultVisible: true },
+   143→  { key: 'tenderStatus', label: 'T. Status', group: 'Tender', width: '100px', sortable: true, defaultVisible: false },
+   144→  { key: 'tenderBudgetMin', label: 'Budget Min', group: 'Tender', width: '120px', sortable: true, defaultVisible: false },
+   145→  { key: 'tenderBudgetMax', label: 'Budget Max', group: 'Tender', width: '120px', sortable: true, defaultVisible: false },
+   146→  { key: 'tenderDeadline', label: 'Deadline', group: 'Tender', width: '120px', sortable: true, defaultVisible: false },
+   147→  { key: 'tenderLocation', label: 'T. Location', group: 'Tender', width: '120px', sortable: true, defaultVisible: false },
+   148→  { key: 'categoryTags', label: 'Categories', group: 'Tender', width: '150px', sortable: false, defaultVisible: false },
+   149→  // Bid Details
+   150→  { key: 'financialProposal', label: 'Bid Amount', group: 'Bid', width: '130px', sortable: true, defaultVisible: true },
+   151→  { key: 'timeline', label: 'Timeline', group: 'Bid', width: '100px', sortable: true, defaultVisible: true },
+   152→  { key: 'bidStatus', label: 'Status', group: 'Bid', width: '120px', sortable: true, defaultVisible: true },
+   153→  { key: 'submittedAt', label: 'Submitted', group: 'Bid', width: '130px', sortable: true, defaultVisible: true },
+   154→  { key: 'technicalProposal', label: 'Technical', group: 'Bid', width: '200px', sortable: false, defaultVisible: false },
+   155→  { key: 'rejectionNote', label: 'Rejection Note', group: 'Bid', width: '180px', sortable: false, defaultVisible: false },
+   156→];
+   157→
+   158→// ─── Helpers ──────────────────────────────────────────────────────────
+   159→
+   160→function formatCurrency(amount: number): string {
+   161→  return new Intl.NumberFormat('en-ET', { style: 'currency', currency: 'ETB', maximumFractionDigits: 0 }).format(amount);
+   162→}
+   163→
+   164→function formatDate(dateStr: string): string {
+   165→  if (!dateStr) return '—';
+   166→  return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+   167→}
+   168→
+   169→function daysUntil(dateStr: string): number {
+   170→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+   171→}
+   172→
+   173→const STATUS_CONFIG: Record<string, { className: string; icon: React.ElementType; label: string }> = {
+   174→  pending_review: { className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', icon: Clock, label: 'Pending Review' },
+   175→  shortlisted: { className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', icon: ClipboardCheck, label: 'Shortlisted' },
+   176→  awarded: { className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', icon: Award, label: 'Awarded' },
+   177→  rejected: { className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', icon: Ban, label: 'Rejected' },
+   178→};
+   179→
+   180→const TENDER_STATUS_CONFIG: Record<string, { className: string; label: string }> = {
+   181→  draft: { className: 'bg-gray-100 text-gray-700', label: 'Draft' },
+   182→  open: { className: 'bg-emerald-100 text-emerald-700', label: 'Open' },
+   183→  closed: { className: 'bg-amber-100 text-amber-700', label: 'Closed' },
+   184→  awarded: { className: 'bg-blue-100 text-blue-700', label: 'Awarded' },
+   185→  cancelled: { className: 'bg-red-100 text-red-700', label: 'Cancelled' },
+   186→};
+   187→
+   188→// ─── Main Component ───────────────────────────────────────────────────
+   189→
+   190→export function ApplicantsView() {
+   191→  const { user } = useAuthStore();
+   192→  const { setView } = useNavStore();
+   193→  const [rows, setRows] = useState<ApplicantRow[]>([]);
+   194→  const [meta, setMeta] = useState<ApplicantMeta | null>(null);
+   195→  const [openTenders, setOpenTenders] = useState<TenderInfo[]>([]);
+   196→  const [closedTenders, setClosedTenders] = useState<TenderInfo[]>([]);
+   197→  const [loading, setLoading] = useState(true);
+   198→  const [search, setSearch] = useState('');
+   199→  const [statusFilter, setStatusFilter] = useState<string>('all');
+   200→  const [tenderFilter, setTenderFilter] = useState<string>('all');
+   201→  const [sortField, setSortField] = useState<SortField>('submittedAt');
+   202→  const [sortDir, setSortDir] = useState<SortDir>('desc');
+   203→  const [viewMode, setViewMode] = useState<ViewMode>('table');
+   204→  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+   205→  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() =>
+   206→    new Set(COLUMNS.filter(c => c.defaultVisible).map(c => c.key))
+   207→  );
+   208→  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+   209→  const [page, setPage] = useState(1);
+   210→  const PAGE_SIZE = 50;
+   211→
+   212→  // ─── Document / OCR / AI Review state ───────────────────────────
+   213→  const [docUploadBidId, setDocUploadBidId] = useState<string | null>(null);
+   214→  const [ocrLoading, setOcrLoading] = useState<Set<string>>(new Set());
+   215→  const [reviewLoading, setReviewLoading] = useState<Set<string>>(new Set());
+   216→  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
+   217→  const [viewingDocType, setViewingDocType] = useState<'ocr' | 'review'>('ocr');
+   218→  const [docOcrText, setDocOcrText] = useState<Record<string, string>>({});
+   219→  const [docReview, setDocReview] = useState<Record<string, Record<string, unknown>>>({});
+   220→
+   221→  // Fetch data
+   222→  const fetchData = useCallback(async () => {
+   223→    setLoading(true);
+   224→    try {
+   225→      const params: Record<string, string> = {
+   226→        page: String(page),
+   227→        limit: String(PAGE_SIZE),
+   228→      };
+   229→      if (search) params.search = search;
+   230→      if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+   231→      if (tenderFilter && tenderFilter !== 'all') params.tenderId = tenderFilter;
+   232→
+   233→      const res = await api.get('/applicants', params);
+   234→      if (res.success) {
+   235→        setRows(res.data);
+   236→        setMeta(res.meta);
+   237→        setOpenTenders(res.openTenders || []);
+   238→        setClosedTenders(res.closedTenders || []);
+   239→      }
+   240→    } catch (err) {
+   241→      console.error('Fetch applicants error:', err);
+   242→      toast.error('Failed to load applicants');
+   243→    } finally {
+   244→      setLoading(false);
+   245→    }
+   246→  }, [page, search, statusFilter, tenderFilter]);
+   247→
+   248→  useEffect(() => {
+   249→    fetchData();
+   250→  }, [fetchData]);
+   251→
+   252→  // ─── Document handlers ──────────────────────────────────────────
+   253→  const handleDocUpload = useCallback(async (bidId: string, file: File) => {
+   254→    const formData = new FormData();
+   255→    formData.append('file', file);
+   256→    formData.append('docType', 'bid_attachment');
+   257→    formData.append('autoOcr', 'true');
+   258→    try {
+   259→      const res = await api.upload(`/bids/${bidId}/documents`, formData);
+   260→      if (res.success) {
+   261→        toast.success('Document uploaded successfully');
+   262→        fetchData();
+   263→      } else {
+   264→        toast.error(res.message || 'Upload failed');
+   265→      }
+   266→    } catch {
+   267→      toast.error('Upload failed');
+   268→    } finally {
+   269→      setDocUploadBidId(null);
+   270→    }
+   271→  }, [fetchData]);
+   272→
+   273→  const handleRunOcr = useCallback(async (docId: string) => {
+   274→    setOcrLoading(prev => new Set(prev).add(docId));
+   275→    try {
+   276→      await api.post(`/document-ocr/${docId}`);
+   277→      // Poll for completion
+   278→      const poll = async (attempts = 0): Promise<void> => {
+   279→        if (attempts > 30) {
+   280→          toast.error('OCR processing timed out');
+   281→          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   282→          return;
+   283→        }
+   284→        await new Promise(r => setTimeout(r, 2000));
+   285→        const res = await api.get(`/document-ocr/${docId}`);
+   286→        if (res.success && res.data?.ocrStatus === 'completed') {
+   287→          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   288→          setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
+   289→          fetchData();
+   290→          toast.success('OCR completed');
+   291→        } else if (res.success && res.data?.ocrStatus === 'failed') {
+   292→          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   293→          toast.error('OCR processing failed');
+   294→          fetchData();
+   295→        } else {
+   296→          await poll(attempts + 1);
+   297→        }
+   298→      };
+   299→      poll();
+   300→    } catch {
+   301→      setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   302→      toast.error('Failed to start OCR');
+   303→    }
+   304→  }, [fetchData]);
+   305→
+   306→  const handleRunReview = useCallback(async (docId: string) => {
+   307→    setReviewLoading(prev => new Set(prev).add(docId));
+   308→    try {
+   309→      await api.post(`/document-review/${docId}`);
+   310→      // Poll for completion
+   311→      const poll = async (attempts = 0): Promise<void> => {
+   312→        if (attempts > 30) {
+   313→          toast.error('AI Review processing timed out');
+   314→          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   315→          return;
+   316→        }
+   317→        await new Promise(r => setTimeout(r, 2000));
+   318→        const res = await api.get(`/document-review/${docId}`);
+   319→        if (res.success && res.data?.aiReviewStatus === 'completed') {
+   320→          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   321→          let reviewData = res.data.aiReview || {};
+   322→          if (typeof reviewData === 'string') {
+   323→            try { reviewData = JSON.parse(reviewData); } catch { reviewData = { summary: reviewData }; }
+   324→          }
+   325→          setDocReview(prev => ({ ...prev, [docId]: reviewData }));
+   326→          fetchData();
+   327→          toast.success('AI Review completed');
+   328→        } else if (res.success && res.data?.aiReviewStatus === 'failed') {
+   329→          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   330→          toast.error('AI Review processing failed');
+   331→          fetchData();
+   332→        } else {
+   333→          await poll(attempts + 1);
+   334→        }
+   335→      };
+   336→      poll();
+   337→    } catch {
+   338→      setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   339→      toast.error('Failed to start AI Review');
+   340→    }
+   341→  }, [fetchData]);
+   342→
+   343→  const handleViewDocDetail = useCallback(async (docId: string, type: 'ocr' | 'review') => {
+   344→    if (viewingDocId === docId && viewingDocType === type) {
+   345→      // Toggle off
+   346→      setViewingDocId(null);
+   347→      return;
+   348→    }
+   349→    setViewingDocId(docId);
+   350→    setViewingDocType(type);
+   351→    try {
+   352→      if (type === 'ocr' && !docOcrText[docId]) {
+   353→        const res = await api.get(`/document-ocr/${docId}`);
+   354→        if (res.success) {
+   355→          setDocOcrText(prev => ({ ...prev, [docId]: res.data?.ocrText || '' }));
+   356→        }
+   357→      } else if (type === 'review' && !docReview[docId]) {
+   358→        const res = await api.get(`/document-review/${docId}`);
+   359→        if (res.success) {
+   360→          let reviewData = res.data?.aiReview || {};
+   361→          // aiReview may come as a JSON string from the API - parse it
+   362→          if (typeof reviewData === 'string') {
+   363→            try {
+   364→              reviewData = JSON.parse(reviewData);
+   365→            } catch {
+   366→              reviewData = { summary: reviewData };
+   367→            }
+   368→          }
+   369→          setDocReview(prev => ({ ...prev, [docId]: reviewData }));
+   370→        }
+   371→      }
+   372→    } catch {
+   373→      toast.error('Failed to load document details');
+   374→    }
+   375→  }, [viewingDocId, viewingDocType, docOcrText, docReview]);
+   376→
+   377→  const closeDocDetail = useCallback(() => {
+   378→    setViewingDocId(null);
+   379→  }, []);
+   380→
+   381→  // Get unique tenders for filter dropdown (from closedTenders API data)
+   382→  const tenderOptions = useMemo(() => {
+   383→    return closedTenders.map(t => [t.id, t.title] as [string, string]);
+   384→  }, [closedTenders]);
+   385→
+   386→  // Sorted rows (client-side sorting on current page)
+   387→  const sortedRows = useMemo(() => {
+   388→    const copy = [...rows];
+   389→    copy.sort((a, b) => {
+   390→      const aVal = a[sortField];
+   391→      const bVal = b[sortField];
+   392→      if (aVal === bVal) return 0;
+   393→      if (aVal == null) return 1;
+   394→      if (bVal == null) return -1;
+   395→      let cmp = 0;
+   396→      if (typeof aVal === 'number' && typeof bVal === 'number') {
+   397→        cmp = aVal - bVal;
+   398→      } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
+   399→        cmp = Number(aVal) - Number(bVal);
+   400→      } else {
+   401→        cmp = String(aVal).localeCompare(String(bVal));
+   402→      }
+   403→      return sortDir === 'asc' ? cmp : -cmp;
+   404→    });
+   405→    return copy;
+   406→  }, [rows, sortField, sortDir]);
+   407→
+   408→  // Visible columns
+   409→  const activeColumns = useMemo(
+   410→    () => COLUMNS.filter(c => visibleColumns.has(c.key)),
+   411→    [visibleColumns]
+   412→  );
+   413→
+   414→  // Column groups
+   415→  const columnGroups = useMemo(() => {
+   416→    const groups: Record<string, ColumnDef[]> = {};
+   417→    activeColumns.forEach(c => {
+   418→      if (!groups[c.group]) groups[c.group] = [];
+   419→      groups[c.group].push(c);
+   420→    });
+   421→    return groups;
+   422→  }, [activeColumns]);
+   423→
+   424→  // Toggle column visibility
+   425→  const toggleColumn = (key: string) => {
+   426→    setVisibleColumns(prev => {
+   427→      const next = new Set(prev);
+   428→      if (next.has(key)) next.delete(key);
+   429→      else next.add(key);
+   430→      return next;
+   431→    });
+   432→  };
+   433→
+   434→  // Toggle sort
+   435→  const handleSort = (field: SortField) => {
+   436→    if (sortField === field) {
+   437→      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+   438→    } else {
+   439→      setSortField(field);
+   440→      setSortDir('asc');
+   441→    }
+   442→  };
+   443→
+   444→  // Sort icon
+   445→  const SortIcon = ({ field }: { field: SortField }) => {
+   446→    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />;
+   447→    return sortDir === 'asc'
+   448→      ? <ArrowUp className="h-3 w-3 text-primary" />
+   449→      : <ArrowDown className="h-3 w-3 text-primary" />;
+   450→  };
+   451→
+   452→  // Export CSV
+   453→  const exportCSV = () => {
+   454→    if (!rows.length) return;
+   455→    const headers = activeColumns.map(c => c.label);
+   456→    const csvRows = rows.map(row =>
+   457→      activeColumns.map(c => {
+   458→        let val = row[c.key];
+   459→        if (typeof val === 'boolean') val = val ? 'Yes' : 'No';
+   460→        if (typeof val === 'number') val = val.toLocaleString();
+   461→        val = String(val || '');
+   462→        // Escape CSV
+   463→        if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+   464→          val = `"${val.replace(/"/g, '""')}"`;
+   465→        }
+   466→        return val;
+   467→      }).join(',')
+   468→    );
+   469→    const csv = [headers.join(','), ...csvRows].join('\n');
+   470→    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+   471→    const url = URL.createObjectURL(blob);
+   472→    const link = document.createElement('a');
+   473→    link.href = url;
+   474→    link.download = `applicants-export-${new Date().toISOString().slice(0, 10)}.csv`;
+   475→    link.click();
+   476→    URL.revokeObjectURL(url);
+   477→    toast.success('Spreadsheet exported successfully');
+   478→  };
+   479→
+   480→  // Stats
+   481→  const statusCounts = meta?.statusCounts || {};
+   482→  const totalApplicants = meta?.total || 0;
+   483→  const totalBudget = meta?.totalBudgetSum || 0;
+   484→  const uniqueTenders = meta?.uniqueTenders || 0;
+   485→  const uniqueCompanies = meta?.uniqueCompanies || 0;
+   486→
+   487→  // ─── Render ───────────────────────────────────────────────────────
+   488→
+   489→  return (
+   490→    <div className="flex flex-col gap-4 p-4 md:p-6">
+   491→      {/* Header */}
+   492→      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+   493→        <div className="flex items-center gap-3">
+   494→          <div className="p-2 rounded-xl bg-orange-100 dark:bg-orange-900/30">
+   495→            <FileSpreadsheet className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+   496→          </div>
+   497→          <div>
+   498→            <h1 className="text-xl font-bold">My Applicants</h1>
+   499→            <p className="text-sm text-muted-foreground">
+   500→              {totalApplicants > 0
+   501→                ? `${totalApplicants} applicant${totalApplicants !== 1 ? 's' : ''} across ${uniqueTenders} closed tender${uniqueTenders !== 1 ? 's' : ''}`
+   502→                : openTenders.length > 0
+   503→                  ? `${openTenders.length} tender${openTenders.length !== 1 ? 's' : ''} still accepting bids`
+   504→                  : 'Applicants for your published tenders'
+   505→              }
+   506→            </p>
+   507→          </div>
+   508→        </div>
+   509→        <div className="flex items-center gap-2">
+   510→          <Button variant="outline" size="sm" onClick={fetchData}>
+   511→            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+   512→            Refresh
+   513→          </Button>
+   514→          <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows.length}>
+   515→            <Download className="h-4 w-4 mr-1" />
+   516→            Export CSV
+   517→          </Button>
+   518→        </div>
+   519→      </div>
+   520→
+   521→      {/* Stats bar */}
+   522→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   523→        <Card className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/30 dark:to-background border-orange-200/50 dark:border-orange-800/30">
+   524→          <CardContent className="p-3 flex items-center gap-3">
+   525→            <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
+   526→              <Users className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+   527→            </div>
+   528→            <div>
+   529→              <p className="text-xs text-muted-foreground">Total Applicants</p>
+   530→              <p className="text-lg font-bold">{totalApplicants}</p>
+   531→            </div>
+   532→          </CardContent>
+   533→        </Card>
+   534→        <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/30 dark:to-background border-emerald-200/50 dark:border-emerald-800/30">
+   535→          <CardContent className="p-3 flex items-center gap-3">
+   536→            <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+   537→              <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+   538→            </div>
+   539→            <div>
+   540→              <p className="text-xs text-muted-foreground">Total Bid Value</p>
+   541→              <p className="text-lg font-bold">{formatCurrency(totalBudget)}</p>
+   542→            </div>
+   543→          </CardContent>
+   544→        </Card>
+   545→        <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/30 dark:to-background border-blue-200/50 dark:border-blue-800/30">
+   546→          <CardContent className="p-3 flex items-center gap-3">
+   547→            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+   548→              <FileSearch className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+   549→            </div>
+   550→            <div>
+   551→              <p className="text-xs text-muted-foreground">Tenders</p>
+   552→              <p className="text-lg font-bold">{uniqueTenders}</p>
+   553→            </div>
+   554→          </CardContent>
+   555→        </Card>
+   556→        <Card className="bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/30 dark:to-background border-violet-200/50 dark:border-violet-800/30">
+   557→          <CardContent className="p-3 flex items-center gap-3">
+   558→            <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
+   559→              <Building2 className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   560→            </div>
+   561→            <div>
+   562→              <p className="text-xs text-muted-foreground">Companies</p>
+   563→              <p className="text-lg font-bold">{uniqueCompanies}</p>
+   564→            </div>
+   565→          </CardContent>
+   566→        </Card>
+   567→      </div>
+   568→
+   569→      {/* Info banner: explain visibility rules */}
+   570→      <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/30">
+   571→        <CardContent className="p-3 flex items-start gap-3">
+   572→          <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+   573→          <div>
+   574→            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicants are visible only after the tender deadline closes</p>
+   575→            <p className="text-xs text-amber-700/70 dark:text-amber-400/60 mt-0.5">
+   576→              To protect bid integrity, applicant details remain sealed while your tender is still accepting bids.
+   577→              {closedTenders.length > 0 && ` You have ${closedTenders.length} closed tender${closedTenders.length !== 1 ? 's' : ''} with visible applicants.`}
+   578→              {openTenders.length > 0 && ` ${openTenders.length} tender${openTenders.length !== 1 ? 's' : ''} still open.`}
+   579→            </p>
+   580→          </div>
+   581→        </CardContent>
+   582→      </Card>
+   583→
+   584→      {/* Open tenders still accepting bids */}
+   585→      {openTenders.length > 0 && (
+   586→        <Card className="border-amber-200/60 dark:border-amber-800/30">
+   587→          <CardContent className="p-4">
+   588→            <div className="flex items-center gap-2 mb-3">
+   589→              <Hourglass className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+   590→              <h3 className="text-sm font-semibold">Tenders Still Accepting Bids</h3>
+   591→              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+   592→                {openTenders.length} open
+   593→              </Badge>
+   594→            </div>
+   595→            <p className="text-xs text-muted-foreground mb-3">
+   596→              Applicant details will be revealed here once each tender's deadline passes.
+   597→            </p>
+   598→            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+   599→              {openTenders.map(tender => {
+   600→                const daysLeft = daysUntil(tender.deadline);
+   601→                const urgency = daysLeft <= 3 ? 'text-red-600 bg-red-50 dark:bg-red-950/30' : daysLeft <= 7 ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/30' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30';
+   602→                return (
+   603→                  <div
+   604→                    key={tender.id}
+   605→                    className="flex items-center justify-between p-3 rounded-xl border bg-card hover:bg-muted/30 transition-colors cursor-pointer"
+   606→                    onClick={() => setView('tender-detail', { id: tender.id })}
+   607→                  >
+   608→                    <div className="min-w-0 flex-1">
+   609→                      <p className="text-sm font-medium truncate">{tender.title}</p>
+   610→                      <div className="flex items-center gap-2 mt-1">
+   611→                        <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-md ${urgency}`}>
+   612→                          <Timer className="h-3 w-3 mr-0.5" />
+   613→                          {daysLeft <= 0 ? 'Closing today' : `${daysLeft}d left`}
+   614→                        </Badge>
+   615→                        <span className="text-[10px] text-muted-foreground">
+   616→                          Deadline: {formatDate(tender.deadline)}
+   617→                        </span>
+   618→                      </div>
+   619→                    </div>
+   620→                    <div className="flex items-center gap-2 ml-3">
+   621→                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+   622→                        <Users className="h-3 w-3 mr-0.5" />
+   623→                        {tender.bidCount} bid{tender.bidCount !== 1 ? 's' : ''}
+   624→                      </Badge>
+   625→                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+   626→                    </div>
+   627→                  </div>
+   628→                );
+   629→              })}
+   630→            </div>
+   631→          </CardContent>
+   632→        </Card>
+   633→      )}
+   634→
+   635→      {/* Status filter pills */}
+   636→      <div className="flex items-center gap-2 flex-wrap">
+   637→        <span className="text-xs font-medium text-muted-foreground mr-1">Status:</span>
+   638→        {[
+   639→          { key: 'all', label: 'All', count: totalApplicants },
+   640→          { key: 'pending_review', label: 'Pending', count: statusCounts.pending_review || 0 },
+   641→          { key: 'shortlisted', label: 'Shortlisted', count: statusCounts.shortlisted || 0 },
+   642→          { key: 'awarded', label: 'Awarded', count: statusCounts.awarded || 0 },
+   643→          { key: 'rejected', label: 'Rejected', count: statusCounts.rejected || 0 },
+   644→        ].map(s => (
+   645→          <Button
+   646→            key={s.key}
+   647→            variant={statusFilter === s.key ? 'default' : 'outline'}
+   648→            size="sm"
+   649→            className={`h-7 text-xs ${statusFilter === s.key ? 'bg-primary text-primary-foreground' : ''}`}
+   650→            onClick={() => { setStatusFilter(s.key); setPage(1); }}
+   651→          >
+   652→            {s.label}
+   653→            <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
+   654→              {s.count}
+   655→            </Badge>
+   656→          </Button>
+   657→        ))}
+   658→      </div>
+   659→
+   660→      {/* Toolbar: search, view mode, column picker */}
+   661→      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+   662→        <div className="relative flex-1">
+   663→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   664→          <Input
+   665→            placeholder="Search applicants, companies, tenders..."
+   666→            className="pl-9 h-9"
+   667→            value={search}
+   668→            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+   669→          />
+   670→        </div>
+   671→        <div className="flex items-center gap-2">
+   672→          {/* View mode toggle */}
+   673→          <div className="flex items-center border rounded-lg overflow-hidden">
+   674→            <Button
+   675→              variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+   676→              size="sm"
+   677→              className="h-8 px-3 rounded-none"
+   678→              onClick={() => setViewMode('table')}
+   679→            >
+   680→              <List className="h-4 w-4" />
+   681→            </Button>
+   682→            <Button
+   683→              variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+   684→              size="sm"
+   685→              className="h-8 px-3 rounded-none"
+   686→              onClick={() => setViewMode('cards')}
+   687→            >
+   688→              <LayoutGrid className="h-4 w-4" />
+   689→            </Button>
+   690→          </div>
+   691→
+   692→          {/* Column picker */}
+   693→          <DropdownMenu open={columnMenuOpen} onOpenChange={setColumnMenuOpen}>
+   694→            <DropdownMenuTrigger asChild>
+   695→              <Button variant="outline" size="sm" className="h-8">
+   696→                <Columns3 className="h-4 w-4 mr-1" />
+   697→                Columns
+   698→              </Button>
+   699→            </DropdownMenuTrigger>
+   700→            <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+   701→              {['Applicant', 'Company', 'Tender', 'Bid'].map(group => (
+   702→                <div key={group}>
+   703→                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group}</div>
+   704→                  {COLUMNS.filter(c => c.group === group).map(c => (
+   705→                    <DropdownMenuItem
+   706→                      key={c.key}
+   707→                      className="flex items-center gap-2 cursor-pointer"
+   708→                      onSelect={(e) => { e.preventDefault(); toggleColumn(c.key); }}
+   709→                    >
+   710→                      {visibleColumns.has(c.key)
+   711→                        ? <CheckSquare className="h-3.5 w-3.5 text-primary" />
+   712→                        : <Square className="h-3.5 w-3.5 text-muted-foreground" />
+   713→                      }
+   714→                      <span className="text-sm">{c.label}</span>
+   715→                    </DropdownMenuItem>
+   716→                  ))}
+   717→                </div>
+   718→              ))}
+   719→              <div className="border-t mt-1 pt-1 px-2 flex gap-2">
+   720→                <Button
+   721→                  variant="ghost"
+   722→                  size="sm"
+   723→                  className="h-7 text-xs flex-1"
+   724→                  onClick={() => setVisibleColumns(new Set(COLUMNS.filter(c => c.defaultVisible).map(c => c.key)))}
+   725→                >
+   726→                  Reset
+   727→                </Button>
+   728→                <Button
+   729→                  variant="ghost"
+   730→                  size="sm"
+   731→                  className="h-7 text-xs flex-1"
+   732→                  onClick={() => setVisibleColumns(new Set(COLUMNS.map(c => c.key)))}
+   733→                >
+   734→                  Show All
+   735→                </Button>
+   736→              </div>
+   737→            </DropdownMenuContent>
+   738→          </DropdownMenu>
+   739→        </div>
+   740→      </div>
+   741→
+   742→      {/* Main content */}
+   743→      {loading && !rows.length ? (
+   744→        <div className="flex flex-col items-center justify-center py-20 gap-3">
+   745→          <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+   746→          <p className="text-sm text-muted-foreground">Loading applicants...</p>
+   747→        </div>
+   748→      ) : !rows.length ? (
+   749→        <Card>
+   750→          <CardContent className="py-16 flex flex-col items-center gap-4">
+   751→            <div className="p-4 rounded-2xl bg-muted/50">
+   752→              <Users className="h-10 w-10 text-muted-foreground" />
+   753→            </div>
+   754→            <div className="text-center">
+   755→              <h3 className="text-lg font-semibold">No Applicants Visible Yet</h3>
+   756→              <p className="text-sm text-muted-foreground mt-1">
+   757→                {search || statusFilter !== 'all'
+   758→                  ? 'Try adjusting your filters or search'
+   759→                  : closedTenders.length === 0 && openTenders.length > 0
+   760→                    ? 'Your tenders are still accepting bids. Applicants will appear here once the deadline closes.'
+   761→                    : closedTenders.length > 0
+   762→                      ? 'No bids were submitted on your closed tenders yet.'
+   763→                      : 'Applicants for your published tenders will appear here after the deadline closes.'}
+   764→              </p>
+   765→            </div>
+   766→            <Button variant="outline" onClick={() => setView('tenders')}>
+   767→              <FileSearch className="h-4 w-4 mr-2" />
+   768→              View My Tenders
+   769→            </Button>
+   770→          </CardContent>
+   771→        </Card>
+   772→      ) : viewMode === 'table' ? (
+   773→        /* ─── Spreadsheet Table View ─── */
+   774→        <Card className="overflow-hidden border">
+   775→          <div className="overflow-x-auto">
+   776→            <table className="w-full text-sm border-collapse min-w-[800px]">
+   777→              {/* Column group headers */}
+   778→              <thead>
+   779→                {/* Group row */}
+   780→                <tr className="border-b bg-muted/30">
+   781→                  <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-muted-foreground w-10">#</th>
+   782→                  <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-muted-foreground w-10"></th>
+   783→                  {Object.entries(columnGroups).map(([group, cols]) => (
+   784→                    <th
+   785→                      key={group}
+   786→                      colSpan={cols.length}
+   787→                      className="px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider border-l border-border"
+   788→                    >
+   789→                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md ${
+   790→                        group === 'Applicant' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+   791→                        group === 'Company' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' :
+   792→                        group === 'Tender' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+   793→                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+   794→                      }`}>
+   795→                        {group === 'Applicant' && <Users className="h-3 w-3" />}
+   796→                        {group === 'Company' && <Building2 className="h-3 w-3" />}
+   797→                        {group === 'Tender' && <FileSearch className="h-3 w-3" />}
+   798→                        {group === 'Bid' && <Gavel className="h-3 w-3" />}
+   799→                        {group}
+   800→                      </span>
+   801→                    </th>
+   802→                  ))}
+   803→                </tr>
+   804→                {/* Column headers row */}
+   805→                <tr className="border-b bg-muted/50">
+   806→                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground w-10">#</th>
+   807→                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-muted-foreground w-10"></th>
+   808→                  {activeColumns.map(col => (
+   809→                    <th
+   810→                      key={col.key}
+   811→                      className={`px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground border-l border-border ${col.sortable ? 'cursor-pointer hover:bg-muted/80 select-none' : ''}`}
+   812→                      style={{ width: col.width, minWidth: col.width }}
+   813→                      onClick={() => col.sortable && handleSort(col.key)}
+   814→                    >
+   815→                      <span className="inline-flex items-center gap-1">
+   816→                        {col.label}
+   817→                        {col.sortable && <SortIcon field={col.key} />}
+   818→                      </span>
+   819→                    </th>
+   820→                  ))}
+   821→                </tr>
+   822→              </thead>
+   823→              <tbody>
+   824→                {sortedRows.map((row, idx) => {
+   825→                  const isExpanded = expandedRow === row.id;
+   826→                  const bidCfg = STATUS_CONFIG[row.bidStatus] || STATUS_CONFIG.pending_review;
+   827→                  const tenderCfg = TENDER_STATUS_CONFIG[row.tenderStatus] || TENDER_STATUS_CONFIG.open;
+   828→                  const BidStatusIcon = bidCfg.icon;
+   829→
+   830→                  return (
+   831→                    <tr
+   832→                      key={row.id}
+   833→                      className={`border-b transition-colors hover:bg-muted/30 ${isExpanded ? 'bg-muted/20' : ''} ${row.bidStatus === 'awarded' ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : ''}`}
+   834→                    >
+   835→                      {/* Row number */}
+   836→                      <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono">
+   837→                        {(page - 1) * PAGE_SIZE + idx + 1}
+   838→                      </td>
+   839→                      {/* Expand toggle */}
+   840→                      <td className="px-1 py-2.5 text-center">
+   841→                        <button
+   842→                          onClick={() => setExpandedRow(isExpanded ? null : row.id)}
+   843→                          className="p-0.5 rounded hover:bg-muted/80 transition-colors"
+   844→                        >
+   845→                          {isExpanded
+   846→                            ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+   847→                            : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+   848→                          }
+   849→                        </button>
+   850→                      </td>
+   851→                      {/* Data cells */}
+   852→                      {activeColumns.map(col => (
+   853→                        <td
+   854→                          key={col.key}
+   855→                          className="px-3 py-2.5 border-l border-border text-xs"
+   856→                          style={{ maxWidth: col.width }}
+   857→                        >
+   858→                          <CellRenderer row={row} col={col} setView={setView} />
+   859→                        </td>
+   860→                      ))}
+   861→                    </tr>
+   862→                  );
+   863→                })}
+   864→              </tbody>
+   865→            </table>
+   866→          </div>
+   867→
+   868→          {/* Expanded row detail */}
+   869→          {expandedRow && sortedRows.find(r => r.id === expandedRow) && (
+   870→            <ExpandedRowDetail
+   871→              row={sortedRows.find(r => r.id === expandedRow)!}
+   872→              setView={setView}
+   873→              docUploadBidId={docUploadBidId}
+   874→              ocrLoading={ocrLoading}
+   875→              reviewLoading={reviewLoading}
+   876→              viewingDocId={viewingDocId}
+   877→              viewingDocType={viewingDocType}
+   878→              docOcrText={docOcrText}
+   879→              docReview={docReview}
+   880→              onUploadDoc={handleDocUpload}
+   881→              onSetDocUploadBidId={setDocUploadBidId}
+   882→              onRunOcr={handleRunOcr}
+   883→              onRunReview={handleRunReview}
+   884→              onViewDocDetail={handleViewDocDetail}
+   885→              onCloseDocDetail={closeDocDetail}
+   886→            />
+   887→          )}
+   888→
+   889→          {/* Pagination */}
+   890→          <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/20">
+   891→            <p className="text-xs text-muted-foreground">
+   892→              Showing {rows.length} of {totalApplicants} applicants
+   893→              {meta?.totalPages && meta.totalPages > 1 && ` · Page ${page} of ${meta.totalPages}`}
+   894→            </p>
+   895→            <div className="flex items-center gap-1">
+   896→              <Button
+   897→                variant="outline"
+   898→                size="sm"
+   899→                className="h-7 w-7 p-0"
+   900→                disabled={page <= 1}
+   901→                onClick={() => setPage(p => Math.max(1, p - 1))}
+   902→              >
+   903→                <ChevronLeft className="h-4 w-4" />
+   904→              </Button>
+   905→              <span className="text-xs font-medium px-2">{page}</span>
+   906→              <Button
+   907→                variant="outline"
+   908→                size="sm"
+   909→                className="h-7 w-7 p-0"
+   910→                disabled={!meta || page >= meta.totalPages}
+   911→                onClick={() => setPage(p => p + 1)}
+   912→              >
+   913→                <ChevronRight className="h-4 w-4" />
+   914→              </Button>
+   915→            </div>
+   916→          </div>
+   917→        </Card>
+   918→      ) : (
+   919→        /* ─── Card View ─── */
+   920→        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+   921→          {sortedRows.map((row) => {
+   922→            const bidCfg = STATUS_CONFIG[row.bidStatus] || STATUS_CONFIG.pending_review;
+   923→            const BidStatusIcon = bidCfg.icon;
+   924→            return (
+   925→              <Card key={row.id} className={`overflow-hidden hover:shadow-md transition-shadow ${row.bidStatus === 'awarded' ? 'border-emerald-300 dark:border-emerald-700' : ''}`}>
+   926→                <CardContent className="p-4">
+   927→                  {/* Header: applicant + status */}
+   928→                  <div className="flex items-start justify-between mb-3">
+   929→                    <div className="flex items-center gap-2.5 min-w-0">
+   930→                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-200 to-orange-400 dark:from-orange-800 dark:to-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+   931→                        {row.applicantName.charAt(0).toUpperCase()}
+   932→                      </div>
+   933→                      <div className="min-w-0">
+   934→                        <div className="flex items-center gap-1.5">
+   935→                          <p className="font-semibold text-sm truncate">{row.applicantName}</p>
+   936→                          {row.applicantVerified && <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
+   937→                        </div>
+   938→                        <p className="text-xs text-muted-foreground truncate">{row.companyName}</p>
+   939→                      </div>
+   940→                    </div>
+   941→                    <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg shrink-0 ${bidCfg.className}`}>
+   942→                      <BidStatusIcon className="h-3 w-3 mr-1" />
+   943→                      {bidCfg.label}
+   944→                    </Badge>
+   945→                  </div>
+   946→
+   947→                  {/* Tender title */}
+   948→                  <p className="text-xs font-medium text-primary mb-3 line-clamp-2 cursor-pointer hover:underline"
+   949→                    onClick={() => setView('tender-detail', { id: row.tenderId })}
+   950→                  >
+   951→                    {row.tenderTitle}
+   952→                  </p>
+   953→
+   954→                  {/* Detail grid */}
+   955→                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-3">
+   956→                    <div>
+   957→                      <span className="text-muted-foreground">Bid Amount</span>
+   958→                      <p className="font-semibold">{formatCurrency(row.financialProposal)}</p>
+   959→                    </div>
+   960→                    <div>
+   961→                      <span className="text-muted-foreground">Timeline</span>
+   962→                      <p className="font-semibold">{row.timeline}</p>
+   963→                    </div>
+   964→                    <div>
+   965→                      <span className="text-muted-foreground">Submitted</span>
+   966→                      <p>{formatDate(row.submittedAt)}</p>
+   967→                    </div>
+   968→                    <div>
+   969→                      <span className="text-muted-foreground">Location</span>
+   970→                      <p className="truncate">{row.applicantLocation || row.tenderLocation}</p>
+   971→                    </div>
+   972→                  </div>
+   973→
+   974→                  {/* Skills */}
+   975→                  {row.applicantSkills && (
+   976→                    <div className="flex flex-wrap gap-1 mb-3">
+   977→                      {row.applicantSkills.split(',').slice(0, 4).map((skill, i) => (
+   978→                        <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
+   979→                          {skill.trim()}
+   980→                        </Badge>
+   981→                      ))}
+   982→                      {row.applicantSkills.split(',').length > 4 && (
+   983→                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+   984→                          +{row.applicantSkills.split(',').length - 4}
+   985→                        </Badge>
+   986→                      )}
+   987→                    </div>
+   988→                  )}
+   989→
+   990→                  {/* Footer */}
+   991→                  <div className="flex items-center justify-between pt-2 border-t">
+   992→                    <div className="flex items-center gap-1.5">
+   993→                      {row.companyVerified && (
+   994→                        <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0">
+   995→                          <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />Verified Co.
+   996→                        </Badge>
+   997→                      )}
+   998→                    </div>
+   999→                    <Button
+  1000→                      variant="ghost"
+  1001→                      size="sm"
+  1002→                      className="h-7 text-xs"
+  1003→                      onClick={() => setView('tender-detail', { id: row.tenderId })}
+  1004→                    >
+  1005→                      View Tender <ExternalLink className="h-3 w-3 ml-1" />
+  1006→                    </Button>
+  1007→                  </div>
+  1008→                </CardContent>
+  1009→              </Card>
+  1010→            );
+  1011→          })}
+  1012→        </div>
+  1013→      )}
+  1014→    </div>
+  1015→  );
+  1016→}
+  1017→
+  1018→// ─── Cell renderer ────────────────────────────────────────────────────
+  1019→
+  1020→function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef; setView: (v: NavView, p?: Record<string, string>) => void }) {
+  1021→  const val = row[col.key];
+  1022→
+  1023→  switch (col.key) {
+  1024→    case 'applicantName':
+  1025→      return (
+  1026→        <div className="flex items-center gap-2 min-w-0">
+  1027→          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-orange-200 to-orange-400 dark:from-orange-800 dark:to-orange-600 flex items-center justify-center text-white font-bold text-[10px] shrink-0">
+  1028→            {String(val).charAt(0).toUpperCase()}
+  1029→          </div>
+  1030→          <div className="min-w-0">
+  1031→            <div className="flex items-center gap-1">
+  1032→              <span className="font-medium truncate">{String(val)}</span>
+  1033→              {row.applicantVerified && <ShieldCheck className="h-3 w-3 text-emerald-500 shrink-0" />}
+  1034→            </div>
+  1035→            <span className="text-[10px] text-muted-foreground truncate block">{row.applicantJobTitle}</span>
+  1036→          </div>
+  1037→        </div>
+  1038→      );
+  1039→
+  1040→    case 'applicantEmail':
+  1041→      return (
+  1042→        <div className="flex items-center gap-1.5 min-w-0">
+  1043→          <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+  1044→          <span className="truncate text-muted-foreground">{String(val)}</span>
+  1045→        </div>
+  1046→      );
+  1047→
+  1048→    case 'applicantPhone':
+  1049→      return (
+  1050→        <div className="flex items-center gap-1.5 min-w-0">
+  1051→          <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+  1052→          <span className="truncate">{String(val) || '—'}</span>
+  1053→        </div>
+  1054→      );
+  1055→
+  1056→    case 'applicantVerified':
+  1057→    case 'companyVerified':
+  1058→      return val
+  1059→        ? <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 rounded-md"><ShieldCheck className="h-3 w-3 mr-0.5" />Yes</Badge>
+  1060→        : <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-500 border-0 rounded-md">No</Badge>;
+  1061→
+  1062→    case 'companyName':
+  1063→      return (
+  1064→        <div className="flex items-center gap-1.5 min-w-0">
+  1065→          <Building2 className="h-3 w-3 text-violet-500 shrink-0" />
+  1066→          <span className="font-medium truncate">{String(val) || 'Individual'}</span>
+  1067→        </div>
+  1068→      );
+  1069→
+  1070→    case 'companyIndustry':
+  1071→      return (
+  1072→        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+  1073→          <Briefcase className="h-2.5 w-2.5 mr-0.5" />
+  1074→          {String(val) || '—'}
+  1075→        </Badge>
+  1076→      );
+  1077→
+  1078→    case 'tenderTitle':
+  1079→      return (
+  1080→        <span
+  1081→          className="text-primary font-medium truncate cursor-pointer hover:underline block"
+  1082→          onClick={() => setView('tender-detail', { id: row.tenderId })}
+  1083→        >
+  1084→          {String(val)}
+  1085→        </span>
+  1086→      );
+  1087→
+  1088→    case 'tenderStatus': {
+  1089→      const cfg = TENDER_STATUS_CONFIG[String(val)] || TENDER_STATUS_CONFIG.open;
+  1090→      return <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-md ${cfg.className}`}>{cfg.label}</Badge>;
+  1091→    }
+  1092→
+  1093→    case 'tenderBudgetMin':
+  1094→    case 'tenderBudgetMax':
+  1095→      return <span className="font-mono text-xs">{typeof val === 'number' ? formatCurrency(val) : '—'}</span>;
+  1096→
+  1097→    case 'tenderDeadline': {
+  1098→      if (!val) return <span>—</span>;
+  1099→      const days = daysUntil(String(val));
+  1100→      const color = days <= 0 ? 'text-red-600' : days <= 7 ? 'text-amber-600' : 'text-emerald-600';
+  1101→      return (
+  1102→        <div className="flex flex-col">
+  1103→          <span className="text-xs">{formatDate(String(val))}</span>
+  1104→          <span className={`text-[10px] font-medium ${color}`}>
+  1105→            {days <= 0 ? 'Expired' : `${days}d left`}
+  1106→          </span>
+  1107→        </div>
+  1108→      );
+  1109→    }
+  1110→
+  1111→    case 'applicantLocation':
+  1112→    case 'tenderLocation':
+  1113→      return (
+  1114→        <div className="flex items-center gap-1 min-w-0">
+  1115→          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+  1116→          <span className="truncate">{String(val) || '—'}</span>
+  1117→        </div>
+  1118→      );
+  1119→
+  1120→    case 'categoryTags':
+  1121→      return (
+  1122→        <div className="flex flex-wrap gap-0.5">
+  1123→          {String(val).split(',').filter(Boolean).slice(0, 3).map((tag, i) => (
+  1124→            <Badge key={i} variant="secondary" className="text-[9px] px-1 py-0">
+  1125→              {tag.trim()}
+  1126→            </Badge>
+  1127→          ))}
+  1128→        </div>
+  1129→      );
+  1130→
+  1131→    case 'financialProposal':
+  1132→      return (
+  1133→        <span className="font-semibold font-mono">
+  1134→          {typeof val === 'number' ? formatCurrency(val) : '—'}
+  1135→        </span>
+  1136→      );
+  1137→
+  1138→    case 'timeline':
+  1139→      return <Badge variant="outline" className="text-[10px] px-1.5 py-0"><Clock className="h-2.5 w-2.5 mr-0.5" />{String(val)}</Badge>;
+  1140→
+  1141→    case 'bidStatus': {
+  1142→      const cfg = STATUS_CONFIG[String(val)] || STATUS_CONFIG.pending_review;
+  1143→      const Icon = cfg.icon;
+  1144→      return (
+  1145→        <Badge className={`text-[9px] px-2 py-0.5 border-0 rounded-lg ${cfg.className}`}>
+  1146→          <Icon className="h-3 w-3 mr-1" />
+  1147→          {cfg.label}
+  1148→        </Badge>
+  1149→      );
+  1150→    }
+  1151→
+  1152→    case 'submittedAt':
+  1153→      return <span className="text-muted-foreground">{formatDate(String(val))}</span>;
+  1154→
+  1155→    case 'technicalProposal':
+  1156→      return (
+  1157→        <span className="truncate text-muted-foreground block" style={{ maxWidth: '200px' }}>
+  1158→          {String(val) ? String(val).substring(0, 80) + (String(val).length > 80 ? '...' : '') : '—'}
+  1159→        </span>
+  1160→      );
+  1161→
+  1162→    case 'applicantSkills':
+  1163→      return (
+  1164→        <div className="flex flex-wrap gap-0.5">
+  1165→          {String(val).split(',').filter(Boolean).slice(0, 3).map((skill, i) => (
+  1166→            <Badge key={i} variant="secondary" className="text-[9px] px-1 py-0">
+  1167→              {skill.trim()}
+  1168→            </Badge>
+  1169→          ))}
+  1170→          {String(val).split(',').filter(Boolean).length > 3 && (
+  1171→            <Badge variant="secondary" className="text-[9px] px-1 py-0">+{String(val).split(',').filter(Boolean).length - 3}</Badge>
+  1172→          )}
+  1173→        </div>
+  1174→      );
+  1175→
+  1176→    case 'rejectionNote':
+  1177→      return val
+  1178→        ? <span className="text-red-600 dark:text-red-400 truncate block" style={{ maxWidth: '180px' }}>{String(val)}</span>
+  1179→        : <span className="text-muted-foreground">—</span>;
+  1180→
+  1181→    case 'applicantLicense':
+  1182→    case 'applicantTin':
+  1183→    case 'companyRegistration':
+  1184→    case 'companyTin':
+  1185→      return <span className="font-mono text-xs text-muted-foreground">{String(val) || '—'}</span>;
+  1186→
+  1187→    case 'companyCity':
+  1188→    case 'companyCountry':
+  1189→      return <span className="truncate">{String(val) || '—'}</span>;
+  1190→
+  1191→    default:
+  1192→      return <span className="truncate">{String(val ?? '—')}</span>;
+  1193→  }
+  1194→}
+  1195→
+  1196→// ─── Status badge helpers ─────────────────────────────────────────────
+  1197→
+  1198→function OcrStatusBadge({ status }: { status: string }) {
+  1199→  switch (status) {
+  1200→    case 'completed':
+  1201→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"><CheckCircle2 className="h-3 w-3 mr-0.5" />OCR Done</Badge>;
+  1202→    case 'processing':
+  1203→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Processing</Badge>;
+  1204→    case 'failed':
+  1205→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><FileX className="h-3 w-3 mr-0.5" />Failed</Badge>;
+  1206→    default:
+  1207→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">No OCR</Badge>;
+  1208→  }
+  1209→}
+  1210→
+  1211→function ReviewStatusBadge({ status }: { status: string }) {
+  1212→  switch (status) {
+  1213→    case 'completed':
+  1214→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"><CheckCircle2 className="h-3 w-3 mr-0.5" />Reviewed</Badge>;
+  1215→    case 'processing':
+  1216→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Analyzing</Badge>;
+  1217→    case 'failed':
+  1218→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><FileX className="h-3 w-3 mr-0.5" />Failed</Badge>;
+  1219→    default:
+  1220→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">No Review</Badge>;
+  1221→  }
+  1222→}
+  1223→
+  1224→function AssessmentBadge({ assessment }: { assessment: string }) {
+  1225→  switch (assessment) {
+  1226→    case 'approved':
+  1227→      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"><ThumbsUp className="h-3 w-3 mr-0.5" />Approved</Badge>;
+  1228→    case 'conditionally_approved':
+  1229→      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><AlertTriangle className="h-3 w-3 mr-0.5" />Conditional</Badge>;
+  1230→    case 'rejected':
+  1231→      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><ThumbsDown className="h-3 w-3 mr-0.5" />Rejected</Badge>;
+  1232→    case 'needs_clarification':
+  1233→      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"><Info className="h-3 w-3 mr-0.5" />Needs Clarification</Badge>;
+  1234→    default:
+  1235→      return <Badge variant="secondary" className="text-[10px]">{assessment}</Badge>;
+  1236→  }
+  1237→}
+  1238→
+  1239→function RiskBadge({ level }: { level: string }) {
+  1240→  switch (level) {
+  1241→    case 'low':
+  1242→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Low Risk</Badge>;
+  1243→    case 'medium':
+  1244→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Medium Risk</Badge>;
+  1245→    case 'high':
+  1246→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">High Risk</Badge>;
+  1247→    case 'critical':
+  1248→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-200 text-red-800 dark:bg-red-900/60 dark:text-red-200 font-bold">Critical Risk</Badge>;
+  1249→    default:
+  1250→      return <Badge variant="secondary" className="text-[9px]">{level}</Badge>;
+  1251→  }
+  1252→}
+  1253→
+  1254→function ScoreBar({ label, score }: { label: string; score: number }) {
+  1255→  const clampedScore = Math.max(0, Math.min(100, score));
+  1256→  const color = clampedScore < 40 ? 'bg-red-500' : clampedScore < 70 ? 'bg-amber-500' : 'bg-emerald-500';
+  1257→  const textColor = clampedScore < 40 ? 'text-red-600 dark:text-red-400' : clampedScore < 70 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
+  1258→  return (
+  1259→    <div className="space-y-0.5">
+  1260→      <div className="flex items-center justify-between text-[10px]">
+  1261→        <span className="text-muted-foreground">{label}</span>
+  1262→        <span className={`font-semibold ${textColor}`}>{clampedScore}%</span>
+  1263→      </div>
+  1264→      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+  1265→        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${clampedScore}%` }} />
+  1266→      </div>
+  1267→    </div>
+  1268→  );
+  1269→}
+  1270→
+  1271→// ─── Document Detail Panel ───────────────────────────────────────────
+  1272→
+  1273→interface DocumentDetailPanelProps {
+  1274→  docId: string;
+  1275→  type: 'ocr' | 'review';
+  1276→  ocrText: string | undefined;
+  1277→  reviewData: Record<string, unknown> | undefined;
+  1278→  onClose: () => void;
+  1279→}
+  1280→
+  1281→function DocumentDetailPanel({ docId, type, ocrText, reviewData, onClose }: DocumentDetailPanelProps) {
+  1282→  if (type === 'ocr') {
+  1283→    return (
+  1284→      <Card className="border-teal-200 dark:border-teal-800/50 bg-teal-50/30 dark:bg-teal-950/10">
+  1285→        <CardContent className="p-4">
+  1286→          <div className="flex items-center justify-between mb-3">
+  1287→            <div className="flex items-center gap-2">
+  1288→              <ScanSearch className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+  1289→              <h5 className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wider">OCR Extracted Text</h5>
+  1290→            </div>
+  1291→            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+  1292→              <X className="h-3.5 w-3.5" />
+  1293→            </Button>
+  1294→          </div>
+  1295→          <div className="max-h-64 overflow-y-auto rounded-lg border bg-white dark:bg-background p-3 text-xs whitespace-pre-wrap font-mono leading-relaxed custom-scrollbar">
+  1296→            {ocrText || 'No OCR text available. Run OCR first to extract text from this document.'}
+  1297→          </div>
+  1298→        </CardContent>
+  1299→      </Card>
+  1300→    );
+  1301→  }
+  1302→
+  1303→  // AI Review panel
+  1304→  const review = reviewData as Record<string, unknown> | undefined;
+  1305→  const overallAssessment = String(review?.overallAssessment || '');
+  1306→  const complianceScore = Number(review?.complianceScore ?? 0);
+  1307→  const completenessScore = Number(review?.completenessScore ?? 0);
+  1308→  const riskLevel = String(review?.riskLevel || '');
+  1309→  const findings = Array.isArray(review?.findings) ? (review.findings as Array<Record<string, string>>) : [];
+  1310→  const strengths = Array.isArray(review?.strengths) ? (review.strengths as string[]) : [];
+  1311→  const weaknesses = Array.isArray(review?.weaknesses) ? (review.weaknesses as string[]) : [];
+  1312→  const missingElements = Array.isArray(review?.missingElements) ? (review.missingElements as string[]) : [];
+  1313→  const recommendations = Array.isArray(review?.recommendations) ? (review.recommendations as string[]) : [];
+  1314→  const summary = String(review?.summary || '');
+  1315→
+  1316→  return (
+  1317→    <Card className="border-violet-200 dark:border-violet-800/50 bg-violet-50/30 dark:bg-violet-950/10">
+  1318→      <CardContent className="p-4">
+  1319→        <div className="flex items-center justify-between mb-3">
+  1320→          <div className="flex items-center gap-2">
+  1321→            <Brain className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+  1322→            <h5 className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wider">AI Document Review</h5>
+  1323→          </div>
+  1324→          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+  1325→            <X className="h-3.5 w-3.5" />
+  1326→          </Button>
+  1327→        </div>
+  1328→
+  1329→        {/* Assessment & Risk */}
+  1330→        <div className="flex flex-wrap items-center gap-2 mb-3">
+  1331→          {overallAssessment && <AssessmentBadge assessment={overallAssessment} />}
+  1332→          {riskLevel && <RiskBadge level={riskLevel} />}
+  1333→        </div>
+  1334→
+  1335→        {/* Score bars */}
+  1336→        <div className="grid grid-cols-2 gap-3 mb-3">
+  1337→          <ScoreBar label="Compliance" score={complianceScore} />
+  1338→          <ScoreBar label="Completeness" score={completenessScore} />
+  1339→        </div>
+  1340→
+  1341→        {/* Findings */}
+  1342→        {findings.length > 0 && (
+  1343→          <div className="mb-3">
+  1344→            <h6 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+  1345→              <AlertOctagon className="h-3 w-3" /> Findings
+  1346→            </h6>
+  1347→            <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+  1348→              {findings.map((f, i) => {
+  1349→                const severityColor =
+  1350→                  f.severity === 'critical' ? 'border-red-400 bg-red-50 dark:bg-red-950/20' :
+  1351→                  f.severity === 'high' ? 'border-red-300 bg-red-50/50 dark:bg-red-950/10' :
+  1352→                  f.severity === 'medium' ? 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/10' :
+  1353→                  'border-blue-300 bg-blue-50/50 dark:bg-blue-950/10';
+  1354→                const severityBadge =
+  1355→                  f.severity === 'critical' ? 'bg-red-200 text-red-800 dark:bg-red-900/60 dark:text-red-200' :
+  1356→                  f.severity === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
+  1357→                  f.severity === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
+  1358→                  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
+  1359→                return (
+  1360→                  <div key={i} className={`text-[10px] p-1.5 rounded border ${severityColor}`}>
+  1361→                    <div className="flex items-center gap-1.5 mb-0.5">
+  1362→                      <Badge className={`text-[8px] px-1 py-0 border-0 rounded ${severityBadge}`}>{f.severity}</Badge>
+  1363→                      <span className="font-medium">{f.category}</span>
+  1364→                    </div>
+  1365→                    <p className="text-muted-foreground">{f.description}</p>
+  1366→                  </div>
+  1367→                );
+  1368→              })}
+  1369→            </div>
+  1370→          </div>
+  1371→        )}
+  1372→
+  1373→        {/* Strengths, Weaknesses, Missing */}
+  1374→        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+  1375→          {strengths.length > 0 && (
+  1376→            <div>
+  1377→              <h6 className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+  1378→                <ThumbsUp className="h-3 w-3" /> Strengths
+  1379→              </h6>
+  1380→              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+  1381→                {strengths.map((s, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 mt-0.5 shrink-0" />{s}</li>)}
+  1382→              </ul>
+  1383→            </div>
+  1384→          )}
+  1385→          {weaknesses.length > 0 && (
+  1386→            <div>
+  1387→              <h6 className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+  1388→                <ThumbsDown className="h-3 w-3" /> Weaknesses
+  1389→              </h6>
+  1390→              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+  1391→                {weaknesses.map((w, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><AlertTriangle className="h-2.5 w-2.5 text-amber-500 mt-0.5 shrink-0" />{w}</li>)}
+  1392→              </ul>
+  1393→            </div>
+  1394→          )}
+  1395→          {missingElements.length > 0 && (
+  1396→            <div>
+  1397→              <h6 className="text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+  1398→                <FileX className="h-3 w-3" /> Missing
+  1399→              </h6>
+  1400→              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+  1401→                {missingElements.map((m, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><X className="h-2.5 w-2.5 text-red-500 mt-0.5 shrink-0" />{m}</li>)}
+  1402→              </ul>
+  1403→            </div>
+  1404→          )}
+  1405→        </div>
+  1406→
+  1407→        {/* Recommendations */}
+  1408→        {recommendations.length > 0 && (
+  1409→          <div className="mb-3">
+  1410→            <h6 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+  1411→              <BarChart3 className="h-3 w-3" /> Recommendations
+  1412→            </h6>
+  1413→            <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+  1414→              {recommendations.map((r, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><ChevronRight className="h-2.5 w-2.5 text-violet-500 mt-0.5 shrink-0" />{r}</li>)}
+  1415→            </ul>
+  1416→          </div>
+  1417→        )}
+  1418→
+  1419→        {/* Summary */}
+  1420→        {summary && (
+  1421→          <div className="p-2 rounded-lg bg-violet-100/50 dark:bg-violet-900/20 border border-violet-200/50 dark:border-violet-800/30">
+  1422→            <h6 className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 mb-0.5">Summary</h6>
+  1423→            <p className="text-[10px] text-muted-foreground leading-relaxed">{summary}</p>
+  1424→          </div>
+  1425→        )}
+  1426→      </CardContent>
+  1427→    </Card>
+  1428→  );
+  1429→}
+  1430→
+  1431→// ─── Expanded row detail panel ────────────────────────────────────────
+  1432→
+  1433→interface ExpandedRowDetailProps {
+  1434→  row: ApplicantRow;
+  1435→  setView: (v: NavView, p?: Record<string, string>) => void;
+  1436→  docUploadBidId: string | null;
+  1437→  ocrLoading: Set<string>;
+  1438→  reviewLoading: Set<string>;
+  1439→  viewingDocId: string | null;
+  1440→  viewingDocType: 'ocr' | 'review';
+  1441→  docOcrText: Record<string, string>;
+  1442→  docReview: Record<string, Record<string, unknown>>;
+  1443→  onUploadDoc: (bidId: string, file: File) => void;
+  1444→  onSetDocUploadBidId: (bidId: string | null) => void;
+  1445→  onRunOcr: (docId: string) => void;
+  1446→  onRunReview: (docId: string) => void;
+  1447→  onViewDocDetail: (docId: string, type: 'ocr' | 'review') => void;
+  1448→  onCloseDocDetail: () => void;
+  1449→}
+  1450→
+  1451→function ExpandedRowDetail({
+  1452→  row, setView,
+  1453→  docUploadBidId, ocrLoading, reviewLoading,
+  1454→  viewingDocId, viewingDocType, docOcrText, docReview,
+  1455→  onUploadDoc, onSetDocUploadBidId, onRunOcr, onRunReview, onViewDocDetail, onCloseDocDetail,
+  1456→}: ExpandedRowDetailProps) {
+  1457→  return (
+  1458→    <div className="border-t bg-muted/10 px-6 py-4">
+  1459→      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+  1460→        {/* Applicant details */}
+  1461→        <div>
+  1462→          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+  1463→            <Users className="h-3.5 w-3.5 text-orange-500" /> Applicant Details
+  1464→          </h4>
+  1465→          <div className="space-y-1.5 text-xs">
+  1466→            <div className="flex justify-between">
+  1467→              <span className="text-muted-foreground">Full Name</span>
+  1468→              <span className="font-medium">{row.applicantName}</span>
+  1469→            </div>
+  1470→            <div className="flex justify-between">
+  1471→              <span className="text-muted-foreground">Email</span>
+  1472→              <span>{row.applicantEmail}</span>
+  1473→            </div>
+  1474→            {row.applicantPhone && (
+  1475→              <div className="flex justify-between">
+  1476→                <span className="text-muted-foreground">Phone</span>
+  1477→                <span>{row.applicantPhone}</span>
+  1478→              </div>
+  1479→            )}
+  1480→            {row.applicantJobTitle && (
+  1481→              <div className="flex justify-between">
+  1482→                <span className="text-muted-foreground">Job Title</span>
+  1483→                <span>{row.applicantJobTitle}</span>
+  1484→              </div>
+  1485→            )}
+  1486→            {row.applicantLocation && (
+  1487→              <div className="flex justify-between">
+  1488→                <span className="text-muted-foreground">Location</span>
+  1489→                <span>{row.applicantLocation}</span>
+  1490→              </div>
+  1491→            )}
+  1492→            {row.applicantLicense && (
+  1493→              <div className="flex justify-between">
+  1494→                <span className="text-muted-foreground">License #</span>
+  1495→                <span className="font-mono">{row.applicantLicense}</span>
+  1496→              </div>
+  1497→            )}
+  1498→            {row.applicantTin && (
+  1499→              <div className="flex justify-between">
+  1500→                <span className="text-muted-foreground">TIN</span>
+  1501→                <span className="font-mono">{row.applicantTin}</span>
+  1502→              </div>
+  1503→            )}
+  1504→          </div>
+  1505→        </div>
+  1506→
+  1507→        {/* Company details */}
+  1508→        <div>
+  1509→          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+  1510→            <Building2 className="h-3.5 w-3.5 text-violet-500" /> Company Details
+  1511→          </h4>
+  1512→          <div className="space-y-1.5 text-xs">
+  1513→            <div className="flex justify-between">
+  1514→              <span className="text-muted-foreground">Company</span>
+  1515→              <span className="font-medium">{row.companyName}</span>
+  1516→            </div>
+  1517→            {row.companyIndustry && (
+  1518→              <div className="flex justify-between">
+  1519→                <span className="text-muted-foreground">Industry</span>
+  1520→                <span>{row.companyIndustry}</span>
+  1521→              </div>
+  1522→            )}
+  1523→            {row.companyRegistration && (
+  1524→              <div className="flex justify-between">
+  1525→                <span className="text-muted-foreground">Registration</span>
+  1526→                <span className="font-mono">{row.companyRegistration}</span>
+  1527→              </div>
+  1528→            )}
+  1529→            {row.companyTin && (
+  1530→              <div className="flex justify-between">
+  1531→                <span className="text-muted-foreground">Company TIN</span>
+  1532→                <span className="font-mono">{row.companyTin}</span>
+  1533→              </div>
+  1534→            )}
+  1535→            <div className="flex justify-between">
+  1536→              <span className="text-muted-foreground">City / Country</span>
+  1537→              <span>{[row.companyCity, row.companyCountry].filter(Boolean).join(', ') || '—'}</span>
+  1538→            </div>
+  1539→            <div className="flex justify-between">
+  1540→              <span className="text-muted-foreground">Verified</span>
+  1541→              {row.companyVerified
+  1542→                ? <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0"><ShieldCheck className="h-3 w-3 mr-0.5" />Yes</Badge>
+  1543→                : <span className="text-muted-foreground">No</span>
+  1544→              }
+  1545→            </div>
+  1546→          </div>
+  1547→        </div>
+  1548→
+  1549→        {/* Bid details */}
+  1550→        <div>
+  1551→          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+  1552→            <Gavel className="h-3.5 w-3.5 text-emerald-500" /> Bid Details
+  1553→          </h4>
+  1554→          <div className="space-y-1.5 text-xs">
+  1555→            <div className="flex justify-between">
+  1556→              <span className="text-muted-foreground">Bid Amount</span>
+  1557→              <span className="font-semibold">{formatCurrency(row.financialProposal)}</span>
+  1558→            </div>
+  1559→            <div className="flex justify-between">
+  1560→              <span className="text-muted-foreground">Timeline</span>
+  1561→              <span>{row.timeline}</span>
+  1562→            </div>
+  1563→            <div className="flex justify-between">
+  1564→              <span className="text-muted-foreground">Status</span>
+  1565→              <span>{row.bidStatus.replace(/_/g, ' ')}</span>
+  1566→            </div>
+  1567→            <div className="flex justify-between">
+  1568→              <span className="text-muted-foreground">Submitted</span>
+  1569→              <span>{formatDate(row.submittedAt)}</span>
+  1570→            </div>
+  1571→            {row.rejectionNote && (
+  1572→              <div>
+  1573→                <span className="text-muted-foreground">Rejection Note</span>
+  1574→                <p className="text-red-600 dark:text-red-400 mt-0.5 text-[11px]">{row.rejectionNote}</p>
+  1575→              </div>
+  1576→            )}
+  1577→          </div>
+  1578→          <div className="mt-3 pt-2 border-t">
+  1579→            <Button
+  1580→              variant="outline"
+  1581→              size="sm"
+  1582→              className="h-7 text-xs w-full"
+  1583→              onClick={() => setView('tender-detail', { id: row.tenderId })}
+  1584→            >
+  1585→              <FileSearch className="h-3 w-3 mr-1" />
+  1586→              View Tender Detail
+  1587→            </Button>
+  1588→          </div>
+  1589→        </div>
+  1590→      </div>
+  1591→
+  1592→      {/* Skills bar */}
+  1593→      {row.applicantSkills && (
+  1594→        <div className="mt-4 pt-3 border-t">
+  1595→          <span className="text-xs text-muted-foreground mr-2">Skills:</span>
+  1596→          {row.applicantSkills.split(',').filter(Boolean).map((skill, i) => (
+  1597→            <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0.5 mr-1">
+  1598→              {skill.trim()}
+  1599→            </Badge>
+  1600→          ))}
+  1601→        </div>
+  1602→      )}
+  1603→
+  1604→      {/* Technical proposal excerpt */}
+  1605→      {row.technicalProposal && (
+  1606→        <div className="mt-3 pt-3 border-t">
+  1607→          <span className="text-xs text-muted-foreground">Technical Proposal:</span>
+  1608→          <p className="text-xs mt-1 text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+  1609→            {row.technicalProposal}
+  1610→          </p>
+  1611→        </div>
+  1612→      )}
+  1613→
+  1614→      {/* ─── Documents & AI Review Section ─── */}
+  1615→      <div className="mt-4 pt-4 border-t">
+  1616→        <div className="flex items-center justify-between mb-3">
+  1617→          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+  1618→            <FileText className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+  1619→            Documents & AI Review
+  1620→            {row.requiredDocs && (
+  1621→              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1">
+  1622→                Required: {row.requiredDocs}
+  1623→              </Badge>
+  1624→            )}
+  1625→          </h4>
+  1626→          <div className="relative">
+  1627→            <input
+  1628→              type="file"
+  1629→              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+  1630→              onChange={(e) => {
+  1631→                const file = e.target.files?.[0];
+  1632→                if (file) onUploadDoc(row.id, file);
+  1633→                e.target.value = '';
+  1634→              }}
+  1635→              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+  1636→            />
+  1637→            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onSetDocUploadBidId(row.id)}>
+  1638→              <Upload className="h-3 w-3 mr-1" />
+  1639→              Upload Document
+  1640→            </Button>
+  1641→          </div>
+  1642→        </div>
+  1643→
+  1644→        {row.documents && row.documents.length > 0 ? (
+  1645→          <div className="space-y-2">
+  1646→            {row.documents.map((doc) => (
+  1647→              <div key={doc.id} className="rounded-lg border bg-card p-3">
+  1648→                {/* Document header */}
+  1649→                <div className="flex items-center justify-between mb-2">
+  1650→                  <div className="flex items-center gap-2 min-w-0">
+  1651→                    <FileText className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0" />
+  1652→                    <div className="min-w-0">
+  1653→                      <p className="text-xs font-medium truncate">{doc.fileName}</p>
+  1654→                      <div className="flex items-center gap-1.5 mt-0.5">
+  1655→                        <Badge variant="secondary" className="text-[8px] px-1 py-0">{doc.docType}</Badge>
+  1656→                        <span className="text-[9px] text-muted-foreground">{formatDate(doc.createdAt)}</span>
+  1657→                      </div>
+  1658→                    </div>
+  1659→                  </div>
+  1660→                  <div className="flex items-center gap-1.5 shrink-0">
+  1661→                    <OcrStatusBadge status={doc.ocrStatus} />
+  1662→                    <ReviewStatusBadge status={doc.aiReviewStatus} />
+  1663→                  </div>
+  1664→                </div>
+  1665→
+  1666→                {/* Action buttons */}
+  1667→                <div className="flex flex-wrap items-center gap-1.5">
+  1668→                  <Button
+  1669→                    variant="outline"
+  1670→                    size="sm"
+  1671→                    className="h-6 text-[10px] px-2 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:hover:bg-teal-950/20"
+  1672→                    disabled={ocrLoading.has(doc.id) || doc.ocrStatus === 'processing'}
+  1673→                    onClick={() => onRunOcr(doc.id)}
+  1674→                  >
+  1675→                    {ocrLoading.has(doc.id) || doc.ocrStatus === 'processing'
+  1676→                      ? <><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Running OCR</>
+  1677→                      : <><ScanSearch className="h-3 w-3 mr-0.5" />Run OCR</>
+  1678→                    }
+  1679→                  </Button>
+  1680→                  <Button
+  1681→                    variant="outline"
+  1682→                    size="sm"
+  1683→                    className="h-6 text-[10px] px-2 border-violet-200 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/20"
+  1684→                    disabled={
+  1685→                      reviewLoading.has(doc.id) ||
+  1686→                      doc.aiReviewStatus === 'processing' ||
+  1687→                      doc.ocrStatus !== 'completed'
+  1688→                    }
+  1689→                    onClick={() => onRunReview(doc.id)}
+  1690→                  >
+  1691→                    {reviewLoading.has(doc.id) || doc.aiReviewStatus === 'processing'
+  1692→                      ? <><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Analyzing</>
+  1693→                      : <><Brain className="h-3 w-3 mr-0.5" />AI Review</>
+  1694→                    }
+  1695→                  </Button>
+  1696→                  {doc.ocrStatus === 'completed' && (
+  1697→                    <Button
+  1698→                      variant="ghost"
+  1699→                      size="sm"
+  1700→                      className="h-6 text-[10px] px-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:text-teal-400"
+  1701→                      onClick={() => onViewDocDetail(doc.id, 'ocr')}
+  1702→                    >
+  1703→                      <Eye className="h-3 w-3 mr-0.5" />
+  1704→                      View OCR Text
+  1705→                    </Button>
+  1706→                  )}
+  1707→                  {doc.aiReviewStatus === 'completed' && (
+  1708→                    <Button
+  1709→                      variant="ghost"
+  1710→                      size="sm"
+  1711→                      className="h-6 text-[10px] px-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:text-violet-400"
+  1712→                      onClick={() => onViewDocDetail(doc.id, 'review')}
+  1713→                    >
+  1714→                      <FileCheck className="h-3 w-3 mr-0.5" />
+  1715→                      View AI Review
+  1716→                    </Button>
+  1717→                  )}
+  1718→                </div>
+  1719→
+  1720→                {/* Slide-down detail panel */}
+  1721→                {viewingDocId === doc.id && (
+  1722→                  <div className="mt-3">
+  1723→                    <DocumentDetailPanel
+  1724→                      docId={doc.id}
+  1725→                      type={viewingDocType}
+  1726→                      ocrText={docOcrText[doc.id]}
+  1727→                      reviewData={docReview[doc.id]}
+  1728→                      onClose={onCloseDocDetail}
+  1729→                    />
+  1730→                  </div>
+  1731→                )}
+  1732→              </div>
+  1733→            ))}
+  1734→          </div>
+  1735→        ) : (
+  1736→          <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-center">
+  1737→            <FileText className="h-6 w-6 text-muted-foreground mx-auto mb-1.5" />
+  1738→            <p className="text-xs text-muted-foreground">No documents uploaded yet</p>
+  1739→            <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+  1740→              Upload bid documents to run OCR extraction and AI review
+  1741→            </p>
+  1742→          </div>
+  1743→        )}
+  1744→      </div>
+  1745→    </div>
+  1746→  );
+  1747→}
+  1748→

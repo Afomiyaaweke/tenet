@@ -105,19 +105,27 @@ export function BidsView() {
     }
   };
 
-  // ── Document Upload ──
+  // ── Document Upload (with auto-OCR + auto-AI Review) ──
   const handleDocUpload = useCallback(async (bidId: string) => {
     const file = docFileRef.current?.files?.[0];
     if (!file) return;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('docType', docUploadType);
+    formData.append('autoOcr', 'true');
+    formData.append('autoReview', 'true');
     try {
       const res = await api.upload(`/bids/${bidId}/documents`, formData);
       if (res.success) {
-        toast.success('Document uploaded');
+        toast.success('Document uploaded — OCR & AI Review started automatically');
         if (docFileRef.current) docFileRef.current.value = '';
         loadBids();
+        // Start polling for the newly uploaded document
+        const newDocId = res.data?.id;
+        if (newDocId) {
+          setOcrLoading(prev => new Set(prev).add(newDocId));
+          pollOcrThenReview(newDocId);
+        }
       } else {
         toast.error(res.error || 'Upload failed');
       }
@@ -128,38 +136,8 @@ export function BidsView() {
     }
   }, [docUploadType, loadBids]);
 
-  // ── OCR Processing ──
-  const handleRunOcr = useCallback(async (docId: string) => {
-    setOcrLoading(prev => new Set(prev).add(docId));
-    try {
-      await api.post(`/document-ocr/${docId}`);
-      const poll = async (attempts = 0): Promise<void> => {
-        if (attempts > 30) {
-          toast.error('OCR processing timed out');
-          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
-          return;
-        }
-        await new Promise(r => setTimeout(r, 2000));
-        const res = await api.get(`/document-ocr/${docId}`);
-        if (res.success && res.data?.ocrStatus === 'completed') {
-          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
-          setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
-          loadBids();
-          toast.success('OCR completed');
-        } else if (res.success && res.data?.ocrStatus === 'failed') {
-          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
-          toast.error('OCR processing failed');
-          loadBids();
-        } else {
-          await poll(attempts + 1);
-        }
-      };
-      poll();
-    } catch {
-      setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
-      toast.error('Failed to start OCR');
-    }
-  }, [loadBids]);
+  // ── Ref for AI Review handler (avoids circular dep with pollOcrThenReview) ──
+  const runReviewRef = useRef<(docId: string) => void>(() => {});
 
   // ── AI Review Processing ──
   const handleRunReview = useCallback(async (docId: string) => {
@@ -172,9 +150,9 @@ export function BidsView() {
         return;
       }
       const poll = async (attempts = 0): Promise<void> => {
-        if (attempts > 30) {
-          toast.error('AI Review processing timed out');
+        if (attempts > 60) {
           setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          toast.error('AI Review processing timed out');
           return;
         }
         await new Promise(r => setTimeout(r, 2000));
@@ -187,7 +165,7 @@ export function BidsView() {
           }
           setDocReview(prev => ({ ...prev, [docId]: reviewData as AIReviewData }));
           loadBids();
-          toast.success('AI Review completed');
+          toast.success('AI Review completed — Document fully processed');
         } else if (pollRes.success && pollRes.data?.aiReviewStatus === 'failed') {
           setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
           toast.error('AI Review processing failed');
@@ -202,6 +180,86 @@ export function BidsView() {
       toast.error('Failed to start AI Review');
     }
   }, [loadBids]);
+
+  // Keep ref updated
+  runReviewRef.current = handleRunReview;
+
+  // ── Poll OCR then auto-trigger AI Review ──
+  const pollOcrThenReview = useCallback(async (docId: string) => {
+    const poll = async (attempts = 0): Promise<void> => {
+      if (attempts > 60) {
+        setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+        toast.error('OCR processing timed out');
+        return;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+      const res = await api.get(`/document-ocr/${docId}`);
+      if (res.success && res.data?.ocrStatus === 'completed') {
+        setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+        setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
+        loadBids();
+        toast.success('OCR completed — Starting AI Review...');
+        // Auto-chain: trigger AI Review after OCR completes
+        runReviewRef.current(docId);
+      } else if (res.success && res.data?.ocrStatus === 'failed') {
+        setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+        toast.error('OCR processing failed');
+        loadBids();
+      } else {
+        await poll(attempts + 1);
+      }
+    };
+    poll();
+  }, [loadBids]);
+
+  // ── Drag & Drop Upload ──
+  const handleDocDrop = useCallback(async (bidId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'docx', 'doc', 'txt'];
+    if (!allowed.includes(ext)) {
+      toast.error('Invalid file type. Allowed: PDF, JPEG, PNG, DOCX, DOC, TXT');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large. Maximum 10MB.');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('docType', docUploadType);
+    formData.append('autoOcr', 'true');
+    formData.append('autoReview', 'true');
+    try {
+      const res = await api.upload(`/bids/${bidId}/documents`, formData);
+      if (res.success) {
+        toast.success('Document dropped — OCR & AI Review started');
+        loadBids();
+        const newDocId = res.data?.id;
+        if (newDocId) {
+          setOcrLoading(prev => new Set(prev).add(newDocId));
+          pollOcrThenReview(newDocId);
+        }
+      } else {
+        toast.error(res.error || 'Upload failed');
+      }
+    } catch {
+      toast.error('Upload failed');
+    }
+  }, [docUploadType, loadBids, pollOcrThenReview]);
+
+  // ── OCR Processing (manual trigger) ──
+  const handleRunOcr = useCallback(async (docId: string) => {
+    setOcrLoading(prev => new Set(prev).add(docId));
+    try {
+      await api.post(`/document-ocr/${docId}`);
+      pollOcrThenReview(docId);
+    } catch {
+      setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+      toast.error('Failed to start OCR');
+    }
+  }, [pollOcrThenReview]);
 
   // ── View OCR text inline ──
   const handleViewOcr = useCallback(async (docId: string) => {
@@ -648,7 +706,7 @@ export function BidsView() {
                                 </div>
                               )}
 
-                              {/* ── External Documents Section ── */}
+                              {/* ── External Documents Section (OCR + AI Review Pipeline) ── */}
                               <div>
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
@@ -663,6 +721,23 @@ export function BidsView() {
                                         {bidDocs.length}
                                       </Badge>
                                     )}
+                                    {/* Pipeline summary */}
+                                    {bidDocs.length > 0 && (
+                                      <div className="hidden sm:flex items-center gap-1 ml-2">
+                                        <Badge className="text-[7px] px-1 py-0 border-0 bg-amber-50 text-amber-600 h-3.5">
+                                          {bidDocs.filter((d: any) => d.ocrStatus === 'none' || d.ocrStatus === 'failed').length} pending
+                                        </Badge>
+                                        <Badge className="text-[7px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5">
+                                          {bidDocs.filter((d: any) => d.ocrStatus === 'processing').length} OCR
+                                        </Badge>
+                                        <Badge className="text-[7px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 h-3.5">
+                                          {bidDocs.filter((d: any) => d.ocrStatus === 'completed').length} extracted
+                                        </Badge>
+                                        <Badge className="text-[7px] px-1 py-0 border-0 bg-purple-50 text-purple-600 h-3.5">
+                                          {bidDocs.filter((d: any) => d.aiReviewStatus === 'completed').length} reviewed
+                                        </Badge>
+                                      </div>
+                                    )}
                                   </div>
                                   <Button
                                     variant="ghost"
@@ -674,60 +749,77 @@ export function BidsView() {
                                     }}
                                   >
                                     <Upload className="h-3 w-3 mr-1" />
-                                    {docUploadBidId === bid.id ? 'Cancel' : 'Upload Doc'}
+                                    {docUploadBidId === bid.id ? 'Cancel' : 'Add Doc'}
                                   </Button>
                                 </div>
 
-                                {/* Upload area for this bid */}
+                                {/* Drag-and-drop upload area */}
                                 {docUploadBidId === bid.id && (
-                                  <div className="mb-3 p-3 bg-sky-50/30 border border-sky-100 rounded-xl animate-[fadeIn_0.2s_ease-out]">
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                                      <div className="flex-1 flex items-center gap-2">
+                                  <div
+                                    className="mb-3 relative"
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-sky-400', 'bg-sky-50/60'); }}
+                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-sky-400', 'bg-sky-50/60'); }}
+                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-sky-400', 'bg-sky-50/60'); handleDocDrop(bid.id, e.dataTransfer.files); }}
+                                  >
+                                    <div className="p-4 bg-gradient-to-b from-sky-50/40 to-sky-50/20 border-2 border-dashed border-sky-200 rounded-xl animate-[fadeIn_0.2s_ease-out] text-center">
+                                      <CloudUpload className="h-7 w-7 text-sky-400 mx-auto mb-2" />
+                                      <p className="text-xs font-medium text-sky-700 mb-1">
+                                        Drag & drop external documents here
+                                      </p>
+                                      <p className="text-[10px] text-muted-foreground mb-3">
+                                        Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
+                                      </p>
+                                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
                                         <input
                                           ref={docFileRef}
                                           type="file"
                                           accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
-                                          className="text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 file:cursor-pointer"
+                                          className="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 file:cursor-pointer file:transition-colors"
                                         />
+                                        <div className="flex items-center gap-2">
+                                          <select
+                                            value={docUploadType}
+                                            onChange={e => setDocUploadType(e.target.value)}
+                                            className="h-7 text-xs rounded-lg bg-white/80 border border-sky-200 px-2"
+                                          >
+                                            <option value="bid_attachment">Bid Attachment</option>
+                                            <option value="business_license">Business License</option>
+                                            <option value="tax_clearance">Tax Clearance</option>
+                                            <option value="certificate">Certificate</option>
+                                            <option value="portfolio">Portfolio</option>
+                                            <option value="other">Other</option>
+                                          </select>
+                                          <Button
+                                            size="sm"
+                                            className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+                                            onClick={() => handleDocUpload(bid.id)}
+                                          >
+                                            <CloudUpload className="h-3 w-3 mr-1" /> Upload & Process
+                                          </Button>
+                                        </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <select
-                                          value={docUploadType}
-                                          onChange={e => setDocUploadType(e.target.value)}
-                                          className="h-7 text-xs rounded-lg bg-muted/50 border border-border/60 px-2"
-                                        >
-                                          <option value="bid_attachment">Bid Attachment</option>
-                                          <option value="business_license">Business License</option>
-                                          <option value="tax_clearance">Tax Clearance</option>
-                                          <option value="certificate">Certificate</option>
-                                          <option value="portfolio">Portfolio</option>
-                                          <option value="other">Other</option>
-                                        </select>
-                                        <Button
-                                          size="sm"
-                                          className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
-                                          onClick={() => handleDocUpload(bid.id)}
-                                        >
-                                          <CloudUpload className="h-3 w-3 mr-1" /> Upload
-                                        </Button>
+                                      <div className="flex items-center justify-center gap-3 text-[9px] text-muted-foreground">
+                                        <span className="flex items-center gap-1"><ScanSearch className="h-3 w-3 text-sky-500" /> Auto OCR</span>
+                                        <span className="text-muted-foreground/40">→</span>
+                                        <span className="flex items-center gap-1"><Brain className="h-3 w-3 text-purple-500" /> Auto AI Review</span>
+                                        <span className="text-muted-foreground/40">→</span>
+                                        <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Ready</span>
                                       </div>
                                     </div>
-                                    <p className="text-[9px] text-muted-foreground mt-1.5">
-                                      PDF, JPEG, PNG, DOCX, DOC, TXT — Max 10MB. Upload documents from external tender sites for OCR scanning and AI review.
-                                    </p>
                                   </div>
                                 )}
 
-                                {/* Document list */}
+                                {/* Document list with processing pipeline */}
                                 {bidDocs.length > 0 ? (
                                   <div className="space-y-2">
-                                    {bidDocs.map((doc) => {
+                                    {bidDocs.map((doc: any) => {
                                       const isOcrLoading = ocrLoading.has(doc.id);
                                       const isReviewLoading = reviewLoading.has(doc.id);
                                       const isDocExpanded = expandedDocId === doc.id;
+                                      const isFullyProcessed = doc.ocrStatus === 'completed' && doc.aiReviewStatus === 'completed';
 
                                       return (
-                                        <div key={doc.id} className="bg-muted/20 rounded-xl overflow-hidden">
+                                        <div key={doc.id} className={`bg-muted/20 rounded-xl overflow-hidden ${isFullyProcessed ? 'ring-1 ring-emerald-200/50' : ''}`}>
                                           {/* Document row */}
                                           <div className="p-2.5 flex items-center justify-between">
                                             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -748,40 +840,79 @@ export function BidsView() {
                                                 <p className="text-xs font-medium truncate">{doc.fileName}</p>
                                                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                                   <Badge className="text-[8px] px-1 py-0 border-0 bg-muted/50 text-muted-foreground h-3.5">
-                                                    {doc.docType.replace('_', ' ')}
+                                                    {doc.docType?.replace('_', ' ')}
                                                   </Badge>
-                                                  {/* OCR status */}
-                                                  {doc.ocrStatus === 'completed' && (
-                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 h-3.5">
-                                                      <ScanSearch className="h-2 w-2 mr-0.5" /> OCR ✓
+                                                  {/* Processing pipeline indicator */}
+                                                  <div className="flex items-center gap-0.5">
+                                                    {/* Step 1: Upload */}
+                                                    <div className="flex items-center">
+                                                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" title="Uploaded" />
+                                                    </div>
+                                                    {/* Step 2: OCR */}
+                                                    <div className={`h-3 w-0.5 ${doc.ocrStatus === 'completed' ? 'bg-emerald-300' : doc.ocrStatus === 'processing' ? 'bg-sky-300 animate-pulse' : 'bg-muted-foreground/20'}`} />
+                                                    <div className="flex items-center" title={doc.ocrStatus === 'completed' ? 'OCR Complete' : doc.ocrStatus === 'processing' ? 'OCR Processing...' : doc.ocrStatus === 'failed' ? 'OCR Failed' : 'OCR Pending'}>
+                                                      {doc.ocrStatus === 'completed' ? (
+                                                        <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 flex items-center justify-center">
+                                                          <CheckCircle2 className="h-1.5 w-1.5 text-white" />
+                                                        </div>
+                                                      ) : doc.ocrStatus === 'processing' || isOcrLoading ? (
+                                                        <div className="h-2.5 w-2.5 rounded-full bg-sky-400 animate-pulse flex items-center justify-center">
+                                                          <Loader2 className="h-1.5 w-1.5 text-white animate-spin" />
+                                                        </div>
+                                                      ) : doc.ocrStatus === 'failed' ? (
+                                                        <div className="h-2.5 w-2.5 rounded-full bg-rose-400 flex items-center justify-center">
+                                                          <XCircle className="h-1.5 w-1.5 text-white" />
+                                                        </div>
+                                                      ) : (
+                                                        <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+                                                      )}
+                                                    </div>
+                                                    {/* Step 3: AI Review */}
+                                                    <div className={`h-3 w-0.5 ${doc.aiReviewStatus === 'completed' ? 'bg-emerald-300' : doc.aiReviewStatus === 'processing' ? 'bg-purple-300 animate-pulse' : 'bg-muted-foreground/20'}`} />
+                                                    <div className="flex items-center" title={doc.aiReviewStatus === 'completed' ? 'AI Review Complete' : doc.aiReviewStatus === 'processing' ? 'AI Reviewing...' : doc.aiReviewStatus === 'failed' ? 'AI Review Failed' : 'AI Review Pending'}>
+                                                      {doc.aiReviewStatus === 'completed' ? (
+                                                        <div className="h-2.5 w-2.5 rounded-full bg-purple-400 flex items-center justify-center">
+                                                          <CheckCircle2 className="h-1.5 w-1.5 text-white" />
+                                                        </div>
+                                                      ) : doc.aiReviewStatus === 'processing' || isReviewLoading ? (
+                                                        <div className="h-2.5 w-2.5 rounded-full bg-purple-400 animate-pulse flex items-center justify-center">
+                                                          <Loader2 className="h-1.5 w-1.5 text-white animate-spin" />
+                                                        </div>
+                                                      ) : doc.aiReviewStatus === 'failed' ? (
+                                                        <div className="h-2.5 w-2.5 rounded-full bg-rose-400 flex items-center justify-center">
+                                                          <XCircle className="h-1.5 w-1.5 text-white" />
+                                                        </div>
+                                                      ) : (
+                                                        <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                  {/* Text labels */}
+                                                  {(isOcrLoading || doc.ocrStatus === 'processing') && (
+                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5 animate-pulse">
+                                                      <ScanSearch className="h-1.5 w-1.5 mr-0.5" /> Scanning...
                                                     </Badge>
                                                   )}
-                                                  {doc.ocrStatus === 'processing' && (
-                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5 animate-pulse">
-                                                      <Loader2 className="h-2 w-2 mr-0.5 animate-spin" /> OCR...
+                                                  {(isReviewLoading || doc.aiReviewStatus === 'processing') && (
+                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-purple-50 text-purple-600 h-3.5 animate-pulse">
+                                                      <Brain className="h-1.5 w-1.5 mr-0.5" /> Reviewing...
+                                                    </Badge>
+                                                  )}
+                                                  {isFullyProcessed && (
+                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 h-3.5">
+                                                      <CheckCircle2 className="h-1.5 w-1.5 mr-0.5" /> Processed
                                                     </Badge>
                                                   )}
                                                   {doc.ocrStatus === 'failed' && (
-                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-rose-50 text-rose-600 h-3.5">
-                                                      <XCircle className="h-2 w-2 mr-0.5" /> OCR ✗
-                                                    </Badge>
-                                                  )}
-                                                  {/* AI Review status */}
-                                                  {doc.aiReviewStatus === 'completed' && (
-                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-purple-50 text-purple-600 h-3.5">
-                                                      <Brain className="h-2 w-2 mr-0.5" /> Reviewed ✓
-                                                    </Badge>
-                                                  )}
-                                                  {doc.aiReviewStatus === 'processing' && (
-                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5 animate-pulse">
-                                                      <Loader2 className="h-2 w-2 mr-0.5 animate-spin" /> Reviewing
+                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-rose-50 text-rose-600 h-3.5">
+                                                      <XCircle className="h-1.5 w-1.5 mr-0.5" /> OCR failed
                                                     </Badge>
                                                   )}
                                                 </div>
                                               </div>
                                             </div>
                                             <div className="flex items-center gap-1 flex-shrink-0">
-                                              {/* OCR button */}
+                                              {/* Re-run OCR button */}
                                               <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -818,6 +949,7 @@ export function BidsView() {
                                                   size="sm"
                                                   className="h-5 px-1.5 text-[9px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded"
                                                   onClick={(e) => { e.stopPropagation(); handleViewOcr(doc.id); }}
+                                                  title="View extracted text"
                                                 >
                                                   <Eye className="h-2.5 w-2.5" />
                                                 </Button>
@@ -845,6 +977,7 @@ export function BidsView() {
                                                     setReviewDialogDocId(doc.id);
                                                     setReviewDialogOpen(true);
                                                   }}
+                                                  title="View AI review report"
                                                 >
                                                   <BarChart3 className="h-2.5 w-2.5" />
                                                 </Button>
@@ -855,19 +988,31 @@ export function BidsView() {
                                           {/* Expanded OCR text */}
                                           {isDocExpanded && (
                                             <div className="px-3 pb-3 animate-[fadeIn_0.2s_ease-out]">
-                                              <div className="p-2 bg-emerald-50/30 border border-emerald-100 rounded-lg">
-                                                <div className="flex items-center gap-1.5 mb-1.5">
-                                                  <ScanSearch className="h-3 w-3 text-emerald-600" />
-                                                  <p className="text-[10px] font-semibold text-emerald-700">OCR Extracted Text</p>
+                                              <div className="p-3 bg-emerald-50/30 border border-emerald-100 rounded-lg">
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                  <div className="flex items-center gap-1.5">
+                                                    <ScanSearch className="h-3 w-3 text-emerald-600" />
+                                                    <p className="text-[10px] font-semibold text-emerald-700">OCR Extracted Text</p>
+                                                  </div>
                                                   {doc.ocrProcessedAt && (
                                                     <span className="text-[8px] text-muted-foreground">
                                                       {new Date(doc.ocrProcessedAt).toLocaleString()}
                                                     </span>
                                                   )}
                                                 </div>
-                                                <div className="max-h-40 overflow-y-auto text-[11px] text-foreground/80 whitespace-pre-wrap bg-white/60 p-2.5 rounded border border-emerald-100/50 leading-relaxed">
+                                                <div className="max-h-48 overflow-y-auto text-[11px] text-foreground/80 whitespace-pre-wrap bg-white/60 p-3 rounded border border-emerald-100/50 leading-relaxed">
                                                   {docOcrText[doc.id] || 'Loading...'}
                                                 </div>
+                                                {/* Quick AI Review from OCR view */}
+                                                {doc.aiReviewStatus !== 'completed' && !isReviewLoading && (
+                                                  <Button
+                                                    size="sm"
+                                                    className="mt-2 gradient-purple text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+                                                    onClick={(e) => { e.stopPropagation(); handleRunReview(doc.id); }}
+                                                  >
+                                                    <Brain className="h-3 w-3 mr-1" /> Run AI Review on this text
+                                                  </Button>
+                                                )}
                                               </div>
                                             </div>
                                           )}
@@ -876,10 +1021,16 @@ export function BidsView() {
                                     })}
                                   </div>
                                 ) : (
-                                  <div className="text-center py-4 bg-muted/20 rounded-xl">
-                                    <FileText className="h-5 w-5 text-muted-foreground/40 mx-auto mb-1.5" />
-                                    <p className="text-[11px] text-muted-foreground">No documents uploaded yet</p>
-                                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">Upload documents from external tender sites for OCR & AI review</p>
+                                  <div
+                                    className="text-center py-6 bg-muted/20 rounded-xl border-2 border-dashed border-muted/30 cursor-pointer hover:border-sky-300 hover:bg-sky-50/20 transition-all"
+                                    onClick={(e) => { e.stopPropagation(); setDocUploadBidId(bid.id); }}
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('border-sky-400', 'bg-sky-50/30'); }}
+                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('border-sky-400', 'bg-sky-50/30'); }}
+                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('border-sky-400', 'bg-sky-50/30'); handleDocDrop(bid.id, e.dataTransfer.files); }}
+                                  >
+                                    <CloudUpload className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                                    <p className="text-[11px] text-muted-foreground font-medium">Drop external documents here or click to upload</p>
+                                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">OCR & AI Review will run automatically</p>
                                   </div>
                                 )}
                               </div>
