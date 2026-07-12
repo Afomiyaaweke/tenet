@@ -37,7 +37,7 @@ import {
   Sparkles, FileText, PenTool, Search, Users, X, Plus, ChevronDown,
   Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
   Award, Zap, AlertTriangle, CheckCircle2, XCircle,
-  Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare,
+  Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare, FileDown,
 } from 'lucide-react';
 import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
 /* ══════════════════════════════════════════════════════════════
@@ -124,6 +124,76 @@ const PROMPT_SUGGESTIONS: Record<string, string> = {
 /* ══════════════════════════════════════════════════════════════
    HELPERS
    ══════════════════════════════════════════════════════════════ */
+
+// ── Export helpers ──
+function exportAsTxt(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAsPdf(title: string, content: string, filename: string) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1a1a1a; line-height: 1.6; }
+  h1 { font-size: 20px; color: #059669; border-bottom: 2px solid #059669; padding-bottom: 8px; margin-bottom: 16px; }
+  .meta { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
+  pre { white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; }
+  .prompt-label { font-size: 11px; font-weight: 600; color: #059669; margin-top: 12px; margin-bottom: 4px; }
+  .prompt-text { font-size: 12px; color: #374151; font-style: italic; margin-bottom: 16px; }
+</style></head><body>
+<h1>${title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h1>
+<div class="meta">Exported on ${new Date().toLocaleString()}</div>
+<pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (!win) {
+    // Fallback: download as HTML
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename.replace('.pdf', '.html');
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function exportExtractAsPdf(title: string, prompt: string, content: string, filename: string) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #1a1a1a; line-height: 1.6; }
+  h1 { font-size: 20px; color: #059669; border-bottom: 2px solid #059669; padding-bottom: 8px; margin-bottom: 16px; }
+  .meta { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
+  .prompt-label { font-size: 11px; font-weight: 600; color: #059669; margin-top: 12px; margin-bottom: 4px; }
+  .prompt-text { font-size: 12px; color: #374151; font-style: italic; margin-bottom: 16px; background: #f0fdf4; padding: 10px; border-radius: 6px; border: 1px solid #bbf7d0; }
+  .result-label { font-size: 11px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+  pre { white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; }
+</style></head><body>
+<h1>${title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h1>
+<div class="meta">Exported on ${new Date().toLocaleString()}</div>
+<div class="prompt-label">Extraction Prompt:</div>
+<div class="prompt-text">${prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+<div class="result-label">Extraction Result:</div>
+<pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (!win) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename.replace('.pdf', '.html');
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 
 // generateSeal is now handled by useStampSignature hook's generateStamp method
 
@@ -1631,17 +1701,53 @@ export function AIDocStudio() {
                                     <div className="rounded border border-border/40 bg-muted/20 overflow-hidden">
                                       <div className="flex items-center justify-between px-2 py-1 border-b border-border/30">
                                         <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted Info</span>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-4 text-[9px] px-1"
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(extractResults[doc.id]);
-                                            toast.success('Copied to clipboard');
-                                          }}
-                                        >
-                                          <Copy className="h-2.5 w-2.5 mr-0.5" /> Copy
-                                        </Button>
+                                        <div className="flex items-center gap-0.5">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-4 text-[9px] px-1"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(extractResults[doc.id]);
+                                              toast.success('Copied to clipboard');
+                                            }}
+                                          >
+                                            <Copy className="h-2.5 w-2.5 mr-0.5" /> Copy
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-4 text-[9px] px-1"
+                                            onClick={() => {
+                                              const safeName = (doc.fileName || 'extract').replace(/\.[^.]+$/, '');
+                                              exportAsTxt(
+                                                `Document: ${doc.fileName}\nPrompt: ${extractPrompt[doc.id] || ''}\n\n---\n\n${extractResults[doc.id]}`,
+                                                `${safeName}-extract.txt`
+                                              );
+                                              toast.success('Exported as TXT');
+                                            }}
+                                            title="Export as TXT"
+                                          >
+                                            <FileDown className="h-2.5 w-2.5" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-4 text-[9px] px-1"
+                                            onClick={() => {
+                                              const safeName = (doc.fileName || 'extract').replace(/\.[^.]+$/, '');
+                                              exportExtractAsPdf(
+                                                `${safeName} — AI Extract`,
+                                                extractPrompt[doc.id] || '',
+                                                extractResults[doc.id],
+                                                `${safeName}-extract.pdf`
+                                              );
+                                              toast.success('Export as PDF — use print dialog');
+                                            }}
+                                            title="Export as PDF"
+                                          >
+                                            <Download className="h-2.5 w-2.5" />
+                                          </Button>
+                                        </div>
                                       </div>
                                       <ScrollArea className="max-h-[150px]">
                                         <pre className="p-2 text-[10px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
@@ -1811,18 +1917,46 @@ export function AIDocStudio() {
                       <Eye className="h-3.5 w-3.5 text-emerald-600" />
                       Extracted Text (OCR)
                     </h4>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[10px]"
-                      onClick={() => {
-                        const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
-                        navigator.clipboard.writeText(text);
-                        toast.success('OCR text copied');
-                      }}
-                    >
-                      <Copy className="h-3 w-3 mr-1" /> Copy
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px]"
+                        onClick={() => {
+                          const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+                          navigator.clipboard.writeText(text);
+                          toast.success('OCR text copied');
+                        }}
+                      >
+                        <Copy className="h-3 w-3 mr-1" /> Copy
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px]"
+                        onClick={() => {
+                          const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+                          const safeName = (selectedDoc.fileName || 'ocr-text').replace(/\.[^.]+$/, '');
+                          exportAsTxt(text, `${safeName}-ocr.txt`);
+                          toast.success('Exported as TXT');
+                        }}
+                      >
+                        <FileDown className="h-3 w-3 mr-1" /> TXT
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px]"
+                        onClick={() => {
+                          const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+                          const safeName = (selectedDoc.fileName || 'ocr-text').replace(/\.[^.]+$/, '');
+                          exportAsPdf(`${safeName} — OCR Text`, text, `${safeName}-ocr.pdf`);
+                          toast.success('Export as PDF — use print dialog');
+                        }}
+                      >
+                        <Download className="h-3 w-3 mr-1" /> PDF
+                      </Button>
+                    </div>
                   </div>
                   <ScrollArea className="max-h-[200px]">
                     <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
@@ -1926,17 +2060,53 @@ export function AIDocStudio() {
                         <div className="rounded-lg border border-border/40 bg-muted/20 overflow-hidden">
                           <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted Information</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 text-[10px] px-1.5"
-                              onClick={() => {
-                                navigator.clipboard.writeText(extractResults[selectedDoc.id]);
-                                toast.success('Copied to clipboard');
-                              }}
-                            >
-                              <Copy className="h-3 w-3 mr-0.5" /> Copy
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 text-[10px] px-1.5"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(extractResults[selectedDoc.id]);
+                                  toast.success('Copied to clipboard');
+                                }}
+                              >
+                                <Copy className="h-3 w-3 mr-0.5" /> Copy
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 text-[10px] px-1.5"
+                                onClick={() => {
+                                  const safeName = (selectedDoc.fileName || 'extract').replace(/\.[^.]+$/, '');
+                                  const prompt = extractPrompt[selectedDoc.id] || '';
+                                  exportAsTxt(
+                                    `Document: ${selectedDoc.fileName}\nPrompt: ${prompt}\n\n---\n\n${extractResults[selectedDoc.id]}`,
+                                    `${safeName}-extract.txt`
+                                  );
+                                  toast.success('Exported as TXT');
+                                }}
+                              >
+                                <FileDown className="h-3 w-3 mr-0.5" /> TXT
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 text-[10px] px-1.5"
+                                onClick={() => {
+                                  const safeName = (selectedDoc.fileName || 'extract').replace(/\.[^.]+$/, '');
+                                  const prompt = extractPrompt[selectedDoc.id] || '';
+                                  exportExtractAsPdf(
+                                    `${safeName} — AI Extract`,
+                                    prompt,
+                                    extractResults[selectedDoc.id],
+                                    `${safeName}-extract.pdf`
+                                  );
+                                  toast.success('Export as PDF — use print dialog');
+                                }}
+                              >
+                                <Download className="h-3 w-3 mr-0.5" /> PDF
+                              </Button>
+                            </div>
                           </div>
                           <ScrollArea className="max-h-[300px]">
                             <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
@@ -1990,8 +2160,83 @@ export function AIDocStudio() {
   const AIExtractContent = () => {
     const ocrReadyDocs = documents.filter(d => d.ocrStatus === 'completed');
     const [localSelectedDocId, setLocalSelectedDocId] = useState<string | null>(null);
+    const [extractUploading, setExtractUploading] = useState(false);
+    const [extractUploadProgress, setExtractUploadProgress] = useState('');
+    const extractFileRef = useRef<HTMLInputElement>(null);
     const selectedDoc = localSelectedDocId ? documents.find(d => d.id === localSelectedDocId) : null;
     const docHistory = localSelectedDocId ? (extractHistory[localSelectedDocId] || []) : [];
+
+    const handleExtractUpload = async (file: File) => {
+      setExtractUploading(true);
+      setExtractUploadProgress('Uploading...');
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('docType', 'external_doc');
+        formData.append('autoOcr', 'true');
+        setExtractUploadProgress('Uploading document...');
+        const res = await api.upload('/documents', formData);
+        if (res.success) {
+          setExtractUploadProgress('Starting OCR...');
+          toast.success(`"${file.name}" uploaded — OCR processing started`);
+          loadDocuments();
+          // Trigger OCR and poll
+          const newDocId = res.data?.id;
+          if (newDocId) {
+            const ocrRes = await api.post(`/document-ocr/${newDocId}`);
+            if (ocrRes.success) {
+              setExtractUploadProgress('OCR processing...');
+              // Poll for OCR completion
+              let attempts = 0;
+              const maxAttempts = 30;
+              const poll = async () => {
+                try {
+                  const pollRes = await api.get(`/document-ocr/${newDocId}`);
+                  if (pollRes.success && pollRes.data?.ocrStatus === 'completed') {
+                    setExtractUploadProgress('');
+                    setExtractUploading(false);
+                    toast.success('OCR completed — document ready for extraction');
+                    loadDocuments();
+                    setLocalSelectedDocId(newDocId);
+                    return;
+                  } else if (pollRes.success && pollRes.data?.ocrStatus === 'failed') {
+                    setExtractUploadProgress('');
+                    setExtractUploading(false);
+                    toast.error('OCR processing failed');
+                    loadDocuments();
+                    return;
+                  }
+                  attempts++;
+                  if (attempts < maxAttempts) {
+                    setTimeout(poll, 2000);
+                  } else {
+                    setExtractUploadProgress('');
+                    setExtractUploading(false);
+                    toast.info('OCR is taking longer than expected. Check back later.');
+                  }
+                } catch {
+                  attempts++;
+                  if (attempts < maxAttempts) setTimeout(poll, 3000);
+                }
+              };
+              setTimeout(poll, 2000);
+            } else {
+              setExtractUploading(false);
+              setExtractUploadProgress('');
+              toast.error('Failed to start OCR');
+            }
+          }
+        } else {
+          toast.error(res.error || 'Upload failed');
+          setExtractUploading(false);
+          setExtractUploadProgress('');
+        }
+      } catch {
+        toast.error('Upload failed');
+        setExtractUploading(false);
+        setExtractUploadProgress('');
+      }
+    };
 
     return (
       <div className="flex-1 flex overflow-hidden bg-muted/30">
@@ -2005,6 +2250,50 @@ export function AIDocStudio() {
             <p className="text-[10px] text-muted-foreground mt-1">
               Ask AI to extract specific information from your OCR-processed documents
             </p>
+          </div>
+
+          {/* PDF Upload Area */}
+          <div className="p-2 border-b border-border/30">
+            <input
+              ref={extractFileRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  if (file.size > 10 * 1024 * 1024) {
+                    toast.error('File too large. Maximum 10MB.');
+                    return;
+                  }
+                  handleExtractUpload(file);
+                  if (extractFileRef.current) extractFileRef.current.value = '';
+                }
+              }}
+            />
+            <div
+              className={`border-2 border-dashed rounded-lg p-3 text-center cursor-pointer transition-all ${
+                extractUploading
+                  ? 'border-emerald-300 bg-emerald-50/30'
+                  : 'border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/20'
+              }`}
+              onClick={() => !extractUploading && extractFileRef.current?.click()}
+            >
+              {extractUploading ? (
+                <div className="flex flex-col items-center">
+                  <Loader2 className="h-5 w-5 text-emerald-600 animate-spin mb-1.5" />
+                  <p className="text-[10px] font-medium text-emerald-700">{extractUploadProgress || 'Processing...'}</p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">Please wait</p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="h-5 w-5 text-emerald-500 mx-auto mb-1.5" />
+                  <p className="text-[10px] font-semibold text-emerald-700 mb-0.5">Upload PDF for Extraction</p>
+                  <p className="text-[8px] text-muted-foreground">PDF, DOC, DOCX, PNG, JPG · Max 10MB</p>
+                  <p className="text-[7px] text-emerald-600/60 mt-1">Auto OCR → Ready to extract</p>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="p-2 space-y-1.5 overflow-y-auto flex-1">
@@ -2181,7 +2470,7 @@ export function AIDocStudio() {
                           <Sparkles className="h-3 w-3 text-emerald-600 flex-shrink-0" />
                           <span className="text-[10px] font-medium text-emerald-700 truncate">{entry.prompt}</span>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           <span className="text-[9px] text-muted-foreground">{entry.timestamp}</span>
                           <Button
                             variant="ghost"
@@ -2193,6 +2482,40 @@ export function AIDocStudio() {
                             }}
                           >
                             <Copy className="h-2.5 w-2.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 text-[9px] px-1"
+                            onClick={() => {
+                              const safeName = (selectedDoc.fileName || 'extract').replace(/\.[^.]+$/, '');
+                              exportAsTxt(
+                                `Document: ${selectedDoc.fileName}\nPrompt: ${entry.prompt}\n\n---\n\n${entry.result}`,
+                                `${safeName}-extract-${idx + 1}.txt`
+                              );
+                              toast.success('Exported as TXT');
+                            }}
+                            title="Export as TXT"
+                          >
+                            <FileDown className="h-2.5 w-2.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 text-[9px] px-1"
+                            onClick={() => {
+                              const safeName = (selectedDoc.fileName || 'extract').replace(/\.[^.]+$/, '');
+                              exportExtractAsPdf(
+                                `${safeName} — AI Extract`,
+                                entry.prompt,
+                                entry.result,
+                                `${safeName}-extract-${idx + 1}.pdf`
+                              );
+                              toast.success('Export as PDF — use print dialog');
+                            }}
+                            title="Export as PDF"
+                          >
+                            <Download className="h-2.5 w-2.5" />
                           </Button>
                         </div>
                       </div>
@@ -2222,18 +2545,46 @@ export function AIDocStudio() {
                     <Eye className="h-3.5 w-3.5 text-emerald-600" />
                     OCR Text Source
                   </h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-[10px]"
-                    onClick={() => {
-                      const text = selectedDoc.ocrText || '';
-                      navigator.clipboard.writeText(text);
-                      toast.success('OCR text copied');
-                    }}
-                  >
-                    <Copy className="h-3 w-3 mr-1" /> Copy
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px]"
+                      onClick={() => {
+                        const text = selectedDoc.ocrText || '';
+                        navigator.clipboard.writeText(text);
+                        toast.success('OCR text copied');
+                      }}
+                    >
+                      <Copy className="h-3 w-3 mr-1" /> Copy
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px]"
+                      onClick={() => {
+                        const text = selectedDoc.ocrText || '';
+                        const safeName = (selectedDoc.fileName || 'ocr-text').replace(/\.[^.]+$/, '');
+                        exportAsTxt(text, `${safeName}-ocr.txt`);
+                        toast.success('Exported as TXT');
+                      }}
+                    >
+                      <FileDown className="h-3 w-3 mr-1" /> TXT
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px]"
+                      onClick={() => {
+                        const text = selectedDoc.ocrText || '';
+                        const safeName = (selectedDoc.fileName || 'ocr-text').replace(/\.[^.]+$/, '');
+                        exportAsPdf(`${safeName} — OCR Text`, text, `${safeName}-ocr.pdf`);
+                        toast.success('Export as PDF — use print dialog');
+                      }}
+                    >
+                      <Download className="h-3 w-3 mr-1" /> PDF
+                    </Button>
+                  </div>
                 </div>
                 <ScrollArea className="max-h-[150px]">
                   <pre className="p-3 text-[10px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">

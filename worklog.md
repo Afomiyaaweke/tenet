@@ -1227,3 +1227,84 @@ Stage Summary:
 - Live tenders now show full detail in-app with category sector pills for filtering
 - Applicants/Published Tenders shows tender cards first, with drill-down to applicant details
 - All lint checks pass, dev server runs clean, browser verification confirms changes
+
+---
+Task ID: 2-3
+Agent: Bids Draft Tab + AI Extract Uploader
+Task: Add Drafted tab to bids, PDF uploader to AI Extract, export methods for OCR and Extractor
+
+Work Log:
+- Added 'drafted' tab type to BidTab union: `'all' | 'pending_review' | 'drafted' | 'shortlisted' | 'awarded' | 'rejected' | 'saved'`
+- Implemented `isDrafted()` helper: a bid is drafted if status is `pending_review` AND (financialProposal is 0/null OR technicalProposal contains "Pending document upload" OR timeline contains "Pending document upload")
+- Added drafted count to stats useMemo
+- Added drafted filter logic to filteredBids useMemo
+- Added Drafted tab to tabs array with PenLine icon, 'sky' color, positioned between Pending and Shortlisted
+- Updated stats summary grid to show Drafted (replaced Rejected) with PenLine icon and sky colors
+- Added sky-themed status accent strip for drafted bids on bid cards
+- Updated bid card status badge to show "Drafted" label with sky styling for drafted bids
+- Added "Continue" button on drafted bid cards (expands the bid to show document upload areas)
+- Updated bid card icon styling with sky color when drafted
+- Added PDF upload area to AIExtractContent left panel with dashed-border upload zone
+- Upload area supports .pdf, .doc, .docx, .png, .jpg files via hidden file input
+- Upload handler uses existing /documents API with docType='external_doc' and autoOcr=true
+- After upload, automatically triggers OCR and polls for completion with progress states
+- Once OCR completes, document auto-selects for extraction
+- Added export helper functions: `exportAsTxt()`, `exportAsPdf()`, `exportExtractAsPdf()`
+- TXT export creates a Blob with text/plain and triggers download
+- PDF export opens a new window with styled HTML content and auto-triggers print dialog
+- Extract-specific PDF export includes prompt section and result section
+- Added export buttons (TXT + PDF) next to Copy button in Doc Review OCR text display
+- Added export buttons (TXT + PDF) next to Copy button in Doc Review AI Extract results
+- Added export buttons (TXT + PDF) next to Copy button in AI Extract tab extract results
+- Added export buttons (TXT + PDF) to each extraction history entry in AI Extract tab
+- Added export buttons (TXT + PDF) to OCR Text Source section in AI Extract tab
+- Added FileDown icon import from lucide-react
+- All lint checks pass, dev server compiles cleanly
+
+Stage Summary:
+- Bids view now has a 'Drafted' tab showing in-progress bids with incomplete document uploads, featuring sky-themed styling and a Continue button
+- AI Extract tab has a PDF upload area that auto-uploads, runs OCR, and selects the document for extraction
+- All OCR text displays and AI Extract results now have Export as TXT and Export as PDF buttons alongside the existing Copy button
+
+---
+Task ID: 1
+Agent: Live Tender Doc Detail
+Task: Make specific tender documents viewable in detail on live tenders
+
+Work Log:
+- Read the full live-tenders.tsx file (~2300 lines) to understand current structure
+- Identified key components: TenderCard, InlineDocumentViewer, AIReviewPanel
+- Identified the detail view (isDetailOpen) section that showed only metadata/classification
+- Identified existing loadDocument and loadAIReview functions that were already working
+- Redesigned the detail view to prioritize document content over metadata:
+  1. Added a prominent "Tender Document Content" section as the FIRST item in detail view
+     - Features a styled card with BookOpen icon header
+     - "View Full Document" link to external URL in header
+     - Loading state with skeleton placeholders
+     - Error state with retry button and direct link to original
+     - Success state showing: loaded-from info, copy button, extracted metadata pills (deadlines/budgets)
+     - Document content rendered in scrollable panel (max-h-96) with sections or raw text
+     - Inline translator for document content
+     - "Load Document Content" button with description when not yet loaded
+  2. Added an inline "AI Review & Analysis" section as the SECOND item in detail view
+     - Integrated the full AIReviewPanel content directly into the detail view
+     - Summary, key requirements, eligibility check, risk assessment, recommended approach, competitive landscape, bid readiness score, tips
+     - "Run AI Review" toggle button in the section header
+     - Loading skeleton state and empty prompt state
+  3. Moved the metadata/classification fields BELOW document content and AI review
+     - Renamed section to "Tender Classification & Details" to clarify it's secondary
+     - Budget, deadline, location, borrower, contract type, region, source, categories all preserved
+  4. Prevented duplication by hiding standalone InlineDocumentViewer and AIReviewPanel when detail view is open
+     - Changed `isExpanded && (...)` to `isExpanded && !isDetailOpen && (...)` for inline doc viewer
+     - Changed `showAiReview && (...)` to `showAiReview && !isDetailOpen && (...)` for AI review panel
+  5. Removed the now-redundant "Quick access" buttons from the detail view footer (Load Doc / AI Review)
+     since both features are now prominently available in their own sections above
+- Lint passes cleanly with no errors
+- Dev server compiles successfully
+
+Stage Summary:
+- Detail view now shows ACTUAL DOCUMENT CONTENT as the primary focus, not just metadata
+- AI Review is integrated inline in the detail view for seamless analysis
+- Metadata/classification info moved below as supporting detail
+- All existing functionality preserved — inline doc viewer and AI review panel still work when detail view is not open
+- Document content section has full lifecycle: load button → loading skeleton → content display → error with retry
