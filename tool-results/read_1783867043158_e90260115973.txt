@@ -1,0 +1,502 @@
+   500→   500→                      </div>
+   501→   501→                    </CardContent>
+   502→   502→                  </Card>
+   503→   503→                </div>
+   504→   504→
+   505→   505→                {/* Inline Detail Panel */}
+   506→   506→                {isExpanded && (
+   507→   507→                  <div className="mt-2 mb-1">
+   508→   508→                    <InlineTenderDetail
+   509→   509→                      tender={tender}
+   510→   510→                      onClose={() => onExpandTender(null)}
+   511→   511→                      setView={setView}
+   512→   512→                    />
+   513→   513→                  </div>
+   514→   514→                )}
+   515→   515→              </div>
+   516→   516→            );
+   517→   517→          })}
+   518→   518→        </div>
+   519→   519→      </CollapsibleContent>
+   520→   520→    </Collapsible>
+   521→   521→  );
+   522→   522→}
+   523→   523→
+   524→   524→// ─── Main Tenders View ──────────────────────────────────────────
+   525→   525→export function TendersView() {
+   526→   526→  const { user } = useAuthStore();
+   527→   527→  const { setView } = useNavStore();
+   528→   528→  const [tenders, setTenders] = useState<Tender[]>([]);
+   529→   529→  const [loading, setLoading] = useState(true);
+   530→   530→  const [search, setSearch] = useState('');
+   531→   531→  const [categoryFilter, setCategoryFilter] = useState('');
+   532→   532→  const [statusFilter, setStatusFilter] = useState('');
+   533→   533→  const [showCreate, setShowCreate] = useState(false);
+   534→   534→  const [createData, setCreateData] = useState({
+   535→   535→    title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '',
+   536→   536→    location: '', categoryTags: '', requiredDocs: '',
+   537→   537→  });
+   538→   538→  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+   539→   539→  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+   540→   540→  const [expandedTenderId, setExpandedTenderId] = useState<string | null>(null);
+   541→   541→  const [visibleCount, setVisibleCount] = useState(24);
+   542→   542→  const TENDER_PAGE_SIZE = 12;
+   543→   543→  const categoryScrollRef = useRef<HTMLDivElement>(null);
+   544→   544→
+   545→   545→  const loadTenders = useCallback(async () => {
+   546→   546→    setLoading(true);
+   547→   547→    const params: Record<string, string> = {};
+   548→   548→    if (search) params.search = search;
+   549→   549→    if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+   550→   550→    if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+   551→   551→    const res = await api.get('/tenders', params);
+   552→   552→    if (res.success) setTenders(res.data);
+   553→   553→    setLoading(false);
+   554→   554→  }, [search, categoryFilter, statusFilter]);
+   555→   555→
+   556→   556→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   557→   557→  useEffect(() => { loadTenders(); }, [loadTenders]);
+   558→   558→
+   559→   559→  const handleCreate = async () => {
+   560→   560→    const res = await api.post('/tenders', {
+   561→   561→      ...createData,
+   562→   562→      budgetMin: parseFloat(createData.budgetMin),
+   563→   563→      budgetMax: parseFloat(createData.budgetMax),
+   564→   564→      categoryTags: selectedCategories.join(','),
+   565→   565→    });
+   566→   566→    if (res.success) {
+   567→   567→      toast.success('Tender created successfully!');
+   568→   568→      setShowCreate(false);
+   569→   569→      loadTenders();
+   570→   570→    } else {
+   571→   571→      toast.error(res.error || 'Failed to create tender');
+   572→   572→    }
+   573→   573→  };
+   574→   574→
+   575→   575→  const toggleCategory = (cat: string) => {
+   576→   576→    setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+   577→   577→  };
+   578→   578→
+   579→   579→  const toggleCompare = (tenderId: string, e: React.MouseEvent) => {
+   580→   580→    e.stopPropagation();
+   581→   581→    setCompareSelection(prev =>
+   582→   582→      prev.includes(tenderId) ? prev.filter(id => id !== tenderId) : [...prev, tenderId].slice(-4)
+   583→   583→    );
+   584→   584→  };
+   585→   585→
+   586→   586→  const goToCompare = () => {
+   587→   587→    if (compareSelection.length >= 2) {
+   588→   588→      setView('tender-compare', { ids: compareSelection.join(',') });
+   589→   589→    }
+   590→   590→  };
+   591→   591→
+   592→   592→  // Group tenders by category
+   593→   593→  const tendersByCategory = useMemo(() => {
+   594→   594→    const map: Record<string, Tender[]> = {};
+   595→   595→    tenders.forEach(t => {
+   596→   596→      const cats = t.categoryTags.split(',').filter(Boolean).map(c => c.trim());
+   597→   597→      if (cats.length === 0) {
+   598→   598→        if (!map['Uncategorized']) map['Uncategorized'] = [];
+   599→   599→        map['Uncategorized'].push(t);
+   600→   600→      } else {
+   601→   601→        cats.forEach(cat => {
+   602→   602→          if (!map[cat]) map[cat] = [];
+   603→   603→          // avoid duplicate if tender has multiple categories
+   604→   604→          if (!map[cat].some(existing => existing.id === t.id)) {
+   605→   605→            map[cat].push(t);
+   606→   606→          }
+   607→   607→        });
+   608→   608→      }
+   609→   609→    });
+   610→   610→    return map;
+   611→   611→  }, [tenders]);
+   612→   612→
+   613→   613→  // Get active categories (those with tenders), sorted by CATEGORIES order
+   614→   614→  const activeCategories = useMemo(() => {
+   615→   615→    const catSet = new Set<string>();
+   616→   616→    tenders.forEach(t => {
+   617→   617→      t.categoryTags.split(',').filter(Boolean).forEach(c => catSet.add(c.trim()));
+   618→   618→    });
+   619→   619→    // Sort by CATEGORIES order, then alphabetically for any not in list
+   620→   620→    const ordered = CATEGORIES.filter(c => catSet.has(c));
+   621→   621→    const extras = Array.from(catSet).filter(c => !CATEGORIES.includes(c)).sort();
+   622→   622→    return [...ordered, ...extras];
+   623→   623→  }, [tenders]);
+   624→   624→
+   625→   625→  const stats = useMemo(() => ({
+   626→   626→    open: tenders.filter(t => t.status === 'open').length,
+   627→   627→    closed: tenders.filter(t => t.status === 'closed').length,
+   628→   628→    awarded: tenders.filter(t => t.status === 'awarded').length,
+   629→   629→    total: tenders.length,
+   630→   630→  }), [tenders]);
+   631→   631→
+   632→   632→  // When a specific category is selected, show only that category's tenders
+   633→   633→  const displayCategories = useMemo(() => {
+   634→   634→    if (categoryFilter && categoryFilter !== 'all') {
+   635→   635→      return [categoryFilter];
+   636→   636→    }
+   637→   637→    return activeCategories;
+   638→   638→  }, [categoryFilter, activeCategories]);
+   639→   639→
+   640→   640→  // Flat list when a specific category is selected
+   641→   641→  const filteredTenders = useMemo(() => {
+   642→   642→    if (categoryFilter && categoryFilter !== 'all') {
+   643→   643→      return tendersByCategory[categoryFilter] || [];
+   644→   644→    }
+   645→   645→    return tenders;
+   646→   646→  }, [categoryFilter, tendersByCategory, tenders]);
+   647→   647→
+   648→   648→  return (
+   649→   649→    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
+   650→   650→      {/* Header */}
+   651→   651→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]">
+   652→   652→        <div className="flex items-center gap-4">
+   653→   653→          <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
+   654→   654→            <FileSearch className="h-6 w-6 text-white" />
+   655→   655→          </div>
+   656→   656→          <div>
+   657→   657→            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   658→   658→              <span className="text-gradient-emerald">Tender</span> Discovery
+   659→   659→            </h2>
+   660→   660→            <p className="text-muted-foreground text-sm mt-0.5">Find and explore tender opportunities by category</p>
+   661→   661→          </div>
+   662→   662→        </div>
+   663→   663→        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+   664→   664→          <DialogTrigger asChild>
+   665→   665→            <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
+   666→   666→              <Plus className="h-4 w-4 mr-2" /> Create Tender
+   667→   667→            </Button>
+   668→   668→          </DialogTrigger>
+   669→   669→          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
+   670→   670→            <DialogHeader>
+   671→   671→              <DialogTitle className="text-xl font-bold">
+   672→   672→                <span className="text-gradient-emerald">Create New</span> Tender
+   673→   673→              </DialogTitle>
+   674→   674→            </DialogHeader>
+   675→   675→            <div className="space-y-4">
+   676→   676→              <div className="space-y-2">
+   677→   677→                <Label className="text-sm font-medium">Title *</Label>
+   678→   678→                <Input placeholder="e.g. Office Building Construction" value={createData.title}
+   679→   679→                  onChange={e => setCreateData(d => ({ ...d, title: e.target.value }))}
+   680→   680→                  className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   681→   681→              </div>
+   682→   682→              <div className="space-y-2">
+   683→   683→                <Label className="text-sm font-medium">Scope of Work *</Label>
+   684→   684→                <Textarea placeholder="Detailed project description, deliverables, requirements" rows={4}
+   685→   685→                  value={createData.scope} onChange={e => setCreateData(d => ({ ...d, scope: e.target.value }))}
+   686→   686→                  className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   687→   687→              </div>
+   688→   688→              <div className="grid grid-cols-2 gap-4">
+   689→   689→                <div className="space-y-2">
+   690→   690→                  <Label className="text-sm font-medium">Budget Min (ETB) *</Label>
+   691→   691→                  <Input type="number" placeholder="100000" value={createData.budgetMin}
+   692→   692→                    onChange={e => setCreateData(d => ({ ...d, budgetMin: e.target.value }))}
+   693→   693→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   694→   694→                </div>
+   695→   695→                <div className="space-y-2">
+   696→   696→                  <Label className="text-sm font-medium">Budget Max (ETB) *</Label>
+   697→   697→                  <Input type="number" placeholder="500000" value={createData.budgetMax}
+   698→   698→                    onChange={e => setCreateData(d => ({ ...d, budgetMax: e.target.value }))}
+   699→   699→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   700→   700→                </div>
+   701→   701→              </div>
+   702→   702→              <div className="grid grid-cols-2 gap-4">
+   703→   703→                <div className="space-y-2">
+   704→   704→                  <Label className="text-sm font-medium">Deadline *</Label>
+   705→   705→                  <Input type="datetime-local" value={createData.deadline}
+   706→   706→                    onChange={e => setCreateData(d => ({ ...d, deadline: e.target.value }))}
+   707→   707→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   708→   708→                </div>
+   709→   709→                <div className="space-y-2">
+   710→   710→                  <Label className="text-sm font-medium">Location *</Label>
+   711→   711→                  <Input placeholder="Addis Ababa" value={createData.location}
+   712→   712→                    onChange={e => setCreateData(d => ({ ...d, location: e.target.value }))}
+   713→   713→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   714→   714→                </div>
+   715→   715→              </div>
+   716→   716→              <div className="space-y-2">
+   717→   717→                <Label className="text-sm font-medium">Category Tags</Label>
+   718→   718→                <div className="flex flex-wrap gap-2">
+   719→   719→                  {CATEGORIES.map(cat => (
+   720→   720→                    <Badge key={cat}
+   721→   721→                      className={`cursor-pointer text-xs rounded-lg transition-all duration-200 ${
+   722→   722→                        selectedCategories.includes(cat)
+   723→   723→                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'
+   724→   724→                          : 'bg-background border-border/60 text-muted-foreground hover:bg-muted/80'
+   725→   725→                      }`}
+   726→   726→                      onClick={() => toggleCategory(cat)}>
+   727→   727→                      {cat}
+   728→   728→                    </Badge>
+   729→   729→                  ))}
+   730→   730→                </div>
+   731→   731→              </div>
+   732→   732→              <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleCreate}>
+   733→   733→                Create Tender <ArrowRight className="h-4 w-4 ml-2" />
+   734→   734→              </Button>
+   735→   735→            </div>
+   736→   736→          </DialogContent>
+   737→   737→        </Dialog>
+   738→   738→      </div>
+   739→   739→
+   740→   740→      {/* Search / Filter Bar */}
+   741→   741→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   742→   742→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+   743→   743→          <CardContent className="p-4 space-y-3">
+   744→   744→            {/* Search row */}
+   745→   745→            <div className="flex flex-col sm:flex-row gap-3">
+   746→   746→              <div className="relative flex-1">
+   747→   747→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   748→   748→                <Input placeholder="Search tenders by title, scope, or keyword..." value={search} onChange={e => setSearch(e.target.value)}
+   749→   749→                  className="pl-10 bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20 h-10" />
+   750→   750→              </div>
+   751→   751→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   752→   752→                <SelectTrigger className="w-full sm:w-36 rounded-xl bg-muted/50 border-border/60 h-10">
+   753→   753→                  <SelectValue placeholder="Status" />
+   754→   754→                </SelectTrigger>
+   755→   755→                <SelectContent>
+   756→   756→                  <SelectItem value="all">All Status</SelectItem>
+   757→   757→                  <SelectItem value="open">Open</SelectItem>
+   758→   758→                  <SelectItem value="closed">Closed</SelectItem>
+   759→   759→                  <SelectItem value="awarded">Awarded</SelectItem>
+   760→   760→                </SelectContent>
+   761→   761→              </Select>
+   762→   762→            </div>
+   763→   763→          </CardContent>
+   764→   764→        </Card>
+   765→   765→      </div>
+   766→   766→
+   767→   767→      {/* Category Tabs - Horizontal Scrollable */}
+   768→   768→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   769→   769→        <div
+   770→   770→          ref={categoryScrollRef}
+   771→   771→          className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent"
+   772→   772→        >
+   773→   773→          {/* "All" tab */}
+   774→   774→          <button
+   775→   775→            onClick={() => setCategoryFilter('')}
+   776→   776→            className={`flex-shrink-0 text-xs px-4 py-2 rounded-xl transition-all duration-200 font-medium border ${
+   777→   777→              !categoryFilter || categoryFilter === 'all'
+   778→   778→                ? 'gradient-emerald text-white border-transparent premium-shadow'
+   779→   779→                : 'bg-card border-border/60 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
+   780→   780→            }`}
+   781→   781→          >
+   782→   782→            All ({tenders.length})
+   783→   783→          </button>
+   784→   784→          {CATEGORIES.map(cat => {
+   785→   785→            const count = (tendersByCategory[cat] || []).length;
+   786→   786→            const meta = getCategoryMeta(cat);
+   787→   787→            const Icon = meta.icon;
+   788→   788→            const isActive = categoryFilter === cat;
+   789→   789→            return (
+   790→   790→              <button
+   791→   791→                key={cat}
+   792→   792→                onClick={() => setCategoryFilter(isActive ? '' : cat)}
+   793→   793→                className={`flex-shrink-0 text-xs px-3 py-2 rounded-xl transition-all duration-200 font-medium border flex items-center gap-1.5 ${
+   794→   794→                  isActive
+   795→   795→                    ? 'gradient-emerald text-white border-transparent premium-shadow'
+   796→   796→                    : count > 0
+   797→   797→                      ? 'bg-card border-border/60 text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
+   798→   798→                      : 'bg-muted/30 border-transparent text-muted-foreground/50 cursor-default'
+   799→   799→                }`}
+   800→   800→                disabled={count === 0 && !isActive}
+   801→   801→              >
+   802→   802→                <Icon className="h-3 w-3" />
+   803→   803→                {cat}
+   804→   804→                {count > 0 && (
+   805→   805→                  <span className={`text-[10px] px-1.5 py-0 rounded-full ${
+   806→   806→                    isActive ? 'bg-white/20' : 'bg-muted/60'
+   807→   807→                  }`}>
+   808→   808→                    {count}
+   809→   809→                  </span>
+   810→   810→                )}
+   811→   811→              </button>
+   812→   812→            );
+   813→   813→          })}
+   814→   814→        </div>
+   815→   815→      </div>
+   816→   816→
+   817→   817→      {/* Stats Summary */}
+   818→   818→      {!loading && tenders.length > 0 && (
+   819→   819→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]">
+   820→   820→          {[
+   821→   821→            { label: 'Open', count: stats.open, icon: FileSearch, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+   822→   822→            { label: 'Closed', count: stats.closed, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+   823→   823→            { label: 'Awarded', count: stats.awarded, icon: TrendingUp, bg: 'bg-teal-50', color: 'text-teal-600' },
+   824→   824→            { label: 'Total', count: stats.total, icon: Target, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+   825→   825→          ].map(stat => (
+   826→   826→            <div key={stat.label}>
+   827→   827→              <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
+   828→   828→                <CardContent className="p-4 flex items-center gap-3">
+   829→   829→                  <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
+   830→   830→                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+   831→   831→                  </div>
+   832→   832→                  <div>
+   833→   833→                    <p className="text-xl font-bold">{stat.count}</p>
+   834→   834→                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+   835→   835→                  </div>
+   836→   836→                </CardContent>
+   837→   837→              </Card>
+   838→   838→            </div>
+   839→   839→          ))}
+   840→   840→        </div>
+   841→   841→      )}
+   842→   842→
+   843→   843→      {/* Tenders List - Category Grouped or Flat */}
+   844→   844→      {loading ? (
+   845→   845→        <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
+   846→   846→          {[1, 2, 3].map(i => (
+   847→   847→            <div key={i} className="space-y-3">
+   848→   848→              <div className="flex items-center gap-3">
+   849→   849→                <div className="h-8 w-8 rounded-lg bg-muted/50 animate-pulse" />
+   850→   850→                <div className="h-5 bg-muted/50 rounded-xl w-32 animate-pulse" />
+   851→   851→              </div>
+   852→   852→              <div className="grid md:grid-cols-2 gap-3 pl-2">
+   853→   853→                {[1, 2].map(j => (
+   854→   854→                  <Card key={j} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
+   855→   855→                    <div className="h-1.5 bg-muted/30" />
+   856→   856→                    <CardContent className="p-4 space-y-2.5">
+   857→   857→                      <div className="h-4 bg-muted/50 rounded-xl w-3/4" />
+   858→   858→                      <div className="h-3 bg-muted/50 rounded-xl w-full" />
+   859→   859→                      <div className="h-3 bg-muted/50 rounded-xl w-1/2" />
+   860→   860→                    </CardContent>
+   861→   861→                  </Card>
+   862→   862→                ))}
+   863→   863→              </div>
+   864→   864→            </div>
+   865→   865→          ))}
+   866→   866→        </div>
+   867→   867→      ) : tenders.length === 0 ? (
+   868→   868→        <div className="animate-[fadeIn_0.3s_ease-out]">
+   869→   869→          <Card className="premium-shadow rounded-xl border-0 bg-card">
+   870→   870→            <CardContent className="p-16 text-center">
+   871→   871→              <div className="relative w-20 h-20 mx-auto mb-6">
+   872→   872→                <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20" />
+   873→   873→                <div className="absolute inset-2 rounded-xl gradient-emerald flex items-center justify-center">
+   874→   874→                  <FileSearch className="h-8 w-8 text-white" />
+   875→   875→                </div>
+   876→   876→              </div>
+   877→   877→              <h3 className="text-lg font-semibold">No tenders found</h3>
+   878→   878→              <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+   879→   879→                {search || categoryFilter
+   880→   880→                  ? 'Try adjusting your search or filters to find more opportunities'
+   881→   881→                  : 'New tenders are posted regularly. Check back soon!'}
+   882→   882→              </p>
+   883→   883→              {(search || categoryFilter) && (
+   884→   884→                <Button variant="outline" className="mt-4 rounded-xl" onClick={() => { setSearch(''); setCategoryFilter(''); setStatusFilter(''); }}>
+   885→   885→                  Clear Filters
+   886→   886→                </Button>
+   887→   887→              )}
+   888→   888→            </CardContent>
+   889→   889→          </Card>
+   890→   890→        </div>
+   891→   891→      ) : categoryFilter && categoryFilter !== 'all' ? (
+   892→   892→        /* Single category view - show flat list with inline detail */
+   893→   893→        <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+   894→   894→          {(tendersByCategory[categoryFilter] || []).map(tender => {
+   895→   895→            const isExpanded = expandedTenderId === tender.id;
+   896→   896→            const days = daysUntil(tender.deadline);
+   897→   897→            const tags = tender.categoryTags.split(',').filter(Boolean);
+   898→   898→            const reqDocs = tender.requiredDocs ? tender.requiredDocs.split(',').filter(Boolean) : [];
+   899→   899→
+   900→   900→            return (
+   901→   901→              <div key={tender.id} className="space-y-0">
+   902→   902→                <div className={`hover:-translate-y-[3px] transition-all duration-200 ${isExpanded ? 'ring-2 ring-emerald-300 dark:ring-emerald-700 rounded-xl' : ''}`}>
+   903→   903→                  <Card
+   904→   904→                    className={`premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 ${
+   905→   905→                      compareSelection.includes(tender.id) ? 'ring-2 ring-emerald-400 ring-offset-2' : ''
+   906→   906→                    }`}
+   907→   907→                    onClick={() => setExpandedTenderId(isExpanded ? null : tender.id)}
+   908→   908→                  >
+   909→   909→                    <div className={`h-1.5 bg-gradient-to-r ${statusAccent(tender.status)}`} />
+   910→   910→                    <CardContent className="p-5 space-y-3">
+   911→   911→                      <div className="flex items-start justify-between gap-2">
+   912→   912→                        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+   913→   913→                          {tender.title}
+   914→   914→                        </h3>
+   915→   915→                        <div className="flex items-center gap-1.5 flex-shrink-0">
+   916→   916→                          <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
+   917→   917→                            {tender.status}
+   918→   918→                          </Badge>
+   919→   919→                          <button
+   920→   920→                            onClick={(e) => toggleCompare(tender.id, e)}
+   921→   921→                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+   922→   922→                              compareSelection.includes(tender.id)
+   923→   923→                                ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-200'
+   924→   924→                                : 'border-muted-foreground/30 hover:border-primary hover:bg-primary/10'
+   925→   925→                            }`}
+   926→   926→                            title="Select to compare"
+   927→   927→                          >
+   928→   928→                            {compareSelection.includes(tender.id) && (
+   929→   929→                              <CheckCircle className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+   930→   930→                            )}
+   931→   931→                          </button>
+   932→   932→                        </div>
+   933→   933→                      </div>
+   934→   934→
+   935→   935→                      <p className="text-xs text-muted-foreground line-clamp-2">{tender.scope}</p>
+   936→   936→
+   937→   937→                      <div className="flex items-center gap-1.5 text-xs">
+   938→   938→                        <div className="p-1 rounded bg-emerald-50">
+   939→   939→                          <DollarSign className="h-3 w-3 text-emerald-600" />
+   940→   940→                        </div>
+   941→   941→                        <span className="font-medium text-emerald-700">ETB {tender.budgetMin.toLocaleString()} – {tender.budgetMax.toLocaleString()}</span>
+   942→   942→                      </div>
+   943→   943→
+   944→   944→                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+   945→   945→                        <div className="flex items-center gap-1">
+   946→   946→                          <div className="p-1 rounded bg-amber-50">
+   947→   947→                            <MapPin className="h-3 w-3 text-amber-600" />
+   948→   948→                          </div>
+   949→   949→                          <span className="truncate max-w-[100px]">{tender.location}</span>
+   950→   950→                        </div>
+   951→   951→                        <div className="flex items-center gap-1">
+   952→   952→                          <div className="p-1 rounded bg-teal-50">
+   953→   953→                            <Calendar className="h-3 w-3 text-teal-600" />
+   954→   954→                          </div>
+   955→   955→                          <span>{new Date(tender.deadline).toLocaleDateString()}</span>
+   956→   956→                        </div>
+   957→   957→                      </div>
+   958→   958→
+   959→   959→                      <div className="flex items-center gap-2">
+   960→   960→                        <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)} hover:${deadlineBg(days)} flex items-center gap-1`}>
+   961→   961→                          <Timer className="h-2.5 w-2.5" />
+   962→   962→                          {days <= 0 ? 'Expired' : days === 1 ? '1 day left' : `${days} days left`}
+   963→   963→                        </Badge>
+   964→   964→                        {tender._count && (
+   965→   965→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60 flex items-center gap-1">
+   966→   966→                            <Users className="h-2.5 w-2.5" />
+   967→   967→                            {tender._count.bids} bid{tender._count.bids !== 1 ? 's' : ''}
+   968→   968→                          </Badge>
+   969→   969→                        )}
+   970→   970→                      </div>
+   971→   971→
+   972→   972→                      <div className="flex flex-wrap gap-1">
+   973→   973→                        {tags.slice(0, 3).map(tag => (
+   974→   974→                          <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+   975→   975→                            {tag.trim()}
+   976→   976→                          </Badge>
+   977→   977→                        ))}
+   978→   978→                        {tags.length > 3 && (
+   979→   979→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60">
+   980→   980→                            +{tags.length - 3}
+   981→   981→                          </Badge>
+   982→   982→                        )}
+   983→   983→                      </div>
+   984→   984→
+   985→   985→                      {reqDocs.length > 0 && (
+   986→   986→                        <div className="rounded-lg border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-2.5 space-y-1.5">
+   987→   987→                          <div className="flex items-center gap-1.5">
+   988→   988→                            <ClipboardList className="h-3 w-3 text-teal-600 dark:text-teal-400 shrink-0" />
+   989→   989→                            <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wide">Requirements</span>
+   990→   990→                            <span className="text-[9px] text-teal-600/70 dark:text-teal-400/70 ml-auto">{reqDocs.length} doc{reqDocs.length === 1 ? '' : 's'}</span>
+   991→   991→                          </div>
+   992→   992→                          <div className="flex flex-wrap gap-1">
+   993→   993→                            {reqDocs.slice(0, 3).map((doc, i) => (
+   994→   994→                              <span key={`${doc}-${i}`} className="inline-flex items-center text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5">
+   995→   995→                                {doc.trim()}
+   996→   996→                              </span>
+   997→   997→                            ))}
+   998→   998→                            {reqDocs.length > 3 && (
+   999→   999→                              <span className="text-[10px] text-teal-600/70 dark:text-teal-400/70 px-1.5 py-0.5">+{reqDocs.length - 3}</span>
+
+[showing lines 500-999 of 1165; use offset=1000 with limit to continue reading]

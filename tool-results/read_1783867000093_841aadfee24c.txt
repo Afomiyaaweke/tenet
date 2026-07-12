@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useCallback } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api, type Document } from '@/lib/api';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Textarea } from '@/components/ui/textarea';
+     9→import { Label } from '@/components/ui/label';
+    10→import { Badge } from '@/components/ui/badge';
+    11→import { Separator } from '@/components/ui/separator';
+    12→import { ScrollArea } from '@/components/ui/scroll-area';
+    13→import { Skeleton } from '@/components/ui/skeleton';
+    14→import {
+    15→  Select,
+    16→  SelectContent,
+    17→  SelectItem,
+    18→  SelectTrigger,
+    19→  SelectValue,
+    20→} from '@/components/ui/select';
+    21→import {
+    22→  Dialog,
+    23→  DialogContent,
+    24→  DialogHeader,
+    25→  DialogTitle,
+    26→} from '@/components/ui/dialog';
+    27→import {
+    28→  Popover,
+    29→  PopoverContent,
+    30→  PopoverTrigger,
+    31→} from '@/components/ui/popover';
+    32→import { toast } from 'sonner';
+    33→import {
+    34→  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+    35→  List, ListOrdered, Type, Image as ImageIcon, Table, Minus, Pen, Stamp, FileSignature,
+    36→  Eraser, Undo2, Redo2, Save, Download, Printer, ZoomIn, ZoomOut,
+    37→  Sparkles, FileText, PenTool, Search, Users, X, Plus, ChevronDown,
+    38→  Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
+    39→  Award, Zap, AlertTriangle, CheckCircle2, XCircle,
+    40→  Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare,
+    41→} from 'lucide-react';
+    42→import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
+    43→/* ══════════════════════════════════════════════════════════════
+    44→   TYPES
+    45→   ══════════════════════════════════════════════════════════════ */
+    46→
+    47→type RibbonTab = 'home' | 'insert' | 'review' | 'ai-tools' | 'sign' | 'doc-review' | 'ai-extract';
+    48→type AITool = 'tender-builder' | 'bid-builder' | 'requirement-analyzer' | 'applicant-analyzer';
+    49→
+    50→interface TenderOption {
+    51→  id: string;
+    52→  title: string;
+    53→  scope?: string;
+    54→  budgetMin?: number;
+    55→  budgetMax?: number;
+    56→  categoryTags?: string;
+    57→  requiredDocs?: string;
+    58→  deadline?: string;
+    59→  _count?: { bids: number };
+    60→}
+    61→
+    62→// SavedSignature type is imported from shared stamp-signature component
+    63→
+    64→/* ══════════════════════════════════════════════════════════════
+    65→   CONSTANTS
+    66→   ══════════════════════════════════════════════════════════════ */
+    67→
+    68→const CATEGORIES = [
+    69→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    70→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics',
+    71→  'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications',
+    72→];
+    73→
+    74→const COMMON_SKILLS = [
+    75→  'Project Management', 'Construction', 'Engineering', 'IT Solutions',
+    76→  'Consulting', 'Architecture', 'Electrical Work', 'Plumbing',
+    77→  'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance',
+    78→  'Agriculture', 'Telecommunications', 'Web Development', 'Software',
+    79→  'Design', 'Research', 'Training', 'Maintenance', 'Procurement',
+    80→  'Supply Chain', 'Quality Assurance', 'Safety Management',
+    81→];
+    82→
+    83→const FONT_FAMILIES = ['Arial', 'Times New Roman', 'Courier New', 'Calibri', 'Georgia', 'Verdana'];
+    84→const FONT_SIZES = ['10', '11', '12', '14', '16', '18', '20', '24', '28', '36'];
+    85→const TEXT_COLORS = ['#000000', '#dc2626', '#2563eb', '#16a34a', '#9333ea', '#ea580c'];
+    86→const HIGHLIGHT_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fecaca', '#e9d5ff', '#fed7aa'];
+    87→const ZOOM_LEVELS = [75, 100, 125, 150];
+    88→
+    89→const AI_TOOLS: { id: AITool; label: string; icon: React.ElementType }[] = [
+    90→  { id: 'tender-builder', label: 'Tender Builder', icon: FileText },
+    91→  { id: 'bid-builder', label: 'Bid Proposal', icon: PenTool },
+    92→  { id: 'requirement-analyzer', label: 'Req Analyzer', icon: Search },
+    93→  { id: 'applicant-analyzer', label: 'Applicant Rank', icon: Users },
+    94→];
+    95→
+    96→const DOC_TYPE_OPTIONS = [
+    97→  { value: 'external_doc', label: 'External Document' },
+    98→  { value: 'business_license', label: 'Business License' },
+    99→  { value: 'tax_clearance', label: 'Tax Clearance' },
+   100→  { value: 'technical_proposal', label: 'Technical Proposal' },
+   101→  { value: 'financial_proposal', label: 'Financial Proposal' },
+   102→  { value: 'timeline_doc', label: 'Timeline Document' },
+   103→  { value: 'bid_attachment', label: 'Bid Attachment' },
+   104→  { value: 'portfolio', label: 'Portfolio' },
+   105→  { value: 'certificate', label: 'Certificate' },
+   106→  { value: 'other', label: 'Other' },
+   107→];
+   108→
+   109→const PROMPT_SUGGESTIONS: Record<string, string> = {
+   110→  external_doc: 'Check if this document meets Ethiopian procurement law requirements and international standards',
+   111→  business_license: 'Verify if this business license is valid, complete, and meets procurement requirements',
+   112→  tax_clearance: 'Review this tax clearance document for completeness and validity',
+   113→  technical_proposal: 'Evaluate this technical proposal against standard procurement evaluation criteria',
+   114→  financial_proposal: 'Review this financial proposal for completeness, accuracy, and compliance',
+   115→  timeline_doc: 'Analyze this timeline document for feasibility and compliance with deadline requirements',
+   116→  bid_attachment: 'Review this bid attachment for completeness and compliance with tender requirements',
+   117→  portfolio: 'Evaluate this portfolio for relevant experience and capability demonstration',
+   118→  certificate: 'Verify this certificate for authenticity, validity, and relevance to procurement requirements',
+   119→  other: 'Review this document for completeness, accuracy, and compliance with applicable standards',
+   120→};
+   121→
+   122→// STAMP_TEMPLATES imported from shared stamp-signature component
+   123→
+   124→/* ══════════════════════════════════════════════════════════════
+   125→   HELPERS
+   126→   ══════════════════════════════════════════════════════════════ */
+   127→
+   128→// generateSeal is now handled by useStampSignature hook's generateStamp method
+   129→
+   130→function formatAIResultToHTML(data: Record<string, unknown>): string {
+   131→  let html = '';
+   132→  for (const [key, value] of Object.entries(data)) {
+   133→    const title = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+   134→    const content = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+   135→    const formattedContent = content
+   136→      .replace(/&/g, '&amp;')
+   137→      .replace(/</g, '&lt;')
+   138→      .replace(/>/g, '&gt;')
+   139→      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+   140→      .replace(/^[-*•]\s+(.*)/gm, '<li>$1</li>')
+   141→      .replace(/^(\d+)[.)]\s+(.*)/gm, '<li>$2</li>')
+   142→      .replace(/^#{1,3}\s+(.*)/gm, '<strong>$1</strong>')
+   143→      .replace(/\n\n/g, '</p><p>')
+   144→      .replace(/\n/g, '<br/>');
+   145→    html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">${title}</h2>`;
+   146→    html += `<p>${formattedContent}</p>`;
+   147→  }
+   148→  return html;
+   149→}
+   150→
+   151→function getFileExtBadge(fileName: string): { color: string; label: string } {
+   152→  const ext = fileName.toLowerCase().split('.').pop() || '';
+   153→  const map: Record<string, { color: string; label: string }> = {
+   154→    pdf: { color: 'bg-rose-100 text-rose-700', label: 'PDF' },
+   155→    docx: { color: 'bg-blue-100 text-blue-700', label: 'DOCX' },
+   156→    doc: { color: 'bg-blue-100 text-blue-700', label: 'DOC' },
+   157→    txt: { color: 'bg-gray-100 text-gray-700', label: 'TXT' },
+   158→    jpg: { color: 'bg-amber-100 text-amber-700', label: 'JPG' },
+   159→    jpeg: { color: 'bg-amber-100 text-amber-700', label: 'JPEG' },
+   160→    png: { color: 'bg-emerald-100 text-emerald-700', label: 'PNG' },
+   161→  };
+   162→  return map[ext] || { color: 'bg-gray-100 text-gray-600', label: ext.toUpperCase() };
+   163→}
+   164→
+   165→// Signature loading/saving is now handled by useStampSignature hook
+   166→
+   167→/* ══════════════════════════════════════════════════════════════
+   168→   SKILL TAG SELECTOR
+   169→   ══════════════════════════════════════════════════════════════ */
+   170→
+   171→function SkillTagSelector({ selected, onChange }: { selected: string[]; onChange: (s: string[]) => void }) {
+   172→  const toggle = (skill: string) => {
+   173→    if (selected.includes(skill)) onChange(selected.filter(s => s !== skill));
+   174→    else onChange([...selected, skill]);
+   175→  };
+   176→  return (
+   177→    <div className="flex flex-wrap gap-1">
+   178→      {COMMON_SKILLS.map(skill => (
+   179→        <button key={skill} type="button" onClick={() => toggle(skill)}
+   180→          className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all border ${
+   181→            selected.includes(skill)
+   182→              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+   183→              : 'bg-muted/50 text-muted-foreground border-border hover:border-emerald-300'
+   184→          }`}>
+   185→          {skill}
+   186→        </button>
+   187→      ))}
+   188→    </div>
+   189→  );
+   190→}
+   191→
+   192→/* ══════════════════════════════════════════════════════════════
+   193→   MAIN COMPONENT
+   194→   ══════════════════════════════════════════════════════════════ */
+   195→
+   196→export function AIDocStudio() {
+   197→  /* ── State ── */
+   198→  const editorRef = useRef<HTMLDivElement>(null);
+   199→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   200→  const fileInputRef = useRef<HTMLInputElement>(null);
+   201→
+   202→  const [ribbonTab, setRibbonTab] = useState<RibbonTab>('home');
+   203→  const [docTitle, setDocTitle] = useState('Untitled Document');
+   204→  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+   205→  const [zoom, setZoom] = useState(100);
+   206→  const [wordCount, setWordCount] = useState(0);
+   207→  const [charCount, setCharCount] = useState(0);
+   208→
+   209→  // AI Tools panel
+   210→  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+   211→  const [activeAITool, setActiveAITool] = useState<AITool>('tender-builder');
+   212→  const [aiLoading, setAiLoading] = useState(false);
+   213→
+   214→  // Sign panel - use shared hook
+   215→  const stampSigHook = useStampSignature();
+   216→  const { savedItems: savedSignatures, addSignature, removeItem: deleteSignature, uploadFromFile, generateStamp } = stampSigHook;
+   217→  const [drawDialogOpen, setDrawDialogOpen] = useState(false);
+   218→  const [isDrawing, setIsDrawing] = useState(false);
+   219→  const [placementMode, setPlacementMode] = useState(false);
+   220→  const [placementDataUrl, setPlacementDataUrl] = useState('');
+   221→
+   222→  // Tender list for some tools
+   223→  const [tenders, setTenders] = useState<TenderOption[]>([]);
+   224→
+   225→  // Doc Review state
+   226→  const [documents, setDocuments] = useState<Document[]>([]);
+   227→  const [docsLoading, setDocsLoading] = useState(false);
+   228→  const [uploading, setUploading] = useState(false);
+   229→  const [dragOver, setDragOver] = useState(false);
+   230→  const [uploadDocType, setUploadDocType] = useState('external_doc');
+   231→  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+   232→  const [ocrStatusMap, setOcrStatusMap] = useState<Record<string, { loading: boolean; text?: string }>>({});
+   233→  const [reviewStatusMap, setReviewStatusMap] = useState<Record<string, { loading: boolean; result?: string }>>({});
+   234→  const [reviewPrompts, setReviewPrompts] = useState<Record<string, string>>({});
+   235→  const [submitUrls, setSubmitUrls] = useState<Record<string, string>>({});
+   236→  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+   237→
+   238→  // AI Extract state
+   239→  const [extractPrompt, setExtractPrompt] = useState<Record<string, string>>({});
+   240→  const [extractLoading, setExtractLoading] = useState<Set<string>>(new Set());
+   241→  const [extractResults, setExtractResults] = useState<Record<string, string>>({});
+   242→  const [showExtract, setShowExtract] = useState<Set<string>>(new Set());
+   243→  // AI Extract tab: per-document extraction history (allows multiple extractions with different prompts)
+   244→  const [extractHistory, setExtractHistory] = useState<Record<string, Array<{ prompt: string; result: string; timestamp: string }>>>({});
+   245→
+   246→  const { user } = useAuthStore();
+   247→
+   248→  /* ── Load tenders ── */
+   249→  useEffect(() => {
+   250→    api.get('/tenders', { status: 'open', limit: '50' }).then(res => {
+   251→      if (res.success) setTenders(res.data || []);
+   252→    }).catch(() => {});
+   253→  }, []);
+   254→
+   255→  /* ── Load documents for review ── */
+   256→  const loadDocuments = useCallback(async () => {
+   257→    setDocsLoading(true);
+   258→    try {
+   259→      const res = await api.get('/documents');
+   260→      if (res.success && res.data) {
+   261→        setDocuments(res.data);
+   262→        // Initialize prompts/urls from loaded data
+   263→        const prompts: Record<string, string> = {};
+   264→        const urls: Record<string, string> = {};
+   265→        for (const doc of res.data as Document[]) {
+   266→          if (doc.aiReviewPrompt) prompts[doc.id] = doc.aiReviewPrompt;
+   267→          if (doc.submitUrl) urls[doc.id] = doc.submitUrl;
+   268→        }
+   269→        setReviewPrompts(prev => ({ ...prev, ...prompts }));
+   270→        setSubmitUrls(prev => ({ ...prev, ...urls }));
+   271→      }
+   272→    } catch {
+   273→      // ignore
+   274→    } finally {
+   275→      setDocsLoading(false);
+   276→    }
+   277→  }, []);
+   278→
+   279→  useEffect(() => {
+   280→    if (ribbonTab === 'doc-review') {
+   281→      loadDocuments();
+   282→    }
+   283→  }, [ribbonTab, loadDocuments]);
+   284→
+   285→  /* ── Word count ── */
+   286→  const updateCounts = useCallback(() => {
+   287→    const el = editorRef.current;
+   288→    if (!el) return;
+   289→    const text = el.innerText || '';
+   290→    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+   291→    setWordCount(words.length);
+   292→    setCharCount(text.length);
+   293→  }, []);
+   294→
+   295→  useEffect(() => {
+   296→    const el = editorRef.current;
+   297→    if (!el) return;
+   298→    const observer = new MutationObserver(updateCounts);
+   299→    observer.observe(el, { childList: true, subtree: true, characterData: true });
+   300→    return () => observer.disconnect();
+   301→  }, [updateCounts]);
+   302→
+   303→  /* ── Format commands ── */
+   304→  const handleFormat = (command: string, value?: string) => {
+   305→    document.execCommand(command, false, value || undefined);
+   306→    editorRef.current?.focus();
+   307→    setSaveStatus('unsaved');
+   308→    updateCounts();
+   309→  };
+   310→
+   311→  const handleDocChange = () => {
+   312→    setSaveStatus('unsaved');
+   313→    updateCounts();
+   314→  };
+   315→
+   316→  /* ── Save ── */
+   317→  const handleSave = () => {
+   318→    setSaveStatus('saving');
+   319→    setTimeout(() => {
+   320→      setSaveStatus('saved');
+   321→      toast.success('Document saved');
+   322→    }, 600);
+   323→  };
+   324→
+   325→  /* ── Insert helpers ── */
+   326→  const insertTable = (rows: number, cols: number) => {
+   327→    let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0;">';
+   328→    for (let r = 0; r < rows; r++) {
+   329→      html += '<tr>';
+   330→      for (let c = 0; c < cols; c++) {
+   331→        html += '<td style="border:1px solid #d1d5db;padding:6px 8px;min-width:60px;">&nbsp;</td>';
+   332→      }
+   333→      html += '</tr>';
+   334→    }
+   335→    html += '</table>';
+   336→    document.execCommand('insertHTML', false, html);
+   337→    editorRef.current?.focus();
+   338→    setSaveStatus('unsaved');
+   339→  };
+   340→
+   341→  const insertImageFromFile = () => {
+   342→    const input = document.createElement('input');
+   343→    input.type = 'file';
+   344→    input.accept = 'image/*';
+   345→    input.onchange = (e) => {
+   346→      const file = (e.target as HTMLInputElement).files?.[0];
+   347→      if (!file) return;
+   348→      const reader = new FileReader();
+   349→      reader.onload = (ev) => {
+   350→        const dataUrl = ev.target?.result as string;
+   351→        document.execCommand('insertHTML', false, `<img src="${dataUrl}" style="max-width:100%;height:auto;margin:8px 0;" />`);
+   352→        editorRef.current?.focus();
+   353→        setSaveStatus('unsaved');
+   354→      };
+   355→      reader.readAsDataURL(file);
+   356→    };
+   357→    input.click();
+   358→  };
+   359→
+   360→  const insertDateTime = () => {
+   361→    const now = new Date();
+   362→    const str = now.toLocaleString();
+   363→    document.execCommand('insertText', false, str);
+   364→    editorRef.current?.focus();
+   365→    setSaveStatus('unsaved');
+   366→  };
+   367→
+   368→  const insertPageBreak = () => {
+   369→    document.execCommand('insertHTML', false, '<div style="page-break-after:always;border-top:2px dashed #d1d5db;margin:16px 0;padding-top:4px;text-align:center;color:#9ca3af;font-size:10px;">--- Page Break ---</div>');
+   370→    editorRef.current?.focus();
+   371→    setSaveStatus('unsaved');
+   372→  };
+   373→
+   374→  const insertPageNumber = () => {
+   375→    document.execCommand('insertHTML', false, '<span style="color:#6b7280;font-size:11px;">[Page 1]</span>');
+   376→    editorRef.current?.focus();
+   377→    setSaveStatus('unsaved');
+   378→  };
+   379→
+   380→  /* ── Signature Drawing ── */
+   381→  const startDraw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+   382→    const ctx = canvasRef.current?.getContext('2d');
+   383→    if (!ctx) return;
+   384→    ctx.beginPath();
+   385→    ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+   386→    setIsDrawing(true);
+   387→  };
+   388→
+   389→  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+   390→    if (!isDrawing) return;
+   391→    const ctx = canvasRef.current?.getContext('2d');
+   392→    if (!ctx) return;
+   393→    ctx.lineWidth = 2;
+   394→    ctx.lineCap = 'round';
+   395→    ctx.strokeStyle = '#1a1a1a';
+   396→    ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+   397→    ctx.stroke();
+   398→  };
+   399→
+   400→  const endDraw = () => { setIsDrawing(false); };
+   401→
+   402→  const clearCanvas = () => {
+   403→    const ctx = canvasRef.current?.getContext('2d');
+   404→    if (ctx && canvasRef.current) {
+   405→      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+   406→    }
+   407→  };
+   408→
+   409→  const saveDrawnSignature = () => {
+   410→    const dataUrl = canvasRef.current?.toDataURL('image/png');
+   411→    if (dataUrl) {
+   412→      const sigCount = savedSignatures.filter(s => s.type === 'signature').length + 1;
+   413→      addSignature(dataUrl, `Signature ${sigCount}`, 'signature');
+   414→      toast.success('Signature saved');
+   415→      setDrawDialogOpen(false);
+   416→      clearCanvas();
+   417→    }
+   418→  };
+   419→
+   420→  const uploadSignature = () => {
+   421→    uploadFromFile('signature');
+   422→  };
+   423→
+   424→  const addStamp = (text: string) => {
+   425→    const dataUrl = generateStamp(text);
+   426→    addSignature(dataUrl, `${text} Stamp`, 'stamp');
+   427→    toast.success(`${text} stamp created`);
+   428→  };
+   429→
+   430→  const startPlacement = (dataUrl: string) => {
+   431→    setPlacementDataUrl(dataUrl);
+   432→    setPlacementMode(true);
+   433→    toast.info('Click on the document to place the signature/stamp');
+   434→  };
+   435→
+   436→  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+   437→    if (!placementMode || !placementDataUrl) return;
+   438→    e.preventDefault();
+   439→    const sel = window.getSelection();
+   440→    if (sel && sel.rangeCount > 0) {
+   441→      const range = sel.getRangeAt(0);
+   442→      range.collapse(false);
+   443→      const img = document.createElement('img');
+   444→      img.src = placementDataUrl;
+   445→      img.setAttribute('data-signature', 'true');
+   446→      img.style.maxHeight = '80px';
+   447→      img.style.margin = '4px';
+   448→      img.style.cursor = 'pointer';
+   449→      img.onclick = () => {
+   450→        if (confirm('Remove this signature/stamp?')) {
+   451→          img.remove();
+   452→          setSaveStatus('unsaved');
+   453→          updateCounts();
+   454→        }
+   455→      };
+   456→      range.insertNode(img);
+   457→      range.collapse(false);
+   458→    } else {
+   459→      document.execCommand('insertHTML', false,
+   460→        `<img src="${placementDataUrl}" data-signature="true" style="max-height:80px;margin:4px;cursor:pointer;" onclick="if(confirm('Remove?'))this.remove()" />`
+   461→      );
+   462→    }
+   463→    setPlacementMode(false);
+   464→    setPlacementDataUrl('');
+   465→    setSaveStatus('unsaved');
+   466→    updateCounts();
+   467→  };
+   468→
+   469→  // deleteSignature is now provided by useStampSignature hook as removeItem
+   470→
+   471→  /* ── AI Generation ── */
+   472→  const setDocumentContent = (html: string) => {
+   473→    if (editorRef.current) {
+   474→      editorRef.current.innerHTML = html;
+   475→      setSaveStatus('unsaved');
+   476→      updateCounts();
+   477→    }
+   478→  };
+   479→
+   480→  /* ════════════════════════════════════════════════════════════
+   481→     DOC REVIEW: Upload
+   482→     ════════════════════════════════════════════════════════════ */
+   483→  const handleFileUpload = async (files: FileList | File[]) => {
+   484→    const file = files[0];
+   485→    if (!file) return;
+   486→
+   487→    setUploading(true);
+   488→    try {
+   489→      const formData = new FormData();
+   490→      formData.append('file', file);
+   491→      formData.append('docType', uploadDocType);
+   492→      const res = await api.upload('/documents', formData);
+   493→      if (res.success) {
+   494→        toast.success(`"${file.name}" uploaded successfully`);
+   495→        loadDocuments();
+   496→      } else {
+   497→        toast.error(res.error || 'Upload failed');
+   498→      }
+   499→    } catch {
+   500→      toast.error('Upload failed');
+   501→    } finally {
+   502→      setUploading(false);
+   503→    }
+   504→  };
+   505→
+   506→  const handleDrop = (e: React.DragEvent) => {
+   507→    e.preventDefault();
+   508→    setDragOver(false);
+   509→    if (e.dataTransfer.files.length > 0) {
+   510→      handleFileUpload(e.dataTransfer.files);
+   511→    }
+   512→  };
+   513→
+   514→  /* ════════════════════════════════════════════════════════════
+   515→     DOC REVIEW: OCR
+   516→     ════════════════════════════════════════════════════════════ */
+   517→  const triggerOCR = async (docId: string) => {
+   518→    setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: true } }));
+   519→    try {
+   520→      const res = await api.post(`/document-ocr/${docId}`);
+   521→      if (res.success) {
+   522→        toast.success('OCR processing started');
+   523→        // Poll for completion
+   524→        pollOCRStatus(docId);
+   525→      } else {
+   526→        toast.error(res.error || 'OCR failed');
+   527→        setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   528→      }
+   529→    } catch {
+   530→      toast.error('OCR request failed');
+   531→      setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   532→    }
+   533→  };
+   534→
+   535→  const pollOCRStatus = async (docId: string) => {
+   536→    let attempts = 0;
+   537→    const maxAttempts = 30;
+   538→    const poll = async () => {
+   539→      try {
+   540→        const res = await api.get(`/document-ocr/${docId}`);
+   541→        if (res.success && res.data) {
+   542→          const status = res.data.ocrStatus;
+   543→          if (status === 'completed') {
+   544→            setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false, text: res.data.ocrText } }));
+   545→            toast.success('OCR completed');
+   546→            // Refresh document list
+   547→            loadDocuments();
+   548→            return;
+   549→          } else if (status === 'failed') {
+   550→            setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   551→            toast.error('OCR failed');
+   552→            return;
+   553→          }
+   554→        }
+   555→        attempts++;
+   556→        if (attempts < maxAttempts) {
+   557→          setTimeout(poll, 2000);
+   558→        } else {
+   559→          setOcrStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   560→          toast.info('OCR is taking longer than expected. Check back later.');
+   561→        }
+   562→      } catch {
+   563→        attempts++;
+   564→        if (attempts < maxAttempts) {
+   565→          setTimeout(poll, 3000);
+   566→        }
+   567→      }
+   568→    };
+   569→    setTimeout(poll, 2000);
+   570→  };
+   571→
+   572→  /* ════════════════════════════════════════════════════════════
+   573→     DOC REVIEW: AI Review
+   574→     ════════════════════════════════════════════════════════════ */
+   575→  const triggerReview = async (docId: string) => {
+   576→    const prompt = reviewPrompts[docId]?.trim() || '';
+   577→    setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: true } }));
+   578→    try {
+   579→      const res = await api.post(`/document-review/${docId}`, prompt ? { prompt } : {});
+   580→      if (res.success) {
+   581→        toast.success('AI Review started');
+   582→        pollReviewStatus(docId);
+   583→      } else {
+   584→        toast.error(res.error || 'AI Review failed');
+   585→        setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   586→      }
+   587→    } catch {
+   588→      toast.error('AI Review request failed');
+   589→      setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   590→    }
+   591→  };
+   592→
+   593→  const pollReviewStatus = async (docId: string) => {
+   594→    let attempts = 0;
+   595→    const maxAttempts = 40;
+   596→    const poll = async () => {
+   597→      try {
+   598→        const res = await api.get(`/document-review/${docId}`);
+   599→        if (res.success && res.data) {
+   600→          const status = res.data.aiReviewStatus;
+   601→          if (status === 'completed') {
+   602→            setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false, result: res.data.aiReview } }));
+   603→            toast.success('AI Review completed');
+   604→            loadDocuments();
+   605→            return;
+   606→          } else if (status === 'failed') {
+   607→            setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   608→            toast.error('AI Review failed');
+   609→            return;
+   610→          }
+   611→        }
+   612→        attempts++;
+   613→        if (attempts < maxAttempts) {
+   614→          setTimeout(poll, 3000);
+   615→        } else {
+   616→          setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: false } }));
+   617→          toast.info('AI Review is taking longer than expected. Check back later.');
+   618→        }
+   619→      } catch {
+   620→        attempts++;
+   621→        if (attempts < maxAttempts) {
+   622→          setTimeout(poll, 4000);
+   623→        }
+   624→      }
+   625→    };
+   626→    setTimeout(poll, 3000);
+   627→  };
+   628→
+   629→  /* ════════════════════════════════════════════════════════════
+   630→     DOC REVIEW: Submit URL
+   631→     ════════════════════════════════════════════════════════════ */
+   632→  const saveSubmitUrl = async (docId: string) => {
+   633→    const url = submitUrls[docId]?.trim() || '';
+   634→    try {
+   635→      const res = await api.patch(`/documents/${docId}`, { submitUrl: url || null });
+   636→      if (res.success) {
+   637→        toast.success(url ? 'Submit URL saved' : 'Submit URL removed');
+   638→      } else {
+   639→        toast.error(res.error || 'Failed to save URL');
+   640→      }
+   641→    } catch {
+   642→      toast.error('Failed to save URL');
+   643→    }
+   644→  };
+   645→
+   646→  const openSubmitUrl = (docId: string) => {
+   647→    const url = submitUrls[docId];
+   648→    if (url) {
+   649→      window.open(url, '_blank', 'noopener,noreferrer');
+   650→    }
+   651→  };
+   652→
+   653→  /* ════════════════════════════════════════════════════════════
+   654→     DOC REVIEW: Save prompt
+   655→     ════════════════════════════════════════════════════════════ */
+   656→  const saveReviewPrompt = async (docId: string) => {
+   657→    const prompt = reviewPrompts[docId]?.trim() || '';
+   658→    try {
+   659→      await api.patch(`/documents/${docId}`, { aiReviewPrompt: prompt || null });
+   660→    } catch {
+   661→      // silent fail for prompt save
+   662→    }
+   663→  };
+   664→
+   665→  /* ════════════════════════════════════════════════════════════
+   666→     DOC REVIEW: AI Extract
+   667→     ════════════════════════════════════════════════════════════ */
+   668→  const handleAiExtract = useCallback(async (docId: string) => {
+   669→    const prompt = extractPrompt[docId]?.trim();
+   670→    if (!prompt) {
+   671→      toast.error('Please enter a prompt');
+   672→      return;
+   673→    }
+   674→    setExtractLoading(prev => new Set(prev).add(docId));
+   675→    try {
+   676→      const res = await api.post('/documents/ai-extract', { documentId: docId, prompt });
+   677→      if (res.success) {
+   678→        const extractedInfo = res.data.extractedInfo;
+   679→        setExtractResults(prev => ({ ...prev, [docId]: extractedInfo }));
+   680→        setExtractHistory(prev => ({
+   681→          ...prev,
+   682→          [docId]: [...(prev[docId] || []), { prompt, result: extractedInfo, timestamp: new Date().toLocaleString() }],
+   683→        }));
+   684→        toast.success('Information extracted successfully');
+   685→      } else {
+   686→        toast.error(res.error || 'Extraction failed');
+   687→      }
+   688→    } catch {
+   689→      toast.error('Extraction failed');
+   690→    } finally {
+   691→      setExtractLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+   692→    }
+   693→  }, [extractPrompt]);
+   694→
+   695→  /* ════════════════════════════════════════════════════════════
+   696→     RIBBON: HOME TAB
+   697→     ════════════════════════════════════════════════════════════ */
+   698→  const HomeRibbon = () => (
+   699→    <div className="flex items-center gap-1 flex-wrap px-2 py-1.5">
+   700→      {/* Undo / Redo */}
+   701→      <RibbonBtn icon={Undo2} title="Undo" onClick={() => handleFormat('undo')} />
+   702→      <RibbonBtn icon={Redo2} title="Redo" onClick={() => handleFormat('redo')} />
+   703→      <Separator orientation="vertical" className="h-6 mx-1" />
+   704→
+   705→      {/* Heading */}
+   706→      <Popover>
+   707→        <PopoverTrigger asChild>
+   708→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   709→            <Type className="h-3.5 w-3.5" />
+   710→            Heading
+   711→            <ChevronDown className="h-3 w-3" />
+   712→          </button>
+   713→        </PopoverTrigger>
+   714→        <PopoverContent className="w-40 p-1" align="start">
+   715→          {['Normal', 'H1', 'H2', 'H3'].map(h => (
+   716→            <button key={h} onClick={() => handleFormat('formatBlock', h === 'Normal' ? '<p>' : `<${h.toLowerCase()}>`)}
+   717→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+   718→              style={h !== 'Normal' ? { fontSize: h === 'H1' ? 18 : h === 'H2' ? 16 : 14, fontWeight: 700 } : {}}>
+   719→              {h}
+   720→            </button>
+   721→          ))}
+   722→        </PopoverContent>
+   723→      </Popover>
+   724→
+   725→      {/* Font Family */}
+   726→      <Popover>
+   727→        <PopoverTrigger asChild>
+   728→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors max-w-[110px]">
+   729→            <span className="truncate">Font</span>
+   730→            <ChevronDown className="h-3 w-3 flex-shrink-0" />
+   731→          </button>
+   732→        </PopoverTrigger>
+   733→        <PopoverContent className="w-44 p-1" align="start">
+   734→          {FONT_FAMILIES.map(f => (
+   735→            <button key={f} onClick={() => handleFormat('fontName', f)}
+   736→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+   737→              style={{ fontFamily: f }}>
+   738→              {f}
+   739→            </button>
+   740→          ))}
+   741→        </PopoverContent>
+   742→      </Popover>
+   743→
+   744→      {/* Font Size */}
+   745→      <Popover>
+   746→        <PopoverTrigger asChild>
+   747→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   748→            <span>Size</span>
+   749→            <ChevronDown className="h-3 w-3" />
+   750→          </button>
+   751→        </PopoverTrigger>
+   752→        <PopoverContent className="w-32 p-1" align="start">
+   753→          {FONT_SIZES.map(s => (
+   754→            <button key={s} onClick={() => handleFormat('fontSize', s)}
+   755→              className="w-full text-left px-3 py-1 text-xs rounded hover:bg-muted transition-colors">
+   756→              {s}pt
+   757→            </button>
+   758→          ))}
+   759→        </PopoverContent>
+   760→      </Popover>
+   761→
+   762→      <Separator orientation="vertical" className="h-6 mx-1" />
+   763→
+   764→      {/* Bold / Italic / Underline */}
+   765→      <RibbonBtn icon={Bold} title="Bold (Ctrl+B)" onClick={() => handleFormat('bold')} />
+   766→      <RibbonBtn icon={Italic} title="Italic (Ctrl+I)" onClick={() => handleFormat('italic')} />
+   767→      <RibbonBtn icon={Underline} title="Underline (Ctrl+U)" onClick={() => handleFormat('underline')} />
+   768→
+   769→      <Separator orientation="vertical" className="h-6 mx-1" />
+   770→
+   771→      {/* Text Color */}
+   772→      <Popover>
+   773→        <PopoverTrigger asChild>
+   774→          <button className="h-7 w-7 rounded border border-border hover:bg-muted transition-colors flex items-center justify-center" title="Text Color">
+   775→            <div className="flex flex-col items-center">
+   776→              <span className="text-[10px] font-bold leading-none">A</span>
+   777→              <div className="w-4 h-1 rounded-sm mt-0.5" style={{ backgroundColor: '#000000' }} />
+   778→            </div>
+   779→          </button>
+   780→        </PopoverTrigger>
+   781→        <PopoverContent className="w-auto p-2" align="start">
+   782→          <div className="flex gap-1">
+   783→            {TEXT_COLORS.map(c => (
+   784→              <button key={c} onClick={() => handleFormat('foreColor', c)}
+   785→                className="w-6 h-6 rounded border border-border hover:scale-110 transition-transform" style={{ backgroundColor: c }} />
+   786→            ))}
+   787→          </div>
+   788→        </PopoverContent>
+   789→      </Popover>
+   790→
+   791→      {/* Highlight */}
+   792→      <Popover>
+   793→        <PopoverTrigger asChild>
+   794→          <button className="h-7 w-7 rounded border border-border hover:bg-muted transition-colors flex items-center justify-center" title="Highlight">
+   795→            <div className="flex flex-col items-center">
+   796→              <span className="text-[10px] font-bold leading-none bg-yellow-200 px-0.5">A</span>
+   797→            </div>
+   798→          </button>
+   799→        </PopoverTrigger>
+   800→        <PopoverContent className="w-auto p-2" align="start">
+   801→          <div className="flex gap-1">
+   802→            {HIGHLIGHT_COLORS.map(c => (
+   803→              <button key={c} onClick={() => handleFormat('hiliteColor', c)}
+   804→                className="w-6 h-6 rounded border border-border hover:scale-110 transition-transform" style={{ backgroundColor: c }} />
+   805→            ))}
+   806→          </div>
+   807→        </PopoverContent>
+   808→      </Popover>
+   809→
+   810→      <Separator orientation="vertical" className="h-6 mx-1" />
+   811→
+   812→      {/* Alignment */}
+   813→      <RibbonBtn icon={AlignLeft} title="Align Left" onClick={() => handleFormat('justifyLeft')} />
+   814→      <RibbonBtn icon={AlignCenter} title="Align Center" onClick={() => handleFormat('justifyCenter')} />
+   815→      <RibbonBtn icon={AlignRight} title="Align Right" onClick={() => handleFormat('justifyRight')} />
+   816→      <RibbonBtn icon={AlignJustify} title="Justify" onClick={() => handleFormat('justifyFull')} />
+   817→
+   818→      <Separator orientation="vertical" className="h-6 mx-1" />
+   819→
+   820→      {/* Lists */}
+   821→      <RibbonBtn icon={List} title="Bullet List" onClick={() => handleFormat('insertUnorderedList')} />
+   822→      <RibbonBtn icon={ListOrdered} title="Numbered List" onClick={() => handleFormat('insertOrderedList')} />
+   823→    </div>
+   824→  );
+   825→
+   826→  /* ════════════════════════════════════════════════════════════
+   827→     RIBBON: INSERT TAB
+   828→     ════════════════════════════════════════════════════════════ */
+   829→  const InsertRibbon = () => (
+   830→    <div className="flex items-center gap-1 flex-wrap px-2 py-1.5">
+   831→      <Popover>
+   832→        <PopoverTrigger asChild>
+   833→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   834→            <Table className="h-3.5 w-3.5" /> Table <ChevronDown className="h-3 w-3" />
+   835→          </button>
+   836→        </PopoverTrigger>
+   837→        <PopoverContent className="w-36 p-1" align="start">
+   838→          <button onClick={() => insertTable(2, 2)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">2 x 2</button>
+   839→          <button onClick={() => insertTable(3, 3)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">3 x 3</button>
+   840→          <button onClick={() => insertTable(4, 4)} className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted">4 x 4</button>
+   841→        </PopoverContent>
+   842→      </Popover>
+   843→      <RibbonBtn icon={Minus} title="Horizontal Rule" onClick={() => handleFormat('insertHorizontalRule')} />
+   844→      <RibbonBtn icon={ImageIcon} title="Insert Image" onClick={insertImageFromFile} />
+   845→      <RibbonBtn icon={Clock} title="Insert Date/Time" onClick={insertDateTime} />
+   846→      <RibbonBtn icon={FileText} title="Page Break" onClick={insertPageBreak} />
+   847→      <RibbonBtn icon={Type} title="Page Number" onClick={insertPageNumber} />
+   848→    </div>
+   849→  );
+   850→
+   851→  /* ════════════════════════════════════════════════════════════
+   852→     RIBBON: REVIEW TAB
+   853→     ════════════════════════════════════════════════════════════ */
+   854→  const ReviewRibbon = () => (
+   855→    <div className="flex items-center gap-3 px-2 py-1.5 text-xs text-muted-foreground">
+   856→      <div className="flex items-center gap-1.5">
+   857→        <FileText className="h-3.5 w-3.5" />
+   858→        <span>Words: <strong className="text-foreground">{wordCount}</strong></span>
+   859→      </div>
+   860→      <div className="flex items-center gap-1.5">
+   861→        <Type className="h-3.5 w-3.5" />
+   862→        <span>Chars: <strong className="text-foreground">{charCount}</strong></span>
+   863→      </div>
+   864→      <Separator orientation="vertical" className="h-6" />
+   865→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.info('Spell check coming soon')}>
+   866→        <Check className="h-3.5 w-3.5 mr-1" /> Spell Check
+   867→      </Button>
+   868→      <Separator orientation="vertical" className="h-6" />
+   869→      <div className="text-[11px]">
+   870→        <span className="text-muted-foreground">Author: </span>
+   871→        <strong className="text-foreground">{user?.profile?.fullName || 'Unknown'}</strong>
+   872→      </div>
+   873→      <div className="text-[11px]">
+   874→        <span className="text-muted-foreground">Created: </span>
+   875→        <strong className="text-foreground">{new Date().toLocaleDateString()}</strong>
+   876→      </div>
+   877→    </div>
+   878→  );
+   879→
+   880→  /* ════════════════════════════════════════════════════════════
+   881→     RIBBON: AI TOOLS TAB
+   882→     ════════════════════════════════════════════════════════════ */
+   883→  const AIToolsRibbon = () => (
+   884→    <div className="flex items-center gap-2 px-2 py-1.5">
+   885→      {AI_TOOLS.map(tool => {
+   886→        const Icon = tool.icon;
+   887→        const isActive = aiPanelOpen && activeAITool === tool.id;
+   888→        return (
+   889→          <button key={tool.id} onClick={() => { setActiveAITool(tool.id); setAiPanelOpen(true); }}
+   890→            className={`flex items-center gap-1.5 h-7 px-3 text-xs rounded border transition-colors ${
+   891→              isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border hover:bg-muted text-foreground'
+   892→            }`}>
+   893→            <Icon className="h-3.5 w-3.5" />
+   894→            {tool.label}
+   895→          </button>
+   896→        );
+   897→      })}
+   898→    </div>
+   899→  );
+   900→
+   901→  /* ════════════════════════════════════════════════════════════
+   902→     RIBBON: SIGN TAB
+   903→     ════════════════════════════════════════════════════════════ */
+   904→  const SignRibbon = () => (
+   905→    <div className="flex items-center gap-2 px-2 py-1.5">
+   906→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDrawDialogOpen(true)}>
+   907→        <Pen className="h-3.5 w-3.5 mr-1" /> Draw Signature
+   908→      </Button>
+   909→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={uploadSignature}>
+   910→        <ImageIcon className="h-3.5 w-3.5 mr-1" /> Upload Signature
+   911→      </Button>
+   912→      <Separator orientation="vertical" className="h-6" />
+   913→      <Popover>
+   914→        <PopoverTrigger asChild>
+   915→          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+   916→            <Stamp className="h-3.5 w-3.5" /> Add Stamp <ChevronDown className="h-3 w-3" />
+   917→          </button>
+   918→        </PopoverTrigger>
+   919→        <PopoverContent className="w-40 p-1" align="start">
+   920→          {STAMP_TEMPLATES.map(st => (
+   921→            <button key={st.text} onClick={() => addStamp(st.text)}
+   922→              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors">
+   923→              {st.label}
+   924→            </button>
+   925→          ))}
+   926→        </PopoverContent>
+   927→      </Popover>
+   928→      <Separator orientation="vertical" className="h-6" />
+   929→      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   930→        <FileSignature className="h-3.5 w-3.5" />
+   931→        Saved: {savedSignatures.length}
+   932→      </div>
+   933→    </div>
+   934→  );
+   935→
+   936→  /* ════════════════════════════════════════════════════════════
+   937→     RIBBON: DOC REVIEW TAB
+   938→     ════════════════════════════════════════════════════════════ */
+   939→  const DocReviewRibbon = () => (
+   940→    <div className="flex items-center gap-2 px-2 py-1.5">
+   941→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
+   942→        <FileUp className="h-3.5 w-3.5 mr-1" /> Upload Document
+   943→      </Button>
+   944→      <Separator orientation="vertical" className="h-6" />
+   945→      <Select value={uploadDocType} onValueChange={setUploadDocType}>
+   946→        <SelectTrigger className="h-7 text-xs w-[160px] border-border">
+   947→          <SelectValue />
+   948→        </SelectTrigger>
+   949→        <SelectContent>
+   950→          {DOC_TYPE_OPTIONS.map(opt => (
+   951→            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+   952→          ))}
+   953→        </SelectContent>
+   954→      </Select>
+   955→      <Separator orientation="vertical" className="h-6" />
+   956→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={loadDocuments}>
+   957→        <RefreshCw className={`h-3.5 w-3.5 mr-1 ${docsLoading ? 'animate-spin' : ''}`} /> Refresh
+   958→      </Button>
+   959→      <Separator orientation="vertical" className="h-6" />
+   960→      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   961→        <FileSearch className="h-3.5 w-3.5" />
+   962→        {documents.length} document{documents.length !== 1 ? 's' : ''}
+   963→      </div>
+   964→    </div>
+   965→  );
+   966→
+   967→  const AIExtractRibbon = () => (
+   968→    <div className="flex items-center gap-2 px-2 py-1.5">
+   969→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
+   970→        <FileUp className="h-3.5 w-3.5 mr-1" /> Upload Document
+   971→      </Button>
+   972→      <Separator orientation="vertical" className="h-6" />
+   973→      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={loadDocuments}>
+   974→        <RefreshCw className={`h-3.5 w-3.5 mr-1 ${docsLoading ? 'animate-spin' : ''}`} /> Refresh
+   975→      </Button>
+   976→      <Separator orientation="vertical" className="h-6" />
+   977→      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   978→        <Sparkles className="h-3.5 w-3.5" />
+   979→        Extract info from {documents.filter(d => d.ocrStatus === 'completed').length} OCR-ready document{documents.filter(d => d.ocrStatus === 'completed').length !== 1 ? 's' : ''}
+   980→      </div>
+   981→    </div>
+   982→  );
+   983→
+   984→  const RIBBON_MAP: Record<RibbonTab, () => React.JSX.Element> = {
+   985→    home: HomeRibbon,
+   986→    insert: InsertRibbon,
+   987→    review: ReviewRibbon,
+   988→    'ai-tools': AIToolsRibbon,
+   989→    sign: SignRibbon,
+   990→    'doc-review': DocReviewRibbon,
+   991→    'ai-extract': AIExtractRibbon,
+   992→  };
+   993→
+   994→  /* ════════════════════════════════════════════════════════════
+   995→     AI TOOL FORMS (for right panel)
+   996→     ════════════════════════════════════════════════════════════ */
+   997→
+   998→  /* -- Tender Builder Form -- */
+   999→  const [tenderForm, setTenderForm] = useState({
+  1000→    title: '', category: '', location: '', budgetMin: '', budgetMax: '',
+  1001→    deadline: '', description: '', notes: '',
+  1002→  });
+  1003→  const updateTenderField = (f: string, v: string) => setTenderForm(prev => ({ ...prev, [f]: v }));
+  1004→
+  1005→  const generateTender = async () => {
+  1006→    if (!tenderForm.title || !tenderForm.category || !tenderForm.description) {
+  1007→      toast.error('Please fill in Title, Category, and Description');
+  1008→      return;
+  1009→    }
+  1010→    setAiLoading(true);
+  1011→    try {
+  1012→      const res = await api.post('/ai/tender-prep', {
+  1013→        title: tenderForm.title, category: tenderForm.category, location: tenderForm.location,
+  1014→        budgetMin: tenderForm.budgetMin, budgetMax: tenderForm.budgetMax, deadline: tenderForm.deadline,
+  1015→        description: tenderForm.description, notes: tenderForm.notes,
+  1016→        skills: user?.profile?.skillTags || '', userName: user?.profile?.fullName || '',
+  1017→      });
+  1018→      if (res.success && res.data) {
+  1019→        setDocumentContent(formatAIResultToHTML(res.data));
+  1020→        toast.success('Tender document generated!');
+  1021→      } else { toast.error(res.error || 'Failed to generate'); }
+  1022→    } catch { toast.error('AI generation failed'); }
+  1023→    finally { setAiLoading(false); }
+  1024→  };
+  1025→
+  1026→  /* -- Bid Builder Form -- */
+  1027→  const [bidForm, setBidForm] = useState({
+  1028→    tenderTitle: '', scope: '', budgetRange: '', category: '',
+  1029→    companyName: '', experience: '', proposedBudget: '', proposedTimeline: '', notes: '',
+  1030→  });
+  1031→  const [bidSelectedTender, setBidSelectedTender] = useState('');
+  1032→  const [bidSkills, setBidSkills] = useState<string[]>([]);
+  1033→  const updateBidField = (f: string, v: string) => setBidForm(prev => ({ ...prev, [f]: v }));
+  1034→
+  1035→  const selectBidTender = (tenderId: string) => {
+  1036→    setBidSelectedTender(tenderId);
+  1037→    const t = tenders.find(t => t.id === tenderId);
+  1038→    if (t) {
+  1039→      setBidForm(prev => ({
+  1040→        ...prev, tenderTitle: t.title, scope: t.scope || '',
+  1041→        budgetRange: t.budgetMin && t.budgetMax ? `${t.budgetMin} - ${t.budgetMax} ETB` : '',
+  1042→        category: t.categoryTags || '',
+  1043→      }));
+  1044→    }
+  1045→  };
+  1046→
+  1047→  const generateBid = async () => {
+  1048→    if (!bidForm.tenderTitle && !bidSelectedTender) {
+  1049→      toast.error('Please select a tender or enter details'); return;
+  1050→    }
+  1051→    setAiLoading(true);
+  1052→    try {
+  1053→      const res = await api.post('/ai/bid-prep', {
+  1054→        tenderId: bidSelectedTender || undefined, tenderTitle: bidForm.tenderTitle,
+  1055→        scope: bidForm.scope, budgetRange: bidForm.budgetRange, category: bidForm.category,
+  1056→        skills: bidSkills.join(', '), companyName: bidForm.companyName, experience: bidForm.experience,
+  1057→        proposedBudget: bidForm.proposedBudget, proposedTimeline: bidForm.proposedTimeline,
+  1058→        notes: bidForm.notes, userName: user?.profile?.fullName || '', userSkills: user?.profile?.skillTags || '',
+  1059→      });
+  1060→      if (res.success && res.data) {
+  1061→        setDocumentContent(formatAIResultToHTML(res.data));
+  1062→        toast.success('Bid proposal generated!');
+  1063→      } else { toast.error(res.error || 'Failed to generate'); }
+  1064→    } catch { toast.error('AI generation failed'); }
+  1065→    finally { setAiLoading(false); }
+  1066→  };
+  1067→
+  1068→  /* -- Requirement Analyzer Form -- */
+  1069→  const [reqForm, setReqForm] = useState({
+  1070→    tenderTitle: '', scope: '', budget: '', category: '', requiredDocs: '', deadline: '',
+  1071→  });
+  1072→  const [reqSelectedTender, setReqSelectedTender] = useState('');
+  1073→  const [reqSkills, setReqSkills] = useState<string[]>([]);
+  1074→  const updateReqField = (f: string, v: string) => setReqForm(prev => ({ ...prev, [f]: v }));
+  1075→
+  1076→  const selectReqTender = (tenderId: string) => {
+  1077→    setReqSelectedTender(tenderId);
+  1078→    const t = tenders.find(t => t.id === tenderId);
+  1079→    if (t) {
+  1080→      setReqForm({
+  1081→        tenderTitle: t.title, scope: t.scope || '',
+  1082→        budget: t.budgetMin && t.budgetMax ? `${t.budgetMin} - ${t.budgetMax} ETB` : '',
+  1083→        category: t.categoryTags || '', requiredDocs: t.requiredDocs || '',
+  1084→        deadline: t.deadline ? new Date(t.deadline).toISOString().split('T')[0] : '',
+  1085→      });
+  1086→    }
+  1087→  };
+  1088→
+  1089→  const generateReq = async () => {
+  1090→    if (!reqForm.tenderTitle && !reqSelectedTender) {
+  1091→      toast.error('Please select a tender or enter details'); return;
+  1092→    }
+  1093→    setAiLoading(true);
+  1094→    try {
+  1095→      const res = await api.post('/ai/analyze-requirements', {
+  1096→        tenderId: reqSelectedTender || undefined, tenderTitle: reqForm.tenderTitle,
+  1097→        scope: reqForm.scope, budget: reqForm.budget, category: reqForm.category,
+  1098→        requiredDocs: reqForm.requiredDocs, deadline: reqForm.deadline,
+  1099→        skills: reqSkills.join(', '), userName: user?.profile?.fullName || '',
+  1100→        userSkills: user?.profile?.skillTags || '',
+  1101→      });
+  1102→      if (res.success && res.data) {
+  1103→        setDocumentContent(formatAIResultToHTML(res.data as Record<string, unknown>));
+  1104→        toast.success('Requirements analyzed!');
+  1105→      } else { toast.error(res.error || 'Failed to analyze'); }
+  1106→    } catch { toast.error('AI analysis failed'); }
+  1107→    finally { setAiLoading(false); }
+  1108→  };
+  1109→
+  1110→  /* -- Applicant Analyzer Form -- */
+  1111→  const [appSelectedTender, setAppSelectedTender] = useState('');
+  1112→
+  1113→  const generateApplicant = async () => {
+  1114→    if (!appSelectedTender) { toast.error('Please select a tender'); return; }
+  1115→    setAiLoading(true);
+  1116→    try {
+  1117→      const res = await api.post('/ai/analyze-applicants', { tenderId: appSelectedTender });
+  1118→      if (res.success && res.data) {
+  1119→        const d = res.data as Record<string, unknown>;
+  1120→        let html = '';
+  1121→        if (d.summary) {
+  1122→          const s = d.summary as Record<string, unknown>;
+  1123→          html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">Summary</h2>`;
+  1124→          html += `<p>Total Bids: <strong>${s.totalBids ?? 0}</strong> | Average Score: <strong>${s.averageScore ?? 0}</strong></p>`;
+  1125→        }
+  1126→        if (d.applicants && Array.isArray(d.applicants)) {
+  1127→          html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">Ranked Applicants</h2>`;
+  1128→          for (const a of d.applicants as Record<string, unknown>[]) {
+  1129→            html += `<div style="margin:8px 0;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
+  1130→              <strong>#${a.rank} ${a.name}</strong> (${a.company}) — Score: <strong>${a.overallScore}</strong>
+  1131→              <br/>Technical: ${a.technicalScore}% | Financial: ${a.financialScore}%
+  1132→              <br/>Risk: ${a.riskLevel} | Recommendation: ${a.recommendation}
+  1133→            </div>`;
+  1134→          }
+  1135→        }
+  1136→        if (d.budgetAnalysis) html += formatAIResultToHTML({ budgetAnalysis: d.budgetAnalysis });
+  1137→        if (d.riskSummary) html += formatAIResultToHTML({ riskSummary: d.riskSummary });
+  1138→        if (d.finalRecommendation) html += formatAIResultToHTML({ finalRecommendation: d.finalRecommendation });
+  1139→        setDocumentContent(html || '<p>No results</p>');
+  1140→        toast.success('Applicants analyzed!');
+  1141→      } else { toast.error(res.error || 'Failed to analyze'); }
+  1142→    } catch { toast.error('AI analysis failed'); }
+  1143→    finally { setAiLoading(false); }
+  1144→  };
+  1145→
+  1146→  /* ── AI Panel Content ── */
+  1147→  const AIPanelContent = () => {
+  1148→    const formClass = "h-8 text-xs bg-muted/50 border-border/50";
+  1149→    return (
+  1150→      <ScrollArea className="h-full">
+  1151→        <div className="p-3 space-y-3">
+  1152→          {/* Close button */}
+  1153→          <div className="flex items-center justify-between">
+  1154→            <div className="flex items-center gap-2">
+  1155→              <Sparkles className="h-4 w-4 text-emerald-600" />
+  1156→              <span className="text-sm font-semibold">AI Assistant</span>
+  1157→            </div>
+  1158→            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setAiPanelOpen(false)}>
+  1159→              <X className="h-3.5 w-3.5" />
+  1160→            </Button>
+  1161→          </div>
+  1162→
+  1163→          {/* Tool selector */}
+  1164→          <div className="flex flex-wrap gap-1">
+  1165→            {AI_TOOLS.map(tool => {
+  1166→              const Icon = tool.icon;
+  1167→              const isActive = activeAITool === tool.id;
+  1168→              return (
+  1169→                <button key={tool.id} onClick={() => setActiveAITool(tool.id)}
+  1170→                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border transition-colors ${
+  1171→                    isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border text-muted-foreground hover:bg-muted'
+  1172→                  }`}>
+  1173→                  <Icon className="h-3 w-3" /> {tool.label}
+  1174→                </button>
+  1175→              );
+  1176→            })}
+  1177→          </div>
+  1178→
+  1179→          <Separator />
+  1180→
+  1181→          {/* Tender Builder Form */}
+  1182→          {activeAITool === 'tender-builder' && (
+  1183→            <div className="space-y-2">
+  1184→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tender Builder</Label>
+  1185→              <div><Label className="text-[10px]">Title *</Label><Input placeholder="Tender title" value={tenderForm.title} onChange={e => updateTenderField('title', e.target.value)} className={formClass} /></div>
+  1186→              <div><Label className="text-[10px]">Category *</Label>
+  1187→                <Select value={tenderForm.category} onValueChange={v => updateTenderField('category', v)}>
+  1188→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+  1189→                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+  1190→                </Select>
+  1191→              </div>
+  1192→              <div><Label className="text-[10px]">Location</Label><Input placeholder="e.g., Addis Ababa" value={tenderForm.location} onChange={e => updateTenderField('location', e.target.value)} className={formClass} /></div>
+  1193→              <div className="grid grid-cols-2 gap-2">
+  1194→                <div><Label className="text-[10px]">Budget Min</Label><Input type="number" placeholder="0" value={tenderForm.budgetMin} onChange={e => updateTenderField('budgetMin', e.target.value)} className={formClass} /></div>
+  1195→                <div><Label className="text-[10px]">Budget Max</Label><Input type="number" placeholder="0" value={tenderForm.budgetMax} onChange={e => updateTenderField('budgetMax', e.target.value)} className={formClass} /></div>
+  1196→              </div>
+  1197→              <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={tenderForm.deadline} onChange={e => updateTenderField('deadline', e.target.value)} className={formClass} /></div>
+  1198→              <div><Label className="text-[10px]">Description *</Label><Textarea placeholder="Scope and requirements..." value={tenderForm.description} onChange={e => updateTenderField('description', e.target.value)} className="min-h-[60px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1199→              <div><Label className="text-[10px]">Notes</Label><Textarea placeholder="Optional notes..." value={tenderForm.notes} onChange={e => updateTenderField('notes', e.target.value)} className="min-h-[40px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1200→              <GenerateButton onClick={generateTender} loading={aiLoading} />
+  1201→            </div>
+  1202→          )}
+  1203→
+  1204→          {/* Bid Builder Form */}
+  1205→          {activeAITool === 'bid-builder' && (
+  1206→            <div className="space-y-2">
+  1207→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Bid Proposal</Label>
+  1208→              <div><Label className="text-[10px]">Select Tender</Label>
+  1209→                <Select value={bidSelectedTender} onValueChange={selectBidTender}>
+  1210→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1211→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1212→                </Select>
+  1213→              </div>
+  1214→              <Separator />
+  1215→              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+  1216→              <div><Label className="text-[10px]">Tender Title</Label><Input value={bidForm.tenderTitle} onChange={e => updateBidField('tenderTitle', e.target.value)} className={formClass} /></div>
+  1217→              <div><Label className="text-[10px]">Scope</Label><Textarea value={bidForm.scope} onChange={e => updateBidField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1218→              <div className="grid grid-cols-2 gap-2">
+  1219→                <div><Label className="text-[10px]">Budget Range</Label><Input value={bidForm.budgetRange} onChange={e => updateBidField('budgetRange', e.target.value)} className={formClass} /></div>
+  1220→                <div><Label className="text-[10px]">Category</Label>
+  1221→                  <Select value={bidForm.category} onValueChange={v => updateBidField('category', v)}>
+  1222→                    <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+  1223→                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+  1224→                  </Select>
+  1225→                </div>
+  1226→              </div>
+  1227→              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={bidSkills} onChange={setBidSkills} /></div>
+  1228→              <div><Label className="text-[10px]">Company</Label><Input value={bidForm.companyName} onChange={e => updateBidField('companyName', e.target.value)} className={formClass} /></div>
+  1229→              <div><Label className="text-[10px]">Experience</Label><Textarea value={bidForm.experience} onChange={e => updateBidField('experience', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1230→              <div className="grid grid-cols-2 gap-2">
+  1231→                <div><Label className="text-[10px]">Proposed Budget</Label><Input type="number" value={bidForm.proposedBudget} onChange={e => updateBidField('proposedBudget', e.target.value)} className={formClass} /></div>
+  1232→                <div><Label className="text-[10px]">Timeline</Label><Input value={bidForm.proposedTimeline} onChange={e => updateBidField('proposedTimeline', e.target.value)} className={formClass} /></div>
+  1233→              </div>
+  1234→              <GenerateButton onClick={generateBid} loading={aiLoading} />
+  1235→            </div>
+  1236→          )}
+  1237→
+  1238→          {/* Requirement Analyzer Form */}
+  1239→          {activeAITool === 'requirement-analyzer' && (
+  1240→            <div className="space-y-2">
+  1241→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Requirement Analyzer</Label>
+  1242→              <div><Label className="text-[10px]">Select Tender</Label>
+  1243→                <Select value={reqSelectedTender} onValueChange={selectReqTender}>
+  1244→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1245→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1246→                </Select>
+  1247→              </div>
+  1248→              <Separator />
+  1249→              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+  1250→              <div><Label className="text-[10px]">Tender Title</Label><Input value={reqForm.tenderTitle} onChange={e => updateReqField('tenderTitle', e.target.value)} className={formClass} /></div>
+  1251→              <div><Label className="text-[10px]">Scope</Label><Textarea value={reqForm.scope} onChange={e => updateReqField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1252→              <div className="grid grid-cols-2 gap-2">
+  1253→                <div><Label className="text-[10px]">Budget</Label><Input value={reqForm.budget} onChange={e => updateReqField('budget', e.target.value)} className={formClass} /></div>
+  1254→                <div><Label className="text-[10px]">Category</Label><Input value={reqForm.category} onChange={e => updateReqField('category', e.target.value)} className={formClass} /></div>
+  1255→              </div>
+  1256→              <div className="grid grid-cols-2 gap-2">
+  1257→                <div><Label className="text-[10px]">Required Docs</Label><Input value={reqForm.requiredDocs} onChange={e => updateReqField('requiredDocs', e.target.value)} className={formClass} /></div>
+  1258→                <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={reqForm.deadline} onChange={e => updateReqField('deadline', e.target.value)} className={formClass} /></div>
+  1259→              </div>
+  1260→              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={reqSkills} onChange={setReqSkills} /></div>
+  1261→              <GenerateButton onClick={generateReq} loading={aiLoading} />
+  1262→            </div>
+  1263→          )}
+  1264→
+  1265→          {/* Applicant Analyzer Form */}
+  1266→          {activeAITool === 'applicant-analyzer' && (
+  1267→            <div className="space-y-2">
+  1268→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Applicant Analyzer</Label>
+  1269→              <div><Label className="text-[10px]">Select Your Tender</Label>
+  1270→                <Select value={appSelectedTender} onValueChange={setAppSelectedTender}>
+  1271→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1272→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1273→                </Select>
+  1274→              </div>
+  1275→              <GenerateButton onClick={generateApplicant} loading={aiLoading} disabled={!appSelectedTender} />
+  1276→            </div>
+  1277→          )}
+  1278→        </div>
+  1279→      </ScrollArea>
+  1280→    );
+  1281→  };
+  1282→
+  1283→  /* ════════════════════════════════════════════════════════════
+  1284→     DOC REVIEW MAIN CONTENT
+  1285→     ════════════════════════════════════════════════════════════ */
+  1286→  const DocReviewContent = () => {
+  1287→    const selectedDoc = documents.find(d => d.id === selectedDocId);
+  1288→    const expandedDoc = documents.find(d => d.id === expandedDocId);
+  1289→
+  1290→    return (
+  1291→      <div className="flex-1 flex overflow-hidden bg-muted/30">
+  1292→        {/* Left: Document List */}
+  1293→        <div className="w-[380px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+  1294→          <div className="p-3 border-b border-border/40">
+  1295→            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+  1296→              <FileSearch className="h-4 w-4 text-emerald-600" />
+  1297→              Document Vault
+  1298→            </h3>
+  1299→
+  1300→            {/* Upload Drop Zone */}
+  1301→            <div
+  1302→              className={`border-2 border-dashed rounded-lg p-4 text-center transition-all cursor-pointer ${
+  1303→                dragOver
+  1304→                  ? 'border-emerald-500 bg-emerald-50/50'
+  1305→                  : 'border-border/60 hover:border-emerald-300 hover:bg-muted/30'
+  1306→              }`}
+  1307→              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+  1308→              onDragLeave={() => setDragOver(false)}
+  1309→              onDrop={handleDrop}
+  1310→              onClick={() => fileInputRef.current?.click()}
+  1311→            >
+  1312→              {uploading ? (
+  1313→                <div className="flex flex-col items-center gap-1">
+  1314→                  <Loader2 className="h-6 w-6 text-emerald-600 animate-spin" />
+  1315→                  <p className="text-xs text-muted-foreground">Uploading...</p>
+  1316→                </div>
+  1317→              ) : (
+  1318→                <div className="flex flex-col items-center gap-1">
+  1319→                  <Upload className="h-6 w-6 text-muted-foreground" />
+  1320→                  <p className="text-xs font-medium text-muted-foreground">
+  1321→                    Drag & drop or click to upload
+  1322→                  </p>
+  1323→                  <p className="text-[10px] text-muted-foreground/70">
+  1324→                    PDF, DOCX, DOC, TXT, JPG, PNG
+  1325→                  </p>
+  1326→                </div>
+  1327→              )}
+  1328→            </div>
+  1329→
+  1330→            {/* Hidden file input */}
+  1331→            <input
+  1332→              ref={fileInputRef}
+  1333→              type="file"
+  1334→              accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png"
+  1335→              className="hidden"
+  1336→              onChange={e => {
+  1337→                if (e.target.files) handleFileUpload(e.target.files);
+  1338→                e.target.value = '';
+  1339→              }}
+  1340→            />
+  1341→          </div>
+  1342→
+  1343→          {/* Document List */}
+  1344→          <ScrollArea className="flex-1">
+  1345→            <div className="p-2 space-y-1.5">
+  1346→              {docsLoading ? (
+  1347→                <div className="space-y-2 p-2">
+  1348→                  {[1, 2, 3].map(i => (
+  1349→                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+  1350→                  ))}
+  1351→                </div>
+  1352→              ) : documents.length === 0 ? (
+  1353→                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+  1354→                  <FileText className="h-8 w-8 mb-2 opacity-30" />
+  1355→                  <p className="text-xs">No documents uploaded yet</p>
+  1356→                  <p className="text-[10px] mt-1">Upload a document to start reviewing</p>
+  1357→                </div>
+  1358→              ) : (
+  1359→                documents.map(doc => {
+  1360→                  const extBadge = getFileExtBadge(doc.fileName);
+  1361→                  const isOcrLoading = ocrStatusMap[doc.id]?.loading;
+  1362→                  const isReviewLoading = reviewStatusMap[doc.id]?.loading;
+  1363→                  const ocrDone = doc.ocrStatus === 'completed';
+  1364→                  const reviewDone = doc.aiReviewStatus === 'completed';
+  1365→                  const isSelected = selectedDocId === doc.id;
+  1366→                  const isExpanded = expandedDocId === doc.id;
+  1367→
+  1368→                  return (
+  1369→                    <div
+  1370→                      key={doc.id}
+  1371→                      className={`rounded-lg border p-2.5 transition-all cursor-pointer ${
+  1372→                        isSelected
+  1373→                          ? 'border-emerald-300 bg-emerald-50/30 shadow-sm'
+  1374→                          : 'border-border/40 hover:border-emerald-200 hover:bg-muted/20'
+  1375→                      }`}
+  1376→                      onClick={() => setSelectedDocId(doc.id)}
+  1377→                    >
+  1378→                      {/* Doc Header */}
+  1379→                      <div className="flex items-start gap-2">
+  1380→                        <div className="p-1.5 rounded bg-muted/50 flex-shrink-0">
+  1381→                          <FileText className="h-4 w-4 text-muted-foreground" />
+  1382→                        </div>
+  1383→                        <div className="min-w-0 flex-1">
+  1384→                          <div className="flex items-center gap-1.5">
+  1385→                            <p className="text-xs font-medium truncate">{doc.fileName}</p>
+  1386→                            <Badge className={`text-[9px] px-1 py-0 border-0 ${extBadge.color}`}>
+  1387→                              {extBadge.label}
+  1388→                            </Badge>
+  1389→                          </div>
+  1390→                          <p className="text-[10px] text-muted-foreground mt-0.5">
+  1391→                            {DOC_TYPE_OPTIONS.find(o => o.value === doc.docType)?.label || doc.docType}
+  1392→                          </p>
+  1393→                        </div>
+  1394→                        <Button
+  1395→                          variant="ghost"
+  1396→                          size="sm"
+  1397→                          className="h-5 w-5 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+  1398→                          onClick={async (e) => {
+  1399→                            e.stopPropagation();
+  1400→                            if (!confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
+  1401→                            const res = await api.delete(`/documents/${doc.id}`);
+  1402→                            if (res.success) {
+  1403→                              toast.success('Document deleted');
+  1404→                              loadDocuments();
+  1405→                            } else {
+  1406→                              toast.error(res.error || 'Failed to delete');
+  1407→                            }
+  1408→                          }}
+  1409→                          title="Delete document"
+  1410→                        >
+  1411→                          <Trash2 className="h-3 w-3" />
+  1412→                        </Button>
+  1413→                        <button
+  1414→                          onClick={e => { e.stopPropagation(); setExpandedDocId(isExpanded ? null : doc.id); }}
+  1415→                          className="p-0.5 hover:bg-muted rounded transition-colors"
+  1416→                        >
+  1417→                          <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+  1418→                        </button>
+  1419→                      </div>
+  1420→
+  1421→                      {/* Status Row */}
+  1422→                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+  1423→                        {/* OCR Status */}
+  1424→                        <div className="flex items-center gap-1">
+  1425→                          {doc.ocrStatus === 'completed' ? (
+  1426→                            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  1427→                              <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> OCR
+  1428→                            </Badge>
+  1429→                          ) : doc.ocrStatus === 'processing' ? (
+  1430→                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 hover:bg-amber-100">
+  1431→                              <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> OCR
+  1432→                            </Badge>
+  1433→                          ) : doc.ocrStatus === 'failed' ? (
+  1434→                            <Badge className="text-[9px] px-1.5 py-0 bg-rose-100 text-rose-700 border-0 hover:bg-rose-100">
+  1435→                              <XCircle className="h-2.5 w-2.5 mr-0.5" /> OCR
+  1436→                            </Badge>
+  1437→                          ) : (
+  1438→                            <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-600 border-0 hover:bg-gray-100">
+  1439→                              OCR
+  1440→                            </Badge>
+  1441→                          )}
+  1442→                        </div>
+  1443→
+  1444→                        {/* AI Review Status */}
+  1445→                        <div className="flex items-center gap-1">
+  1446→                          {doc.aiReviewStatus === 'completed' ? (
+  1447→                            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  1448→                              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> Reviewed
+  1449→                            </Badge>
+  1450→                          ) : doc.aiReviewStatus === 'processing' ? (
+  1451→                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 hover:bg-amber-100">
+  1452→                              <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> Reviewing
+  1453→                            </Badge>
+  1454→                          ) : doc.aiReviewStatus === 'failed' ? (
+  1455→                            <Badge className="text-[9px] px-1.5 py-0 bg-rose-100 text-rose-700 border-0 hover:bg-rose-100">
+  1456→                              <XCircle className="h-2.5 w-2.5 mr-0.5" /> Review
+  1457→                            </Badge>
+  1458→                          ) : (
+  1459→                            <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-600 border-0 hover:bg-gray-100">
+  1460→                              AI Review
+  1461→                            </Badge>
+  1462→                          )}
+  1463→                        </div>
+  1464→                      </div>
+  1465→
+  1466→                      {/* Expanded Content */}
+  1467→                      {isExpanded && (
+  1468→                        <div className="mt-2.5 space-y-2 border-t border-border/30 pt-2.5" onClick={e => e.stopPropagation()}>
+  1469→                          {/* Action Buttons Row */}
+  1470→                          <div className="flex items-center gap-1.5">
+  1471→                            {/* OCR Button */}
+  1472→                            <Button
+  1473→                              size="sm"
+  1474→                              variant="outline"
+  1475→                              className="h-6 text-[10px] px-2"
+  1476→                              disabled={isOcrLoading || doc.ocrStatus === 'processing' || doc.ocrStatus === 'completed'}
+  1477→                              onClick={() => triggerOCR(doc.id)}
+  1478→                            >
+  1479→                              {isOcrLoading || doc.ocrStatus === 'processing' ? (
+  1480→                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> OCR...</>
+  1481→                              ) : doc.ocrStatus === 'completed' ? (
+  1482→                                <><CheckCircle2 className="h-3 w-3 mr-1" /> OCR Done</>
+  1483→                              ) : (
+  1484→                                <><Eye className="h-3 w-3 mr-1" /> Run OCR</>
+  1485→                              )}
+  1486→                            </Button>
+  1487→
+  1488→                            {/* AI Review Button */}
+  1489→                            <Button
+  1490→                              size="sm"
+  1491→                              variant="outline"
+  1492→                              className="h-6 text-[10px] px-2"
+  1493→                              disabled={isReviewLoading || doc.aiReviewStatus === 'processing' || !ocrDone}
+  1494→                              onClick={() => triggerReview(doc.id)}
+  1495→                              title={!ocrDone ? 'Run OCR first' : 'Run AI Review'}
+  1496→                            >
+  1497→                              {isReviewLoading || doc.aiReviewStatus === 'processing' ? (
+  1498→                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Review...</>
+  1499→                              ) : doc.aiReviewStatus === 'completed' ? (
+  1500→                                <><Sparkles className="h-3 w-3 mr-1" /> Re-Review</>
+  1501→                              ) : (
+  1502→                                <><Sparkles className="h-3 w-3 mr-1" /> AI Review</>
+  1503→                              )}
+  1504→                            </Button>
+  1505→                          </div>
+  1506→
+  1507→                          {!ocrDone && (
+  1508→                            <p className="text-[10px] text-amber-600 flex items-center gap-1">
+  1509→                              <AlertTriangle className="h-3 w-3" /> Run OCR first before AI Review
+  1510→                            </p>
+  1511→                          )}
+  1512→
+  1513→                          {/* Custom Review Prompt */}
+  1514→                          <div>
+  1515→                            <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1516→                              <Bot className="h-3 w-3" /> Review Instructions
+  1517→                            </Label>
+  1518→                            <Textarea
+  1519→                              placeholder={PROMPT_SUGGESTIONS[doc.docType] || 'Enter custom review instructions...'}
+  1520→                              value={reviewPrompts[doc.id] || ''}
+  1521→                              onChange={e => setReviewPrompts(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1522→                              onBlur={() => saveReviewPrompt(doc.id)}
+  1523→                              className="min-h-[60px] text-[11px] bg-muted/30 border-border/50 resize-none"
+  1524→                            />
+  1525→                            <p className="text-[9px] text-muted-foreground mt-0.5">
+  1526→                              Leave empty for default procurement review
+  1527→                            </p>
+  1528→                          </div>
+  1529→
+  1530→                          {/* Submit URL */}
+  1531→                          <div>
+  1532→                            <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1533→                              <Link2 className="h-3 w-3" /> Submit URL
+  1534→                            </Label>
+  1535→                            <div className="flex items-center gap-1.5">
+  1536→                              <Input
+  1537→                                placeholder="https://portal.example.com/submit"
+  1538→                                value={submitUrls[doc.id] || ''}
+  1539→                                onChange={e => setSubmitUrls(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1540→                                onBlur={() => saveSubmitUrl(doc.id)}
+  1541→                                className="h-6 text-[11px] bg-muted/30 border-border/50 flex-1"
+  1542→                              />
+  1543→                              <Button
+  1544→                                size="sm"
+  1545→                                variant="outline"
+  1546→                                className="h-6 text-[10px] px-2 flex-shrink-0"
+  1547→                                disabled={!submitUrls[doc.id]?.trim()}
+  1548→                                onClick={() => openSubmitUrl(doc.id)}
+  1549→                                title="Open submit URL"
+  1550→                              >
+  1551→                                <ExternalLink className="h-3 w-3" />
+  1552→                              </Button>
+  1553→                            </div>
+  1554→                          </div>
+  1555→
+  1556→                          {/* Submit Document Button */}
+  1557→                          {submitUrls[doc.id]?.trim() && (
+  1558→                            <Button
+  1559→                              size="sm"
+  1560→                              className="h-7 text-[10px] w-full gradient-emerald text-white border-0 hover:opacity-90"
+  1561→                              onClick={() => openSubmitUrl(doc.id)}
+  1562→                            >
+  1563→                              <ExternalLink className="h-3 w-3 mr-1.5" />
+  1564→                              Submit Document
+  1565→                            </Button>
+  1566→                          )}
+  1567→
+  1568→                          {/* AI Extract Section */}
+  1569→                          {ocrDone && (
+  1570→                            <div className="border-t border-border/30 pt-2">
+  1571→                              <div className="flex items-center gap-1.5">
+  1572→                                <Button
+  1573→                                  size="sm"
+  1574→                                  variant="outline"
+  1575→                                  className="h-6 text-[10px] px-2"
+  1576→                                  onClick={() => {
+  1577→                                    setShowExtract(prev => {
+  1578→                                      const s = new Set(prev);
+  1579→                                      if (s.has(doc.id)) s.delete(doc.id);
+  1580→                                      else s.add(doc.id);
+  1581→                                      return s;
+  1582→                                    });
+  1583→                                  }}
+  1584→                                >
+  1585→                                  <Sparkles className="h-3 w-3 mr-1" />
+  1586→                                  {showExtract.has(doc.id) ? 'Hide Extract' : 'AI Extract'}
+  1587→                                </Button>
+  1588→                              </div>
+  1589→
+  1590→                              {showExtract.has(doc.id) && (
+  1591→                                <div className="mt-2 space-y-1.5">
+  1592→                                  <Input
+  1593→                                    placeholder="What do you want to extract?"
+  1594→                                    value={extractPrompt[doc.id] || ''}
+  1595→                                    onChange={e => setExtractPrompt(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1596→                                    className="h-6 text-[11px] bg-muted/30 border-border/50"
+  1597→                                    onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(doc.id); }}
+  1598→                                  />
+  1599→                                  {/* Quick prompt suggestions */}
+  1600→                                  <div className="flex flex-wrap gap-1">
+  1601→                                    {[
+  1602→                                      'Extract financial figures',
+  1603→                                      'List deadlines',
+  1604→                                      'Summarize requirements',
+  1605→                                      'Find contact info',
+  1606→                                      'Identify compliance issues',
+  1607→                                    ].map(suggestion => (
+  1608→                                      <button
+  1609→                                        key={suggestion}
+  1610→                                        type="button"
+  1611→                                        onClick={() => setExtractPrompt(prev => ({ ...prev, [doc.id]: suggestion }))}
+  1612→                                        className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+  1613→                                      >
+  1614→                                        {suggestion}
+  1615→                                      </button>
+  1616→                                    ))}
+  1617→                                  </div>
+  1618→                                  <Button
+  1619→                                    size="sm"
+  1620→                                    className="h-6 text-[10px] px-2 w-full gradient-emerald text-white border-0 hover:opacity-90"
+  1621→                                    disabled={extractLoading.has(doc.id) || !extractPrompt[doc.id]?.trim()}
+  1622→                                    onClick={() => handleAiExtract(doc.id)}
+  1623→                                  >
+  1624→                                    {extractLoading.has(doc.id) ? (
+  1625→                                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Extracting...</>
+  1626→                                    ) : (
+  1627→                                      <><MessageSquare className="h-3 w-3 mr-1" /> Extract</>
+  1628→                                    )}
+  1629→                                  </Button>
+  1630→                                  {extractResults[doc.id] && (
+  1631→                                    <div className="rounded border border-border/40 bg-muted/20 overflow-hidden">
+  1632→                                      <div className="flex items-center justify-between px-2 py-1 border-b border-border/30">
+  1633→                                        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted Info</span>
+  1634→                                        <Button
+  1635→                                          variant="ghost"
+  1636→                                          size="sm"
+  1637→                                          className="h-4 text-[9px] px-1"
+  1638→                                          onClick={() => {
+  1639→                                            navigator.clipboard.writeText(extractResults[doc.id]);
+  1640→                                            toast.success('Copied to clipboard');
+  1641→                                          }}
+  1642→                                        >
+  1643→                                          <Copy className="h-2.5 w-2.5 mr-0.5" /> Copy
+  1644→                                        </Button>
+  1645→                                      </div>
+  1646→                                      <ScrollArea className="max-h-[150px]">
+  1647→                                        <pre className="p-2 text-[10px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+  1648→                                          {extractResults[doc.id]}
+  1649→                                        </pre>
+  1650→                                      </ScrollArea>
+  1651→                                    </div>
+  1652→                                  )}
+  1653→                                </div>
+  1654→                              )}
+  1655→                            </div>
+  1656→                          )}
+  1657→                        </div>
+  1658→                      )}
+  1659→                    </div>
+  1660→                  );
+  1661→                })
+  1662→              )}
+  1663→            </div>
+  1664→          </ScrollArea>
+  1665→        </div>
+  1666→
+  1667→        {/* Right: Document Detail / Results */}
+  1668→        <div className="flex-1 overflow-auto bg-muted/30">
+  1669→          {selectedDoc ? (
+  1670→            <div className="p-4 space-y-4 max-w-3xl mx-auto">
+  1671→              {/* Document Header */}
+  1672→              <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/40">
+  1673→                <div className="p-3 rounded-xl gradient-emerald shadow-sm">
+  1674→                  <FileText className="h-6 w-6 text-white" />
+  1675→                </div>
+  1676→                <div className="min-w-0 flex-1">
+  1677→                  <h3 className="text-base font-semibold truncate">{selectedDoc.fileName}</h3>
+  1678→                  <p className="text-xs text-muted-foreground mt-0.5">
+  1679→                    {DOC_TYPE_OPTIONS.find(o => o.value === selectedDoc.docType)?.label || selectedDoc.docType} · Uploaded {new Date(selectedDoc.createdAt).toLocaleDateString()}
+  1680→                  </p>
+  1681→                </div>
+  1682→                <div className="flex items-center gap-2 flex-shrink-0">
+  1683→                  {getFileExtBadge(selectedDoc.fileName).label && (
+  1684→                    <Badge className={`text-xs px-2 py-0.5 border-0 ${getFileExtBadge(selectedDoc.fileName).color}`}>
+  1685→                      {getFileExtBadge(selectedDoc.fileName).label}
+  1686→                    </Badge>
+  1687→                  )}
+  1688→                </div>
+  1689→              </div>
+  1690→
+  1691→              {/* Status Cards */}
+  1692→              <div className="grid grid-cols-3 gap-3">
+  1693→                {/* OCR Status Card */}
+  1694→                <div className={`p-3 rounded-lg border ${
+  1695→                  selectedDoc.ocrStatus === 'completed' ? 'border-emerald-200 bg-emerald-50/30' :
+  1696→                  selectedDoc.ocrStatus === 'processing' ? 'border-amber-200 bg-amber-50/30' :
+  1697→                  selectedDoc.ocrStatus === 'failed' ? 'border-rose-200 bg-rose-50/30' :
+  1698→                  'border-border/40 bg-card'
+  1699→                }`}>
+  1700→                  <div className="flex items-center justify-between mb-1">
+  1701→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">OCR</span>
+  1702→                    {selectedDoc.ocrStatus === 'completed' ? (
+  1703→                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+  1704→                    ) : selectedDoc.ocrStatus === 'processing' ? (
+  1705→                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+  1706→                    ) : (
+  1707→                      <Eye className="h-4 w-4 text-muted-foreground" />
+  1708→                    )}
+  1709→                  </div>
+  1710→                  <p className="text-xs font-medium capitalize">{selectedDoc.ocrStatus === 'none' ? 'Not Started' : selectedDoc.ocrStatus}</p>
+  1711→                  {selectedDoc.ocrProcessedAt && (
+  1712→                    <p className="text-[10px] text-muted-foreground mt-0.5">
+  1713→                      {new Date(selectedDoc.ocrProcessedAt).toLocaleString()}
+  1714→                    </p>
+  1715→                  )}
+  1716→                </div>
+  1717→
+  1718→                {/* AI Review Status Card */}
+  1719→                <div className={`p-3 rounded-lg border ${
+  1720→                  selectedDoc.aiReviewStatus === 'completed' ? 'border-emerald-200 bg-emerald-50/30' :
+  1721→                  selectedDoc.aiReviewStatus === 'processing' ? 'border-amber-200 bg-amber-50/30' :
+  1722→                  selectedDoc.aiReviewStatus === 'failed' ? 'border-rose-200 bg-rose-50/30' :
+  1723→                  'border-border/40 bg-card'
+  1724→                }`}>
+  1725→                  <div className="flex items-center justify-between mb-1">
+  1726→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">AI Review</span>
+  1727→                    {selectedDoc.aiReviewStatus === 'completed' ? (
+  1728→                      <Sparkles className="h-4 w-4 text-emerald-600" />
+  1729→                    ) : selectedDoc.aiReviewStatus === 'processing' ? (
+  1730→                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+  1731→                    ) : (
+  1732→                      <Bot className="h-4 w-4 text-muted-foreground" />
+  1733→                    )}
+  1734→                  </div>
+  1735→                  <p className="text-xs font-medium capitalize">{selectedDoc.aiReviewStatus === 'none' ? 'Not Started' : selectedDoc.aiReviewStatus}</p>
+  1736→                  {selectedDoc.aiReviewProcessedAt && (
+  1737→                    <p className="text-[10px] text-muted-foreground mt-0.5">
+  1738→                      {new Date(selectedDoc.aiReviewProcessedAt).toLocaleString()}
+  1739→                    </p>
+  1740→                  )}
+  1741→                </div>
+  1742→
+  1743→                {/* Submit Status Card */}
+  1744→                <div className={`p-3 rounded-lg border ${
+  1745→                  selectedDoc.submitUrl ? 'border-teal-200 bg-teal-50/30' : 'border-border/40 bg-card'
+  1746→                }`}>
+  1747→                  <div className="flex items-center justify-between mb-1">
+  1748→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Submit</span>
+  1749→                    {selectedDoc.submitUrl ? (
+  1750→                      <ExternalLink className="h-4 w-4 text-teal-600" />
+  1751→                    ) : (
+  1752→                      <Link2 className="h-4 w-4 text-muted-foreground" />
+  1753→                    )}
+  1754→                  </div>
+  1755→                  <p className="text-xs font-medium">{selectedDoc.submitUrl ? 'URL Set' : 'No URL'}</p>
+  1756→                </div>
+  1757→              </div>
+  1758→
+  1759→              {/* Action Buttons */}
+  1760→              <div className="flex items-center gap-2 flex-wrap">
+  1761→                <Button
+  1762→                  size="sm"
+  1763→                  variant="outline"
+  1764→                  className="h-8 text-xs"
+  1765→                  disabled={selectedDoc.ocrStatus === 'processing' || selectedDoc.ocrStatus === 'completed'}
+  1766→                  onClick={() => triggerOCR(selectedDoc.id)}
+  1767→                >
+  1768→                  {ocrStatusMap[selectedDoc.id]?.loading || selectedDoc.ocrStatus === 'processing' ? (
+  1769→                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Processing OCR...</>
+  1770→                  ) : selectedDoc.ocrStatus === 'completed' ? (
+  1771→                    <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> OCR Complete</>
+  1772→                  ) : (
+  1773→                    <><Eye className="h-3.5 w-3.5 mr-1.5" /> Run OCR</>
+  1774→                  )}
+  1775→                </Button>
+  1776→                <Button
+  1777→                  size="sm"
+  1778→                  variant="outline"
+  1779→                  className="h-8 text-xs"
+  1780→                  disabled={
+  1781→                    selectedDoc.aiReviewStatus === 'processing' ||
+  1782→                    !ocrDone
+  1783→                  }
+  1784→                  onClick={() => triggerReview(selectedDoc.id)}
+  1785→                  title={!ocrDone ? 'Run OCR first' : 'Run AI Review with custom prompt'}
+  1786→                >
+  1787→                  {reviewStatusMap[selectedDoc.id]?.loading || selectedDoc.aiReviewStatus === 'processing' ? (
+  1788→                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> AI Reviewing...</>
+  1789→                  ) : selectedDoc.aiReviewStatus === 'completed' ? (
+  1790→                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Re-Run AI Review</>
+  1791→                  ) : (
+  1792→                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Run AI Review</>
+  1793→                  )}
+  1794→                </Button>
+  1795→                {selectedDoc.submitUrl && (
+  1796→                  <Button
+  1797→                    size="sm"
+  1798→                    className="h-8 text-xs gradient-emerald text-white border-0 hover:opacity-90"
+  1799→                    onClick={() => openSubmitUrl(selectedDoc.id)}
+  1800→                  >
+  1801→                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Submit Document
+  1802→                  </Button>
+  1803→                )}
+  1804→              </div>
+  1805→
+  1806→              {/* OCR Text Display */}
+  1807→              {(selectedDoc.ocrStatus === 'completed' || ocrStatusMap[selectedDoc.id]?.text) && (
+  1808→                <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  1809→                  <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+  1810→                    <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  1811→                      <Eye className="h-3.5 w-3.5 text-emerald-600" />
+  1812→                      Extracted Text (OCR)
+  1813→                    </h4>
+  1814→                    <Button
+  1815→                      variant="ghost"
+  1816→                      size="sm"
+  1817→                      className="h-6 text-[10px]"
+  1818→                      onClick={() => {
+  1819→                        const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+  1820→                        navigator.clipboard.writeText(text);
+  1821→                        toast.success('OCR text copied');
+  1822→                      }}
+  1823→                    >
+  1824→                      <Copy className="h-3 w-3 mr-1" /> Copy
+  1825→                    </Button>
+  1826→                  </div>
+  1827→                  <ScrollArea className="max-h-[200px]">
+  1828→                    <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+  1829→                      {selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || 'No text extracted'}
+  1830→                    </pre>
+  1831→                  </ScrollArea>
+  1832→                </div>
+  1833→              )}
+  1834→
+  1835→              {/* AI Review Result Display */}
+  1836→              {(selectedDoc.aiReviewStatus === 'completed' || reviewStatusMap[selectedDoc.id]?.result) && (
+  1837→                <ReviewResultDisplay
+  1838→                  reviewJson={selectedDoc.aiReview || reviewStatusMap[selectedDoc.id]?.result || ''}
+  1839→                  prompt={selectedDoc.aiReviewPrompt || reviewPrompts[selectedDoc.id] || ''}
+  1840→                />
+  1841→              )}
+  1842→
+  1843→              {/* AI Extract Panel */}
+  1844→              {ocrDone && (
+  1845→                <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  1846→                  <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+  1847→                    <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  1848→                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+  1849→                      AI Prompt Writer — Extract Information
+  1850→                    </h4>
+  1851→                    <Button
+  1852→                      variant="ghost"
+  1853→                      size="sm"
+  1854→                      className="h-6 text-[10px]"
+  1855→                      onClick={() => {
+  1856→                        setShowExtract(prev => {
+  1857→                          const s = new Set(prev);
+  1858→                          if (s.has(selectedDoc.id)) s.delete(selectedDoc.id);
+  1859→                          else s.add(selectedDoc.id);
+  1860→                          return s;
+  1861→                        });
+  1862→                      }}
+  1863→                    >
+  1864→                      {showExtract.has(selectedDoc.id) ? <><ChevronDown className="h-3 w-3 mr-1" /> Hide</> : <><ChevronRight className="h-3 w-3 mr-1" /> Open</>}
+  1865→                    </Button>
+  1866→                  </div>
+  1867→
+  1868→                  {showExtract.has(selectedDoc.id) && (
+  1869→                    <div className="p-3 space-y-2.5">
+  1870→                      <div>
+  1871→                        <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1872→                          <MessageSquare className="h-3 w-3" /> What do you want to extract?
+  1873→                        </Label>
+  1874→                        <div className="flex items-center gap-1.5">
+  1875→                          <Input
+  1876→                            placeholder="e.g., Extract all financial figures, List deadlines, Find contact info..."
+  1877→                            value={extractPrompt[selectedDoc.id] || ''}
+  1878→                            onChange={e => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: e.target.value }))}
+  1879→                            className="h-7 text-xs bg-muted/30 border-border/50 flex-1"
+  1880→                            onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(selectedDoc.id); }}
+  1881→                          />
+  1882→                          <Button
+  1883→                            size="sm"
+  1884→                            className="h-7 text-xs gradient-emerald text-white border-0 hover:opacity-90 px-3 flex-shrink-0"
+  1885→                            disabled={extractLoading.has(selectedDoc.id) || !extractPrompt[selectedDoc.id]?.trim()}
+  1886→                            onClick={() => handleAiExtract(selectedDoc.id)}
+  1887→                          >
+  1888→                            {extractLoading.has(selectedDoc.id) ? (
+  1889→                              <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Extracting...</>
+  1890→                            ) : (
+  1891→                              <><Sparkles className="h-3.5 w-3.5 mr-1" /> Extract</>
+  1892→                            )}
+  1893→                          </Button>
+  1894→                        </div>
+  1895→                      </div>
+  1896→
+  1897→                      {/* Quick Prompt Suggestions */}
+  1898→                      <div>
+  1899→                        <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Quick Prompts</p>
+  1900→                        <div className="flex flex-wrap gap-1">
+  1901→                          {[
+  1902→                            'Extract financial figures',
+  1903→                            'List deadlines',
+  1904→                            'Summarize requirements',
+  1905→                            'Find contact info',
+  1906→                            'Identify compliance issues',
+  1907→                          ].map(suggestion => (
+  1908→                            <button
+  1909→                              key={suggestion}
+  1910→                              type="button"
+  1911→                              onClick={() => setExtractPrompt(prev => ({ ...prev, [selectedDoc.id]: suggestion }))}
+  1912→                              className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors border ${
+  1913→                                extractPrompt[selectedDoc.id] === suggestion
+  1914→                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+  1915→                                  : 'bg-muted/50 text-muted-foreground border-border/50 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700'
+  1916→                              }`}
+  1917→                            >
+  1918→                              {suggestion}
+  1919→                            </button>
+  1920→                          ))}
+  1921→                        </div>
+  1922→                      </div>
+  1923→
+  1924→                      {/* Extract Results */}
+  1925→                      {extractResults[selectedDoc.id] && (
+  1926→                        <div className="rounded-lg border border-border/40 bg-muted/20 overflow-hidden">
+  1927→                          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30">
+  1928→                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted Information</span>
+  1929→                            <Button
+  1930→                              variant="ghost"
+  1931→                              size="sm"
+  1932→                              className="h-5 text-[10px] px-1.5"
+  1933→                              onClick={() => {
+  1934→                                navigator.clipboard.writeText(extractResults[selectedDoc.id]);
+  1935→                                toast.success('Copied to clipboard');
+  1936→                              }}
+  1937→                            >
+  1938→                              <Copy className="h-3 w-3 mr-0.5" /> Copy
+  1939→                            </Button>
+  1940→                          </div>
+  1941→                          <ScrollArea className="max-h-[300px]">
+  1942→                            <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+  1943→                              {extractResults[selectedDoc.id]}
+  1944→                            </pre>
+  1945→                          </ScrollArea>
+  1946→                        </div>
+  1947→                      )}
+  1948→                    </div>
+  1949→                  )}
+  1950→                </div>
+  1951→              )}
+  1952→
+  1953→              {/* Remove Document */}
+  1954→              <div className="flex justify-end">
+  1955→                <Button
+  1956→                  variant="ghost"
+  1957→                  size="sm"
+  1958→                  className="h-7 text-xs text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+  1959→                  onClick={async () => {
+  1960→                    if (!confirm(`Delete "${selectedDoc.fileName}"? This cannot be undone.`)) return;
+  1961→                    const res = await api.delete(`/documents/${selectedDoc.id}`);
+  1962→                    if (res.success) {
+  1963→                      toast.success('Document deleted');
+  1964→                      setSelectedDocId(null);
+  1965→                      loadDocuments();
+  1966→                    } else {
+  1967→                      toast.error(res.error || 'Failed to delete');
+  1968→                    }
+  1969→                  }}
+  1970→                >
+  1971→                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Document
+  1972→                </Button>
+  1973→              </div>
+  1974→            </div>
+  1975→          ) : (
+  1976→            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+  1977→              <Bot className="h-12 w-12 mb-3 opacity-20" />
+  1978→              <p className="text-sm font-medium">Select a document to review</p>
+  1979→              <p className="text-xs mt-1">Upload and select a document from the vault to begin</p>
+  1980→            </div>
+  1981→          )}
+  1982→        </div>
+  1983→      </div>
+  1984→    );
+  1985→  };
+  1986→
+  1987→  /* ════════════════════════════════════════════════════════════
+  1988→     AI EXTRACT TAB CONTENT
+  1989→     ════════════════════════════════════════════════════════════ */
+  1990→  const AIExtractContent = () => {
+  1991→    const ocrReadyDocs = documents.filter(d => d.ocrStatus === 'completed');
+  1992→    const [localSelectedDocId, setLocalSelectedDocId] = useState<string | null>(null);
+  1993→    const selectedDoc = localSelectedDocId ? documents.find(d => d.id === localSelectedDocId) : null;
+  1994→    const docHistory = localSelectedDocId ? (extractHistory[localSelectedDocId] || []) : [];
+  1995→
+  1996→    return (
+  1997→      <div className="flex-1 flex overflow-hidden bg-muted/30">
+  1998→        {/* Left: OCR-Ready Document List */}
+  1999→        <div className="w-[320px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+  2000→          <div className="p-3 border-b border-border/40">
+
+[showing lines 1-2000 of 2731; use offset=2001 with limit to continue reading]
