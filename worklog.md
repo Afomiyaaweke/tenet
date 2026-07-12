@@ -593,3 +593,108 @@ Stage Summary:
 - Visual pipeline indicators show document processing status
 - Drag-and-drop support for easy external document upload
 - Backend auto-chains OCR → AI Review when autoReview flag is set
+
+---
+Task ID: 3
+Agent: Enhancement Agent
+Task: Enhance Bids view with document uploads for Technical/Financial/Timeline, external doc with OCR, submit URL, and comprehensive document list
+
+Work Log:
+- Updated BidDocument interface in `/src/lib/api.ts` to include `submitUrl` field
+- Added new state variables: `submitUrlForBid`, `reviewPromptForBid`, `fileInputRefs` for per-type file inputs
+- Added new imports: `Input`, `Textarea` (shadcn/ui), `Globe`, `MessageSquare` (lucide-react)
+- Enhanced `handleDocUpload` to accept optional `docType` and `fileInputRef` parameters, and pass `submitUrl`/`reviewPrompt` via FormData
+- Enhanced `handleDocDrop` to accept optional `docType` parameter, and pass `submitUrl`/`reviewPrompt` via FormData
+- Created three separate upload zones for bid submission documents:
+  - "Technical Proposal Document" (docType: technical_proposal) with emerald color scheme and Briefcase icon
+  - "Financial Proposal Document" (docType: financial_proposal) with amber color scheme and DollarSign icon
+  - "Timeline Document" (docType: timeline_doc) with sky color scheme and Calendar icon
+  - Each has its own hidden file input, drag-drop zone, and auto-triggers OCR + AI Review
+- Created "External Document Upload" section with:
+  - Violet color scheme and Globe icon
+  - File input with docType selector (default: external_doc)
+  - "Submit URL" field using shadcn Input component (optional, for external tender portal URL)
+  - "Review Prompt" textarea using shadcn Textarea component (optional, custom AI reviewer instructions)
+  - Drag-and-drop support with auto OCR + AI Review
+- Reorganized document list into unified "Documents" section with:
+  - Per-bid doc type color mapping with proper icons (Briefcase for tech, DollarSign for financial, Calendar for timeline, Globe for external)
+  - Doc type badges with color-coded backgrounds
+  - OCR status badges (done/Scanning/failed/pending)
+  - AI Review status badges (Reviewed/Reviewing/failed/pending)
+  - Processing pipeline visual indicators
+  - "Run OCR" / "Re-run OCR" button for each document
+  - "Run AI Review" button (enabled after OCR completes)
+  - "View OCR Text" button (when OCR completed)
+  - "View AI Review" button (when AI Review completed)
+  - "Submit" button with ExternalLink icon (when submitUrl is set) - opens URL in new tab
+  - max-h-96 overflow-y-auto with scrollbar-thin for long document lists
+- All lint checks pass, dev server compiles without errors
+
+Stage Summary:
+- Bid expanded section now has 3 dedicated upload zones for Technical/Financial/Timeline documents
+- External Document Upload section supports submitUrl and reviewPrompt fields
+- Document list shows all documents with type-colored badges, OCR/AI status badges, action buttons
+- Submit link button opens external tender portal URL in new tab
+- All uploads auto-trigger OCR + AI Review pipeline
+- Existing visual style (gradient cards, premium shadows, color scheme) maintained
+
+---
+Task ID: 4
+Agent: AI Doc Studio Enhancement Agent
+Task: Enhance AI Doc Studio with document review capabilities and add it to Dashboard
+
+Work Log:
+- Updated Document interface in `src/lib/api.ts`: added `submitUrl` and `aiReviewPrompt` optional fields
+- Updated `/api/documents` POST route to accept DOCX, DOC, TXT file types (expanded ALLOWED_MIME_TYPES and ALLOWED_EXTENSIONS, added more docType options)
+- Rewrote `/api/documents/[id]/route.ts` PATCH handler to support two use cases:
+  1. Admin: approve/reject document (existing)
+  2. Document owner: update submitUrl and aiReviewPrompt fields
+- Added new "Doc Review" ribbon tab to AI Doc Studio component with full document review UI:
+  - Document upload area with drag-and-drop support (PDF, DOCX, DOC, TXT, JPG, PNG)
+  - Document type selector dropdown with 10 document type options
+  - Document list with file name, type badge, OCR status, AI Review status badges
+  - Expandable document cards with action buttons (Run OCR → Run AI Review → Submit)
+  - Custom Review Prompt textarea per document with auto-suggested prompts by doc type
+  - Submit URL input field per document with "Submit Document" button (opens URL in new tab)
+  - Inline display of OCR extracted text with copy button
+  - Rich AI Review result display: compliance/completeness scores, risk level, findings, strengths, weaknesses, missing elements, recommendations, overall assessment
+  - Polling for OCR and AI Review status updates
+  - Two-panel layout: left document list, right detail/results view
+- Added Bot icon and icons for doc review (Upload, Eye, ExternalLink, RefreshCw, FileUp, Loader2, Link2, FileSearch) to lucide-react imports
+- Updated Dashboard quick actions: changed AI Doc Studio icon from Sparkles to Bot, updated description to "Review & generate docs with AI"
+- All lint checks pass, dev server compiles without errors
+
+---
+Task ID: 3-6
+Agent: Main Agent + Subagents
+Task: Add bid section document uploads (Technical, Financial, Timeline), external doc upload with OCR, AI Doc Studio review with user prompt, submit link button, dashboard position
+
+Work Log:
+- Updated Prisma schema: added `aiReviewPrompt` (String?) and `submitUrl` (String?) to Document model, expanded docType options to include technical_proposal, financial_proposal, timeline_doc, external_doc
+- Ran db:push to apply schema changes
+- Updated document-review API route to accept custom `prompt` in POST body, returns `aiReviewPrompt` and `submitUrl` in GET response
+- Updated bid documents API route to accept `submitUrl` and `reviewPrompt` via FormData, pass custom prompt to triggerReviewAsync
+- Enhanced BidsView component:
+  - Added three separate upload buttons for Technical, Financial, Timeline documents
+  - Added "Add Doc" button for external documents with submit URL and review prompt fields
+  - Enhanced document list per bid with OCR/AI Review status badges and action buttons
+  - Added Submit button for documents with submitUrl (opens in new tab)
+- Enhanced AI Doc Studio:
+  - Added "Doc Review" ribbon tab with document upload, type selector, drag-drop zone
+  - Added document list with OCR/AI Review status, expandable detail panel
+  - Added custom review prompt textarea per document
+  - Added submit URL input with save and "Submit Document" button
+  - Added two-panel layout: left for document list, right for detail/results
+  - Rich AI review result display: scores, risk level, findings, recommendations
+- Updated Dashboard:
+  - Changed AI Doc Studio quick action card icon from Sparkles to Bot
+  - Updated description to "Review & generate docs with AI"
+- All lint checks pass, dev server compiles without errors
+- Browser verification: Dashboard, AI Doc Studio (Doc Review tab), Bids view all working correctly
+
+Stage Summary:
+- Document model now supports custom AI review prompts and submit URLs
+- Bid section has complete doc upload flow: Technical → Financial → Timeline → External with OCR + AI Review
+- AI Doc Studio has full document review pipeline with user-customizable prompts
+- Submit link button opens external tender portals for document submission
+- Dashboard has AI Doc Studio card in Quick Actions section

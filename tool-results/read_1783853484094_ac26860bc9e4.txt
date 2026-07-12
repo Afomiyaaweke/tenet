@@ -1,0 +1,804 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api, Tender, Project } from '@/lib/api';
+     6→import { Card, CardContent } from '@/components/ui/card';
+     7→import { Button } from '@/components/ui/button';
+     8→import { Input } from '@/components/ui/input';
+     9→import { Label } from '@/components/ui/label';
+    10→import { Textarea } from '@/components/ui/textarea';
+    11→import { Badge } from '@/components/ui/badge';
+    12→import { Separator } from '@/components/ui/separator';
+    13→import { ScrollArea } from '@/components/ui/scroll-area';
+    14→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    15→import { toast } from 'sonner';
+    16→import {
+    17→  Building2, DollarSign, FileCode, ClipboardList, Receipt,
+    18→  Sparkles, FileText, Copy, Printer, RotateCcw, ArrowRight,
+    19→  Loader2, Shield, ChevronRight, Zap, BookOpen, Languages,
+    20→} from 'lucide-react';
+    21→import { InlineTranslator } from '@/components/translator';
+    22→
+    23→// ─── Template Definitions ────────────────────────────────────────────────────
+    24→
+    25→interface TemplateField {
+    26→  key: string;
+    27→  label: string;
+    28→  type: 'text' | 'textarea' | 'number' | 'select-tender' | 'select-project';
+    29→  placeholder?: string;
+    30→  rows?: number;
+    31→}
+    32→
+    33→interface TemplateDefinition {
+    34→  id: string;
+    35→  name: string;
+    36→  icon: React.ElementType;
+    37→  color: string;
+    38→  gradientClass: string;
+    39→  bgClass: string;
+    40→  textClass: string;
+    41→  borderClass: string;
+    42→  description: string;
+    43→  fields: TemplateField[];
+    44→  hasTenderId?: boolean;
+    45→  hasProjectId?: boolean;
+    46→  restrictedRoles?: string[];
+    47→}
+    48→
+    49→const TEMPLATES: TemplateDefinition[] = [
+    50→  {
+    51→    id: 'company-profile',
+    52→    name: 'Company Profile Builder',
+    53→    icon: Building2,
+    54→    color: 'emerald',
+    55→    gradientClass: 'gradient-emerald',
+    56→    bgClass: 'bg-emerald-50',
+    57→    textClass: 'text-emerald-600',
+    58→    borderClass: 'border-emerald-200',
+    59→    description: 'Generate a professional company profile for tender submissions',
+    60→    fields: [
+    61→      { key: 'companyName', label: 'Company Name', type: 'text', placeholder: 'Enter your company name' },
+    62→      { key: 'yearsInBusiness', label: 'Years in Business', type: 'number', placeholder: 'e.g. 10' },
+    63→      { key: 'numberOfEmployees', label: 'Number of Employees', type: 'number', placeholder: 'e.g. 50' },
+    64→      { key: 'keyProjects', label: 'Key Projects', type: 'textarea', placeholder: 'Describe your major completed projects...', rows: 4 },
+    65→      { key: 'certifications', label: 'Certifications', type: 'text', placeholder: 'e.g. ISO 9001, ISO 14001' },
+    66→    ],
+    67→  },
+    68→  {
+    69→    id: 'financial-bid',
+    70→    name: 'Financial Bid',
+    71→    icon: DollarSign,
+    72→    color: 'teal',
+    73→    gradientClass: 'gradient-teal',
+    74→    bgClass: 'bg-teal-50',
+    75→    textClass: 'text-teal-600',
+    76→    borderClass: 'border-teal-200',
+    77→    description: 'Prepare a detailed financial bid proposal',
+    78→    hasTenderId: true,
+    79→    fields: [
+    80→      { key: 'tenderId', label: 'Select Tender', type: 'select-tender', placeholder: 'Choose a tender...' },
+    81→      { key: 'estimatedDirectCost', label: 'Estimated Direct Cost (ETB)', type: 'number', placeholder: 'e.g. 500000' },
+    82→      { key: 'indirectCostPercent', label: 'Indirect Cost %', type: 'number', placeholder: 'e.g. 15' },
+    83→      { key: 'contingencyPercent', label: 'Contingency %', type: 'number', placeholder: 'e.g. 5' },
+    84→      { key: 'profitMarginPercent', label: 'Profit Margin %', type: 'number', placeholder: 'e.g. 10' },
+    85→    ],
+    86→  },
+    87→  {
+    88→    id: 'technical-proposal',
+    89→    name: 'Technical Proposal',
+    90→    icon: FileCode,
+    91→    color: 'slate',
+    92→    gradientClass: 'bg-gradient-to-br from-slate-600 to-slate-500',
+    93→    bgClass: 'bg-slate-50',
+    94→    textClass: 'text-slate-600',
+    95→    borderClass: 'border-slate-200',
+    96→    description: 'Write a comprehensive technical proposal',
+    97→    hasTenderId: true,
+    98→    fields: [
+    99→      { key: 'tenderId', label: 'Select Tender', type: 'select-tender', placeholder: 'Choose a tender...' },
+   100→      { key: 'methodology', label: 'Methodology', type: 'textarea', placeholder: 'Describe your proposed methodology...', rows: 4 },
+   101→      { key: 'teamSize', label: 'Team Size', type: 'number', placeholder: 'e.g. 12' },
+   102→      { key: 'keyPersonnel', label: 'Key Personnel Qualifications', type: 'textarea', placeholder: 'List key team members and their qualifications...', rows: 4 },
+   103→      { key: 'equipmentAvailable', label: 'Equipment Available', type: 'textarea', placeholder: 'List available equipment and resources...', rows: 3 },
+   104→    ],
+   105→  },
+   106→  {
+   107→    id: 'tender-specification',
+   108→    name: 'Tender Specification',
+   109→    icon: ClipboardList,
+   110→    color: 'amber',
+   111→    gradientClass: 'gradient-amber',
+   112→    bgClass: 'bg-amber-50',
+   113→    textClass: 'text-amber-600',
+   114→    borderClass: 'border-amber-200',
+   115→    description: 'Create a detailed tender specification document',
+   116→    restrictedRoles: ['team_admin'],
+   117→    fields: [
+   118→      { key: 'projectTitle', label: 'Project Title', type: 'text', placeholder: 'Enter the project title' },
+   119→      { key: 'estimatedBudgetRange', label: 'Estimated Budget Range (ETB)', type: 'text', placeholder: 'e.g. 1,000,000 - 5,000,000' },
+   120→      { key: 'requiredDeliverables', label: 'Required Deliverables', type: 'textarea', placeholder: 'List all required deliverables...', rows: 4 },
+   121→      { key: 'evaluationCriteria', label: 'Evaluation Criteria', type: 'textarea', placeholder: 'Define the evaluation criteria...', rows: 4 },
+   122→      { key: 'specialRequirements', label: 'Special Requirements', type: 'textarea', placeholder: 'Any special requirements or conditions...', rows: 3 },
+   123→    ],
+   124→  },
+   125→  {
+   126→    id: 'invoice',
+   127→    name: 'Invoice',
+   128→    icon: Receipt,
+   129→    color: 'rose',
+   130→    gradientClass: 'gradient-rose',
+   131→    bgClass: 'bg-rose-50',
+   132→    textClass: 'text-rose-600',
+   133→    borderClass: 'border-rose-200',
+   134→    description: 'Generate a professional invoice document',
+   135→    hasProjectId: true,
+   136→    fields: [
+   137→      { key: 'projectId', label: 'Select Project', type: 'select-project', placeholder: 'Choose a project...' },
+   138→      { key: 'serviceDescription', label: 'Service Description', type: 'text', placeholder: 'Describe the service provided' },
+   139→      { key: 'quantity', label: 'Quantity', type: 'number', placeholder: 'e.g. 1' },
+   140→      { key: 'unitPrice', label: 'Unit Price (ETB)', type: 'number', placeholder: 'e.g. 250000' },
+   141→      { key: 'paymentTerms', label: 'Payment Terms', type: 'text', placeholder: 'e.g. Net 30 days' },
+   142→    ],
+   143→  },
+   144→];
+   145→
+   146→// ─── Content Formatting (similar to agent.tsx formatAIContent) ───────────────
+   147→
+   148→function formatInline(text: string): React.ReactNode {
+   149→  const parts: React.ReactNode[] = [];
+   150→  let remaining = text;
+   151→  let partKey = 0;
+   152→
+   153→  while (remaining.length > 0) {
+   154→    const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+   155→    const italicMatch = remaining.match(/\*(.+?)\*/);
+   156→
+   157→    let firstMatch: { index: number; length: number; content: string; type: 'bold' | 'italic' } | null = null;
+   158→
+   159→    if (boldMatch && boldMatch.index !== undefined) {
+   160→      firstMatch = { index: boldMatch.index, length: boldMatch[0].length, content: boldMatch[1], type: 'bold' };
+   161→    }
+   162→
+   163→    if (italicMatch && italicMatch.index !== undefined) {
+   164→      if (!firstMatch || italicMatch.index < firstMatch.index) {
+   165→        firstMatch = { index: italicMatch.index, length: italicMatch[0].length, content: italicMatch[1], type: 'italic' };
+   166→      }
+   167→    }
+   168→
+   169→    if (firstMatch) {
+   170→      if (firstMatch.index > 0) {
+   171→        parts.push(<span key={`t-${partKey++}`}>{remaining.slice(0, firstMatch.index)}</span>);
+   172→      }
+   173→      if (firstMatch.type === 'bold') {
+   174→        parts.push(<strong key={`b-${partKey++}`} className="font-semibold text-foreground">{firstMatch.content}</strong>);
+   175→      } else {
+   176→        parts.push(<em key={`i-${partKey++}`} className="italic text-muted-foreground">{firstMatch.content}</em>);
+   177→      }
+   178→      remaining = remaining.slice(firstMatch.index + firstMatch.length);
+   179→    } else {
+   180→      parts.push(<span key={`t-${partKey++}`}>{remaining}</span>);
+   181→      break;
+   182→    }
+   183→  }
+   184→
+   185→  return <>{parts}</>;
+   186→}
+   187→
+   188→function formatDocContent(content: string): React.ReactNode[] {
+   189→  const lines = content.split('\n');
+   190→  const result: React.ReactNode[] = [];
+   191→
+   192→  for (let i = 0; i < lines.length; i++) {
+   193→    const line = lines[i];
+   194→    const key = `doc-line-${i}`;
+   195→
+   196→    // Heading lines (## Title, ### Subtitle)
+   197→    const h2Match = line.match(/^##\s+(.*)/);
+   198→    if (h2Match) {
+   199→      result.push(
+   200→        <h2 key={key} className="text-xl font-bold text-foreground mt-6 mb-3 pb-2 border-b border-border/40">
+   201→          {formatInline(h2Match[1])}
+   202→        </h2>
+   203→      );
+   204→      continue;
+   205→    }
+   206→
+   207→    const h3Match = line.match(/^###\s+(.*)/);
+   208→    if (h3Match) {
+   209→      result.push(
+   210→        <h3 key={key} className="text-lg font-semibold text-foreground mt-4 mb-2">
+   211→          {formatInline(h3Match[1])}
+   212→        </h3>
+   213→      );
+   214→      continue;
+   215→    }
+   216→
+   217→    const h1Match = line.match(/^#\s+(.*)/);
+   218→    if (h1Match) {
+   219→      result.push(
+   220→        <h1 key={key} className="text-2xl font-bold text-foreground mt-4 mb-3">
+   221→          {formatInline(h1Match[1])}
+   222→        </h1>
+   223→      );
+   224→      continue;
+   225→    }
+   226→
+   227→    // Horizontal rule
+   228→    if (line.match(/^---+$/)) {
+   229→      result.push(<Separator key={key} className="my-4" />);
+   230→      continue;
+   231→    }
+   232→
+   233→    // Bullet point lines
+   234→    const bulletMatch = line.match(/^[\s]*[-*•]\s+(.*)/);
+   235→    if (bulletMatch) {
+   236→      const bulletContent = bulletMatch[1];
+   237→      result.push(
+   238→        <div key={key} className="flex items-start gap-2.5 ml-3 my-1">
+   239→          <span className="text-emerald-500 mt-1 flex-shrink-0 text-xs">&#9679;</span>
+   240→          <span className="text-sm leading-relaxed">{formatInline(bulletContent)}</span>
+   241→        </div>
+   242→      );
+   243→      continue;
+   244→    }
+   245→
+   246→    // Numbered list lines
+   247→    const numberedMatch = line.match(/^[\s]*(\d+)[.)]\s+(.*)/);
+   248→    if (numberedMatch) {
+   249→      const num = numberedMatch[1];
+   250→      const numberedContent = numberedMatch[2];
+   251→      result.push(
+   252→        <div key={key} className="flex items-start gap-2.5 ml-3 my-1">
+   253→          <span className="text-emerald-600 font-semibold flex-shrink-0 text-sm min-w-[1.25rem]">{num}.</span>
+   254→          <span className="text-sm leading-relaxed">{formatInline(numberedContent)}</span>
+   255→        </div>
+   256→      );
+   257→      continue;
+   258→    }
+   259→
+   260→    // Empty lines
+   261→    if (line.trim() === '') {
+   262→      result.push(<div key={key} className="h-2" />);
+   263→      continue;
+   264→    }
+   265→
+   266→    // Regular line
+   267→    result.push(<div key={key} className="text-sm leading-relaxed">{formatInline(line)}</div>);
+   268→  }
+   269→
+   270→  return result;
+   271→}
+   272→
+   273→// ─── Main Component ──────────────────────────────────────────────────────────
+   274→
+   275→export function DocBuilderView() {
+   276→  const { user } = useAuthStore();
+   277→  const role = user?.role || 'user';
+   278→
+   279→  // UI State
+   280→  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+   281→  const [inputData, setInputData] = useState<Record<string, string>>({});
+   282→  const [generating, setGenerating] = useState(false);
+   283→  const [generatedContent, setGeneratedContent] = useState<string | null>(null);
+   284→  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+   285→  const [generatedTemplateType, setGeneratedTemplateType] = useState<string | null>(null);
+   286→
+   287→  // Data
+   288→  const [tenders, setTenders] = useState<Tender[]>([]);
+   289→  const [projects, setProjects] = useState<Project[]>([]);
+   290→
+   291→  // Filter visible templates based on role
+   292→  const visibleTemplates = TEMPLATES.filter(t => {
+   293→    if (!t.restrictedRoles) return true;
+   294→    return t.restrictedRoles.includes(role);
+   295→  });
+   296→
+   297→  const activeTemplate = TEMPLATES.find(t => t.id === selectedTemplate) || null;
+   298→
+   299→  // Fetch tenders for dropdown
+   300→  const fetchTenders = useCallback(async () => {
+   301→    const res = await api.get('/tenders', { status: 'open', limit: '50' });
+   302→    if (res.success) setTenders(res.data);
+   303→  }, []);
+   304→
+   305→  // Fetch projects for invoice
+   306→  const fetchProjects = useCallback(async () => {
+   307→    const res = await api.get('/projects');
+   308→    if (res.success) setProjects(res.data);
+   309→  }, []);
+   310→
+   311→  useEffect(() => {
+   312→    fetchTenders();
+   313→    fetchProjects();
+   314→  }, [fetchTenders, fetchProjects]);
+   315→
+   316→  // Handle template selection
+   317→  const handleSelectTemplate = (templateId: string) => {
+   318→    setSelectedTemplate(templateId);
+   319→    setInputData({});
+   320→    setGeneratedContent(null);
+   321→    setGeneratedAt(null);
+   322→    setGeneratedTemplateType(null);
+   323→  };
+   324→
+   325→  // Handle input change
+   326→  const handleInputChange = (key: string, value: string) => {
+   327→    setInputData(prev => ({ ...prev, [key]: value }));
+   328→  };
+   329→
+   330→  // Handle generate document
+   331→  const handleGenerate = async () => {
+   332→    if (!activeTemplate) return;
+   333→
+   334→    setGenerating(true);
+   335→    setGeneratedContent(null);
+   336→
+   337→    try {
+   338→      const body: Record<string, unknown> = {
+   339→        templateType: activeTemplate.id,
+   340→        inputData,
+   341→      };
+   342→
+   343→      // Include tenderId if present in inputData
+   344→      if (activeTemplate.hasTenderId && inputData.tenderId) {
+   345→        body.tenderId = inputData.tenderId;
+   346→      }
+   347→
+   348→      const res = await api.post('/documents/generate', body);
+   349→
+   350→      if (res.success) {
+   351→        setGeneratedContent(res.data.content);
+   352→        setGeneratedAt(res.data.generatedAt);
+   353→        setGeneratedTemplateType(res.data.templateType);
+   354→        toast.success('Document generated successfully!');
+   355→      } else {
+   356→        toast.error(res.error || 'Failed to generate document');
+   357→      }
+   358→    } catch {
+   359→      toast.error('Document generation failed. Please try again.');
+   360→    } finally {
+   361→      setGenerating(false);
+   362→    }
+   363→  };
+   364→
+   365→  // Copy to clipboard
+   366→  const handleCopy = async () => {
+   367→    if (!generatedContent) return;
+   368→    try {
+   369→      await navigator.clipboard.writeText(generatedContent);
+   370→      toast.success('Document copied to clipboard');
+   371→    } catch {
+   372→      toast.error('Failed to copy to clipboard');
+   373→    }
+   374→  };
+   375→
+   376→  // Print document
+   377→  const handlePrint = () => {
+   378→    window.print();
+   379→  };
+   380→
+   381→  // Start over
+   382→  const handleNewDocument = () => {
+   383→    setSelectedTemplate(null);
+   384→    setInputData({});
+   385→    setGeneratedContent(null);
+   386→    setGeneratedAt(null);
+   387→    setGeneratedTemplateType(null);
+   388→  };
+   389→
+   390→  // ─── Render: Empty State (no template selected) ───────────────────────────
+   391→
+   392→  const renderEmptyState = () => (
+   393→    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 py-8 view-enter">
+   394→      {/* Hero */}
+   395→      <div className="relative">
+   396→        <div className="w-20 h-20 rounded-2xl gradient-emerald flex items-center justify-center premium-shadow-lg">
+   397→          <BookOpen className="h-10 w-10 text-white" />
+   398→        </div>
+   399→        <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-lg gradient-amber flex items-center justify-center premium-shadow">
+   400→          <Sparkles className="h-4 w-4 text-white" />
+   401→        </div>
+   402→      </div>
+   403→      <div className="text-center max-w-md">
+   404→        <h3 className="text-2xl font-bold tracking-tight mb-2">
+   405→          AI <span className="text-gradient-emerald">Document Builder</span>
+   406→        </h3>
+   407→        <p className="text-muted-foreground text-sm leading-relaxed">
+   408→          Select a template below to generate professional, AI-powered documents for your tender workflow. From company profiles to invoices — all tailored for the Tenet ecosystem.
+   409→        </p>
+   410→      </div>
+   411→
+   412→      {/* Template Grid */}
+   413→      <div className="w-full max-w-3xl">
+   414→        <div className="flex items-center gap-2 mb-4">
+   415→          <div className="p-1 rounded-md bg-emerald-50">
+   416→            <Zap className="h-3.5 w-3.5 text-emerald-500" />
+   417→          </div>
+   418→          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available Templates</p>
+   419→        </div>
+   420→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   421→          {visibleTemplates.map(template => {
+   422→            const Icon = template.icon;
+   423→            return (
+   424→              <Card
+   425→                key={template.id}
+   426→                className={`premium-shadow rounded-xl border-0 bg-white hover:-translate-y-1 transition-all duration-300 cursor-pointer group ${template.borderClass} border`}
+   427→                onClick={() => handleSelectTemplate(template.id)}
+   428→              >
+   429→                <CardContent className="p-5 space-y-3">
+   430→                  <div className="flex items-start justify-between">
+   431→                    <div className={`w-10 h-10 rounded-xl ${template.gradientClass} flex items-center justify-center premium-shadow`}>
+   432→                      <Icon className="h-5 w-5 text-white" />
+   433→                    </div>
+   434→                    {template.restrictedRoles && (
+   435→                      <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 font-medium flex items-center gap-1">
+   436→                        <Shield className="h-2.5 w-2.5" />
+   437→                        Restricted
+   438→                      </Badge>
+   439→                    )}
+   440→                  </div>
+   441→                  <div>
+   442→                    <h4 className="font-semibold text-sm group-hover:text-emerald-700 transition-colors">{template.name}</h4>
+   443→                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{template.description}</p>
+   444→                  </div>
+   445→                  <div className="flex items-center text-xs font-medium text-emerald-600 group-hover:text-emerald-700 transition-colors pt-1">
+   446→                    Use Template
+   447→                    <ChevronRight className="h-3.5 w-3.5 ml-1 group-hover:translate-x-0.5 transition-transform" />
+   448→                  </div>
+   449→                </CardContent>
+   450→              </Card>
+   451→            );
+   452→          })}
+   453→        </div>
+   454→      </div>
+   455→    </div>
+   456→  );
+   457→
+   458→  // ─── Render: Left Panel (Template List) ────────────────────────────────────
+   459→
+   460→  const renderTemplateList = () => (
+   461→    <div className="space-y-2">
+   462→      <div className="flex items-center gap-2 mb-4">
+   463→        <div className="p-1.5 rounded-lg gradient-emerald">
+   464→          <BookOpen className="h-3.5 w-3.5 text-white" />
+   465→        </div>
+   466→        <h3 className="text-sm font-semibold">Templates</h3>
+   467→      </div>
+   468→      {visibleTemplates.map(template => {
+   469→        const Icon = template.icon;
+   470→        const isActive = selectedTemplate === template.id;
+   471→        return (
+   472→          <button
+   473→            key={template.id}
+   474→            onClick={() => handleSelectTemplate(template.id)}
+   475→            className={`w-full text-left p-3 rounded-xl transition-all duration-200 group flex items-center gap-3 ${
+   476→              isActive
+   477→                ? `${template.bgClass} ${template.borderClass} border shadow-sm`
+   478→                : 'hover:bg-muted/50 border border-transparent'
+   479→            }`}
+   480→          >
+   481→            <div className={`w-9 h-9 rounded-lg ${isActive ? template.gradientClass : 'bg-muted/80'} flex items-center justify-center flex-shrink-0 transition-all`}>
+   482→              <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+   483→            </div>
+   484→            <div className="flex-1 min-w-0">
+   485→              <p className={`text-sm font-medium truncate ${isActive ? template.textClass : ''}`}>
+   486→                {template.name}
+   487→              </p>
+   488→              <p className="text-[11px] text-muted-foreground truncate">{template.description}</p>
+   489→            </div>
+   490→            {template.restrictedRoles && (
+   491→              <Shield className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+   492→            )}
+   493→          </button>
+   494→        );
+   495→      })}
+   496→    </div>
+   497→  );
+   498→
+   499→  // ─── Render: Template Form ─────────────────────────────────────────────────
+   500→
+   501→  const renderTemplateForm = () => {
+   502→    if (!activeTemplate) return null;
+   503→    const Icon = activeTemplate.icon;
+   504→
+   505→    return (
+   506→      <div className="space-y-5 view-enter">
+   507→        {/* Template Header */}
+   508→        <div className="flex items-center gap-3">
+   509→          <div className={`w-10 h-10 rounded-xl ${activeTemplate.gradientClass} flex items-center justify-center premium-shadow`}>
+   510→            <Icon className="h-5 w-5 text-white" />
+   511→          </div>
+   512→          <div>
+   513→            <h3 className="font-semibold text-base">{activeTemplate.name}</h3>
+   514→            <p className="text-xs text-muted-foreground">{activeTemplate.description}</p>
+   515→          </div>
+   516→        </div>
+   517→
+   518→        <Separator />
+   519→
+   520→        {/* Form Fields */}
+   521→        <div className="space-y-4">
+   522→          {activeTemplate.fields.map(field => (
+   523→            <div key={field.key} className="space-y-2">
+   524→              <Label className="text-sm font-medium">{field.label}</Label>
+   525→              {field.type === 'textarea' ? (
+   526→                <Textarea
+   527→                  placeholder={field.placeholder}
+   528→                  rows={field.rows || 3}
+   529→                  value={inputData[field.key] || ''}
+   530→                  onChange={e => handleInputChange(field.key, e.target.value)}
+   531→                  className="bg-muted/50 border-border/60 rounded-xl resize-none focus:border-emerald-300 focus:ring-emerald-200/40"
+   532→                />
+   533→              ) : field.type === 'select-tender' ? (
+   534→                <Select
+   535→                  value={inputData[field.key] || ''}
+   536→                  onValueChange={val => handleInputChange(field.key, val)}
+   537→                >
+   538→                  <SelectTrigger className="bg-muted/50 border-border/60 rounded-xl w-full">
+   539→                    <SelectValue placeholder={field.placeholder} />
+   540→                  </SelectTrigger>
+   541→                  <SelectContent>
+   542→                    {tenders.length === 0 ? (
+   543→                      <SelectItem value="_none" disabled>No open tenders available</SelectItem>
+   544→                    ) : (
+   545→                      tenders.map(tender => (
+   546→                        <SelectItem key={tender.id} value={tender.id}>
+   547→                          {tender.title}
+   548→                        </SelectItem>
+   549→                      ))
+   550→                    )}
+   551→                  </SelectContent>
+   552→                </Select>
+   553→              ) : field.type === 'select-project' ? (
+   554→                <Select
+   555→                  value={inputData[field.key] || ''}
+   556→                  onValueChange={val => handleInputChange(field.key, val)}
+   557→                >
+   558→                  <SelectTrigger className="bg-muted/50 border-border/60 rounded-xl w-full">
+   559→                    <SelectValue placeholder={field.placeholder} />
+   560→                  </SelectTrigger>
+   561→                  <SelectContent>
+   562→                    {projects.filter(p => p.status === 'active').length === 0 ? (
+   563→                      <SelectItem value="_none" disabled>No active projects available</SelectItem>
+   564→                    ) : (
+   565→                      projects
+   566→                        .filter(p => p.status === 'active')
+   567→                        .map(project => (
+   568→                          <SelectItem key={project.id} value={project.id}>
+   569→                            {project.tender?.title || `Project ${project.id.slice(0, 8)}`}
+   570→                          </SelectItem>
+   571→                        ))
+   572→                    )}
+   573→                  </SelectContent>
+   574→                </Select>
+   575→              ) : (
+   576→                <Input
+   577→                  type={field.type === 'number' ? 'number' : 'text'}
+   578→                  placeholder={field.placeholder}
+   579→                  value={inputData[field.key] || ''}
+   580→                  onChange={e => handleInputChange(field.key, e.target.value)}
+   581→                  className="bg-muted/50 border-border/60 rounded-xl focus:border-emerald-300 focus:ring-emerald-200/40"
+   582→                />
+   583→              )}
+   584→            </div>
+   585→          ))}
+   586→        </div>
+   587→
+   588→        {/* Generate Button */}
+   589→        <Button
+   590→          onClick={handleGenerate}
+   591→          disabled={generating}
+   592→          className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl h-12 premium-shadow transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 text-sm font-semibold"
+   593→        >
+   594→          {generating ? (
+   595→            <>
+   596→              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+   597→              Generating Document...
+   598→            </>
+   599→          ) : (
+   600→            <>
+   601→              <Sparkles className="h-4 w-4 mr-2" />
+   602→              Generate Document
+   603→            </>
+   604→          )}
+   605→        </Button>
+   606→      </div>
+   607→    );
+   608→  };
+   609→
+   610→  // ─── Render: Generating Animation ──────────────────────────────────────────
+   611→
+   612→  const renderGenerating = () => (
+   613→    <div className="flex flex-col items-center justify-center py-16 gap-6 view-enter">
+   614→      <div className="relative">
+   615→        <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center animate-pulse">
+   616→          <FileText className="h-8 w-8 text-emerald-500" />
+   617→        </div>
+   618→        <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full gradient-emerald flex items-center justify-center">
+   619→          <Sparkles className="h-3 w-3 text-white animate-spin" />
+   620→        </div>
+   621→      </div>
+   622→      <div className="text-center">
+   623→        <h4 className="font-semibold text-base mb-1">AI is writing your document...</h4>
+   624→        <p className="text-sm text-muted-foreground">This may take a moment. Our AI is crafting your professional document.</p>
+   625→      </div>
+   626→      <div className="flex gap-1.5">
+   627→        <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+   628→        <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+   629→        <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+   630→      </div>
+   631→    </div>
+   632→  );
+   633→
+   634→  // ─── Render: Generated Document Preview ────────────────────────────────────
+   635→
+   636→  const renderGeneratedDoc = () => {
+   637→    if (!generatedContent) return null;
+   638→    const templateDef = TEMPLATES.find(t => t.id === generatedTemplateType);
+   639→    const DocIcon = templateDef?.icon || FileText;
+   640→
+   641→    return (
+   642→      <div className="space-y-4 view-enter">
+   643→        {/* Document Actions */}
+   644→        <div className="flex items-center justify-between">
+   645→          <div className="flex items-center gap-2">
+   646→            <div className={`w-8 h-8 rounded-lg ${templateDef?.gradientClass || 'gradient-emerald'} flex items-center justify-center`}>
+   647→              <DocIcon className="h-4 w-4 text-white" />
+   648→            </div>
+   649→            <div>
+   650→              <h4 className="font-semibold text-sm">{templateDef?.name || 'Generated Document'}</h4>
+   651→              {generatedAt && (
+   652→                <p className="text-[11px] text-muted-foreground">
+   653→                  Generated {new Date(generatedAt).toLocaleDateString()} at {new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+   654→                </p>
+   655→              )}
+   656→            </div>
+   657→          </div>
+   658→          <div className="flex items-center gap-1.5">
+   659→            <Button variant="ghost" size="sm" onClick={handleCopy}
+   660→              className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 rounded-lg">
+   661→              <Copy className="h-3.5 w-3.5" />
+   662→              Copy
+   663→            </Button>
+   664→            <Button variant="ghost" size="sm" onClick={handlePrint}
+   665→              className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 rounded-lg">
+   666→              <Printer className="h-3.5 w-3.5" />
+   667→              Print
+   668→            </Button>
+   669→            <Button variant="ghost" size="sm" onClick={handleNewDocument}
+   670→              className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 rounded-lg">
+   671→              <RotateCcw className="h-3.5 w-3.5" />
+   672→              New
+   673→            </Button>
+   674→          </div>
+   675→        </div>
+   676→
+   677→        {/* Translator for generated document */}
+   678→        {generatedContent && (
+   679→          <div className="mt-4">
+   680→            <InlineTranslator text={generatedContent} />
+   681→          </div>
+   682→        )}
+   683→
+   684→        {/* Document Paper */}
+   685→        <div className="bg-white rounded-xl border border-border/40 premium-shadow-lg overflow-hidden">
+   686→          {/* Document Header Bar */}
+   687→          <div className="px-6 py-3 bg-muted/30 border-b border-border/30 flex items-center justify-between">
+   688→            <div className="flex items-center gap-2">
+   689→              <div className={`w-2 h-2 rounded-full ${templateDef?.bgClass || 'bg-emerald-50'}`} style={{ backgroundColor: 'oklch(0.558 0.155 163)' }} />
+   690→              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+   691→                {templateDef?.name || 'Document'}
+   692→              </span>
+   693→            </div>
+   694→            <Badge className="text-[9px] px-1.5 py-0 gradient-emerald text-white border-0 font-medium">
+   695→              AI Generated
+   696→            </Badge>
+   697→          </div>
+   698→
+   699→          {/* Document Content */}
+   700→          <ScrollArea className="max-h-[60vh]">
+   701→            <div className="p-6 md:p-8">
+   702→              {/* Document Meta */}
+   703→              <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/30">
+   704→                <div>
+   705→                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-0.5">Prepared by</p>
+   706→                  <p className="text-sm font-medium">
+   707→                    {user?.company?.name || user?.profile?.fullName || user?.email || 'Unknown User'}
+   708→                  </p>
+   709→                </div>
+   710→                <div className="text-right">
+   711→                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider mb-0.5">Date</p>
+   712→                  <p className="text-sm font-medium">
+   713→                    {generatedAt ? new Date(generatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+   714→                  </p>
+   715→                </div>
+   716→              </div>
+   717→
+   718→              {/* Formatted Content */}
+   719→              <div className="prose-sm space-y-1">
+   720→                {formatDocContent(generatedContent)}
+   721→              </div>
+   722→
+   723→              {/* Document Footer */}
+   724→              <div className="mt-8 pt-4 border-t border-border/30 flex items-center justify-between">
+   725→                <p className="text-[10px] text-muted-foreground">
+   726→                  Tenet Tender Ecosystem &middot; AI-Powered Document
+   727→                </p>
+   728→                <p className="text-[10px] text-muted-foreground">
+   729→                  {generatedTemplateType?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+   730→                </p>
+   731→              </div>
+   732→            </div>
+   733→          </ScrollArea>
+   734→        </div>
+   735→      </div>
+   736→    );
+   737→  };
+   738→
+   739→  // ─── Render: Right Panel ───────────────────────────────────────────────────
+   740→
+   741→  const renderRightPanel = () => {
+   742→    if (!selectedTemplate) return null;
+   743→
+   744→    return (
+   745→      <Card className="premium-shadow rounded-xl border-0 bg-white">
+   746→        <CardContent className="p-5 md:p-6">
+   747→          {generating ? renderGenerating() : generatedContent ? renderGeneratedDoc() : renderTemplateForm()}
+   748→        </CardContent>
+   749→      </Card>
+   750→    );
+   751→  };
+   752→
+   753→  // ─── Main Render ───────────────────────────────────────────────────────────
+   754→
+   755→  return (
+   756→    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto view-enter">
+   757→      {/* Header */}
+   758→      <div className="flex items-center gap-4">
+   759→        <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
+   760→          <BookOpen className="h-6 w-6 text-white" />
+   761→        </div>
+   762→        <div className="flex-1">
+   763→          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   764→            <span className="text-gradient-emerald">Document</span> Builder
+   765→          </h2>
+   766→          <p className="text-muted-foreground text-sm mt-0.5">AI-powered document preparation for the tender ecosystem</p>
+   767→        </div>
+   768→        {selectedTemplate && (
+   769→          <Button
+   770→            variant="outline"
+   771→            size="sm"
+   772→            onClick={handleNewDocument}
+   773→            className="gap-1.5 text-xs rounded-xl border-border/60 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-all"
+   774→          >
+   775→            <RotateCcw className="h-3.5 w-3.5" />
+   776→            Start Over
+   777→          </Button>
+   778→        )}
+   779→      </div>
+   780→
+   781→      {/* Body */}
+   782→      {!selectedTemplate ? (
+   783→        renderEmptyState()
+   784→      ) : (
+   785→        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+   786→          {/* Left Panel */}
+   787→          <div className="lg:col-span-4 xl:col-span-3">
+   788→            <Card className="premium-shadow rounded-xl border-0 bg-white">
+   789→              <CardContent className="p-4">
+   790→                {renderTemplateList()}
+   791→              </CardContent>
+   792→            </Card>
+   793→          </div>
+   794→
+   795→          {/* Right Panel */}
+   796→          <div className="lg:col-span-8 xl:col-span-9">
+   797→            {renderRightPanel()}
+   798→          </div>
+   799→        </div>
+   800→      )}
+   801→    </div>
+   802→  );
+   803→}
+   804→

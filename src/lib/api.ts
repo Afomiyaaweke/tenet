@@ -170,6 +170,8 @@ export interface Document {
   aiReview?: string; // JSON string of AIReviewResult
   aiReviewStatus: 'none' | 'processing' | 'completed' | 'failed';
   aiReviewProcessedAt?: string;
+  aiReviewPrompt?: string;
+  submitUrl?: string;
   bidId?: string;
   createdAt: string;
 }
@@ -251,6 +253,7 @@ export interface BidDocument {
   ocrProcessedAt: string | null;
   aiReviewStatus: string;
   aiReviewProcessedAt: string | null;
+  submitUrl?: string;
   createdAt: string;
 }
 

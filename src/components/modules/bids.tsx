@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import {
   Gavel, Clock, DollarSign, FileSearch, Award, AlertCircle,
@@ -16,7 +18,7 @@ import {
   Bookmark, MapPin, Calendar, ExternalLink, Trash2, PenLine,
   ScanSearch, Brain, Loader2, AlertTriangle, Upload, FileText,
   CloudUpload, FileUp, ThumbsUp, ThumbsDown, AlertOctagon,
-  BarChart3, CheckCircle2, XCircle,
+  BarChart3, CheckCircle2, XCircle, Globe, MessageSquare,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator } from '@/components/translator';
@@ -62,6 +64,9 @@ export function BidsView() {
   const [docUploadBidId, setDocUploadBidId] = useState<string | null>(null);
   const docFileRef = useRef<HTMLInputElement>(null);
   const [docUploadType, setDocUploadType] = useState('bid_attachment');
+  const [submitUrlForBid, setSubmitUrlForBid] = useState<Record<string, string>>({});
+  const [reviewPromptForBid, setReviewPromptForBid] = useState<Record<string, string>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Saved tenders state
   const [savedTenders, setSavedTenders] = useState<any[]>([]);
@@ -106,19 +111,23 @@ export function BidsView() {
   };
 
   // ── Document Upload (with auto-OCR + auto-AI Review) ──
-  const handleDocUpload = useCallback(async (bidId: string) => {
-    const file = docFileRef.current?.files?.[0];
+  const handleDocUpload = useCallback(async (bidId: string, docType?: string, fileInputRef?: React.RefObject<HTMLInputElement | null>) => {
+    const ref = fileInputRef || docFileRef;
+    const file = ref.current?.files?.[0];
     if (!file) return;
+    const type = docType || docUploadType;
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('docType', docUploadType);
+    formData.append('docType', type);
     formData.append('autoOcr', 'true');
     formData.append('autoReview', 'true');
+    formData.append('submitUrl', submitUrlForBid[bidId] || '');
+    formData.append('reviewPrompt', reviewPromptForBid[bidId] || '');
     try {
       const res = await api.upload(`/bids/${bidId}/documents`, formData);
       if (res.success) {
         toast.success('Document uploaded — OCR & AI Review started automatically');
-        if (docFileRef.current) docFileRef.current.value = '';
+        if (ref.current) ref.current.value = '';
         loadBids();
         // Start polling for the newly uploaded document
         const newDocId = res.data?.id;
@@ -134,7 +143,7 @@ export function BidsView() {
     } finally {
       setDocUploadBidId(null);
     }
-  }, [docUploadType, loadBids]);
+  }, [docUploadType, loadBids, submitUrlForBid, reviewPromptForBid]);
 
   // ── Ref for AI Review handler (avoids circular dep with pollOcrThenReview) ──
   const runReviewRef = useRef<(docId: string) => void>(() => {});
@@ -213,7 +222,7 @@ export function BidsView() {
   }, [loadBids]);
 
   // ── Drag & Drop Upload ──
-  const handleDocDrop = useCallback(async (bidId: string, files: FileList | null) => {
+  const handleDocDrop = useCallback(async (bidId: string, files: FileList | null, docType?: string) => {
     if (!files || files.length === 0) return;
     const file = files[0];
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
@@ -228,9 +237,11 @@ export function BidsView() {
     }
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('docType', docUploadType);
+    formData.append('docType', docType || docUploadType);
     formData.append('autoOcr', 'true');
     formData.append('autoReview', 'true');
+    formData.append('submitUrl', submitUrlForBid[bidId] || '');
+    formData.append('reviewPrompt', reviewPromptForBid[bidId] || '');
     try {
       const res = await api.upload(`/bids/${bidId}/documents`, formData);
       if (res.success) {
@@ -247,7 +258,7 @@ export function BidsView() {
     } catch {
       toast.error('Upload failed');
     }
-  }, [docUploadType, loadBids, pollOcrThenReview]);
+  }, [docUploadType, loadBids, pollOcrThenReview, submitUrlForBid, reviewPromptForBid]);
 
   // ── OCR Processing (manual trigger) ──
   const handleRunOcr = useCallback(async (docId: string) => {
@@ -706,7 +717,239 @@ export function BidsView() {
                                 </div>
                               )}
 
-                              {/* ── External Documents Section (OCR + AI Review Pipeline) ── */}
+                              {/* ── Bid Submission Documents ── */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className="p-1.5 rounded-lg gradient-emerald">
+                                    <FileUp className="h-3.5 w-3.5 text-white" />
+                                  </div>
+                                  <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                                    Bid Submission Documents
+                                  </p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  {/* Technical Proposal Document Upload */}
+                                  <div
+                                    className="relative group"
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); }}
+                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); }}
+                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); handleDocDrop(bid.id, e.dataTransfer.files, 'technical_proposal'); }}
+                                  >
+                                    <div className="p-3 bg-gradient-to-b from-emerald-50/40 to-emerald-50/10 border-2 border-dashed border-emerald-200 rounded-xl text-center hover:border-emerald-300 transition-colors">
+                                      <Briefcase className="h-5 w-5 text-emerald-500 mx-auto mb-1.5" />
+                                      <p className="text-[10px] font-semibold text-emerald-700 mb-0.5">Technical Proposal</p>
+                                      <p className="text-[8px] text-muted-foreground mb-2">Drag & drop or browse</p>
+                                      <input
+                                        ref={el => { fileInputRefs.current[`tech_${bid.id}`] = el; }}
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+                                        className="hidden"
+                                        onChange={() => handleDocUpload(bid.id, 'technical_proposal', { current: fileInputRefs.current[`tech_${bid.id}`] } as React.RefObject<HTMLInputElement | null>)}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 text-[9px] border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg"
+                                        onClick={(e) => { e.stopPropagation(); fileInputRefs.current[`tech_${bid.id}`]?.click(); }}
+                                      >
+                                        <Upload className="h-2.5 w-2.5 mr-1" /> Upload
+                                      </Button>
+                                      <div className="flex items-center justify-center gap-1.5 mt-2 text-[7px] text-muted-foreground">
+                                        <ScanSearch className="h-2.5 w-2.5 text-emerald-500" /> Auto OCR
+                                        <span className="text-muted-foreground/40">→</span>
+                                        <Brain className="h-2.5 w-2.5 text-purple-500" /> Auto Review
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Financial Proposal Document Upload */}
+                                  <div
+                                    className="relative group"
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-amber-400', 'bg-amber-50/60'); }}
+                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-amber-400', 'bg-amber-50/60'); }}
+                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-amber-400', 'bg-amber-50/60'); handleDocDrop(bid.id, e.dataTransfer.files, 'financial_proposal'); }}
+                                  >
+                                    <div className="p-3 bg-gradient-to-b from-amber-50/40 to-amber-50/10 border-2 border-dashed border-amber-200 rounded-xl text-center hover:border-amber-300 transition-colors">
+                                      <DollarSign className="h-5 w-5 text-amber-500 mx-auto mb-1.5" />
+                                      <p className="text-[10px] font-semibold text-amber-700 mb-0.5">Financial Proposal</p>
+                                      <p className="text-[8px] text-muted-foreground mb-2">Drag & drop or browse</p>
+                                      <input
+                                        ref={el => { fileInputRefs.current[`fin_${bid.id}`] = el; }}
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+                                        className="hidden"
+                                        onChange={() => handleDocUpload(bid.id, 'financial_proposal', { current: fileInputRefs.current[`fin_${bid.id}`] } as React.RefObject<HTMLInputElement | null>)}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 text-[9px] border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 rounded-lg"
+                                        onClick={(e) => { e.stopPropagation(); fileInputRefs.current[`fin_${bid.id}`]?.click(); }}
+                                      >
+                                        <Upload className="h-2.5 w-2.5 mr-1" /> Upload
+                                      </Button>
+                                      <div className="flex items-center justify-center gap-1.5 mt-2 text-[7px] text-muted-foreground">
+                                        <ScanSearch className="h-2.5 w-2.5 text-amber-500" /> Auto OCR
+                                        <span className="text-muted-foreground/40">→</span>
+                                        <Brain className="h-2.5 w-2.5 text-purple-500" /> Auto Review
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Timeline Document Upload */}
+                                  <div
+                                    className="relative group"
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-sky-400', 'bg-sky-50/60'); }}
+                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-sky-400', 'bg-sky-50/60'); }}
+                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-sky-400', 'bg-sky-50/60'); handleDocDrop(bid.id, e.dataTransfer.files, 'timeline_doc'); }}
+                                  >
+                                    <div className="p-3 bg-gradient-to-b from-sky-50/40 to-sky-50/10 border-2 border-dashed border-sky-200 rounded-xl text-center hover:border-sky-300 transition-colors">
+                                      <Calendar className="h-5 w-5 text-sky-500 mx-auto mb-1.5" />
+                                      <p className="text-[10px] font-semibold text-sky-700 mb-0.5">Timeline Document</p>
+                                      <p className="text-[8px] text-muted-foreground mb-2">Drag & drop or browse</p>
+                                      <input
+                                        ref={el => { fileInputRefs.current[`timeline_${bid.id}`] = el; }}
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+                                        className="hidden"
+                                        onChange={() => handleDocUpload(bid.id, 'timeline_doc', { current: fileInputRefs.current[`timeline_${bid.id}`] } as React.RefObject<HTMLInputElement | null>)}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 text-[9px] border-sky-200 text-sky-600 hover:bg-sky-50 hover:text-sky-700 rounded-lg"
+                                        onClick={(e) => { e.stopPropagation(); fileInputRefs.current[`timeline_${bid.id}`]?.click(); }}
+                                      >
+                                        <Upload className="h-2.5 w-2.5 mr-1" /> Upload
+                                      </Button>
+                                      <div className="flex items-center justify-center gap-1.5 mt-2 text-[7px] text-muted-foreground">
+                                        <ScanSearch className="h-2.5 w-2.5 text-sky-500" /> Auto OCR
+                                        <span className="text-muted-foreground/40">→</span>
+                                        <Brain className="h-2.5 w-2.5 text-purple-500" /> Auto Review
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* ── External Document Upload ── */}
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg bg-violet-50">
+                                      <Globe className="h-3.5 w-3.5 text-violet-600" />
+                                    </div>
+                                    <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                                      External Document Upload
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-[10px] text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDocUploadBidId(docUploadBidId === bid.id ? null : bid.id);
+                                    }}
+                                  >
+                                    <Upload className="h-3 w-3 mr-1" />
+                                    {docUploadBidId === bid.id ? 'Cancel' : 'Add Doc'}
+                                  </Button>
+                                </div>
+
+                                {/* External doc upload area with submitUrl & reviewPrompt */}
+                                {docUploadBidId === bid.id && (
+                                  <div
+                                    className="mb-3 relative"
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-violet-400', 'bg-violet-50/60'); }}
+                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-violet-400', 'bg-violet-50/60'); }}
+                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-violet-400', 'bg-violet-50/60'); handleDocDrop(bid.id, e.dataTransfer.files, 'external_doc'); }}
+                                  >
+                                    <div className="p-4 bg-gradient-to-b from-violet-50/40 to-violet-50/20 border-2 border-dashed border-violet-200 rounded-xl animate-[fadeIn_0.2s_ease-out]">
+                                      <div className="text-center mb-3">
+                                        <CloudUpload className="h-7 w-7 text-violet-400 mx-auto mb-2" />
+                                        <p className="text-xs font-medium text-violet-700 mb-1">
+                                          Drag & drop external documents here
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground mb-3">
+                                          Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
+                                        </p>
+                                        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
+                                          <input
+                                            ref={docFileRef}
+                                            type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+                                            className="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-violet-100 file:text-violet-700 hover:file:bg-violet-200 file:cursor-pointer file:transition-colors"
+                                          />
+                                          <div className="flex items-center gap-2">
+                                            <select
+                                              value={docUploadType}
+                                              onChange={e => setDocUploadType(e.target.value)}
+                                              className="h-7 text-xs rounded-lg bg-white/80 border border-violet-200 px-2"
+                                            >
+                                              <option value="external_doc">External Document</option>
+                                              <option value="bid_attachment">Bid Attachment</option>
+                                              <option value="business_license">Business License</option>
+                                              <option value="tax_clearance">Tax Clearance</option>
+                                              <option value="certificate">Certificate</option>
+                                              <option value="portfolio">Portfolio</option>
+                                              <option value="other">Other</option>
+                                            </select>
+                                            <Button
+                                              size="sm"
+                                              className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+                                              onClick={() => handleDocUpload(bid.id, docUploadType)}
+                                            >
+                                              <CloudUpload className="h-3 w-3 mr-1" /> Upload & Process
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Submit URL field */}
+                                      <div className="mb-3">
+                                        <label className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                                          <ExternalLink className="h-3 w-3" /> Submit URL
+                                          <span className="text-muted-foreground/50">(optional — external tender portal URL)</span>
+                                        </label>
+                                        <Input
+                                          type="url"
+                                          placeholder="https://tender-portal.example.com/submit"
+                                          className="h-7 text-xs rounded-lg border-violet-200 bg-white/60"
+                                          value={submitUrlForBid[bid.id] || ''}
+                                          onChange={(e) => setSubmitUrlForBid(prev => ({ ...prev, [bid.id]: e.target.value }))}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      </div>
+
+                                      {/* Review Prompt field */}
+                                      <div>
+                                        <label className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                                          <MessageSquare className="h-3 w-3" /> Review Prompt
+                                          <span className="text-muted-foreground/50">(optional — custom instructions for AI reviewer)</span>
+                                        </label>
+                                        <Textarea
+                                          placeholder="E.g., Focus on compliance with Ethiopian procurement law and highlight any missing financial guarantees..."
+                                          className="text-xs rounded-lg border-violet-200 bg-white/60 min-h-16"
+                                          value={reviewPromptForBid[bid.id] || ''}
+                                          onChange={(e) => setReviewPromptForBid(prev => ({ ...prev, [bid.id]: e.target.value }))}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      </div>
+
+                                      <div className="flex items-center justify-center gap-3 text-[9px] text-muted-foreground mt-3">
+                                        <span className="flex items-center gap-1"><ScanSearch className="h-3 w-3 text-violet-500" /> Auto OCR</span>
+                                        <span className="text-muted-foreground/40">→</span>
+                                        <span className="flex items-center gap-1"><Brain className="h-3 w-3 text-purple-500" /> Auto AI Review</span>
+                                        <span className="text-muted-foreground/40">→</span>
+                                        <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Ready</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* ── All Documents List ── */}
                               <div>
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
@@ -714,7 +957,7 @@ export function BidsView() {
                                       <ScanSearch className="h-3.5 w-3.5 text-sky-600" />
                                     </div>
                                     <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                                      External Documents
+                                      Documents
                                     </p>
                                     {bidDocs.length > 0 && (
                                       <Badge className="text-[9px] px-1.5 py-0 border-0 bg-sky-50 text-sky-700">
@@ -739,108 +982,62 @@ export function BidsView() {
                                       </div>
                                     )}
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 px-2 text-[10px] text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded-lg"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDocUploadBidId(docUploadBidId === bid.id ? null : bid.id);
-                                    }}
-                                  >
-                                    <Upload className="h-3 w-3 mr-1" />
-                                    {docUploadBidId === bid.id ? 'Cancel' : 'Add Doc'}
-                                  </Button>
                                 </div>
-
-                                {/* Drag-and-drop upload area */}
-                                {docUploadBidId === bid.id && (
-                                  <div
-                                    className="mb-3 relative"
-                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-sky-400', 'bg-sky-50/60'); }}
-                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-sky-400', 'bg-sky-50/60'); }}
-                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-sky-400', 'bg-sky-50/60'); handleDocDrop(bid.id, e.dataTransfer.files); }}
-                                  >
-                                    <div className="p-4 bg-gradient-to-b from-sky-50/40 to-sky-50/20 border-2 border-dashed border-sky-200 rounded-xl animate-[fadeIn_0.2s_ease-out] text-center">
-                                      <CloudUpload className="h-7 w-7 text-sky-400 mx-auto mb-2" />
-                                      <p className="text-xs font-medium text-sky-700 mb-1">
-                                        Drag & drop external documents here
-                                      </p>
-                                      <p className="text-[10px] text-muted-foreground mb-3">
-                                        Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
-                                      </p>
-                                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
-                                        <input
-                                          ref={docFileRef}
-                                          type="file"
-                                          accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
-                                          className="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 file:cursor-pointer file:transition-colors"
-                                        />
-                                        <div className="flex items-center gap-2">
-                                          <select
-                                            value={docUploadType}
-                                            onChange={e => setDocUploadType(e.target.value)}
-                                            className="h-7 text-xs rounded-lg bg-white/80 border border-sky-200 px-2"
-                                          >
-                                            <option value="bid_attachment">Bid Attachment</option>
-                                            <option value="business_license">Business License</option>
-                                            <option value="tax_clearance">Tax Clearance</option>
-                                            <option value="certificate">Certificate</option>
-                                            <option value="portfolio">Portfolio</option>
-                                            <option value="other">Other</option>
-                                          </select>
-                                          <Button
-                                            size="sm"
-                                            className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
-                                            onClick={() => handleDocUpload(bid.id)}
-                                          >
-                                            <CloudUpload className="h-3 w-3 mr-1" /> Upload & Process
-                                          </Button>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center justify-center gap-3 text-[9px] text-muted-foreground">
-                                        <span className="flex items-center gap-1"><ScanSearch className="h-3 w-3 text-sky-500" /> Auto OCR</span>
-                                        <span className="text-muted-foreground/40">→</span>
-                                        <span className="flex items-center gap-1"><Brain className="h-3 w-3 text-purple-500" /> Auto AI Review</span>
-                                        <span className="text-muted-foreground/40">→</span>
-                                        <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Ready</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
 
                                 {/* Document list with processing pipeline */}
                                 {bidDocs.length > 0 ? (
-                                  <div className="space-y-2">
+                                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
                                     {bidDocs.map((doc: any) => {
                                       const isOcrLoading = ocrLoading.has(doc.id);
                                       const isReviewLoading = reviewLoading.has(doc.id);
                                       const isDocExpanded = expandedDocId === doc.id;
                                       const isFullyProcessed = doc.ocrStatus === 'completed' && doc.aiReviewStatus === 'completed';
 
+                                      // Doc type color mapping
+                                      const docTypeConfig: Record<string, { bg: string; text: string; icon: typeof FileText; badgeBg: string; badgeText: string; label: string }> = {
+                                        technical_proposal: { bg: 'bg-emerald-50', text: 'text-emerald-600', icon: Briefcase, badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-700', label: 'Technical' },
+                                        financial_proposal: { bg: 'bg-amber-50', text: 'text-amber-600', icon: DollarSign, badgeBg: 'bg-amber-100', badgeText: 'text-amber-700', label: 'Financial' },
+                                        timeline_doc: { bg: 'bg-sky-50', text: 'text-sky-600', icon: Calendar, badgeBg: 'bg-sky-100', badgeText: 'text-sky-700', label: 'Timeline' },
+                                        external_doc: { bg: 'bg-violet-50', text: 'text-violet-600', icon: Globe, badgeBg: 'bg-violet-100', badgeText: 'text-violet-700', label: 'External' },
+                                        bid_attachment: { bg: 'bg-sky-50', text: 'text-sky-600', icon: FileText, badgeBg: 'bg-sky-100', badgeText: 'text-sky-700', label: 'Attachment' },
+                                        business_license: { bg: 'bg-emerald-50', text: 'text-emerald-600', icon: FileText, badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-700', label: 'License' },
+                                        tax_clearance: { bg: 'bg-amber-50', text: 'text-amber-600', icon: FileText, badgeBg: 'bg-amber-100', badgeText: 'text-amber-700', label: 'Tax' },
+                                        certificate: { bg: 'bg-teal-50', text: 'text-teal-600', icon: FileText, badgeBg: 'bg-teal-100', badgeText: 'text-teal-700', label: 'Certificate' },
+                                        portfolio: { bg: 'bg-orange-50', text: 'text-orange-600', icon: FileText, badgeBg: 'bg-orange-100', badgeText: 'text-orange-700', label: 'Portfolio' },
+                                      };
+                                      const dtConfig = docTypeConfig[doc.docType] || { bg: 'bg-muted/50', text: 'text-muted-foreground', icon: FileText, badgeBg: 'bg-muted/50', badgeText: 'text-muted-foreground', label: doc.docType?.replace('_', ' ') || 'Doc' };
+                                      const DtIcon = dtConfig.icon;
+
+                                      // OCR status badge
+                                      const ocrStatusBadge = (() => {
+                                        if (doc.ocrStatus === 'completed') return <Badge className="text-[7px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 h-3.5"><CheckCircle2 className="h-1.5 w-1.5 mr-0.5" /> OCR done</Badge>;
+                                        if (doc.ocrStatus === 'processing' || isOcrLoading) return <Badge className="text-[7px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5 animate-pulse"><ScanSearch className="h-1.5 w-1.5 mr-0.5" /> Scanning...</Badge>;
+                                        if (doc.ocrStatus === 'failed') return <Badge className="text-[7px] px-1 py-0 border-0 bg-rose-50 text-rose-600 h-3.5"><XCircle className="h-1.5 w-1.5 mr-0.5" /> OCR failed</Badge>;
+                                        return <Badge className="text-[7px] px-1 py-0 border-0 bg-amber-50 text-amber-600 h-3.5">OCR pending</Badge>;
+                                      })();
+
+                                      // AI Review status badge
+                                      const aiStatusBadge = (() => {
+                                        if (doc.aiReviewStatus === 'completed') return <Badge className="text-[7px] px-1 py-0 border-0 bg-purple-50 text-purple-600 h-3.5"><CheckCircle2 className="h-1.5 w-1.5 mr-0.5" /> Reviewed</Badge>;
+                                        if (doc.aiReviewStatus === 'processing' || isReviewLoading) return <Badge className="text-[7px] px-1 py-0 border-0 bg-purple-50 text-purple-600 h-3.5 animate-pulse"><Brain className="h-1.5 w-1.5 mr-0.5" /> Reviewing...</Badge>;
+                                        if (doc.aiReviewStatus === 'failed') return <Badge className="text-[7px] px-1 py-0 border-0 bg-rose-50 text-rose-600 h-3.5"><XCircle className="h-1.5 w-1.5 mr-0.5" /> Review failed</Badge>;
+                                        return <Badge className="text-[7px] px-1 py-0 border-0 bg-amber-50 text-amber-600 h-3.5">Review pending</Badge>;
+                                      })();
+
                                       return (
                                         <div key={doc.id} className={`bg-muted/20 rounded-xl overflow-hidden ${isFullyProcessed ? 'ring-1 ring-emerald-200/50' : ''}`}>
                                           {/* Document row */}
                                           <div className="p-2.5 flex items-center justify-between">
                                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                                              <div className={`p-1.5 rounded-lg flex-shrink-0 ${
-                                                doc.docType === 'bid_attachment' ? 'bg-sky-50' :
-                                                doc.docType === 'business_license' ? 'bg-emerald-50' :
-                                                doc.docType === 'tax_clearance' ? 'bg-amber-50' :
-                                                'bg-muted/50'
-                                              }`}>
-                                                <FileText className={`h-3.5 w-3.5 ${
-                                                  doc.docType === 'bid_attachment' ? 'text-sky-600' :
-                                                  doc.docType === 'business_license' ? 'text-emerald-600' :
-                                                  doc.docType === 'tax_clearance' ? 'text-amber-600' :
-                                                  'text-muted-foreground'
-                                                }`} />
+                                              <div className={`p-1.5 rounded-lg flex-shrink-0 ${dtConfig.bg}`}>
+                                                <DtIcon className={`h-3.5 w-3.5 ${dtConfig.text}`} />
                                               </div>
                                               <div className="min-w-0">
                                                 <p className="text-xs font-medium truncate">{doc.fileName}</p>
                                                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                                  <Badge className="text-[8px] px-1 py-0 border-0 bg-muted/50 text-muted-foreground h-3.5">
-                                                    {doc.docType?.replace('_', ' ')}
+                                                  {/* Doc type badge */}
+                                                  <Badge className={`text-[8px] px-1 py-0 border-0 ${dtConfig.badgeBg} ${dtConfig.badgeText} h-3.5`}>
+                                                    {dtConfig.label}
                                                   </Badge>
                                                   {/* Processing pipeline indicator */}
                                                   <div className="flex items-center gap-0.5">
@@ -887,25 +1084,12 @@ export function BidsView() {
                                                       )}
                                                     </div>
                                                   </div>
-                                                  {/* Text labels */}
-                                                  {(isOcrLoading || doc.ocrStatus === 'processing') && (
-                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5 animate-pulse">
-                                                      <ScanSearch className="h-1.5 w-1.5 mr-0.5" /> Scanning...
-                                                    </Badge>
-                                                  )}
-                                                  {(isReviewLoading || doc.aiReviewStatus === 'processing') && (
-                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-purple-50 text-purple-600 h-3.5 animate-pulse">
-                                                      <Brain className="h-1.5 w-1.5 mr-0.5" /> Reviewing...
-                                                    </Badge>
-                                                  )}
+                                                  {/* Status badges */}
+                                                  {ocrStatusBadge}
+                                                  {aiStatusBadge}
                                                   {isFullyProcessed && (
                                                     <Badge className="text-[7px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 h-3.5">
                                                       <CheckCircle2 className="h-1.5 w-1.5 mr-0.5" /> Processed
-                                                    </Badge>
-                                                  )}
-                                                  {doc.ocrStatus === 'failed' && (
-                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-rose-50 text-rose-600 h-3.5">
-                                                      <XCircle className="h-1.5 w-1.5 mr-0.5" /> OCR failed
                                                     </Badge>
                                                   )}
                                                 </div>
@@ -919,7 +1103,7 @@ export function BidsView() {
                                                 className="h-5 px-1.5 text-[9px] text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded"
                                                 disabled={isOcrLoading || doc.ocrStatus === 'processing'}
                                                 onClick={(e) => { e.stopPropagation(); handleRunOcr(doc.id); }}
-                                                title={doc.ocrStatus === 'completed' ? 'Re-run OCR' : 'Run OCR'}
+                                                title={doc.ocrStatus === 'completed' ? 'Re-run OCR' : doc.ocrStatus === 'none' ? 'Run OCR' : 'OCR in progress'}
                                               >
                                                 {isOcrLoading || doc.ocrStatus === 'processing' ? (
                                                   <Loader2 className="h-2.5 w-2.5 animate-spin" />
@@ -982,6 +1166,18 @@ export function BidsView() {
                                                   <BarChart3 className="h-2.5 w-2.5" />
                                                 </Button>
                                               )}
+                                              {/* Submit Link button */}
+                                              {doc.submitUrl && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-5 px-1.5 text-[9px] text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded"
+                                                  onClick={(e) => { e.stopPropagation(); window.open(doc.submitUrl, '_blank'); }}
+                                                  title={`Submit at ${doc.submitUrl}`}
+                                                >
+                                                  <ExternalLink className="h-2.5 w-2.5 mr-0.5" /> Submit
+                                                </Button>
+                                              )}
                                             </div>
                                           </div>
 
@@ -1029,7 +1225,7 @@ export function BidsView() {
                                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('border-sky-400', 'bg-sky-50/30'); handleDocDrop(bid.id, e.dataTransfer.files); }}
                                   >
                                     <CloudUpload className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
-                                    <p className="text-[11px] text-muted-foreground font-medium">Drop external documents here or click to upload</p>
+                                    <p className="text-[11px] text-muted-foreground font-medium">Drop documents here or click to upload</p>
                                     <p className="text-[9px] text-muted-foreground/60 mt-0.5">OCR & AI Review will run automatically</p>
                                   </div>
                                 )}

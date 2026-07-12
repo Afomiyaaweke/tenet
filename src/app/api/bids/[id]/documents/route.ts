@@ -68,6 +68,8 @@ export async function POST(
     const docType = (formData.get('docType') as string) || 'bid_attachment';
     const autoOcr = formData.get('autoOcr') === 'true';
     const autoReview = formData.get('autoReview') === 'true';
+    const submitUrl = (formData.get('submitUrl') as string) || null;
+    const reviewPrompt = (formData.get('reviewPrompt') as string) || null;
 
     if (!file) {
       return NextResponse.json(
@@ -115,12 +117,14 @@ export async function POST(
         bidId,
         ocrStatus: autoOcr ? 'processing' : 'none',
         aiReviewStatus: autoReview ? 'pending' : 'none',
+        submitUrl,
+        aiReviewPrompt: reviewPrompt,
       },
     });
 
     // If auto-OCR is requested, trigger it asynchronously (and auto-chain AI Review if requested)
     if (autoOcr) {
-      triggerOcrAsync(document.id, safeName, `/uploads/${uniqueName}`, autoReview).catch(err => {
+      triggerOcrAsync(document.id, safeName, `/uploads/${uniqueName}`, autoReview, reviewPrompt).catch(err => {
         console.error('Async OCR trigger failed:', err);
       });
     }
@@ -196,7 +200,7 @@ export async function GET(
 }
 
 // Helper: trigger OCR asynchronously, and optionally auto-chain AI Review
-async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string, autoReview: boolean = false) {
+async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string, autoReview: boolean = false, reviewPrompt: string | null = null) {
   try {
     const fs = await import('fs/promises');
     const filePath = process.cwd() + '/uploads/' + fileUrl.split('/uploads/')[1];
@@ -258,7 +262,7 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string,
 
       // Auto-chain AI Review if requested
       if (autoReview) {
-        triggerReviewAsync(docId, ocrText).catch(err => {
+        triggerReviewAsync(docId, ocrText, reviewPrompt).catch(err => {
           console.error('Auto AI Review trigger failed:', err);
         });
       }
@@ -278,31 +282,25 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string,
 }
 
 // Helper: trigger AI Review asynchronously after OCR completes
-async function triggerReviewAsync(docId: string, ocrText: string) {
+async function triggerReviewAsync(docId: string, ocrText: string, customPrompt: string | null = null) {
   try {
     await db.document.update({
       where: { id: docId },
-      data: { aiReviewStatus: 'processing' },
+      data: { aiReviewStatus: 'processing', ...(customPrompt ? { aiReviewPrompt: customPrompt } : {}) },
     });
 
     const ZAI = (await import('z-ai-web-dev-sdk')).default;
     const zai = await ZAI.create();
 
+    const systemPrompt = customPrompt
+      ? `You are an expert document reviewer. The user has provided the following specific review criteria:\n\n"${customPrompt}"\n\nAnalyze the provided document text according to the user's criteria and produce a structured review in JSON format with these fields:\n- complianceScore: number 0-100\n- completenessScore: number 0-100\n- riskLevel: "low" | "medium" | "high"\n- findings: array of { type: "positive"|"negative"|"warning", title: string, description: string }\n- strengths: array of strings\n- weaknesses: array of strings\n- missingElements: array of strings\n- recommendations: array of strings\n- overallAssessment: string\n\nRespond ONLY with valid JSON, no other text.`
+      : `You are an expert procurement document reviewer. Analyze the provided document text and produce a structured review in JSON format with these fields:\n- complianceScore: number 0-100 (how well the document meets procurement standards)\n- completenessScore: number 0-100 (how complete the document is)\n- riskLevel: "low" | "medium" | "high" (overall risk assessment)\n- findings: array of { type: "positive"|"negative"|"warning", title: string, description: string }\n- strengths: array of strings\n- weaknesses: array of strings\n- missingElements: array of strings (what's missing or incomplete)\n- recommendations: array of strings\n- overallAssessment: string (summary of the review)\n\nRespond ONLY with valid JSON, no other text.`;
+
     const completion = await zai.chat.completions.create({
       messages: [
         {
           role: 'assistant',
-          content: `You are an expert procurement document reviewer. Analyze the provided document text and produce a structured review in JSON format with these fields:
-- complianceScore: number 0-100 (how well the document meets procurement standards)
-- completenessScore: number 0-100 (how complete the document is)
-- riskLevel: "low" | "medium" | "high" (overall risk assessment)
-- findings: array of { type: "positive"|"negative"|"warning", title: string, description: string }
-- strengths: array of strings
-- weaknesses: array of strings
-- missingElements: array of strings (what's missing or incomplete)
-- recommendations: array of strings
-
-Respond ONLY with valid JSON, no other text.`,
+          content: systemPrompt,
         },
         {
           role: 'user',
