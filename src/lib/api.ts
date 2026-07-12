@@ -241,6 +241,19 @@ export interface DataSource {
   accent: string;
 }
 
+export interface BidDocument {
+  id: string;
+  fileName: string;
+  docType: string;
+  fileUrl: string;
+  status: string;
+  ocrStatus: string;
+  ocrProcessedAt: string | null;
+  aiReviewStatus: string;
+  aiReviewProcessedAt: string | null;
+  createdAt: string;
+}
+
 export interface Bid {
   id: string;
   tenderId: string;
@@ -254,6 +267,7 @@ export interface Bid {
   createdAt: string;
   tender?: { id: string; title: string; status: string };
   user?: { id: string; email: string; profile?: { fullName: string; jobTitle?: string }; company?: { id: string; name: string } };
+  documents?: BidDocument[];
 }
 
 export interface Project {
