@@ -94,8 +94,6 @@ function getNavItemsForRole(role: string): NavSection[] {
   const main: NavSection = {
     label: 'MAIN',
     items: [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'tenders', label: 'World Bank Tenders', icon: FileSearch },
       { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
       { id: 'bids', label: 'Bids', icon: Gavel },
       { id: 'applicants', label: 'Published Tenders', icon: ClipboardList },
@@ -220,9 +218,6 @@ function SidebarContent({
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-3">
           <TenetLogo size="sm" />
-          <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground font-medium">Published Tender World Bank</p>
-          </div>
         </div>
       </div>
 
@@ -283,7 +278,7 @@ function SidebarContent({
                   const Icon = item.icon;
                   const isActive =
                     view === item.id ||
-                    (item.id === 'tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare' || view === 'bid-analysis')) ||
+                    (item.id === 'live-tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare' || view === 'bid-analysis' || view === 'tenders')) ||
                     (item.id === 'projects' && view === 'project-detail');
 
                   return (
@@ -490,9 +485,9 @@ export function AppShell() {
   const renderView = () => {
     switch (view) {
       case 'dashboard':
-        return <DashboardView />;
+        return <LiveTendersView />;
       case 'tenders':
-        return <TendersView />;
+        return <LiveTendersView />;
       case 'live-tenders':
         return <LiveTendersView />;
       case 'tender-detail':
@@ -532,13 +527,13 @@ export function AppShell() {
       case 'privacy-policy':
         return <PrivacyPolicyView />;
       default:
-        return <DashboardView />;
+        return <LiveTendersView />;
     }
   };
 
   const pageTitle = allNavItems.find((i) => i.id === view)?.label
-    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : 'Dashboard');
-  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' || view === 'bid-analysis' ? 'Tenders' : view === 'tender-compare' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
+    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : view === 'tenders' ? 'Live Tenders' : 'Live Tenders');
+  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' || view === 'bid-analysis' ? 'Live Tenders' : view === 'tender-compare' ? 'Live Tenders' : view === 'project-detail' ? 'Projects' : null;
 
   const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
   const companyName = company?.name || user?.company?.name;

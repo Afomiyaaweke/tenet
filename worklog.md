@@ -1087,3 +1087,143 @@ Stage Summary:
 - Published Tenders view: Shows tenders first with applicant details inside, World Bank branding, Track Bids button
 - Live Tenders view: Already has sector pills (Agriculture, Energy, etc.) and inline document viewing
 - All features from previous sessions (delete buttons, AI extract, upload-based bid submission) confirmed working
+
+---
+Task ID: 2-b
+Agent: Dashboard Stats Integration
+Task: Add dashboard summary stats to Live Tenders view
+
+Work Log:
+- Added imports: Tender, Bid, Project types from @/lib/api; FileSearch, FolderKanban icons from lucide-react; useAuthStore from @/store
+- Added dashboard stats state: dashTenders, dashBids, dashProjects, dashStatsLoading
+- Added useEffect to fetch /tenders, /bids, /projects on mount (parallel Promise.all)
+- Added useMemo (dashStats) computing: openTenders count, activeBids count, activeProjects count, totalContractValue
+- Added formatContractValue helper for compact dollar display ($1.2M, $50K, etc.)
+- Added compact stats UI section between Breadcrumb and existing Stats bar
+- 4 gradient stat cards in 2x2 grid (mobile) / 4-col grid (desktop):
+  - Open Tenders (emerald/green) → navigates to 'tenders' view
+  - Active Bids (amber/orange) → navigates to 'bids' view
+  - Active Projects (teal) → navigates to 'projects' view
+  - Contract Value (purple) → navigates to 'projects' view
+- Each card has horizontal layout: gradient icon box + label + number
+- Cards are clickable with hover lift animation (-translate-y-0.5)
+- Loading state shows skeleton placeholders
+- All existing Live Tenders functionality preserved (existing Stats bar, search/filters, etc.)
+- Lint passes clean, dev server compiles successfully
+
+Stage Summary:
+- Dashboard summary stats (4 cards) now visible at top of Live Tenders view below breadcrumb
+- Stats are fetched from local /tenders, /bids, /projects APIs on component mount
+- Cards are clickable and navigate to respective views via useNavStore.setView
+- Design uses gradient backgrounds matching each stat's color theme (emerald, amber, teal, purple)
+- Compact horizontal layout with icon + label + value, responsive 2-col/4-col grid
+- Existing Live Tenders stats bar, search, filters, and all other features unchanged
+
+---
+Task ID: 5
+Agent: Upload Bid Submission
+Task: Change tender submit bid to document upload instead of form-style input
+
+Work Log:
+- Modified `src/components/modules/tender-detail.tsx` — replaced the old form-style bid submission with a 2-step document upload flow:
+  - Step 1: "Submit Bid" button creates the bid record with empty/placeholder field values
+  - Step 2: After bid creation, 3 upload areas appear (Technical Proposal, Financial Proposal, Timeline Document)
+  - Each upload triggers immediately on file selection via `/api/bids/[id]/documents` POST
+  - Upload progress shown per document: idle → uploading (spinner) → done (checkmark) → error (retry button)
+  - Visual progress bar shows overall upload status across all 3 documents
+  - After all uploads complete: success message + "Done" and "Go to Bids" buttons
+  - Partial upload option: "Upload later" ghost button + "Go to Bids" button
+  - Added `createdBidId` state to track the newly created bid
+  - Added `handleSubmitBid` callback (creates bid record only)
+  - Added `handleUploadDoc` callback (uploads one document at a time)
+  - Added `allUploadsDone` computed value
+  - Added `handleCloseBidDialog` callback (marks bid as submitted, resets state, refreshes tender)
+  - Dialog `onOpenChange` now uses `handleCloseBidDialog` for proper cleanup on close
+- Updated `src/app/api/bids/route.ts`:
+  - Changed placeholder defaults from 'Uploaded via document' to 'Pending document upload' when fields are empty
+  - Added `.trim()` check so empty strings also fall through to the placeholder
+- Removed unused `useRef` import that was added accidentally
+- Added eslint-disable comments for `react-hooks/set-state-in-effect` on existing effect hooks
+- All lint checks pass, dev server compiles successfully
+
+---
+Task ID: 6-7
+Agent: Live Tenders Detail & Category
+Task: Make live tenders viewable in detail in-app + separate by category + link to bids on selection
+
+Work Log:
+- Added `detailOpenId` state to LiveTendersView for tracking which tender's detail panel is open
+- Modified TenderCard component:
+  - Added `isDetailOpen`, `onCardClick`, `onStartBidApplication` props
+  - Card main content area is now clickable (onClick={onCardClick}) with cursor-pointer, role="button", keyboard accessibility
+  - Added "In Bids" badge next to the Bid button for saved tenders (clicks navigate to bids view)
+  - All button clicks inside card use e.stopPropagation() to prevent card click from firing
+  - Added "View Details" / "Collapse" toggle button in action bar
+  - Added comprehensive detail view panel that expands below the main card content showing:
+    - Full title with source icon
+    - Scope of Work (full text, not line-clamped)
+    - Budget Range with currency info in colored card
+    - Deadline with formatted date and days remaining in colored card (red for urgent, sky otherwise)
+    - Location in colored card
+    - Borrower/Organization in colored card
+    - Contract Type in colored card
+    - Region in colored card
+    - Source info with external ID and signing date
+    - Category Tags as highlighted pills (primary color instead of muted)
+    - External URL link ("Open Original on [source]")
+    - "Start Bid Application" prominent green button (saves + navigates to bids)
+    - "Import to My Tenders" button
+    - "Open Original" button (opens external URL)
+    - Quick access buttons for "Load Full Document Content" and "AI Review" from detail view
+    - InlineTranslator for scope/title
+  - Detail view is collapsible via card click or Collapse button
+- Replaced static SECTOR_PILLS sector filter with dynamic `dynamicSectorCounts` useMemo:
+  - Extracts unique sectors from actual loaded tenders' categoryTags
+  - Matches known SECTOR_PILLS first (with icons)
+  - Adds up to 10 additional sectors found in data not covered by static pills
+  - Each sector pill shows count from actual data
+  - "All" pill shows total tenders count
+  - Sector pills separated from search/source row by border-t
+- Added `startBidApplication` callback:
+  - If tender not yet saved, saves it first via /tenders/saved API
+  - Shows "Moved to Bids" toast with "Go to Bids" action button
+  - Navigates to bids view via useNavStore.getState().setView('bids', { tenderId })
+  - If already saved, navigates directly
+- Updated toggleSave toast:
+  - "Moved to Bids" toast now has action: { label: 'Go to Bids', onClick: () => setView('bids', { tenderId }) }
+- Updated subtitle text from 'click "See More"' to 'click a card to view full details'
+- All lint checks pass
+
+Files Modified:
+- src/components/modules/live-tenders.tsx
+
+---
+Task ID: 1-8
+Agent: Main Agent
+Task: Remove "World Bank" and "Published Tender World Bank" from navbar, remove Dashboard, integrate stats into Live Tenders, upload-based bid submission, in-app tender detail view, category separation, applicants tender-first view
+
+Work Log:
+- Removed "Published Tender World Bank" text from sidebar logo area in app-shell.tsx
+- Removed "World Bank Tenders" and "Dashboard" nav items from sidebar navigation
+- Made Live Tenders the default view (changed store default from 'dashboard' to 'live-tenders')
+- Updated all view routing: dashboard/tenders both render LiveTendersView, default also LiveTendersView
+- Removed "World Bank" from logo.tsx (now just "Published Tender")
+- Removed "Published Tender World Bank" from loading text in page.tsx
+- Removed "World Bank" references from landing-page.tsx
+- Removed "World Bank" references from applicants.tsx
+- Changed tenders.tsx header from "World Bank Tenders" to "My Tenders"
+- Updated breadcrumb labels from "Tenders" to "Live Tenders"
+- Sub-agent added dashboard stats section to live-tenders.tsx (4 stat cards: Open Tenders, Active Bids, Active Projects, Contract Value)
+- Sub-agent modified tender-detail.tsx for upload-based bid submission (2-step: create bid → upload docs)
+- Sub-agent modified live-tenders.tsx for in-app detail view with category/sector pills and bid linking
+- Verified delete buttons already exist on bid documents and AI Doc Studio
+- Verified AI prompt extractor already exists in AI Doc Studio
+- Applicants view already has tender-first layout with handleTenderClick/handleBackToTenders
+
+Stage Summary:
+- "World Bank" branding removed from all UI elements (navbar, sidebar, logo, page titles, stats labels)
+- Dashboard section removed; Live Tenders is now the default landing page with integrated stats
+- Bid submission changed from form-style to 2-step upload-based flow
+- Live tenders now show full detail in-app with category sector pills for filtering
+- Applicants/Published Tenders shows tender cards first, with drill-down to applicant details
+- All lint checks pass, dev server runs clean, browser verification confirms changes

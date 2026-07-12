@@ -69,7 +69,7 @@ interface NavState {
 }
 
 export const useNavStore = create<NavState>((set) => ({
-  view: 'dashboard',
+  view: 'live-tenders',
   viewParams: {},
   setView: (view, params = {}) => set({ view, viewParams: params }),
 }));

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { api, LiveTender, DataSource } from '@/lib/api';
-import { useNavStore } from '@/store';
+import { api, LiveTender, DataSource, Tender, Bid, Project } from '@/lib/api';
+import { useAuthStore, useNavStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import {
   CheckCircle2, ExternalLink, TrendingUp, ChevronRight, Languages,
   Bookmark, BookmarkCheck, XCircle, AlertTriangle, Lightbulb,
   Target, BarChart3, Users, Zap, Eye, Gavel,
-  CircleCheck, Send,
+  CircleCheck, Send, FileSearch, FolderKanban,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -741,10 +741,13 @@ function TenderCard({
   showAiReview,
   aiLoading,
   aiReview,
+  isDetailOpen,
   onToggleSave,
   onLoadDocument,
   onLoadAIReview,
   onImport,
+  onCardClick,
+  onStartBidApplication,
 }: {
   tender: LiveTender;
   accent: typeof SOURCE_ACCENT[string];
@@ -757,10 +760,13 @@ function TenderCard({
   showAiReview: boolean;
   aiLoading: boolean;
   aiReview: AIReview | null;
+  isDetailOpen: boolean;
   onToggleSave: () => void;
   onLoadDocument: () => void;
   onLoadAIReview: () => void;
   onImport: () => void;
+  onCardClick: () => void;
+  onStartBidApplication: () => void;
 }) {
   const SourceIcon = accent.icon;
   const days = daysUntil(tender.deadline);
@@ -774,13 +780,29 @@ function TenderCard({
   const metaFieldCount = [hasBudget, hasLocation, hasDeadline, hasBorrower, hasContractType, hasRegion].filter(Boolean).length;
 
   return (
-    <Card className={`bg-card border-border transition-all ${accent.ring} ${isExpanded ? 'ring-1 ring-primary/20' : ''}`}>
+    <Card className={`bg-card border-border transition-all ${accent.ring} ${isDetailOpen ? 'ring-1 ring-primary/20 shadow-md' : ''}`}>
       <CardContent className="p-0">
-        {/* Main card content */}
-        <div className="p-4 md:p-5 relative">
+        {/* Main card content — clickable to open detail view */}
+        <div
+          className="p-4 md:p-5 relative cursor-pointer"
+          onClick={onCardClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onCardClick(); }}
+          aria-expanded={isDetailOpen}
+        >
 
-          {/* ── Right corner: Selection / Move to Bid button ── */}
+          {/* ── Right corner: In Bids badge (if saved) + Move to Bid button ── */}
           <div className="absolute top-3 right-3 md:top-4 md:right-4 flex items-center gap-1.5">
+            {isSaved && (
+              <Badge
+                className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-[10px] cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors"
+                onClick={(e) => { e.stopPropagation(); onStartBidApplication(); }}
+              >
+                <BookmarkCheck className="h-3 w-3" />
+                In Bids
+              </Badge>
+            )}
             <Button
               variant={isSaved ? 'default' : 'outline'}
               size="sm"
@@ -788,7 +810,7 @@ function TenderCard({
                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                 : 'border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
               }`}
-              onClick={onToggleSave}
+              onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
               disabled={isSaving}
               title={isSaved ? 'Added to Bids — click to remove' : 'Move to Bids'}
             >
@@ -937,12 +959,26 @@ function TenderCard({
           {/* ── Bottom action bar ── */}
           <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
             <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Expand / Collapse detail view */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-xs h-7"
+                onClick={(e) => { e.stopPropagation(); onCardClick(); }}
+              >
+                {isDetailOpen ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+                {isDetailOpen ? 'Collapse' : 'View Details'}
+              </Button>
               {/* See More — loads the full tender content from the external site */}
               <Button
                 variant="ghost"
                 size="sm"
                 className="gap-1.5 text-xs h-7"
-                onClick={onLoadDocument}
+                onClick={(e) => { e.stopPropagation(); onLoadDocument(); }}
                 disabled={isLoadingDoc}
               >
                 {isLoadingDoc ? (
@@ -952,14 +988,14 @@ function TenderCard({
                 ) : (
                   <Eye className="h-3.5 w-3.5" />
                 )}
-                {isLoadingDoc ? 'Loading…' : isExpanded ? 'Collapse' : 'See More'}
+                {isLoadingDoc ? 'Loading…' : isExpanded ? 'Collapse Doc' : 'See More'}
               </Button>
               {/* AI Review */}
               <Button
                 variant="ghost"
                 size="sm"
                 className={`gap-1.5 text-xs h-7 ${showAiReview ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 hover:bg-violet-100 dark:hover:bg-violet-950/40' : 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30'}`}
-                onClick={onLoadAIReview}
+                onClick={(e) => { e.stopPropagation(); onLoadAIReview(); }}
                 disabled={aiLoading}
               >
                 <Sparkles className="h-3.5 w-3.5" />
@@ -970,7 +1006,7 @@ function TenderCard({
                 variant="ghost"
                 size="sm"
                 className="gap-1.5 text-xs h-7 text-primary"
-                onClick={onImport}
+                onClick={(e) => { e.stopPropagation(); onImport(); }}
               >
                 <Download className="h-3.5 w-3.5" />
                 Import
@@ -981,6 +1017,253 @@ function TenderCard({
             </div>
           </div>
         </div>
+
+        {/* ── Detail View: expanded full information ── */}
+        {isDetailOpen && (
+          <div className="border-t border-border bg-gradient-to-b from-muted/20 to-background animate-[fadeIn_0.3s_ease-out]">
+            <div className="p-4 md:p-6 space-y-5">
+              {/* Detail header with close */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                    <FileSearch className="h-3.5 w-3.5" />
+                    <span>Full Tender Details</span>
+                    <span>·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className={`h-1.5 w-1.5 rounded-full ${accent.dot}`} />
+                      {SOURCE_LABELS[tender.source] || tender.source}
+                    </span>
+                  </div>
+                  <h3 className="text-lg md:text-xl font-bold text-foreground leading-snug">
+                    {tender.title}
+                  </h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onCardClick}
+                  className="gap-1.5 text-xs text-muted-foreground shrink-0"
+                >
+                  <ChevronUp className="h-3.5 w-3.5" />
+                  Collapse
+                </Button>
+              </div>
+
+              {/* Comprehensive info grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Scope / Description */}
+                {tender.scope && (
+                  <div className="md:col-span-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5" />
+                      Scope of Work
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
+                      {tender.scope}
+                    </p>
+                  </div>
+                )}
+
+                {/* Budget */}
+                {hasBudget && (
+                  <div className="rounded-lg border border-emerald-200/50 dark:border-emerald-800/30 bg-emerald-50/30 dark:bg-emerald-950/20 p-3">
+                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                      <DollarSign className="h-3.5 w-3.5" />
+                      Budget Range
+                    </p>
+                    <p className="text-base font-bold text-foreground">
+                      {tender.budgetMin && tender.budgetMax
+                        ? `${fmtMoney(tender.budgetMin, tender.currency).replace(/\.00/, '')} – ${fmtMoney(tender.budgetMax, tender.currency).replace(/\.00/, '')}`
+                        : fmtMoney(tender.budgetMax || tender.budgetMin, tender.currency)}
+                    </p>
+                    {tender.currency && tender.currency !== 'USD' && (
+                      <p className="text-xs text-muted-foreground mt-0.5">Currency: {tender.currency}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Deadline */}
+                {hasDeadline && (
+                  <div className={`rounded-lg border p-3 ${days <= 7
+                    ? 'border-rose-200/50 dark:border-rose-800/30 bg-rose-50/30 dark:bg-rose-950/20'
+                    : 'border-sky-200/50 dark:border-sky-800/30 bg-sky-50/30 dark:bg-sky-950/20'
+                  }`}>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Deadline
+                    </p>
+                    <p className="text-base font-bold text-foreground">
+                      {new Date(tender.deadline).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                    <p className={`text-xs mt-0.5 font-medium ${days <= 0 ? 'text-rose-600 dark:text-rose-400' : days <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                      {days <= 0 ? 'Deadline has passed' : `${days} days remaining`}
+                    </p>
+                  </div>
+                )}
+
+                {/* Location */}
+                {hasLocation && (
+                  <div className="rounded-lg border border-sky-200/50 dark:border-sky-800/30 bg-sky-50/30 dark:bg-sky-950/20 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Location
+                    </p>
+                    <p className="text-sm font-bold text-foreground">{tender.location}</p>
+                  </div>
+                )}
+
+                {/* Borrower / Organization */}
+                {hasBorrower && (
+                  <div className="rounded-lg border border-violet-200/50 dark:border-violet-800/30 bg-violet-50/30 dark:bg-violet-950/20 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {tender.borrower ? 'Borrower' : 'Organization'}
+                    </p>
+                    <p className="text-sm font-bold text-foreground">{tender.borrower || tender.supplier}</p>
+                  </div>
+                )}
+
+                {/* Contract Type */}
+                {hasContractType && (
+                  <div className="rounded-lg border border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/20 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5" />
+                      Contract Type
+                    </p>
+                    <p className="text-sm font-bold text-foreground">{tender.contractType}</p>
+                  </div>
+                )}
+
+                {/* Region */}
+                {hasRegion && (
+                  <div className="rounded-lg border border-rose-200/50 dark:border-rose-800/30 bg-rose-50/30 dark:bg-rose-950/20 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                      <Globe2 className="h-3.5 w-3.5" />
+                      Region
+                    </p>
+                    <p className="text-sm font-bold text-foreground">{tender.region}</p>
+                  </div>
+                )}
+
+                {/* Source Info */}
+                <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                    <Radio className="h-3.5 w-3.5" />
+                    Source
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <SourceIcon className="h-4 w-4" />
+                    <span className="text-sm font-bold text-foreground">{SOURCE_LABELS[tender.source] || tender.source}</span>
+                  </div>
+                  {tender.externalId && (
+                    <p className="text-xs text-muted-foreground mt-1">External ID: {tender.externalId}</p>
+                  )}
+                  {tender.signingDate && (
+                    <p className="text-xs text-muted-foreground mt-0.5">Signed: {new Date(tender.signingDate).toLocaleDateString()}</p>
+                  )}
+                </div>
+
+                {/* Category Tags */}
+                {(tender.categoryTags && tender.categoryTags.split(',').filter(Boolean).length > 0) && (
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <FolderKanban className="h-3.5 w-3.5" />
+                      Categories &amp; Sectors
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tender.categoryTags
+                        .split(',')
+                        .filter(Boolean)
+                        .map((c) => (
+                          <span
+                            key={c}
+                            className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary"
+                          >
+                            {c.trim()}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* External URL */}
+              {tender.externalUrl && (
+                <div className="flex items-center gap-3 pt-2">
+                  <a
+                    href={tender.externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open Original on {SOURCE_LABELS[tender.source] || 'source site'}
+                  </a>
+                  <span className="text-xs text-muted-foreground">
+                    {(() => { try { return new URL(tender.externalUrl).hostname; } catch { return tender.externalUrl; } })()}
+                  </span>
+                </div>
+              )}
+
+              {/* Action Buttons in Detail View */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                <Button
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={(e) => { e.stopPropagation(); onStartBidApplication(); }}
+                >
+                  <Gavel className="h-4 w-4" />
+                  Start Bid Application
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2 border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
+                  onClick={(e) => { e.stopPropagation(); onImport(); }}
+                >
+                  <Download className="h-4 w-4" />
+                  Import to My Tenders
+                </Button>
+                {tender.externalUrl && (
+                  <a
+                    href={tender.externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button variant="outline" className="gap-2">
+                      <ExternalLink className="h-4 w-4" />
+                      Open Original
+                    </Button>
+                  </a>
+                )}
+              </div>
+
+              {/* Quick access: See More & AI Review from detail view */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-xs h-8"
+                  onClick={(e) => { e.stopPropagation(); onLoadDocument(); }}
+                  disabled={isLoadingDoc}
+                >
+                  {isLoadingDoc ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                  {isLoadingDoc ? 'Loading full content…' : isExpanded ? 'Collapse Document' : 'Load Full Document Content'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`gap-1.5 text-xs h-8 ${showAiReview ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30' : 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30'}`}
+                  onClick={(e) => { e.stopPropagation(); onLoadAIReview(); }}
+                  disabled={aiLoading}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide AI Review' : 'AI Review'}
+                </Button>
+                <InlineTranslator text={tender.scope || tender.title} size="sm" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Inline document viewer — shows exact tender content from external site */}
         {isExpanded && (
@@ -1085,6 +1368,49 @@ export function LiveTendersView() {
   // Credential dialog state
   const [credDialogSource, setCredDialogSource] = useState<GatedSource | null>(null);
   const [credDialogOpen, setCredDialogOpen] = useState(false);
+
+  // Detail view state (card click expands full info)
+  const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
+
+  // Dashboard stats state
+  const [dashTenders, setDashTenders] = useState<Tender[]>([]);
+  const [dashBids, setDashBids] = useState<Bid[]>([]);
+  const [dashProjects, setDashProjects] = useState<Project[]>([]);
+  const [dashStatsLoading, setDashStatsLoading] = useState(true);
+
+  const { setView } = useNavStore();
+
+  // Fetch dashboard summary data on mount
+  useEffect(() => {
+    const loadDashStats = async () => {
+      setDashStatsLoading(true);
+      const [tendersRes, bidsRes, projectsRes] = await Promise.all([
+        api.get('/tenders'),
+        api.get('/bids'),
+        api.get('/projects'),
+      ]);
+      if (tendersRes.success) setDashTenders(tendersRes.data);
+      if (bidsRes.success) setDashBids(bidsRes.data);
+      if (projectsRes.success) setDashProjects(projectsRes.data);
+      setDashStatsLoading(false);
+    };
+    loadDashStats();
+  }, []);
+
+  const dashStats = useMemo(() => {
+    const openTenders = dashTenders.filter(t => t.status === 'open').length;
+    const activeBids = dashBids.filter(b => b.status === 'pending_review' || b.status === 'shortlisted').length;
+    const activeProjects = dashProjects.filter(p => p.status === 'active').length;
+    const totalContractValue = dashProjects.reduce((sum, p) => sum + (p.contractValue || 0), 0);
+    return { openTenders, activeBids, activeProjects, totalContractValue };
+  }, [dashTenders, dashBids, dashProjects]);
+
+  const formatContractValue = (value: number): string => {
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+    if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+    if (value > 0) return `$${value.toLocaleString()}`;
+    return '$0';
+  };
 
   const load = useCallback(
     async (isRefresh = false) => {
@@ -1254,7 +1580,13 @@ export function LiveTendersView() {
           currency: tender.currency,
         });
         setSavedTenders((prev) => ({ ...prev, [id]: true }));
-        toast.success('Moved to Bids', { description: `"${tender.title}" is now in your bids list. Go to Bids to work on it.` });
+        toast.success('Moved to Bids', {
+          description: `"${tender.title}" is now in your bids list.`,
+          action: {
+            label: 'Go to Bids',
+            onClick: () => useNavStore.getState().setView('bids', { tenderId: tender.id }),
+          },
+        });
       }
     } catch {
       toast.error(isCurrentlySaved ? 'Failed to remove from bids' : 'Failed to move to bids');
@@ -1302,6 +1634,84 @@ export function LiveTendersView() {
 
   /* ────── Count saved tenders ────── */
   const savedCount = useMemo(() => Object.values(savedTenders).filter(Boolean).length, [savedTenders]);
+
+  /* ────── Dynamic sector extraction from loaded tenders ────── */
+  const dynamicSectorCounts = useMemo(() => {
+    const sectorMap = new Map<string, number>();
+    tenders.forEach((t) => {
+      if (t.categoryTags) {
+        t.categoryTags.split(',').filter(Boolean).forEach((tag) => {
+          const normalized = tag.trim().toLowerCase();
+          if (normalized) {
+            sectorMap.set(normalized, (sectorMap.get(normalized) || 0) + 1);
+          }
+        });
+      }
+    });
+    // Build the result: always start with the SECTOR_PILLS that have matching data,
+    // then add any additional sectors found in data not covered by the static pills
+    const result: { id: string; label: string; count: number; icon?: string }[] = [];
+
+    // First add known sectors from SECTOR_PILLS
+    SECTOR_PILLS.forEach((sp) => {
+      const count = sectorMap.get(sp.id) || sectorMap.get(sp.label.toLowerCase()) || 0;
+      if (count > 0) {
+        result.push({ id: sp.id, label: sp.label, count, icon: sp.icon });
+      }
+    });
+
+    // Then add any unmatched sectors from actual data (top 10 by count)
+    const knownIds = new Set(SECTOR_PILLS.map((sp) => sp.id));
+    const knownLabels = new Set(SECTOR_PILLS.map((sp) => sp.label.toLowerCase()));
+    const additional: { id: string; label: string; count: number }[] = [];
+    sectorMap.forEach((count, key) => {
+      if (!knownIds.has(key) && !knownLabels.has(key) && count > 0) {
+        additional.push({ id: key, label: key.charAt(0).toUpperCase() + key.slice(1), count });
+      }
+    });
+    additional.sort((a, b) => b.count - a.count);
+    result.push(...additional.slice(0, 10));
+
+    return result;
+  }, [tenders]);
+
+  /* ────── Start Bid Application ────── */
+  const startBidApplication = useCallback(async (tender: LiveTender) => {
+    // If not saved yet, save first, then navigate to bids
+    if (!savedTenders[tender.id]) {
+      setSavingTender((prev) => ({ ...prev, [tender.id]: true }));
+      try {
+        await api.post('/tenders/saved', {
+          tenderId: tender.externalId || tender.id,
+          source: tender.source,
+          title: tender.title,
+          scope: tender.scope,
+          budgetMin: tender.budgetMin,
+          budgetMax: tender.budgetMax,
+          deadline: tender.deadline,
+          location: tender.location,
+          categoryTags: tender.categoryTags,
+          externalUrl: tender.externalUrl,
+          currency: tender.currency,
+        });
+        setSavedTenders((prev) => ({ ...prev, [tender.id]: true }));
+        toast.success('Moved to Bids', {
+          description: `"${tender.title}" is now in your bids list. Navigating to Bids…`,
+          action: {
+            label: 'Go to Bids',
+            onClick: () => useNavStore.getState().setView('bids', { tenderId: tender.id }),
+          },
+        });
+      } catch {
+        toast.error('Failed to save tender to bids');
+        setSavingTender((prev) => ({ ...prev, [tender.id]: false }));
+        return;
+      }
+      setSavingTender((prev) => ({ ...prev, [tender.id]: false }));
+    }
+    // Navigate to bids view
+    useNavStore.getState().setView('bids', { tenderId: tender.id });
+  }, [savedTenders]);
 
   /* ────── Render ────── */
   return (
@@ -1353,7 +1763,7 @@ export function LiveTendersView() {
               </Badge>
             </div>
             <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-              {tenders.length} tenders from {sourceMeta.length || 15} sources — click &quot;See More&quot; to view the exact tender, &quot;AI Review&quot; to analyze, &quot;Bid&quot; to work on it later
+              {tenders.length} tenders from {sourceMeta.length || 15} sources — click a card to view full details, &quot;AI Review&quot; to analyze, &quot;Bid&quot; to work on it later
               {sectorFilter && <span className="ml-1 text-primary font-medium">· filtered by {SECTOR_PILLS.find(s => s.id === sectorFilter)?.label || sectorFilter}</span>}
             </p>
           </div>
@@ -1367,6 +1777,91 @@ export function LiveTendersView() {
           <span>/</span>
           <span className="text-foreground font-medium">Live Feed</span>
         </nav>
+
+        {/* ───────────────── Dashboard Summary Stats ───────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {dashStatsLoading ? (
+            <>
+              {[0, 1, 2, 3].map(i => (
+                <Card key={i} className="bg-card/80 backdrop-blur-sm border-0 shadow-sm">
+                  <CardContent className="p-3.5 flex items-center gap-3">
+                    <Skeleton className="h-9 w-9 rounded-lg" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-4 w-12" />
+                      <Skeleton className="h-5 w-8" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          ) : (
+            <>
+              {/* Open Tenders */}
+              <Card
+                className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20 border-emerald-200/50 dark:border-emerald-800/30 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                onClick={() => setView('tenders')}
+              >
+                <CardContent className="p-3.5 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm shrink-0">
+                    <FileSearch className="h-4.5 w-4.5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate">Open Tenders</p>
+                    <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{dashStats.openTenders}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Active Bids */}
+              <Card
+                className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/20 border-amber-200/50 dark:border-amber-800/30 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                onClick={() => setView('bids')}
+              >
+                <CardContent className="p-3.5 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-sm shrink-0">
+                    <Gavel className="h-4.5 w-4.5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300 truncate">Active Bids</p>
+                    <p className="text-xl font-bold text-amber-900 dark:text-amber-100">{dashStats.activeBids}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Active Projects */}
+              <Card
+                className="bg-gradient-to-br from-teal-50 to-teal-100/50 dark:from-teal-950/40 dark:to-teal-900/20 border-teal-200/50 dark:border-teal-800/30 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                onClick={() => setView('projects')}
+              >
+                <CardContent className="p-3.5 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-sm shrink-0">
+                    <FolderKanban className="h-4.5 w-4.5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-teal-700 dark:text-teal-300 truncate">Active Projects</p>
+                    <p className="text-xl font-bold text-teal-900 dark:text-teal-100">{dashStats.activeProjects}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contract Value */}
+              <Card
+                className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/40 dark:to-purple-900/20 border-purple-200/50 dark:border-purple-800/30 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                onClick={() => setView('projects')}
+              >
+                <CardContent className="p-3.5 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-sm shrink-0">
+                    <DollarSign className="h-4.5 w-4.5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-purple-700 dark:text-purple-300 truncate">Contract Value</p>
+                    <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{formatContractValue(dashStats.totalContractValue)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
 
         {/* ───────────────── Stats bar ───────────────── */}
         <div className="grid grid-cols-4 gap-2 md:gap-3">
@@ -1462,8 +1957,8 @@ export function LiveTendersView() {
               </Select>
             </div>
 
-            {/* Sector quick-filter pills */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2 md:mt-0">
+            {/* Sector quick-filter pills — dynamically built from actual tenders + API sectors */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border">
               <span className="text-xs font-medium text-muted-foreground mr-1">Sectors:</span>
               <button
                 onClick={() => setSectorFilter('')}
@@ -1474,9 +1969,9 @@ export function LiveTendersView() {
                 }`}
               >
                 All
+                <span className="opacity-70">· {tenders.length}</span>
               </button>
-              {SECTOR_PILLS.map((s) => {
-                const count = sectorCounts.find(c => c.id === s.id)?.count || 0;
+              {dynamicSectorCounts.map((s) => {
                 const isActive = sectorFilter === s.id;
                 return (
                   <button
@@ -1488,9 +1983,9 @@ export function LiveTendersView() {
                         : 'bg-muted text-muted-foreground hover:bg-muted/80'
                     }`}
                   >
-                    <span>{s.icon}</span>
+                    {s.icon && <span>{s.icon}</span>}
                     {s.label}
-                    {count > 0 && <span className="opacity-70">· {count}</span>}
+                    <span className="opacity-70">· {s.count}</span>
                   </button>
                 );
               })}
@@ -1584,10 +2079,13 @@ export function LiveTendersView() {
                     showAiReview={aiReviewExpanded[t.id] || false}
                     aiLoading={aiReviewLoading[t.id] || false}
                     aiReview={aiReviewData[t.id] || null}
+                    isDetailOpen={detailOpenId === t.id}
                     onToggleSave={() => toggleSave(t)}
                     onLoadDocument={() => loadDocument(t)}
                     onLoadAIReview={() => loadAIReview(t)}
                     onImport={() => importTender(t)}
+                    onCardClick={() => setDetailOpenId(detailOpenId === t.id ? null : t.id)}
+                    onStartBidApplication={() => startBidApplication(t)}
                   />
                 );
               })}

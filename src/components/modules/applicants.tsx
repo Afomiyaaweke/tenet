@@ -1018,7 +1018,7 @@ export function ApplicantsView() {
             <FolderOpen className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Published Tenders <span className="text-emerald-600 dark:text-emerald-400 text-base font-medium">World Bank</span></h1>
+            <h1 className="text-xl font-bold">Published Tenders</h1>
             <p className="text-sm text-muted-foreground">
               {totalPublishedTenders > 0
                 ? `${totalPublishedTenders} published tender${totalPublishedTenders !== 1 ? 's' : ''} · ${totalBidsAcrossTenders} total bid${totalBidsAcrossTenders !== 1 ? 's' : ''} received`
@@ -1043,7 +1043,7 @@ export function ApplicantsView() {
               <FileSearch className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">World Bank Tenders</p>
+              <p className="text-xs text-muted-foreground">Published Tenders</p>
               <p className="text-lg font-bold">{totalPublishedTenders}</p>
             </div>
           </CardContent>
@@ -1113,7 +1113,7 @@ export function ApplicantsView() {
             <div className="text-center">
               <h3 className="text-lg font-semibold">No Published Tenders Yet</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Create and publish World Bank tenders to start receiving bids from applicants.
+                Create and publish tenders to start receiving bids from applicants.
               </p>
             </div>
             <Button variant="outline" onClick={() => setView('tenders')}>

@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Use provided values or placeholder defaults for document-upload-based bids
-    const bidTechnicalProposal = technicalProposal || 'Uploaded via document';
+    const bidTechnicalProposal = (technicalProposal && technicalProposal.trim()) || 'Pending document upload';
     const bidFinancialProposal = financialProposal !== undefined && financialProposal !== null
       ? parseFloat(String(financialProposal))
       : 0;
-    const bidTimeline = timeline || 'Uploaded via document';
+    const bidTimeline = (timeline && timeline.trim()) || 'Pending document upload';
 
     const bid = await db.bid.create({
       data: {
