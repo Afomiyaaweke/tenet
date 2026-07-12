@@ -94,6 +94,8 @@ function getNavItemsForRole(role: string): NavSection[] {
   const main: NavSection = {
     label: 'MAIN',
     items: [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'tenders', label: 'Tenders', icon: FileSearch },
       { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
       { id: 'bids', label: 'Bids', icon: Gavel },
       { id: 'applicants', label: 'Published Tenders', icon: ClipboardList },
@@ -278,7 +280,7 @@ function SidebarContent({
                   const Icon = item.icon;
                   const isActive =
                     view === item.id ||
-                    (item.id === 'live-tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare' || view === 'bid-analysis' || view === 'tenders')) ||
+                    (item.id === 'tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare' || view === 'bid-analysis')) ||
                     (item.id === 'projects' && view === 'project-detail');
 
                   return (
@@ -485,9 +487,9 @@ export function AppShell() {
   const renderView = () => {
     switch (view) {
       case 'dashboard':
-        return <LiveTendersView />;
+        return <DashboardView />;
       case 'tenders':
-        return <LiveTendersView />;
+        return <TendersView />;
       case 'live-tenders':
         return <LiveTendersView />;
       case 'tender-detail':
@@ -527,13 +529,13 @@ export function AppShell() {
       case 'privacy-policy':
         return <PrivacyPolicyView />;
       default:
-        return <LiveTendersView />;
+        return <DashboardView />;
     }
   };
 
   const pageTitle = allNavItems.find((i) => i.id === view)?.label
-    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : view === 'tenders' ? 'Live Tenders' : 'Live Tenders');
-  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' || view === 'bid-analysis' ? 'Live Tenders' : view === 'tender-compare' ? 'Live Tenders' : view === 'project-detail' ? 'Projects' : null;
+    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : 'Dashboard');
+  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' || view === 'bid-analysis' ? 'Tenders' : view === 'tender-compare' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
 
   const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
   const companyName = company?.name || user?.company?.name;
