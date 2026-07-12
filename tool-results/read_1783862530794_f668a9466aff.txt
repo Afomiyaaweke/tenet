@@ -1,0 +1,609 @@
+  1140→
+  1141→    case 'bidStatus': {
+  1142→      const cfg = STATUS_CONFIG[String(val)] || STATUS_CONFIG.pending_review;
+  1143→      const Icon = cfg.icon;
+  1144→      return (
+  1145→        <Badge className={`text-[9px] px-2 py-0.5 border-0 rounded-lg ${cfg.className}`}>
+  1146→          <Icon className="h-3 w-3 mr-1" />
+  1147→          {cfg.label}
+  1148→        </Badge>
+  1149→      );
+  1150→    }
+  1151→
+  1152→    case 'submittedAt':
+  1153→      return <span className="text-muted-foreground">{formatDate(String(val))}</span>;
+  1154→
+  1155→    case 'technicalProposal':
+  1156→      return (
+  1157→        <span className="truncate text-muted-foreground block" style={{ maxWidth: '200px' }}>
+  1158→          {String(val) ? String(val).substring(0, 80) + (String(val).length > 80 ? '...' : '') : '—'}
+  1159→        </span>
+  1160→      );
+  1161→
+  1162→    case 'applicantSkills':
+  1163→      return (
+  1164→        <div className="flex flex-wrap gap-0.5">
+  1165→          {String(val).split(',').filter(Boolean).slice(0, 3).map((skill, i) => (
+  1166→            <Badge key={i} variant="secondary" className="text-[9px] px-1 py-0">
+  1167→              {skill.trim()}
+  1168→            </Badge>
+  1169→          ))}
+  1170→          {String(val).split(',').filter(Boolean).length > 3 && (
+  1171→            <Badge variant="secondary" className="text-[9px] px-1 py-0">+{String(val).split(',').filter(Boolean).length - 3}</Badge>
+  1172→          )}
+  1173→        </div>
+  1174→      );
+  1175→
+  1176→    case 'rejectionNote':
+  1177→      return val
+  1178→        ? <span className="text-red-600 dark:text-red-400 truncate block" style={{ maxWidth: '180px' }}>{String(val)}</span>
+  1179→        : <span className="text-muted-foreground">—</span>;
+  1180→
+  1181→    case 'applicantLicense':
+  1182→    case 'applicantTin':
+  1183→    case 'companyRegistration':
+  1184→    case 'companyTin':
+  1185→      return <span className="font-mono text-xs text-muted-foreground">{String(val) || '—'}</span>;
+  1186→
+  1187→    case 'companyCity':
+  1188→    case 'companyCountry':
+  1189→      return <span className="truncate">{String(val) || '—'}</span>;
+  1190→
+  1191→    default:
+  1192→      return <span className="truncate">{String(val ?? '—')}</span>;
+  1193→  }
+  1194→}
+  1195→
+  1196→// ─── Status badge helpers ─────────────────────────────────────────────
+  1197→
+  1198→function OcrStatusBadge({ status }: { status: string }) {
+  1199→  switch (status) {
+  1200→    case 'completed':
+  1201→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"><CheckCircle2 className="h-3 w-3 mr-0.5" />OCR Done</Badge>;
+  1202→    case 'processing':
+  1203→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Processing</Badge>;
+  1204→    case 'failed':
+  1205→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><FileX className="h-3 w-3 mr-0.5" />Failed</Badge>;
+  1206→    default:
+  1207→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">No OCR</Badge>;
+  1208→  }
+  1209→}
+  1210→
+  1211→function ReviewStatusBadge({ status }: { status: string }) {
+  1212→  switch (status) {
+  1213→    case 'completed':
+  1214→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"><CheckCircle2 className="h-3 w-3 mr-0.5" />Reviewed</Badge>;
+  1215→    case 'processing':
+  1216→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Analyzing</Badge>;
+  1217→    case 'failed':
+  1218→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><FileX className="h-3 w-3 mr-0.5" />Failed</Badge>;
+  1219→    default:
+  1220→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">No Review</Badge>;
+  1221→  }
+  1222→}
+  1223→
+  1224→function AssessmentBadge({ assessment }: { assessment: string }) {
+  1225→  switch (assessment) {
+  1226→    case 'approved':
+  1227→      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"><ThumbsUp className="h-3 w-3 mr-0.5" />Approved</Badge>;
+  1228→    case 'conditionally_approved':
+  1229→      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><AlertTriangle className="h-3 w-3 mr-0.5" />Conditional</Badge>;
+  1230→    case 'rejected':
+  1231→      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><ThumbsDown className="h-3 w-3 mr-0.5" />Rejected</Badge>;
+  1232→    case 'needs_clarification':
+  1233→      return <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"><Info className="h-3 w-3 mr-0.5" />Needs Clarification</Badge>;
+  1234→    default:
+  1235→      return <Badge variant="secondary" className="text-[10px]">{assessment}</Badge>;
+  1236→  }
+  1237→}
+  1238→
+  1239→function RiskBadge({ level }: { level: string }) {
+  1240→  switch (level) {
+  1241→    case 'low':
+  1242→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Low Risk</Badge>;
+  1243→    case 'medium':
+  1244→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Medium Risk</Badge>;
+  1245→    case 'high':
+  1246→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">High Risk</Badge>;
+  1247→    case 'critical':
+  1248→      return <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-md bg-red-200 text-red-800 dark:bg-red-900/60 dark:text-red-200 font-bold">Critical Risk</Badge>;
+  1249→    default:
+  1250→      return <Badge variant="secondary" className="text-[9px]">{level}</Badge>;
+  1251→  }
+  1252→}
+  1253→
+  1254→function ScoreBar({ label, score }: { label: string; score: number }) {
+  1255→  const clampedScore = Math.max(0, Math.min(100, score));
+  1256→  const color = clampedScore < 40 ? 'bg-red-500' : clampedScore < 70 ? 'bg-amber-500' : 'bg-emerald-500';
+  1257→  const textColor = clampedScore < 40 ? 'text-red-600 dark:text-red-400' : clampedScore < 70 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
+  1258→  return (
+  1259→    <div className="space-y-0.5">
+  1260→      <div className="flex items-center justify-between text-[10px]">
+  1261→        <span className="text-muted-foreground">{label}</span>
+  1262→        <span className={`font-semibold ${textColor}`}>{clampedScore}%</span>
+  1263→      </div>
+  1264→      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+  1265→        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${clampedScore}%` }} />
+  1266→      </div>
+  1267→    </div>
+  1268→  );
+  1269→}
+  1270→
+  1271→// ─── Document Detail Panel ───────────────────────────────────────────
+  1272→
+  1273→interface DocumentDetailPanelProps {
+  1274→  docId: string;
+  1275→  type: 'ocr' | 'review';
+  1276→  ocrText: string | undefined;
+  1277→  reviewData: Record<string, unknown> | undefined;
+  1278→  onClose: () => void;
+  1279→}
+  1280→
+  1281→function DocumentDetailPanel({ docId, type, ocrText, reviewData, onClose }: DocumentDetailPanelProps) {
+  1282→  if (type === 'ocr') {
+  1283→    return (
+  1284→      <Card className="border-teal-200 dark:border-teal-800/50 bg-teal-50/30 dark:bg-teal-950/10">
+  1285→        <CardContent className="p-4">
+  1286→          <div className="flex items-center justify-between mb-3">
+  1287→            <div className="flex items-center gap-2">
+  1288→              <ScanSearch className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+  1289→              <h5 className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wider">OCR Extracted Text</h5>
+  1290→            </div>
+  1291→            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+  1292→              <X className="h-3.5 w-3.5" />
+  1293→            </Button>
+  1294→          </div>
+  1295→          <div className="max-h-64 overflow-y-auto rounded-lg border bg-white dark:bg-background p-3 text-xs whitespace-pre-wrap font-mono leading-relaxed custom-scrollbar">
+  1296→            {ocrText || 'No OCR text available. Run OCR first to extract text from this document.'}
+  1297→          </div>
+  1298→        </CardContent>
+  1299→      </Card>
+  1300→    );
+  1301→  }
+  1302→
+  1303→  // AI Review panel
+  1304→  const review = reviewData as Record<string, unknown> | undefined;
+  1305→  const overallAssessment = String(review?.overallAssessment || '');
+  1306→  const complianceScore = Number(review?.complianceScore ?? 0);
+  1307→  const completenessScore = Number(review?.completenessScore ?? 0);
+  1308→  const riskLevel = String(review?.riskLevel || '');
+  1309→  const findings = Array.isArray(review?.findings) ? (review.findings as Array<Record<string, string>>) : [];
+  1310→  const strengths = Array.isArray(review?.strengths) ? (review.strengths as string[]) : [];
+  1311→  const weaknesses = Array.isArray(review?.weaknesses) ? (review.weaknesses as string[]) : [];
+  1312→  const missingElements = Array.isArray(review?.missingElements) ? (review.missingElements as string[]) : [];
+  1313→  const recommendations = Array.isArray(review?.recommendations) ? (review.recommendations as string[]) : [];
+  1314→  const summary = String(review?.summary || '');
+  1315→
+  1316→  return (
+  1317→    <Card className="border-violet-200 dark:border-violet-800/50 bg-violet-50/30 dark:bg-violet-950/10">
+  1318→      <CardContent className="p-4">
+  1319→        <div className="flex items-center justify-between mb-3">
+  1320→          <div className="flex items-center gap-2">
+  1321→            <Brain className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+  1322→            <h5 className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wider">AI Document Review</h5>
+  1323→          </div>
+  1324→          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+  1325→            <X className="h-3.5 w-3.5" />
+  1326→          </Button>
+  1327→        </div>
+  1328→
+  1329→        {/* Assessment & Risk */}
+  1330→        <div className="flex flex-wrap items-center gap-2 mb-3">
+  1331→          {overallAssessment && <AssessmentBadge assessment={overallAssessment} />}
+  1332→          {riskLevel && <RiskBadge level={riskLevel} />}
+  1333→        </div>
+  1334→
+  1335→        {/* Score bars */}
+  1336→        <div className="grid grid-cols-2 gap-3 mb-3">
+  1337→          <ScoreBar label="Compliance" score={complianceScore} />
+  1338→          <ScoreBar label="Completeness" score={completenessScore} />
+  1339→        </div>
+  1340→
+  1341→        {/* Findings */}
+  1342→        {findings.length > 0 && (
+  1343→          <div className="mb-3">
+  1344→            <h6 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+  1345→              <AlertOctagon className="h-3 w-3" /> Findings
+  1346→            </h6>
+  1347→            <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+  1348→              {findings.map((f, i) => {
+  1349→                const severityColor =
+  1350→                  f.severity === 'critical' ? 'border-red-400 bg-red-50 dark:bg-red-950/20' :
+  1351→                  f.severity === 'high' ? 'border-red-300 bg-red-50/50 dark:bg-red-950/10' :
+  1352→                  f.severity === 'medium' ? 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/10' :
+  1353→                  'border-blue-300 bg-blue-50/50 dark:bg-blue-950/10';
+  1354→                const severityBadge =
+  1355→                  f.severity === 'critical' ? 'bg-red-200 text-red-800 dark:bg-red-900/60 dark:text-red-200' :
+  1356→                  f.severity === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
+  1357→                  f.severity === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
+  1358→                  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
+  1359→                return (
+  1360→                  <div key={i} className={`text-[10px] p-1.5 rounded border ${severityColor}`}>
+  1361→                    <div className="flex items-center gap-1.5 mb-0.5">
+  1362→                      <Badge className={`text-[8px] px-1 py-0 border-0 rounded ${severityBadge}`}>{f.severity}</Badge>
+  1363→                      <span className="font-medium">{f.category}</span>
+  1364→                    </div>
+  1365→                    <p className="text-muted-foreground">{f.description}</p>
+  1366→                  </div>
+  1367→                );
+  1368→              })}
+  1369→            </div>
+  1370→          </div>
+  1371→        )}
+  1372→
+  1373→        {/* Strengths, Weaknesses, Missing */}
+  1374→        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+  1375→          {strengths.length > 0 && (
+  1376→            <div>
+  1377→              <h6 className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+  1378→                <ThumbsUp className="h-3 w-3" /> Strengths
+  1379→              </h6>
+  1380→              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+  1381→                {strengths.map((s, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 mt-0.5 shrink-0" />{s}</li>)}
+  1382→              </ul>
+  1383→            </div>
+  1384→          )}
+  1385→          {weaknesses.length > 0 && (
+  1386→            <div>
+  1387→              <h6 className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+  1388→                <ThumbsDown className="h-3 w-3" /> Weaknesses
+  1389→              </h6>
+  1390→              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+  1391→                {weaknesses.map((w, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><AlertTriangle className="h-2.5 w-2.5 text-amber-500 mt-0.5 shrink-0" />{w}</li>)}
+  1392→              </ul>
+  1393→            </div>
+  1394→          )}
+  1395→          {missingElements.length > 0 && (
+  1396→            <div>
+  1397→              <h6 className="text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+  1398→                <FileX className="h-3 w-3" /> Missing
+  1399→              </h6>
+  1400→              <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+  1401→                {missingElements.map((m, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><X className="h-2.5 w-2.5 text-red-500 mt-0.5 shrink-0" />{m}</li>)}
+  1402→              </ul>
+  1403→            </div>
+  1404→          )}
+  1405→        </div>
+  1406→
+  1407→        {/* Recommendations */}
+  1408→        {recommendations.length > 0 && (
+  1409→          <div className="mb-3">
+  1410→            <h6 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+  1411→              <BarChart3 className="h-3 w-3" /> Recommendations
+  1412→            </h6>
+  1413→            <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+  1414→              {recommendations.map((r, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><ChevronRight className="h-2.5 w-2.5 text-violet-500 mt-0.5 shrink-0" />{r}</li>)}
+  1415→            </ul>
+  1416→          </div>
+  1417→        )}
+  1418→
+  1419→        {/* Summary */}
+  1420→        {summary && (
+  1421→          <div className="p-2 rounded-lg bg-violet-100/50 dark:bg-violet-900/20 border border-violet-200/50 dark:border-violet-800/30">
+  1422→            <h6 className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 mb-0.5">Summary</h6>
+  1423→            <p className="text-[10px] text-muted-foreground leading-relaxed">{summary}</p>
+  1424→          </div>
+  1425→        )}
+  1426→      </CardContent>
+  1427→    </Card>
+  1428→  );
+  1429→}
+  1430→
+  1431→// ─── Expanded row detail panel ────────────────────────────────────────
+  1432→
+  1433→interface ExpandedRowDetailProps {
+  1434→  row: ApplicantRow;
+  1435→  setView: (v: NavView, p?: Record<string, string>) => void;
+  1436→  docUploadBidId: string | null;
+  1437→  ocrLoading: Set<string>;
+  1438→  reviewLoading: Set<string>;
+  1439→  viewingDocId: string | null;
+  1440→  viewingDocType: 'ocr' | 'review';
+  1441→  docOcrText: Record<string, string>;
+  1442→  docReview: Record<string, Record<string, unknown>>;
+  1443→  onUploadDoc: (bidId: string, file: File) => void;
+  1444→  onSetDocUploadBidId: (bidId: string | null) => void;
+  1445→  onRunOcr: (docId: string) => void;
+  1446→  onRunReview: (docId: string) => void;
+  1447→  onViewDocDetail: (docId: string, type: 'ocr' | 'review') => void;
+  1448→  onCloseDocDetail: () => void;
+  1449→}
+  1450→
+  1451→function ExpandedRowDetail({
+  1452→  row, setView,
+  1453→  docUploadBidId, ocrLoading, reviewLoading,
+  1454→  viewingDocId, viewingDocType, docOcrText, docReview,
+  1455→  onUploadDoc, onSetDocUploadBidId, onRunOcr, onRunReview, onViewDocDetail, onCloseDocDetail,
+  1456→}: ExpandedRowDetailProps) {
+  1457→  return (
+  1458→    <div className="border-t bg-muted/10 px-6 py-4">
+  1459→      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+  1460→        {/* Applicant details */}
+  1461→        <div>
+  1462→          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+  1463→            <Users className="h-3.5 w-3.5 text-orange-500" /> Applicant Details
+  1464→          </h4>
+  1465→          <div className="space-y-1.5 text-xs">
+  1466→            <div className="flex justify-between">
+  1467→              <span className="text-muted-foreground">Full Name</span>
+  1468→              <span className="font-medium">{row.applicantName}</span>
+  1469→            </div>
+  1470→            <div className="flex justify-between">
+  1471→              <span className="text-muted-foreground">Email</span>
+  1472→              <span>{row.applicantEmail}</span>
+  1473→            </div>
+  1474→            {row.applicantPhone && (
+  1475→              <div className="flex justify-between">
+  1476→                <span className="text-muted-foreground">Phone</span>
+  1477→                <span>{row.applicantPhone}</span>
+  1478→              </div>
+  1479→            )}
+  1480→            {row.applicantJobTitle && (
+  1481→              <div className="flex justify-between">
+  1482→                <span className="text-muted-foreground">Job Title</span>
+  1483→                <span>{row.applicantJobTitle}</span>
+  1484→              </div>
+  1485→            )}
+  1486→            {row.applicantLocation && (
+  1487→              <div className="flex justify-between">
+  1488→                <span className="text-muted-foreground">Location</span>
+  1489→                <span>{row.applicantLocation}</span>
+  1490→              </div>
+  1491→            )}
+  1492→            {row.applicantLicense && (
+  1493→              <div className="flex justify-between">
+  1494→                <span className="text-muted-foreground">License #</span>
+  1495→                <span className="font-mono">{row.applicantLicense}</span>
+  1496→              </div>
+  1497→            )}
+  1498→            {row.applicantTin && (
+  1499→              <div className="flex justify-between">
+  1500→                <span className="text-muted-foreground">TIN</span>
+  1501→                <span className="font-mono">{row.applicantTin}</span>
+  1502→              </div>
+  1503→            )}
+  1504→          </div>
+  1505→        </div>
+  1506→
+  1507→        {/* Company details */}
+  1508→        <div>
+  1509→          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+  1510→            <Building2 className="h-3.5 w-3.5 text-violet-500" /> Company Details
+  1511→          </h4>
+  1512→          <div className="space-y-1.5 text-xs">
+  1513→            <div className="flex justify-between">
+  1514→              <span className="text-muted-foreground">Company</span>
+  1515→              <span className="font-medium">{row.companyName}</span>
+  1516→            </div>
+  1517→            {row.companyIndustry && (
+  1518→              <div className="flex justify-between">
+  1519→                <span className="text-muted-foreground">Industry</span>
+  1520→                <span>{row.companyIndustry}</span>
+  1521→              </div>
+  1522→            )}
+  1523→            {row.companyRegistration && (
+  1524→              <div className="flex justify-between">
+  1525→                <span className="text-muted-foreground">Registration</span>
+  1526→                <span className="font-mono">{row.companyRegistration}</span>
+  1527→              </div>
+  1528→            )}
+  1529→            {row.companyTin && (
+  1530→              <div className="flex justify-between">
+  1531→                <span className="text-muted-foreground">Company TIN</span>
+  1532→                <span className="font-mono">{row.companyTin}</span>
+  1533→              </div>
+  1534→            )}
+  1535→            <div className="flex justify-between">
+  1536→              <span className="text-muted-foreground">City / Country</span>
+  1537→              <span>{[row.companyCity, row.companyCountry].filter(Boolean).join(', ') || '—'}</span>
+  1538→            </div>
+  1539→            <div className="flex justify-between">
+  1540→              <span className="text-muted-foreground">Verified</span>
+  1541→              {row.companyVerified
+  1542→                ? <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0"><ShieldCheck className="h-3 w-3 mr-0.5" />Yes</Badge>
+  1543→                : <span className="text-muted-foreground">No</span>
+  1544→              }
+  1545→            </div>
+  1546→          </div>
+  1547→        </div>
+  1548→
+  1549→        {/* Bid details */}
+  1550→        <div>
+  1551→          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+  1552→            <Gavel className="h-3.5 w-3.5 text-emerald-500" /> Bid Details
+  1553→          </h4>
+  1554→          <div className="space-y-1.5 text-xs">
+  1555→            <div className="flex justify-between">
+  1556→              <span className="text-muted-foreground">Bid Amount</span>
+  1557→              <span className="font-semibold">{formatCurrency(row.financialProposal)}</span>
+  1558→            </div>
+  1559→            <div className="flex justify-between">
+  1560→              <span className="text-muted-foreground">Timeline</span>
+  1561→              <span>{row.timeline}</span>
+  1562→            </div>
+  1563→            <div className="flex justify-between">
+  1564→              <span className="text-muted-foreground">Status</span>
+  1565→              <span>{row.bidStatus.replace(/_/g, ' ')}</span>
+  1566→            </div>
+  1567→            <div className="flex justify-between">
+  1568→              <span className="text-muted-foreground">Submitted</span>
+  1569→              <span>{formatDate(row.submittedAt)}</span>
+  1570→            </div>
+  1571→            {row.rejectionNote && (
+  1572→              <div>
+  1573→                <span className="text-muted-foreground">Rejection Note</span>
+  1574→                <p className="text-red-600 dark:text-red-400 mt-0.5 text-[11px]">{row.rejectionNote}</p>
+  1575→              </div>
+  1576→            )}
+  1577→          </div>
+  1578→          <div className="mt-3 pt-2 border-t">
+  1579→            <Button
+  1580→              variant="outline"
+  1581→              size="sm"
+  1582→              className="h-7 text-xs w-full"
+  1583→              onClick={() => setView('tender-detail', { id: row.tenderId })}
+  1584→            >
+  1585→              <FileSearch className="h-3 w-3 mr-1" />
+  1586→              View Tender Detail
+  1587→            </Button>
+  1588→          </div>
+  1589→        </div>
+  1590→      </div>
+  1591→
+  1592→      {/* Skills bar */}
+  1593→      {row.applicantSkills && (
+  1594→        <div className="mt-4 pt-3 border-t">
+  1595→          <span className="text-xs text-muted-foreground mr-2">Skills:</span>
+  1596→          {row.applicantSkills.split(',').filter(Boolean).map((skill, i) => (
+  1597→            <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0.5 mr-1">
+  1598→              {skill.trim()}
+  1599→            </Badge>
+  1600→          ))}
+  1601→        </div>
+  1602→      )}
+  1603→
+  1604→      {/* Technical proposal excerpt */}
+  1605→      {row.technicalProposal && (
+  1606→        <div className="mt-3 pt-3 border-t">
+  1607→          <span className="text-xs text-muted-foreground">Technical Proposal:</span>
+  1608→          <p className="text-xs mt-1 text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+  1609→            {row.technicalProposal}
+  1610→          </p>
+  1611→        </div>
+  1612→      )}
+  1613→
+  1614→      {/* ─── Documents & AI Review Section ─── */}
+  1615→      <div className="mt-4 pt-4 border-t">
+  1616→        <div className="flex items-center justify-between mb-3">
+  1617→          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+  1618→            <FileText className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+  1619→            Documents & AI Review
+  1620→            {row.requiredDocs && (
+  1621→              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1">
+  1622→                Required: {row.requiredDocs}
+  1623→              </Badge>
+  1624→            )}
+  1625→          </h4>
+  1626→          <div className="relative">
+  1627→            <input
+  1628→              type="file"
+  1629→              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+  1630→              onChange={(e) => {
+  1631→                const file = e.target.files?.[0];
+  1632→                if (file) onUploadDoc(row.id, file);
+  1633→                e.target.value = '';
+  1634→              }}
+  1635→              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+  1636→            />
+  1637→            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onSetDocUploadBidId(row.id)}>
+  1638→              <Upload className="h-3 w-3 mr-1" />
+  1639→              Upload Document
+  1640→            </Button>
+  1641→          </div>
+  1642→        </div>
+  1643→
+  1644→        {row.documents && row.documents.length > 0 ? (
+  1645→          <div className="space-y-2">
+  1646→            {row.documents.map((doc) => (
+  1647→              <div key={doc.id} className="rounded-lg border bg-card p-3">
+  1648→                {/* Document header */}
+  1649→                <div className="flex items-center justify-between mb-2">
+  1650→                  <div className="flex items-center gap-2 min-w-0">
+  1651→                    <FileText className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0" />
+  1652→                    <div className="min-w-0">
+  1653→                      <p className="text-xs font-medium truncate">{doc.fileName}</p>
+  1654→                      <div className="flex items-center gap-1.5 mt-0.5">
+  1655→                        <Badge variant="secondary" className="text-[8px] px-1 py-0">{doc.docType}</Badge>
+  1656→                        <span className="text-[9px] text-muted-foreground">{formatDate(doc.createdAt)}</span>
+  1657→                      </div>
+  1658→                    </div>
+  1659→                  </div>
+  1660→                  <div className="flex items-center gap-1.5 shrink-0">
+  1661→                    <OcrStatusBadge status={doc.ocrStatus} />
+  1662→                    <ReviewStatusBadge status={doc.aiReviewStatus} />
+  1663→                  </div>
+  1664→                </div>
+  1665→
+  1666→                {/* Action buttons */}
+  1667→                <div className="flex flex-wrap items-center gap-1.5">
+  1668→                  <Button
+  1669→                    variant="outline"
+  1670→                    size="sm"
+  1671→                    className="h-6 text-[10px] px-2 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:hover:bg-teal-950/20"
+  1672→                    disabled={ocrLoading.has(doc.id) || doc.ocrStatus === 'processing'}
+  1673→                    onClick={() => onRunOcr(doc.id)}
+  1674→                  >
+  1675→                    {ocrLoading.has(doc.id) || doc.ocrStatus === 'processing'
+  1676→                      ? <><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Running OCR</>
+  1677→                      : <><ScanSearch className="h-3 w-3 mr-0.5" />Run OCR</>
+  1678→                    }
+  1679→                  </Button>
+  1680→                  <Button
+  1681→                    variant="outline"
+  1682→                    size="sm"
+  1683→                    className="h-6 text-[10px] px-2 border-violet-200 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/20"
+  1684→                    disabled={
+  1685→                      reviewLoading.has(doc.id) ||
+  1686→                      doc.aiReviewStatus === 'processing' ||
+  1687→                      doc.ocrStatus !== 'completed'
+  1688→                    }
+  1689→                    onClick={() => onRunReview(doc.id)}
+  1690→                  >
+  1691→                    {reviewLoading.has(doc.id) || doc.aiReviewStatus === 'processing'
+  1692→                      ? <><Loader2 className="h-3 w-3 mr-0.5 animate-spin" />Analyzing</>
+  1693→                      : <><Brain className="h-3 w-3 mr-0.5" />AI Review</>
+  1694→                    }
+  1695→                  </Button>
+  1696→                  {doc.ocrStatus === 'completed' && (
+  1697→                    <Button
+  1698→                      variant="ghost"
+  1699→                      size="sm"
+  1700→                      className="h-6 text-[10px] px-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:text-teal-400"
+  1701→                      onClick={() => onViewDocDetail(doc.id, 'ocr')}
+  1702→                    >
+  1703→                      <Eye className="h-3 w-3 mr-0.5" />
+  1704→                      View OCR Text
+  1705→                    </Button>
+  1706→                  )}
+  1707→                  {doc.aiReviewStatus === 'completed' && (
+  1708→                    <Button
+  1709→                      variant="ghost"
+  1710→                      size="sm"
+  1711→                      className="h-6 text-[10px] px-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:text-violet-400"
+  1712→                      onClick={() => onViewDocDetail(doc.id, 'review')}
+  1713→                    >
+  1714→                      <FileCheck className="h-3 w-3 mr-0.5" />
+  1715→                      View AI Review
+  1716→                    </Button>
+  1717→                  )}
+  1718→                </div>
+  1719→
+  1720→                {/* Slide-down detail panel */}
+  1721→                {viewingDocId === doc.id && (
+  1722→                  <div className="mt-3">
+  1723→                    <DocumentDetailPanel
+  1724→                      docId={doc.id}
+  1725→                      type={viewingDocType}
+  1726→                      ocrText={docOcrText[doc.id]}
+  1727→                      reviewData={docReview[doc.id]}
+  1728→                      onClose={onCloseDocDetail}
+  1729→                    />
+  1730→                  </div>
+  1731→                )}
+  1732→              </div>
+  1733→            ))}
+  1734→          </div>
+  1735→        ) : (
+  1736→          <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-center">
+  1737→            <FileText className="h-6 w-6 text-muted-foreground mx-auto mb-1.5" />
+  1738→            <p className="text-xs text-muted-foreground">No documents uploaded yet</p>
+  1739→            <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+  1740→              Upload bid documents to run OCR extraction and AI review
+  1741→            </p>
+  1742→          </div>
+  1743→        )}
+  1744→      </div>
+  1745→    </div>
+  1746→  );
+  1747→}
+  1748→

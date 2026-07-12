@@ -1229,23 +1229,23 @@ export function BidsView() {
                                               <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="h-5 px-1.5 text-[9px] text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                                className="h-5 px-1.5 text-[9px] text-muted-foreground hover:text-rose-500 hover:bg-rose-50 rounded"
                                                 onClick={async (e) => {
                                                   e.stopPropagation();
-                                                  if (!confirm(`Remove "${doc.fileName}"? This cannot be undone.`)) return;
+                                                  if (!confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
                                                   try {
                                                     const res = await api.delete(`/documents/${doc.id}`);
                                                     if (res.success) {
-                                                      toast.success('Document removed');
+                                                      toast.success('Document deleted');
                                                       loadBids();
                                                     } else {
-                                                      toast.error(res.error || 'Failed to remove document');
+                                                      toast.error('Failed to delete document');
                                                     }
                                                   } catch {
-                                                    toast.error('Failed to remove document');
+                                                    toast.error('Failed to delete document');
                                                   }
                                                 }}
-                                                title="Remove document"
+                                                title="Delete document"
                                               >
                                                 <Trash2 className="h-2.5 w-2.5" />
                                               </Button>

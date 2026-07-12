@@ -146,6 +146,10 @@ export async function GET(request: NextRequest) {
         title: true,
         deadline: true,
         status: true,
+        budgetMin: true,
+        budgetMax: true,
+        categoryTags: true,
+        location: true,
         _count: { select: { bids: true } },
       },
       orderBy: { deadline: 'asc' },
@@ -162,9 +166,37 @@ export async function GET(request: NextRequest) {
         title: true,
         deadline: true,
         status: true,
+        budgetMin: true,
+        budgetMax: true,
+        categoryTags: true,
+        location: true,
         _count: { select: { bids: true } },
       },
       orderBy: { deadline: 'desc' },
+    });
+
+    // Get ALL published tenders for the published tenders list view
+    const myPublishedTenders = await db.tender.findMany({
+      where: {
+        createdBy: user!.id,
+        status: { not: 'draft' },
+      },
+      select: {
+        id: true,
+        title: true,
+        deadline: true,
+        status: true,
+        budgetMin: true,
+        budgetMax: true,
+        categoryTags: true,
+        location: true,
+        createdAt: true,
+        _count: { select: { bids: true } },
+      },
+      orderBy: [
+        { deadline: 'asc' },
+        { createdAt: 'desc' },
+      ],
     });
 
     // Flatten to spreadsheet-friendly rows
@@ -261,6 +293,10 @@ export async function GET(request: NextRequest) {
         title: t.title,
         deadline: t.deadline,
         status: t.status,
+        budgetMin: t.budgetMin,
+        budgetMax: t.budgetMax,
+        categoryTags: t.categoryTags,
+        location: t.location,
         bidCount: t._count.bids,
       })),
       // Closed tenders (eligible for viewing applicants)
@@ -269,8 +305,30 @@ export async function GET(request: NextRequest) {
         title: t.title,
         deadline: t.deadline,
         status: t.status,
+        budgetMin: t.budgetMin,
+        budgetMax: t.budgetMax,
+        categoryTags: t.categoryTags,
+        location: t.location,
         bidCount: t._count.bids,
       })),
+      // All published tenders (for the published tenders list view)
+      publishedTenders: myPublishedTenders.map(t => {
+        const isClosed = new Date(t.deadline) <= now;
+        return {
+          id: t.id,
+          title: t.title,
+          deadline: t.deadline,
+          status: t.status,
+          budgetMin: t.budgetMin,
+          budgetMax: t.budgetMax,
+          categoryTags: t.categoryTags,
+          location: t.location,
+          createdAt: t.createdAt,
+          bidCount: t._count.bids,
+          isClosed,
+          applicantCount: isClosed ? t._count.bids : 0,
+        };
+      }),
     });
   } catch (err) {
     console.error('List applicants error:', err);

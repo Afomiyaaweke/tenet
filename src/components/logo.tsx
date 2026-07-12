@@ -60,8 +60,9 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
       {/* Text - only show if not iconOnly */}
       {!iconOnly && (
         <span className={`${s.text} font-bold tracking-tight whitespace-nowrap`}>
-          <span style={{ color: darkColor }}>Ten</span>
-          <span style={{ color: lightColor }}>et</span>
+          <span style={{ color: darkColor }}>Published</span>{' '}
+          <span style={{ color: '#F97316' }}>Tender</span>{' '}
+          <span style={{ color: lightColor }}>World Bank</span>
         </span>
       )}
     </div>

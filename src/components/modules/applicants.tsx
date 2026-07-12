@@ -26,10 +26,10 @@ import {
   Calendar, Tag, CheckCircle, XCircle, CircleDot, Award,
   Ban, ClipboardCheck, MoreHorizontal, ExternalLink, Sparkles,
   RefreshCw, Columns3, CheckSquare, Square, Timer, Lock,
-  Hourglass,
+  Hourglass, ArrowLeft,
   FileText, ScanSearch, Brain, Upload, FileCheck, FileX,
   Loader2, AlertTriangle, X, CheckCircle2, Info, ThumbsUp,
-  ThumbsDown, AlertOctagon, BarChart3,
+  ThumbsDown, AlertOctagon, BarChart3, FolderOpen,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -75,9 +75,9 @@ interface ApplicantRow {
     docType: string;
     fileUrl: string;
     status: string;
-    ocrStatus: string; // 'none' | 'processing' | 'completed' | 'failed'
+    ocrStatus: string;
     ocrProcessedAt: string | null;
-    aiReviewStatus: string; // 'none' | 'processing' | 'completed' | 'failed'
+    aiReviewStatus: string;
     aiReviewProcessedAt: string | null;
     createdAt: string;
   }>;
@@ -101,6 +101,21 @@ interface TenderInfo {
   deadline: string;
   status: string;
   bidCount: number;
+}
+
+interface PublishedTenderInfo {
+  id: string;
+  title: string;
+  deadline: string;
+  status: string;
+  budgetMin: number;
+  budgetMax: number;
+  categoryTags: string;
+  location: string;
+  createdAt: string;
+  bidCount: number;
+  isClosed: boolean;
+  applicantCount: number;
 }
 
 type SortField = keyof ApplicantRow;
@@ -138,14 +153,6 @@ const COLUMNS: ColumnDef[] = [
   { key: 'companyTin', label: 'Co. TIN', group: 'Company', width: '120px', sortable: false, defaultVisible: false },
   { key: 'companyCity', label: 'City', group: 'Company', width: '100px', sortable: true, defaultVisible: false },
   { key: 'companyCountry', label: 'Country', group: 'Company', width: '100px', sortable: true, defaultVisible: false },
-  // Tender Info
-  { key: 'tenderTitle', label: 'Tender', group: 'Tender', width: '220px', sortable: true, defaultVisible: true },
-  { key: 'tenderStatus', label: 'T. Status', group: 'Tender', width: '100px', sortable: true, defaultVisible: false },
-  { key: 'tenderBudgetMin', label: 'Budget Min', group: 'Tender', width: '120px', sortable: true, defaultVisible: false },
-  { key: 'tenderBudgetMax', label: 'Budget Max', group: 'Tender', width: '120px', sortable: true, defaultVisible: false },
-  { key: 'tenderDeadline', label: 'Deadline', group: 'Tender', width: '120px', sortable: true, defaultVisible: false },
-  { key: 'tenderLocation', label: 'T. Location', group: 'Tender', width: '120px', sortable: true, defaultVisible: false },
-  { key: 'categoryTags', label: 'Categories', group: 'Tender', width: '150px', sortable: false, defaultVisible: false },
   // Bid Details
   { key: 'financialProposal', label: 'Bid Amount', group: 'Bid', width: '130px', sortable: true, defaultVisible: true },
   { key: 'timeline', label: 'Timeline', group: 'Bid', width: '100px', sortable: true, defaultVisible: true },
@@ -177,12 +184,12 @@ const STATUS_CONFIG: Record<string, { className: string; icon: React.ElementType
   rejected: { className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', icon: Ban, label: 'Rejected' },
 };
 
-const TENDER_STATUS_CONFIG: Record<string, { className: string; label: string }> = {
-  draft: { className: 'bg-gray-100 text-gray-700', label: 'Draft' },
-  open: { className: 'bg-emerald-100 text-emerald-700', label: 'Open' },
-  closed: { className: 'bg-amber-100 text-amber-700', label: 'Closed' },
-  awarded: { className: 'bg-blue-100 text-blue-700', label: 'Awarded' },
-  cancelled: { className: 'bg-red-100 text-red-700', label: 'Cancelled' },
+const TENDER_STATUS_CONFIG: Record<string, { className: string; label: string; icon: React.ElementType }> = {
+  draft: { className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', label: 'Draft', icon: FileText },
+  open: { className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', label: 'Open', icon: CheckCircle },
+  closed: { className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', label: 'Closed', icon: Lock },
+  awarded: { className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', label: 'Awarded', icon: Award },
+  cancelled: { className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', label: 'Cancelled', icon: XCircle },
 };
 
 // ─── Main Component ───────────────────────────────────────────────────
@@ -192,6 +199,7 @@ export function ApplicantsView() {
   const { setView } = useNavStore();
   const [rows, setRows] = useState<ApplicantRow[]>([]);
   const [meta, setMeta] = useState<ApplicantMeta | null>(null);
+  const [publishedTenders, setPublishedTenders] = useState<PublishedTenderInfo[]>([]);
   const [openTenders, setOpenTenders] = useState<TenderInfo[]>([]);
   const [closedTenders, setClosedTenders] = useState<TenderInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,6 +216,10 @@ export function ApplicantsView() {
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
+
+  // ─── Selected tender for detail view ────────────────────────────
+  const [selectedTenderId, setSelectedTenderId] = useState<string | null>(null);
+  const [selectedTenderInfo, setSelectedTenderInfo] = useState<PublishedTenderInfo | null>(null);
 
   // ─── Document / OCR / AI Review state ───────────────────────────
   const [docUploadBidId, setDocUploadBidId] = useState<string | null>(null);
@@ -229,6 +241,8 @@ export function ApplicantsView() {
       if (search) params.search = search;
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
       if (tenderFilter && tenderFilter !== 'all') params.tenderId = tenderFilter;
+      // If a specific tender is selected, filter by it
+      if (selectedTenderId) params.tenderId = selectedTenderId;
 
       const res = await api.get('/applicants', params);
       if (res.success) {
@@ -236,6 +250,7 @@ export function ApplicantsView() {
         setMeta(res.meta);
         setOpenTenders(res.openTenders || []);
         setClosedTenders(res.closedTenders || []);
+        setPublishedTenders(res.publishedTenders || []);
       }
     } catch (err) {
       console.error('Fetch applicants error:', err);
@@ -243,11 +258,42 @@ export function ApplicantsView() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, tenderFilter]);
+  }, [page, search, statusFilter, tenderFilter, selectedTenderId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // When selecting a tender, set the info
+  useEffect(() => {
+    if (selectedTenderId && publishedTenders.length > 0) {
+      const info = publishedTenders.find(t => t.id === selectedTenderId);
+      if (info) setSelectedTenderInfo(info);
+    } else {
+      setSelectedTenderInfo(null);
+    }
+  }, [selectedTenderId, publishedTenders]);
+
+  // Handle tender click → show applicants
+  const handleTenderClick = (tenderId: string) => {
+    setSelectedTenderId(tenderId);
+    setTenderFilter(tenderId);
+    setStatusFilter('all');
+    setSearch('');
+    setPage(1);
+    setExpandedRow(null);
+  };
+
+  // Back to tenders list
+  const handleBackToTenders = () => {
+    setSelectedTenderId(null);
+    setSelectedTenderInfo(null);
+    setTenderFilter('all');
+    setStatusFilter('all');
+    setSearch('');
+    setPage(1);
+    setExpandedRow(null);
+  };
 
   // ─── Document handlers ──────────────────────────────────────────
   const handleDocUpload = useCallback(async (bidId: string, file: File) => {
@@ -274,7 +320,6 @@ export function ApplicantsView() {
     setOcrLoading(prev => new Set(prev).add(docId));
     try {
       await api.post(`/document-ocr/${docId}`);
-      // Poll for completion
       const poll = async (attempts = 0): Promise<void> => {
         if (attempts > 30) {
           toast.error('OCR processing timed out');
@@ -307,7 +352,6 @@ export function ApplicantsView() {
     setReviewLoading(prev => new Set(prev).add(docId));
     try {
       await api.post(`/document-review/${docId}`);
-      // Poll for completion
       const poll = async (attempts = 0): Promise<void> => {
         if (attempts > 30) {
           toast.error('AI Review processing timed out');
@@ -342,7 +386,6 @@ export function ApplicantsView() {
 
   const handleViewDocDetail = useCallback(async (docId: string, type: 'ocr' | 'review') => {
     if (viewingDocId === docId && viewingDocType === type) {
-      // Toggle off
       setViewingDocId(null);
       return;
     }
@@ -358,7 +401,6 @@ export function ApplicantsView() {
         const res = await api.get(`/document-review/${docId}`);
         if (res.success) {
           let reviewData = res.data?.aiReview || {};
-          // aiReview may come as a JSON string from the API - parse it
           if (typeof reviewData === 'string') {
             try {
               reviewData = JSON.parse(reviewData);
@@ -459,7 +501,6 @@ export function ApplicantsView() {
         if (typeof val === 'boolean') val = val ? 'Yes' : 'No';
         if (typeof val === 'number') val = val.toLocaleString();
         val = String(val || '');
-        // Escape CSV
         if (val.includes(',') || val.includes('"') || val.includes('\n')) {
           val = `"${val.replace(/"/g, '""')}"`;
         }
@@ -484,24 +525,504 @@ export function ApplicantsView() {
   const uniqueTenders = meta?.uniqueTenders || 0;
   const uniqueCompanies = meta?.uniqueCompanies || 0;
 
+  // Published tenders stats
+  const totalPublishedTenders = publishedTenders.length;
+  const totalBidsAcrossTenders = publishedTenders.reduce((sum, t) => sum + t.bidCount, 0);
+  const openTenderCount = publishedTenders.filter(t => !t.isClosed).length;
+  const closedTenderCount = publishedTenders.filter(t => t.isClosed).length;
+
   // ─── Render ───────────────────────────────────────────────────────
 
+  // If a tender is selected, show the applicant detail view
+  if (selectedTenderId && selectedTenderInfo) {
+    return (
+      <div className="flex flex-col gap-4 p-4 md:p-6">
+        {/* Header with back button */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={handleBackToTenders}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+            <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
+              <Gavel className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">{selectedTenderInfo.title}</h1>
+              <p className="text-sm text-muted-foreground">
+                {rows.length} applicant{rows.length !== 1 ? 's' : ''} for this tender
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={fetchData}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows.length}>
+              <Download className="h-4 w-4 mr-1" />
+              Export CSV
+            </Button>
+          </div>
+        </div>
+
+        {/* Tender summary card */}
+        <Card className="border-emerald-200/60 dark:border-emerald-800/30 bg-gradient-to-br from-emerald-50/50 to-white dark:from-emerald-950/10 dark:to-background">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
+              <div>
+                <span className="text-xs text-muted-foreground">Status</span>
+                <div className="mt-1">
+                  {(() => {
+                    const cfg = TENDER_STATUS_CONFIG[selectedTenderInfo.status] || TENDER_STATUS_CONFIG.open;
+                    const Icon = cfg.icon;
+                    return <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${cfg.className}`}><Icon className="h-3 w-3 mr-1" />{cfg.label}</Badge>;
+                  })()}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Budget</span>
+                <p className="text-sm font-semibold">{formatCurrency(selectedTenderInfo.budgetMin)} – {formatCurrency(selectedTenderInfo.budgetMax)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Deadline</span>
+                <p className="text-sm font-semibold">{formatDate(selectedTenderInfo.deadline)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Location</span>
+                <p className="text-sm font-medium">{selectedTenderInfo.location || '—'}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Total Bids</span>
+                <p className="text-sm font-semibold">{selectedTenderInfo.bidCount}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Category</span>
+                <div className="flex flex-wrap gap-0.5 mt-0.5">
+                  {selectedTenderInfo.categoryTags.split(',').filter(Boolean).slice(0, 3).map((tag, i) => (
+                    <Badge key={i} variant="secondary" className="text-[9px] px-1.5 py-0">{tag.trim()}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Applicant visibility info */}
+        {!selectedTenderInfo.isClosed && (
+          <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/30">
+            <CardContent className="p-3 flex items-start gap-3">
+              <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicant details are sealed while this tender is still open</p>
+                <p className="text-xs text-amber-700/70 dark:text-amber-400/60 mt-0.5">
+                  To protect bid integrity, applicant details will be revealed once the deadline passes on {formatDate(selectedTenderInfo.deadline)}.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Status filter pills */}
+        {selectedTenderInfo.isClosed && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-muted-foreground mr-1">Status:</span>
+            {[
+              { key: 'all', label: 'All', count: totalApplicants },
+              { key: 'pending_review', label: 'Pending', count: statusCounts.pending_review || 0 },
+              { key: 'shortlisted', label: 'Shortlisted', count: statusCounts.shortlisted || 0 },
+              { key: 'awarded', label: 'Awarded', count: statusCounts.awarded || 0 },
+              { key: 'rejected', label: 'Rejected', count: statusCounts.rejected || 0 },
+            ].map(s => (
+              <Button
+                key={s.key}
+                variant={statusFilter === s.key ? 'default' : 'outline'}
+                size="sm"
+                className={`h-7 text-xs ${statusFilter === s.key ? 'bg-primary text-primary-foreground' : ''}`}
+                onClick={() => { setStatusFilter(s.key); setPage(1); }}
+              >
+                {s.label}
+                <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
+                  {s.count}
+                </Badge>
+              </Button>
+            ))}
+          </div>
+        )}
+
+        {/* Toolbar: search, view mode, column picker */}
+        {selectedTenderInfo.isClosed && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search applicants, companies..."
+                className="pl-9 h-9"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {/* View mode toggle */}
+              <div className="flex items-center border rounded-lg overflow-hidden">
+                <Button
+                  variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 px-3 rounded-none"
+                  onClick={() => setViewMode('table')}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 px-3 rounded-none"
+                  onClick={() => setViewMode('cards')}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Column picker */}
+              <DropdownMenu open={columnMenuOpen} onOpenChange={setColumnMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8">
+                    <Columns3 className="h-4 w-4 mr-1" />
+                    Columns
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+                  {['Applicant', 'Company', 'Bid'].map(group => (
+                    <div key={group}>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group}</div>
+                      {COLUMNS.filter(c => c.group === group).map(c => (
+                        <DropdownMenuItem
+                          key={c.key}
+                          className="flex items-center gap-2 cursor-pointer"
+                          onSelect={(e) => { e.preventDefault(); toggleColumn(c.key); }}
+                        >
+                          {visibleColumns.has(c.key)
+                            ? <CheckSquare className="h-3.5 w-3.5 text-primary" />
+                            : <Square className="h-3.5 w-3.5 text-muted-foreground" />
+                          }
+                          <span className="text-sm">{c.label}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  ))}
+                  <div className="border-t mt-1 pt-1 px-2 flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs flex-1"
+                      onClick={() => setVisibleColumns(new Set(COLUMNS.filter(c => c.defaultVisible).map(c => c.key)))}
+                    >
+                      Reset
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs flex-1"
+                      onClick={() => setVisibleColumns(new Set(COLUMNS.map(c => c.key)))}
+                    >
+                      Show All
+                    </Button>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        )}
+
+        {/* Main content */}
+        {loading && !rows.length ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">Loading applicants...</p>
+          </div>
+        ) : !selectedTenderInfo.isClosed ? (
+          <Card>
+            <CardContent className="py-16 flex flex-col items-center gap-4">
+              <div className="p-4 rounded-2xl bg-muted/50">
+                <Lock className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold">Applicants Not Yet Visible</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  This tender is still accepting bids. Applicant details will be revealed after the deadline on {formatDate(selectedTenderInfo.deadline)}.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                  <Users className="h-3 w-3 mr-1" />
+                  {selectedTenderInfo.bidCount} bid{selectedTenderInfo.bidCount !== 1 ? 's' : ''} submitted
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                  <Timer className="h-3 w-3 mr-1" />
+                  {(() => { const d = daysUntil(selectedTenderInfo.deadline); return d <= 0 ? 'Closing today' : `${d} day${d !== 1 ? 's' : ''} remaining`; })()}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        ) : !rows.length ? (
+          <Card>
+            <CardContent className="py-16 flex flex-col items-center gap-4">
+              <div className="p-4 rounded-2xl bg-muted/50">
+                <Users className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold">No Applicants for This Tender</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {search || statusFilter !== 'all'
+                    ? 'Try adjusting your filters or search'
+                    : 'No bids were submitted for this tender before the deadline closed.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'table' ? (
+          /* ─── Spreadsheet Table View ─── */
+          <Card className="overflow-hidden border">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse min-w-[800px]">
+                {/* Column group headers */}
+                <thead>
+                  {/* Group row */}
+                  <tr className="border-b bg-muted/30">
+                    <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-muted-foreground w-10">#</th>
+                    <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-muted-foreground w-10"></th>
+                    {Object.entries(columnGroups).map(([group, cols]) => (
+                      <th
+                        key={group}
+                        colSpan={cols.length}
+                        className="px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider border-l border-border"
+                      >
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md ${
+                          group === 'Applicant' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                          group === 'Company' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' :
+                          'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                        }`}>
+                          {group === 'Applicant' && <Users className="h-3 w-3" />}
+                          {group === 'Company' && <Building2 className="h-3 w-3" />}
+                          {group === 'Bid' && <Gavel className="h-3 w-3" />}
+                          {group}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                  {/* Column headers row */}
+                  <tr className="border-b bg-muted/50">
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground w-10">#</th>
+                    <th className="px-3 py-2 text-center text-[10px] font-semibold text-muted-foreground w-10"></th>
+                    {activeColumns.map(col => (
+                      <th
+                        key={col.key}
+                        className={`px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground border-l border-border ${col.sortable ? 'cursor-pointer hover:bg-muted/80 select-none' : ''}`}
+                        style={{ width: col.width, minWidth: col.width }}
+                        onClick={() => col.sortable && handleSort(col.key)}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          {col.sortable && <SortIcon field={col.key} />}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedRows.map((row, idx) => {
+                    const isExpanded = expandedRow === row.id;
+                    const bidCfg = STATUS_CONFIG[row.bidStatus] || STATUS_CONFIG.pending_review;
+                    const BidStatusIcon = bidCfg.icon;
+
+                    return (
+                      <tr
+                        key={row.id}
+                        className={`border-b transition-colors hover:bg-muted/30 ${isExpanded ? 'bg-muted/20' : ''} ${row.bidStatus === 'awarded' ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : ''}`}
+                      >
+                        {/* Row number */}
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono">
+                          {(page - 1) * PAGE_SIZE + idx + 1}
+                        </td>
+                        {/* Expand toggle */}
+                        <td className="px-1 py-2.5 text-center">
+                          <button
+                            onClick={() => setExpandedRow(isExpanded ? null : row.id)}
+                            className="p-0.5 rounded hover:bg-muted/80 transition-colors"
+                          >
+                            {isExpanded
+                              ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                              : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            }
+                          </button>
+                        </td>
+                        {/* Data cells */}
+                        {activeColumns.map(col => (
+                          <td
+                            key={col.key}
+                            className="px-3 py-2.5 border-l border-border text-xs"
+                            style={{ maxWidth: col.width }}
+                          >
+                            <CellRenderer row={row} col={col} setView={setView} />
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Expanded row detail */}
+            {expandedRow && sortedRows.find(r => r.id === expandedRow) && (
+              <ExpandedRowDetail
+                row={sortedRows.find(r => r.id === expandedRow)!}
+                setView={setView}
+                docUploadBidId={docUploadBidId}
+                ocrLoading={ocrLoading}
+                reviewLoading={reviewLoading}
+                viewingDocId={viewingDocId}
+                viewingDocType={viewingDocType}
+                docOcrText={docOcrText}
+                docReview={docReview}
+                onUploadDoc={handleDocUpload}
+                onSetDocUploadBidId={setDocUploadBidId}
+                onRunOcr={handleRunOcr}
+                onRunReview={handleRunReview}
+                onViewDocDetail={handleViewDocDetail}
+                onCloseDocDetail={closeDocDetail}
+              />
+            )}
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/20">
+              <p className="text-xs text-muted-foreground">
+                Showing {rows.length} of {totalApplicants} applicants
+                {meta?.totalPages && meta.totalPages > 1 && ` · Page ${page} of ${meta.totalPages}`}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs font-medium px-2">{page}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={!meta || page >= meta.totalPages}
+                  onClick={() => setPage(p => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          /* ─── Card View ─── */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {sortedRows.map((row) => {
+              const bidCfg = STATUS_CONFIG[row.bidStatus] || STATUS_CONFIG.pending_review;
+              const BidStatusIcon = bidCfg.icon;
+              return (
+                <Card key={row.id} className={`overflow-hidden hover:shadow-md transition-shadow ${row.bidStatus === 'awarded' ? 'border-emerald-300 dark:border-emerald-700' : ''}`}>
+                  <CardContent className="p-4">
+                    {/* Header: applicant + status */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-200 to-orange-400 dark:from-orange-800 dark:to-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                          {row.applicantName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-sm truncate">{row.applicantName}</p>
+                            {row.applicantVerified && <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{row.companyName}</p>
+                        </div>
+                      </div>
+                      <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg shrink-0 ${bidCfg.className}`}>
+                        <BidStatusIcon className="h-3 w-3 mr-1" />
+                        {bidCfg.label}
+                      </Badge>
+                    </div>
+
+                    {/* Detail grid */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-3">
+                      <div>
+                        <span className="text-muted-foreground">Bid Amount</span>
+                        <p className="font-semibold">{formatCurrency(row.financialProposal)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Timeline</span>
+                        <p className="font-semibold">{row.timeline}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Submitted</span>
+                        <p>{formatDate(row.submittedAt)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Location</span>
+                        <p className="truncate">{row.applicantLocation || row.tenderLocation}</p>
+                      </div>
+                    </div>
+
+                    {/* Skills */}
+                    {row.applicantSkills && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {row.applicantSkills.split(',').slice(0, 4).map((skill, i) => (
+                          <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {skill.trim()}
+                          </Badge>
+                        ))}
+                        {row.applicantSkills.split(',').length > 4 && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            +{row.applicantSkills.split(',').length - 4}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center gap-1.5">
+                        {row.companyVerified && (
+                          <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0">
+                            <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />Verified Co.
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Default view: Published Tenders list ─────────────────────────
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-orange-100 dark:bg-orange-900/30">
-            <FileSpreadsheet className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+          <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
+            <FolderOpen className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">My Applicants</h1>
+            <h1 className="text-xl font-bold">Published Tenders</h1>
             <p className="text-sm text-muted-foreground">
-              {totalApplicants > 0
-                ? `${totalApplicants} applicant${totalApplicants !== 1 ? 's' : ''} across ${uniqueTenders} closed tender${uniqueTenders !== 1 ? 's' : ''}`
-                : openTenders.length > 0
-                  ? `${openTenders.length} tender${openTenders.length !== 1 ? 's' : ''} still accepting bids`
-                  : 'Applicants for your published tenders'
+              {totalPublishedTenders > 0
+                ? `${totalPublishedTenders} published tender${totalPublishedTenders !== 1 ? 's' : ''} · ${totalBidsAcrossTenders} total bid${totalBidsAcrossTenders !== 1 ? 's' : ''} received`
+                : 'Your published tenders and their applicants'
               }
             </p>
           </div>
@@ -511,499 +1032,196 @@ export function ApplicantsView() {
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows.length}>
-            <Download className="h-4 w-4 mr-1" />
-            Export CSV
-          </Button>
         </div>
       </div>
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/30 dark:to-background border-emerald-200/50 dark:border-emerald-800/30">
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+              <FileSearch className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Published Tenders</p>
+              <p className="text-lg font-bold">{totalPublishedTenders}</p>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/30 dark:to-background border-orange-200/50 dark:border-orange-800/30">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
               <Users className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Total Applicants</p>
-              <p className="text-lg font-bold">{totalApplicants}</p>
+              <p className="text-xs text-muted-foreground">Total Bids</p>
+              <p className="text-lg font-bold">{totalBidsAcrossTenders}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/30 dark:to-background border-emerald-200/50 dark:border-emerald-800/30">
+        <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/30 dark:to-background border-amber-200/50 dark:border-amber-800/30">
           <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-              <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+              <Hourglass className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Total Bid Value</p>
-              <p className="text-lg font-bold">{formatCurrency(totalBudget)}</p>
+              <p className="text-xs text-muted-foreground">Still Open</p>
+              <p className="text-lg font-bold">{openTenderCount}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/30 dark:to-background border-blue-200/50 dark:border-blue-800/30">
+        <Card className="bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/30 dark:to-background border-teal-200/50 dark:border-teal-800/30">
           <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-              <FileSearch className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+              <Lock className="h-5 w-5 text-teal-600 dark:text-teal-400" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Tenders</p>
-              <p className="text-lg font-bold">{uniqueTenders}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/30 dark:to-background border-violet-200/50 dark:border-violet-800/30">
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
-              <Building2 className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Companies</p>
-              <p className="text-lg font-bold">{uniqueCompanies}</p>
+              <p className="text-xs text-muted-foreground">Closed</p>
+              <p className="text-lg font-bold">{closedTenderCount}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Info banner: explain visibility rules */}
+      {/* Info banner */}
       <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/30">
         <CardContent className="p-3 flex items-start gap-3">
           <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicants are visible only after the tender deadline closes</p>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Applicant details are visible only after the tender deadline closes</p>
             <p className="text-xs text-amber-700/70 dark:text-amber-400/60 mt-0.5">
               To protect bid integrity, applicant details remain sealed while your tender is still accepting bids.
-              {closedTenders.length > 0 && ` You have ${closedTenders.length} closed tender${closedTenders.length !== 1 ? 's' : ''} with visible applicants.`}
-              {openTenders.length > 0 && ` ${openTenders.length} tender${openTenders.length !== 1 ? 's' : ''} still open.`}
+              Click on a closed tender to view its applicants.
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Open tenders still accepting bids */}
-      {openTenders.length > 0 && (
-        <Card className="border-amber-200/60 dark:border-amber-800/30">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Hourglass className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              <h3 className="text-sm font-semibold">Tenders Still Accepting Bids</h3>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                {openTenders.length} open
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Applicant details will be revealed here once each tender's deadline passes.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {openTenders.map(tender => {
-                const daysLeft = daysUntil(tender.deadline);
-                const urgency = daysLeft <= 3 ? 'text-red-600 bg-red-50 dark:bg-red-950/30' : daysLeft <= 7 ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/30' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30';
-                return (
-                  <div
-                    key={tender.id}
-                    className="flex items-center justify-between p-3 rounded-xl border bg-card hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => setView('tender-detail', { id: tender.id })}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{tender.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-md ${urgency}`}>
-                          <Timer className="h-3 w-3 mr-0.5" />
-                          {daysLeft <= 0 ? 'Closing today' : `${daysLeft}d left`}
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground">
-                          Deadline: {formatDate(tender.deadline)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 ml-3">
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                        <Users className="h-3 w-3 mr-0.5" />
-                        {tender.bidCount} bid{tender.bidCount !== 1 ? 's' : ''}
-                      </Badge>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Status filter pills */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium text-muted-foreground mr-1">Status:</span>
-        {[
-          { key: 'all', label: 'All', count: totalApplicants },
-          { key: 'pending_review', label: 'Pending', count: statusCounts.pending_review || 0 },
-          { key: 'shortlisted', label: 'Shortlisted', count: statusCounts.shortlisted || 0 },
-          { key: 'awarded', label: 'Awarded', count: statusCounts.awarded || 0 },
-          { key: 'rejected', label: 'Rejected', count: statusCounts.rejected || 0 },
-        ].map(s => (
-          <Button
-            key={s.key}
-            variant={statusFilter === s.key ? 'default' : 'outline'}
-            size="sm"
-            className={`h-7 text-xs ${statusFilter === s.key ? 'bg-primary text-primary-foreground' : ''}`}
-            onClick={() => { setStatusFilter(s.key); setPage(1); }}
-          >
-            {s.label}
-            <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
-              {s.count}
-            </Badge>
-          </Button>
-        ))}
-      </div>
-
-      {/* Toolbar: search, view mode, column picker */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search applicants, companies, tenders..."
-            className="pl-9 h-9"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          {/* View mode toggle */}
-          <div className="flex items-center border rounded-lg overflow-hidden">
-            <Button
-              variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-8 px-3 rounded-none"
-              onClick={() => setViewMode('table')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-8 px-3 rounded-none"
-              onClick={() => setViewMode('cards')}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Column picker */}
-          <DropdownMenu open={columnMenuOpen} onOpenChange={setColumnMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8">
-                <Columns3 className="h-4 w-4 mr-1" />
-                Columns
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
-              {['Applicant', 'Company', 'Tender', 'Bid'].map(group => (
-                <div key={group}>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group}</div>
-                  {COLUMNS.filter(c => c.group === group).map(c => (
-                    <DropdownMenuItem
-                      key={c.key}
-                      className="flex items-center gap-2 cursor-pointer"
-                      onSelect={(e) => { e.preventDefault(); toggleColumn(c.key); }}
-                    >
-                      {visibleColumns.has(c.key)
-                        ? <CheckSquare className="h-3.5 w-3.5 text-primary" />
-                        : <Square className="h-3.5 w-3.5 text-muted-foreground" />
-                      }
-                      <span className="text-sm">{c.label}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-              ))}
-              <div className="border-t mt-1 pt-1 px-2 flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs flex-1"
-                  onClick={() => setVisibleColumns(new Set(COLUMNS.filter(c => c.defaultVisible).map(c => c.key)))}
-                >
-                  Reset
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs flex-1"
-                  onClick={() => setVisibleColumns(new Set(COLUMNS.map(c => c.key)))}
-                >
-                  Show All
-                </Button>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Main content */}
-      {loading && !rows.length ? (
+      {/* Loading state */}
+      {loading && !publishedTenders.length ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading applicants...</p>
+          <p className="text-sm text-muted-foreground">Loading published tenders...</p>
         </div>
-      ) : !rows.length ? (
+      ) : !publishedTenders.length ? (
+        /* Empty state */
         <Card>
           <CardContent className="py-16 flex flex-col items-center gap-4">
             <div className="p-4 rounded-2xl bg-muted/50">
-              <Users className="h-10 w-10 text-muted-foreground" />
+              <FolderOpen className="h-10 w-10 text-muted-foreground" />
             </div>
             <div className="text-center">
-              <h3 className="text-lg font-semibold">No Applicants Visible Yet</h3>
+              <h3 className="text-lg font-semibold">No Published Tenders Yet</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                {search || statusFilter !== 'all'
-                  ? 'Try adjusting your filters or search'
-                  : closedTenders.length === 0 && openTenders.length > 0
-                    ? 'Your tenders are still accepting bids. Applicants will appear here once the deadline closes.'
-                    : closedTenders.length > 0
-                      ? 'No bids were submitted on your closed tenders yet.'
-                      : 'Applicants for your published tenders will appear here after the deadline closes.'}
+                Create and publish tenders to start receiving bids from applicants.
               </p>
             </div>
             <Button variant="outline" onClick={() => setView('tenders')}>
               <FileSearch className="h-4 w-4 mr-2" />
-              View My Tenders
+              Create a Tender
             </Button>
           </CardContent>
         </Card>
-      ) : viewMode === 'table' ? (
-        /* ─── Spreadsheet Table View ─── */
-        <Card className="overflow-hidden border">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse min-w-[800px]">
-              {/* Column group headers */}
-              <thead>
-                {/* Group row */}
-                <tr className="border-b bg-muted/30">
-                  <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-muted-foreground w-10">#</th>
-                  <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-muted-foreground w-10"></th>
-                  {Object.entries(columnGroups).map(([group, cols]) => (
-                    <th
-                      key={group}
-                      colSpan={cols.length}
-                      className="px-3 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider border-l border-border"
-                    >
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md ${
-                        group === 'Applicant' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
-                        group === 'Company' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' :
-                        group === 'Tender' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                      }`}>
-                        {group === 'Applicant' && <Users className="h-3 w-3" />}
-                        {group === 'Company' && <Building2 className="h-3 w-3" />}
-                        {group === 'Tender' && <FileSearch className="h-3 w-3" />}
-                        {group === 'Bid' && <Gavel className="h-3 w-3" />}
-                        {group}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-                {/* Column headers row */}
-                <tr className="border-b bg-muted/50">
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground w-10">#</th>
-                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-muted-foreground w-10"></th>
-                  {activeColumns.map(col => (
-                    <th
-                      key={col.key}
-                      className={`px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground border-l border-border ${col.sortable ? 'cursor-pointer hover:bg-muted/80 select-none' : ''}`}
-                      style={{ width: col.width, minWidth: col.width }}
-                      onClick={() => col.sortable && handleSort(col.key)}
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        {col.label}
-                        {col.sortable && <SortIcon field={col.key} />}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedRows.map((row, idx) => {
-                  const isExpanded = expandedRow === row.id;
-                  const bidCfg = STATUS_CONFIG[row.bidStatus] || STATUS_CONFIG.pending_review;
-                  const tenderCfg = TENDER_STATUS_CONFIG[row.tenderStatus] || TENDER_STATUS_CONFIG.open;
-                  const BidStatusIcon = bidCfg.icon;
-
-                  return (
-                    <tr
-                      key={row.id}
-                      className={`border-b transition-colors hover:bg-muted/30 ${isExpanded ? 'bg-muted/20' : ''} ${row.bidStatus === 'awarded' ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : ''}`}
-                    >
-                      {/* Row number */}
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono">
-                        {(page - 1) * PAGE_SIZE + idx + 1}
-                      </td>
-                      {/* Expand toggle */}
-                      <td className="px-1 py-2.5 text-center">
-                        <button
-                          onClick={() => setExpandedRow(isExpanded ? null : row.id)}
-                          className="p-0.5 rounded hover:bg-muted/80 transition-colors"
-                        >
-                          {isExpanded
-                            ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                            : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                          }
-                        </button>
-                      </td>
-                      {/* Data cells */}
-                      {activeColumns.map(col => (
-                        <td
-                          key={col.key}
-                          className="px-3 py-2.5 border-l border-border text-xs"
-                          style={{ maxWidth: col.width }}
-                        >
-                          <CellRenderer row={row} col={col} setView={setView} />
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Expanded row detail */}
-          {expandedRow && sortedRows.find(r => r.id === expandedRow) && (
-            <ExpandedRowDetail
-              row={sortedRows.find(r => r.id === expandedRow)!}
-              setView={setView}
-              docUploadBidId={docUploadBidId}
-              ocrLoading={ocrLoading}
-              reviewLoading={reviewLoading}
-              viewingDocId={viewingDocId}
-              viewingDocType={viewingDocType}
-              docOcrText={docOcrText}
-              docReview={docReview}
-              onUploadDoc={handleDocUpload}
-              onSetDocUploadBidId={setDocUploadBidId}
-              onRunOcr={handleRunOcr}
-              onRunReview={handleRunReview}
-              onViewDocDetail={handleViewDocDetail}
-              onCloseDocDetail={closeDocDetail}
-            />
-          )}
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/20">
-            <p className="text-xs text-muted-foreground">
-              Showing {rows.length} of {totalApplicants} applicants
-              {meta?.totalPages && meta.totalPages > 1 && ` · Page ${page} of ${meta.totalPages}`}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                disabled={page <= 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-xs font-medium px-2">{page}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                disabled={!meta || page >= meta.totalPages}
-                onClick={() => setPage(p => p + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </Card>
       ) : (
-        /* ─── Card View ─── */
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {sortedRows.map((row) => {
-            const bidCfg = STATUS_CONFIG[row.bidStatus] || STATUS_CONFIG.pending_review;
-            const BidStatusIcon = bidCfg.icon;
+        /* ─── Published Tenders Grid ─── */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {publishedTenders.map(tender => {
+            const cfg = TENDER_STATUS_CONFIG[tender.status] || TENDER_STATUS_CONFIG.open;
+            const StatusIcon = cfg.icon;
+            const daysLeft = daysUntil(tender.deadline);
+            const isOpen = !tender.isClosed;
+            const urgencyClass = isOpen
+              ? (daysLeft <= 3 ? 'border-red-200 dark:border-red-800/50' : daysLeft <= 7 ? 'border-amber-200 dark:border-amber-800/50' : 'border-emerald-200 dark:border-emerald-800/50')
+              : 'border-border';
+
             return (
-              <Card key={row.id} className={`overflow-hidden hover:shadow-md transition-shadow ${row.bidStatus === 'awarded' ? 'border-emerald-300 dark:border-emerald-700' : ''}`}>
+              <Card
+                key={tender.id}
+                className={`overflow-hidden hover:shadow-md transition-all cursor-pointer group ${urgencyClass} ${
+                  tender.status === 'awarded' ? 'border-blue-200 dark:border-blue-800/50' : ''
+                }`}
+                onClick={() => handleTenderClick(tender.id)}
+              >
                 <CardContent className="p-4">
-                  {/* Header: applicant + status */}
+                  {/* Header: title + status */}
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-200 to-orange-400 dark:from-orange-800 dark:to-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                        {row.applicantName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-semibold text-sm truncate">{row.applicantName}</p>
-                          {row.applicantVerified && <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">{row.companyName}</p>
-                      </div>
+                    <div className="flex-1 min-w-0 mr-2">
+                      <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                        {tender.title}
+                      </h3>
                     </div>
-                    <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg shrink-0 ${bidCfg.className}`}>
-                      <BidStatusIcon className="h-3 w-3 mr-1" />
-                      {bidCfg.label}
+                    <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg shrink-0 ${cfg.className}`}>
+                      <StatusIcon className="h-3 w-3 mr-1" />
+                      {cfg.label}
                     </Badge>
                   </div>
 
-                  {/* Tender title */}
-                  <p className="text-xs font-medium text-primary mb-3 line-clamp-2 cursor-pointer hover:underline"
-                    onClick={() => setView('tender-detail', { id: row.tenderId })}
-                  >
-                    {row.tenderTitle}
-                  </p>
+                  {/* Budget */}
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <DollarSign className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-xs font-semibold">
+                      {formatCurrency(tender.budgetMin)} – {formatCurrency(tender.budgetMax)}
+                    </span>
+                  </div>
 
-                  {/* Detail grid */}
+                  {/* Details grid */}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-3">
-                    <div>
-                      <span className="text-muted-foreground">Bid Amount</span>
-                      <p className="font-semibold">{formatCurrency(row.financialProposal)}</p>
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="truncate">{tender.location || '—'}</span>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Timeline</span>
-                      <p className="font-semibold">{row.timeline}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Submitted</span>
-                      <p>{formatDate(row.submittedAt)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Location</span>
-                      <p className="truncate">{row.applicantLocation || row.tenderLocation}</p>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span>{formatDate(tender.deadline)}</span>
                     </div>
                   </div>
 
-                  {/* Skills */}
-                  {row.applicantSkills && (
+                  {/* Deadline countdown for open tenders */}
+                  {isOpen && (
+                    <div className="mb-3">
+                      <Badge className={`text-[9px] px-2 py-0.5 border-0 rounded-md ${
+                        daysLeft <= 3 ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
+                        daysLeft <= 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
+                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      }`}>
+                        <Timer className="h-3 w-3 mr-1" />
+                        {daysLeft <= 0 ? 'Closing today' : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* Category tags */}
+                  {tender.categoryTags && (
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {row.applicantSkills.split(',').slice(0, 4).map((skill, i) => (
-                        <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {skill.trim()}
+                      {tender.categoryTags.split(',').filter(Boolean).slice(0, 3).map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-[9px] px-1.5 py-0">
+                          <Tag className="h-2.5 w-2.5 mr-0.5" />
+                          {tag.trim()}
                         </Badge>
                       ))}
-                      {row.applicantSkills.split(',').length > 4 && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          +{row.applicantSkills.split(',').length - 4}
+                      {tender.categoryTags.split(',').filter(Boolean).length > 3 && (
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                          +{tender.categoryTags.split(',').filter(Boolean).length - 3}
                         </Badge>
                       )}
                     </div>
                   )}
 
-                  {/* Footer */}
+                  {/* Footer: bid count + action */}
                   <div className="flex items-center justify-between pt-2 border-t">
-                    <div className="flex items-center gap-1.5">
-                      {row.companyVerified && (
-                        <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0">
-                          <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />Verified Co.
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                        <Users className="h-3 w-3 mr-1" />
+                        {tender.bidCount} bid{tender.bidCount !== 1 ? 's' : ''}
+                      </Badge>
+                      {tender.isClosed && tender.bidCount > 0 && (
+                        <Badge className="text-[9px] px-1.5 py-0 bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 border-0">
+                          <Eye className="h-2.5 w-2.5 mr-0.5" />
+                          View applicants
                         </Badge>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => setView('tender-detail', { id: row.tenderId })}
-                    >
-                      View Tender <ExternalLink className="h-3 w-3 ml-1" />
-                    </Button>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                 </CardContent>
               </Card>
@@ -1075,59 +1293,6 @@ function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef
         </Badge>
       );
 
-    case 'tenderTitle':
-      return (
-        <span
-          className="text-primary font-medium truncate cursor-pointer hover:underline block"
-          onClick={() => setView('tender-detail', { id: row.tenderId })}
-        >
-          {String(val)}
-        </span>
-      );
-
-    case 'tenderStatus': {
-      const cfg = TENDER_STATUS_CONFIG[String(val)] || TENDER_STATUS_CONFIG.open;
-      return <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-md ${cfg.className}`}>{cfg.label}</Badge>;
-    }
-
-    case 'tenderBudgetMin':
-    case 'tenderBudgetMax':
-      return <span className="font-mono text-xs">{typeof val === 'number' ? formatCurrency(val) : '—'}</span>;
-
-    case 'tenderDeadline': {
-      if (!val) return <span>—</span>;
-      const days = daysUntil(String(val));
-      const color = days <= 0 ? 'text-red-600' : days <= 7 ? 'text-amber-600' : 'text-emerald-600';
-      return (
-        <div className="flex flex-col">
-          <span className="text-xs">{formatDate(String(val))}</span>
-          <span className={`text-[10px] font-medium ${color}`}>
-            {days <= 0 ? 'Expired' : `${days}d left`}
-          </span>
-        </div>
-      );
-    }
-
-    case 'applicantLocation':
-    case 'tenderLocation':
-      return (
-        <div className="flex items-center gap-1 min-w-0">
-          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-          <span className="truncate">{String(val) || '—'}</span>
-        </div>
-      );
-
-    case 'categoryTags':
-      return (
-        <div className="flex flex-wrap gap-0.5">
-          {String(val).split(',').filter(Boolean).slice(0, 3).map((tag, i) => (
-            <Badge key={i} variant="secondary" className="text-[9px] px-1 py-0">
-              {tag.trim()}
-            </Badge>
-          ))}
-        </div>
-      );
-
     case 'financialProposal':
       return (
         <span className="font-semibold font-mono">
@@ -1187,6 +1352,14 @@ function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef
     case 'companyCity':
     case 'companyCountry':
       return <span className="truncate">{String(val) || '—'}</span>;
+
+    case 'applicantLocation':
+      return (
+        <div className="flex items-center gap-1 min-w-0">
+          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+          <span className="truncate">{String(val) || '—'}</span>
+        </div>
+      );
 
     default:
       return <span className="truncate">{String(val ?? '—')}</span>;

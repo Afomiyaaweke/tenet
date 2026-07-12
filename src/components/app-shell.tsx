@@ -98,7 +98,7 @@ function getNavItemsForRole(role: string): NavSection[] {
       { id: 'tenders', label: 'Tenders', icon: FileSearch },
       { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
       { id: 'bids', label: 'Bids', icon: Gavel },
-      { id: 'applicants', label: 'Applicants', icon: ClipboardList },
+      { id: 'applicants', label: 'Published Tenders', icon: ClipboardList },
     ],
   };
 
@@ -221,7 +221,7 @@ function SidebarContent({
         <div className="flex items-center gap-3">
           <TenetLogo size="sm" />
           <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground font-medium">Tender Ecosystem</p>
+            <p className="text-[11px] text-muted-foreground font-medium">Published Tender World Bank</p>
           </div>
         </div>
       </div>
