@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuthStore, useNavStore } from '@/store';
-import { api, Bid } from '@/lib/api';
+import { api, Bid, BidDocument } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
   Gavel, Clock, DollarSign, FileSearch, Award, AlertCircle,
@@ -13,11 +14,27 @@ import {
   Briefcase, X, Eye, RotateCcw, Filter, Target,
   CircleDot, Building2, FileSignature, Stamp, Sparkles, Languages,
   Bookmark, MapPin, Calendar, ExternalLink, Trash2, PenLine,
+  ScanSearch, Brain, Loader2, AlertTriangle, Upload, FileText,
+  CloudUpload, FileUp, ThumbsUp, ThumbsDown, AlertOctagon,
+  BarChart3, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator } from '@/components/translator';
 
 type BidTab = 'all' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected' | 'saved';
+
+interface AIReviewData {
+  complianceScore?: number;
+  completenessScore?: number;
+  riskLevel?: string;
+  findings?: Array<{ type: string; title?: string; description: string; category?: string; severity?: string }>;
+  strengths?: string[];
+  weaknesses?: string[];
+  missingElements?: string[];
+  recommendations?: string[];
+  summary?: string;
+  overallAssessment?: string;
+}
 
 export function BidsView() {
   const { user } = useAuthStore();
@@ -33,6 +50,18 @@ export function BidsView() {
   const stampSigHook = useStampSignature();
   const [visibleCount, setVisibleCount] = useState(10);
   const BID_PAGE_SIZE = 10;
+
+  // Document/OCR/AI state
+  const [ocrLoading, setOcrLoading] = useState<Set<string>>(new Set());
+  const [reviewLoading, setReviewLoading] = useState<Set<string>>(new Set());
+  const [docOcrText, setDocOcrText] = useState<Record<string, string>>({});
+  const [docReview, setDocReview] = useState<Record<string, AIReviewData>>({});
+  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewDialogDocId, setReviewDialogDocId] = useState<string | null>(null);
+  const [docUploadBidId, setDocUploadBidId] = useState<string | null>(null);
+  const docFileRef = useRef<HTMLInputElement>(null);
+  const [docUploadType, setDocUploadType] = useState('bid_attachment');
 
   // Saved tenders state
   const [savedTenders, setSavedTenders] = useState<any[]>([]);
@@ -64,7 +93,6 @@ export function BidsView() {
     setLoading(false);
   }, [statusFilter]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadBids(); loadSavedTenders(); }, [loadBids, loadSavedTenders]);
 
   const handleStatusUpdate = async (bidId: string, status: string) => {
@@ -77,6 +105,119 @@ export function BidsView() {
     }
   };
 
+  // ── Document Upload ──
+  const handleDocUpload = useCallback(async (bidId: string) => {
+    const file = docFileRef.current?.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('docType', docUploadType);
+    try {
+      const res = await api.upload(`/bids/${bidId}/documents`, formData);
+      if (res.success) {
+        toast.success('Document uploaded');
+        if (docFileRef.current) docFileRef.current.value = '';
+        loadBids();
+      } else {
+        toast.error(res.error || 'Upload failed');
+      }
+    } catch {
+      toast.error('Upload failed');
+    } finally {
+      setDocUploadBidId(null);
+    }
+  }, [docUploadType, loadBids]);
+
+  // ── OCR Processing ──
+  const handleRunOcr = useCallback(async (docId: string) => {
+    setOcrLoading(prev => new Set(prev).add(docId));
+    try {
+      await api.post(`/document-ocr/${docId}`);
+      const poll = async (attempts = 0): Promise<void> => {
+        if (attempts > 30) {
+          toast.error('OCR processing timed out');
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        const res = await api.get(`/document-ocr/${docId}`);
+        if (res.success && res.data?.ocrStatus === 'completed') {
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
+          loadBids();
+          toast.success('OCR completed');
+        } else if (res.success && res.data?.ocrStatus === 'failed') {
+          setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          toast.error('OCR processing failed');
+          loadBids();
+        } else {
+          await poll(attempts + 1);
+        }
+      };
+      poll();
+    } catch {
+      setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+      toast.error('Failed to start OCR');
+    }
+  }, [loadBids]);
+
+  // ── AI Review Processing ──
+  const handleRunReview = useCallback(async (docId: string) => {
+    setReviewLoading(prev => new Set(prev).add(docId));
+    try {
+      const res = await api.post(`/document-review/${docId}`);
+      if (!res.success && res.error?.includes('OCR must be completed')) {
+        setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+        toast.error('Run OCR first before AI review');
+        return;
+      }
+      const poll = async (attempts = 0): Promise<void> => {
+        if (attempts > 30) {
+          toast.error('AI Review processing timed out');
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        const pollRes = await api.get(`/document-review/${docId}`);
+        if (pollRes.success && pollRes.data?.aiReviewStatus === 'completed') {
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          let reviewData = pollRes.data.aiReview || {};
+          if (typeof reviewData === 'string') {
+            try { reviewData = JSON.parse(reviewData); } catch { reviewData = { summary: reviewData }; }
+          }
+          setDocReview(prev => ({ ...prev, [docId]: reviewData as AIReviewData }));
+          loadBids();
+          toast.success('AI Review completed');
+        } else if (pollRes.success && pollRes.data?.aiReviewStatus === 'failed') {
+          setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+          toast.error('AI Review processing failed');
+          loadBids();
+        } else {
+          await poll(attempts + 1);
+        }
+      };
+      poll();
+    } catch {
+      setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
+      toast.error('Failed to start AI Review');
+    }
+  }, [loadBids]);
+
+  // ── View OCR text inline ──
+  const handleViewOcr = useCallback(async (docId: string) => {
+    if (expandedDocId === docId) {
+      setExpandedDocId(null);
+      return;
+    }
+    setExpandedDocId(docId);
+    if (!docOcrText[docId]) {
+      const res = await api.get(`/document-ocr/${docId}`);
+      if (res.success) {
+        setDocOcrText(prev => ({ ...prev, [docId]: res.data?.ocrText || '' }));
+      }
+    }
+  }, [expandedDocId, docOcrText]);
+
   const stats = useMemo(() => ({
     pending: bids.filter(b => b.status === 'pending_review').length,
     shortlisted: bids.filter(b => b.status === 'shortlisted').length,
@@ -86,7 +227,7 @@ export function BidsView() {
   }), [bids]);
 
   const filteredBids = useMemo(() => {
-    if (activeTab === 'saved') return [] as Bid[]; // handled separately
+    if (activeTab === 'saved') return [] as Bid[];
     if (activeTab === 'all') return bids;
     return bids.filter(b => b.status === activeTab);
   }, [bids, activeTab]);
@@ -113,6 +254,27 @@ export function BidsView() {
 
   const isAdminOrOwner = user?.role === 'team_admin';
 
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-emerald-600';
+    if (score >= 60) return 'text-amber-600';
+    return 'text-rose-600';
+  };
+
+  const getScoreBg = (score: number) => {
+    if (score >= 80) return 'bg-emerald-50';
+    if (score >= 60) return 'bg-amber-50';
+    return 'bg-rose-50';
+  };
+
+  const getRiskColor = (risk: string) => {
+    switch (risk?.toLowerCase()) {
+      case 'low': return 'bg-emerald-100 text-emerald-700';
+      case 'medium': return 'bg-amber-100 text-amber-700';
+      case 'high': case 'critical': return 'bg-rose-100 text-rose-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
   const tabs: { key: BidTab; label: string; icon: typeof Clock; count: number; color: string }[] = [
     { key: 'all', label: 'All', icon: Gavel, count: stats.total, color: 'emerald' },
     { key: 'pending_review', label: 'Pending', icon: Clock, count: stats.pending, color: 'amber' },
@@ -122,12 +284,13 @@ export function BidsView() {
     { key: 'saved', label: 'Saved Tenders', icon: Bookmark, count: savedTenders.length, color: 'violet' },
   ];
 
+  // Review dialog data
+  const reviewDialogData = reviewDialogDocId ? docReview[reviewDialogDocId] : null;
+
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto view-enter">
       {/* Header */}
-      <div
- className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]"
- >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-2xl gradient-amber shadow-md flex-shrink-0">
             <Gavel className="h-6 w-6 text-white" />
@@ -145,9 +308,7 @@ export function BidsView() {
 
       {/* Stats Summary */}
       {!loading && (bids.length > 0 || savedTenders.length > 0) && (
-        <div
- className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]"
- >
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]">
           {[
             { label: 'Pending', count: stats.pending, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
             { label: 'Shortlisted', count: stats.shortlisted, icon: Award, bg: 'bg-teal-50', color: 'text-teal-600' },
@@ -173,8 +334,7 @@ export function BidsView() {
 
       {/* Tab Navigation */}
       {!loading && (
-        <div className="animate-[fadeIn_0.3s_ease-out]"
- >
+        <div className="animate-[fadeIn_0.3s_ease-out]">
           <Card className="premium-shadow rounded-xl border-0 bg-card">
             <CardContent className="p-1.5">
               <div className="flex gap-1 overflow-x-auto">
@@ -371,11 +531,10 @@ export function BidsView() {
               const isExpanded = expandedId === bid.id;
               const companyName = bid.user?.company?.name;
               const jobTitle = bid.user?.profile?.jobTitle;
+              const bidDocs = bid.documents || [];
 
               return (
-                <div className="hover:-translate-y-[2px] transition-all duration-200"
- key={bid.id}
- >
+                <div className="hover:-translate-y-[2px] transition-all duration-200" key={bid.id}>
                   <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                     {/* Status accent strip */}
                     <div className={`h-1 ${
@@ -392,7 +551,6 @@ export function BidsView() {
                         onClick={() => setExpandedId(isExpanded ? null : bid.id)}>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            {/* Status Icon */}
                             <div className={`p-2.5 rounded-xl flex-shrink-0 ${sInfo.bg}`}>
                               <SIcon className={`h-5 w-5 ${sInfo.color}`} />
                             </div>
@@ -436,10 +594,12 @@ export function BidsView() {
                             <Badge className="text-xs border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-primary/10">
                               <DollarSign className="h-3 w-3 mr-1" /> ETB {bid.financialProposal.toLocaleString()}
                             </Badge>
-                            {/* Timeline badge */}
-                            <Badge className="text-xs border-0 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-50">
-                              <Clock className="h-3 w-3 mr-1" /> {bid.timeline}
-                            </Badge>
+                            {/* Doc count indicator */}
+                            {bidDocs.length > 0 && (
+                              <Badge className="text-[10px] border-0 rounded-lg bg-sky-50 text-sky-700">
+                                <FileText className="h-2.5 w-2.5 mr-0.5" /> {bidDocs.length} doc{bidDocs.length !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
                             {/* Status badge */}
                             <div className="flex items-center gap-1">
                               <CircleDot className={`h-2 w-2 ${
@@ -461,9 +621,7 @@ export function BidsView() {
 
                       {/* Expanded Content */}
                       {isExpanded && (
-                          <div
- className="overflow-hidden animate-[fadeIn_0.3s_ease-out]"
- >
+                          <div className="overflow-hidden animate-[fadeIn_0.3s_ease-out]">
                             <div className="px-5 pb-5 pt-3 border-t border-border/40 space-y-4">
                               {/* Technical Proposal */}
                               <div>
@@ -489,6 +647,242 @@ export function BidsView() {
                                   <p className="text-sm text-rose-600 bg-rose-50 rounded-xl p-4">{bid.rejectionNote}</p>
                                 </div>
                               )}
+
+                              {/* ── External Documents Section ── */}
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg bg-sky-50">
+                                      <ScanSearch className="h-3.5 w-3.5 text-sky-600" />
+                                    </div>
+                                    <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                                      External Documents
+                                    </p>
+                                    {bidDocs.length > 0 && (
+                                      <Badge className="text-[9px] px-1.5 py-0 border-0 bg-sky-50 text-sky-700">
+                                        {bidDocs.length}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-[10px] text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded-lg"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDocUploadBidId(docUploadBidId === bid.id ? null : bid.id);
+                                    }}
+                                  >
+                                    <Upload className="h-3 w-3 mr-1" />
+                                    {docUploadBidId === bid.id ? 'Cancel' : 'Upload Doc'}
+                                  </Button>
+                                </div>
+
+                                {/* Upload area for this bid */}
+                                {docUploadBidId === bid.id && (
+                                  <div className="mb-3 p-3 bg-sky-50/30 border border-sky-100 rounded-xl animate-[fadeIn_0.2s_ease-out]">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                      <div className="flex-1 flex items-center gap-2">
+                                        <input
+                                          ref={docFileRef}
+                                          type="file"
+                                          accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+                                          className="text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 file:cursor-pointer"
+                                        />
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <select
+                                          value={docUploadType}
+                                          onChange={e => setDocUploadType(e.target.value)}
+                                          className="h-7 text-xs rounded-lg bg-muted/50 border border-border/60 px-2"
+                                        >
+                                          <option value="bid_attachment">Bid Attachment</option>
+                                          <option value="business_license">Business License</option>
+                                          <option value="tax_clearance">Tax Clearance</option>
+                                          <option value="certificate">Certificate</option>
+                                          <option value="portfolio">Portfolio</option>
+                                          <option value="other">Other</option>
+                                        </select>
+                                        <Button
+                                          size="sm"
+                                          className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+                                          onClick={() => handleDocUpload(bid.id)}
+                                        >
+                                          <CloudUpload className="h-3 w-3 mr-1" /> Upload
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <p className="text-[9px] text-muted-foreground mt-1.5">
+                                      PDF, JPEG, PNG, DOCX, DOC, TXT — Max 10MB. Upload documents from external tender sites for OCR scanning and AI review.
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Document list */}
+                                {bidDocs.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {bidDocs.map((doc) => {
+                                      const isOcrLoading = ocrLoading.has(doc.id);
+                                      const isReviewLoading = reviewLoading.has(doc.id);
+                                      const isDocExpanded = expandedDocId === doc.id;
+
+                                      return (
+                                        <div key={doc.id} className="bg-muted/20 rounded-xl overflow-hidden">
+                                          {/* Document row */}
+                                          <div className="p-2.5 flex items-center justify-between">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                              <div className={`p-1.5 rounded-lg flex-shrink-0 ${
+                                                doc.docType === 'bid_attachment' ? 'bg-sky-50' :
+                                                doc.docType === 'business_license' ? 'bg-emerald-50' :
+                                                doc.docType === 'tax_clearance' ? 'bg-amber-50' :
+                                                'bg-muted/50'
+                                              }`}>
+                                                <FileText className={`h-3.5 w-3.5 ${
+                                                  doc.docType === 'bid_attachment' ? 'text-sky-600' :
+                                                  doc.docType === 'business_license' ? 'text-emerald-600' :
+                                                  doc.docType === 'tax_clearance' ? 'text-amber-600' :
+                                                  'text-muted-foreground'
+                                                }`} />
+                                              </div>
+                                              <div className="min-w-0">
+                                                <p className="text-xs font-medium truncate">{doc.fileName}</p>
+                                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                                  <Badge className="text-[8px] px-1 py-0 border-0 bg-muted/50 text-muted-foreground h-3.5">
+                                                    {doc.docType.replace('_', ' ')}
+                                                  </Badge>
+                                                  {/* OCR status */}
+                                                  {doc.ocrStatus === 'completed' && (
+                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 h-3.5">
+                                                      <ScanSearch className="h-2 w-2 mr-0.5" /> OCR ✓
+                                                    </Badge>
+                                                  )}
+                                                  {doc.ocrStatus === 'processing' && (
+                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5 animate-pulse">
+                                                      <Loader2 className="h-2 w-2 mr-0.5 animate-spin" /> OCR...
+                                                    </Badge>
+                                                  )}
+                                                  {doc.ocrStatus === 'failed' && (
+                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-rose-50 text-rose-600 h-3.5">
+                                                      <XCircle className="h-2 w-2 mr-0.5" /> OCR ✗
+                                                    </Badge>
+                                                  )}
+                                                  {/* AI Review status */}
+                                                  {doc.aiReviewStatus === 'completed' && (
+                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-purple-50 text-purple-600 h-3.5">
+                                                      <Brain className="h-2 w-2 mr-0.5" /> Reviewed ✓
+                                                    </Badge>
+                                                  )}
+                                                  {doc.aiReviewStatus === 'processing' && (
+                                                    <Badge className="text-[8px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5 animate-pulse">
+                                                      <Loader2 className="h-2 w-2 mr-0.5 animate-spin" /> Reviewing
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                              {/* OCR button */}
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-5 px-1.5 text-[9px] text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded"
+                                                disabled={isOcrLoading || doc.ocrStatus === 'processing'}
+                                                onClick={(e) => { e.stopPropagation(); handleRunOcr(doc.id); }}
+                                                title={doc.ocrStatus === 'completed' ? 'Re-run OCR' : 'Run OCR'}
+                                              >
+                                                {isOcrLoading || doc.ocrStatus === 'processing' ? (
+                                                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                                ) : (
+                                                  <ScanSearch className="h-2.5 w-2.5" />
+                                                )}
+                                              </Button>
+                                              {/* AI Review button */}
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-5 px-1.5 text-[9px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded"
+                                                disabled={isReviewLoading || doc.aiReviewStatus === 'processing' || (doc.ocrStatus !== 'completed' && doc.aiReviewStatus !== 'completed')}
+                                                onClick={(e) => { e.stopPropagation(); handleRunReview(doc.id); }}
+                                                title={doc.ocrStatus !== 'completed' && doc.aiReviewStatus !== 'completed' ? 'Run OCR first' : 'Run AI Review'}
+                                              >
+                                                {isReviewLoading || doc.aiReviewStatus === 'processing' ? (
+                                                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                                ) : (
+                                                  <Brain className="h-2.5 w-2.5" />
+                                                )}
+                                              </Button>
+                                              {/* View OCR text */}
+                                              {doc.ocrStatus === 'completed' && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-5 px-1.5 text-[9px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded"
+                                                  onClick={(e) => { e.stopPropagation(); handleViewOcr(doc.id); }}
+                                                >
+                                                  <Eye className="h-2.5 w-2.5" />
+                                                </Button>
+                                              )}
+                                              {/* View AI Review */}
+                                              {doc.aiReviewStatus === 'completed' && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-5 px-1.5 text-[9px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Load review data if not cached
+                                                    if (!docReview[doc.id]) {
+                                                      api.get(`/document-review/${doc.id}`).then(res => {
+                                                        if (res.success) {
+                                                          let rd = res.data?.aiReview || {};
+                                                          if (typeof rd === 'string') {
+                                                            try { rd = JSON.parse(rd); } catch { rd = { summary: rd }; }
+                                                          }
+                                                          setDocReview(prev => ({ ...prev, [doc.id]: rd as AIReviewData }));
+                                                        }
+                                                      });
+                                                    }
+                                                    setReviewDialogDocId(doc.id);
+                                                    setReviewDialogOpen(true);
+                                                  }}
+                                                >
+                                                  <BarChart3 className="h-2.5 w-2.5" />
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Expanded OCR text */}
+                                          {isDocExpanded && (
+                                            <div className="px-3 pb-3 animate-[fadeIn_0.2s_ease-out]">
+                                              <div className="p-2 bg-emerald-50/30 border border-emerald-100 rounded-lg">
+                                                <div className="flex items-center gap-1.5 mb-1.5">
+                                                  <ScanSearch className="h-3 w-3 text-emerald-600" />
+                                                  <p className="text-[10px] font-semibold text-emerald-700">OCR Extracted Text</p>
+                                                  {doc.ocrProcessedAt && (
+                                                    <span className="text-[8px] text-muted-foreground">
+                                                      {new Date(doc.ocrProcessedAt).toLocaleString()}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <div className="max-h-40 overflow-y-auto text-[11px] text-foreground/80 whitespace-pre-wrap bg-white/60 p-2.5 rounded border border-emerald-100/50 leading-relaxed">
+                                                  {docOcrText[doc.id] || 'Loading...'}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-4 bg-muted/20 rounded-xl">
+                                    <FileText className="h-5 w-5 text-muted-foreground/40 mx-auto mb-1.5" />
+                                    <p className="text-[11px] text-muted-foreground">No documents uploaded yet</p>
+                                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">Upload documents from external tender sites for OCR & AI review</p>
+                                  </div>
+                                )}
+                              </div>
 
                               {/* Quick Actions */}
                               <div className="flex flex-wrap gap-2 pt-2 border-t border-border/30">
@@ -528,7 +922,7 @@ export function BidsView() {
                                   </>
                                 )}
 
-                                {/* Sign Bid - available to all */}
+                                {/* Sign Bid */}
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -537,7 +931,7 @@ export function BidsView() {
                                   <FileSignature className="h-3.5 w-3.5 mr-1.5" /> {bidSignatures[bid.id] ? 'Signed' : 'Sign Bid'}
                                 </Button>
 
-                                {/* View Tender link */}
+                                {/* View Tender */}
                                 {bid.tender && (
                                   <Button
                                     size="sm"
@@ -559,7 +953,7 @@ export function BidsView() {
                                   </Button>
                                 )}
 
-                                {/* Contractor: Withdraw action for pending bids */}
+                                {/* Contractor: Withdraw */}
                                 {user?.role === 'user' && bid.status === 'pending_review' && (
                                   <Button
                                     size="sm"
@@ -640,6 +1034,153 @@ export function BidsView() {
           </Button>
         </div>
       )}
+
+      {/* AI Review Detail Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-purple-50">
+                <Brain className="h-4 w-4 text-purple-600" />
+              </div>
+              AI Document Review
+            </DialogTitle>
+          </DialogHeader>
+          {reviewDialogData ? (
+            <div className="space-y-5 pt-2">
+              {/* Score cards */}
+              <div className="grid grid-cols-3 gap-3">
+                {reviewDialogData.complianceScore !== undefined && (
+                  <div className={`p-3 rounded-xl text-center ${getScoreBg(reviewDialogData.complianceScore)}`}>
+                    <p className={`text-2xl font-bold ${getScoreColor(reviewDialogData.complianceScore)}`}>
+                      {reviewDialogData.complianceScore}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Compliance</p>
+                  </div>
+                )}
+                {reviewDialogData.completenessScore !== undefined && (
+                  <div className={`p-3 rounded-xl text-center ${getScoreBg(reviewDialogData.completenessScore)}`}>
+                    <p className={`text-2xl font-bold ${getScoreColor(reviewDialogData.completenessScore)}`}>
+                      {reviewDialogData.completenessScore}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Completeness</p>
+                  </div>
+                )}
+                {reviewDialogData.riskLevel && (
+                  <div className="p-3 rounded-xl text-center bg-muted/30">
+                    <Badge className={`${getRiskColor(reviewDialogData.riskLevel)} text-xs px-2 py-0.5`}>
+                      {reviewDialogData.riskLevel.toUpperCase()}
+                    </Badge>
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Risk Level</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Summary */}
+              {reviewDialogData.summary && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Summary</h4>
+                  <p className="text-sm text-foreground/80 bg-muted/30 p-3 rounded-lg">{reviewDialogData.summary}</p>
+                </div>
+              )}
+
+              {/* Findings */}
+              {reviewDialogData.findings && reviewDialogData.findings.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Key Findings</h4>
+                  <div className="space-y-2">
+                    {reviewDialogData.findings.map((f, i) => {
+                      const isPositive = f.type === 'positive';
+                      const isWarning = f.type === 'warning';
+                      const icon = isPositive ? <ThumbsUp className="h-3.5 w-3.5" /> : isWarning ? <AlertTriangle className="h-3.5 w-3.5" /> : <ThumbsDown className="h-3.5 w-3.5" />;
+                      const colorClass = isPositive ? 'text-emerald-600 bg-emerald-50' : isWarning ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50';
+                      const borderClass = isPositive ? 'border-emerald-100' : isWarning ? 'border-amber-100' : 'border-rose-100';
+                      return (
+                        <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg border ${borderClass}`}>
+                          <div className={`p-1 rounded ${colorClass} flex-shrink-0 mt-0.5`}>{icon}</div>
+                          <div className="min-w-0">
+                            {f.title && <p className="text-xs font-medium">{f.title}</p>}
+                            <p className="text-xs text-muted-foreground">{f.description}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Strengths */}
+              {reviewDialogData.strengths && reviewDialogData.strengths.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <ThumbsUp className="h-3 w-3 text-emerald-600" /> Strengths
+                  </h4>
+                  <ul className="space-y-1">
+                    {reviewDialogData.strengths.map((s, i) => (
+                      <li key={i} className="text-xs text-emerald-700 flex items-start gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" /> <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Weaknesses */}
+              {reviewDialogData.weaknesses && reviewDialogData.weaknesses.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <ThumbsDown className="h-3 w-3 text-rose-600" /> Weaknesses
+                  </h4>
+                  <ul className="space-y-1">
+                    {reviewDialogData.weaknesses.map((w, i) => (
+                      <li key={i} className="text-xs text-rose-700 flex items-start gap-1.5">
+                        <XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" /> <span>{w}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Missing Elements */}
+              {reviewDialogData.missingElements && reviewDialogData.missingElements.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <AlertOctagon className="h-3 w-3 text-amber-600" /> Missing Elements
+                  </h4>
+                  <ul className="space-y-1">
+                    {reviewDialogData.missingElements.map((m, i) => (
+                      <li key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
+                        <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" /> <span>{m}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {reviewDialogData.recommendations && reviewDialogData.recommendations.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-sky-600" /> Recommendations
+                  </h4>
+                  <ul className="space-y-1">
+                    {reviewDialogData.recommendations.map((r, i) => (
+                      <li key={i} className="text-xs text-sky-700 flex items-start gap-1.5">
+                        <ArrowRight className="h-3 w-3 mt-0.5 flex-shrink-0" /> <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+              <p className="text-sm">Loading review data...</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Stamp & Signature Selector Dialog */}
       <StampSignatureSelector

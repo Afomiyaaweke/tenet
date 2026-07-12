@@ -203,47 +203,53 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string)
     const fs = await import('fs/promises');
     const filePath = process.cwd() + '/uploads/' + fileUrl.split('/uploads/')[1];
     const fileBuffer = await fs.readFile(filePath);
-    const base64File = fileBuffer.toString('base64');
 
-    const ext = fileName.toLowerCase().split('.').pop();
-    const mimeMap: Record<string, string> = {
-      pdf: 'application/pdf',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      txt: 'text/plain',
-    };
-    const mimeType = mimeMap[ext || ''] || 'application/octet-stream';
-    const dataUrl = `data:${mimeType};base64,${base64File}`;
+    const ext = fileName.toLowerCase().split('.').pop() || '';
+    let ocrText = '';
 
-    const ZAI = (await import('z-ai-web-dev-sdk')).default;
-    const zai = await ZAI.create();
+    // For plain text files, read content directly (no Vision API needed)
+    if (ext === 'txt') {
+      ocrText = fileBuffer.toString('utf-8');
+    } else {
+      // For images and documents (PDF, DOCX), use Vision API with image_url type
+      // image_url accepts data: URLs, file_url does NOT accept data: URLs
+      const base64File = fileBuffer.toString('base64');
+      const mimeMap: Record<string, string> = {
+        pdf: 'application/pdf',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      };
+      const mimeType = mimeMap[ext] || 'application/octet-stream';
+      const dataUrl = `data:${mimeType};base64,${base64File}`;
 
-    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext || '');
-    const contentItem = isImage
-      ? { type: 'image_url' as const, image_url: { url: dataUrl } }
-      : { type: 'file_url' as const, file_url: { url: dataUrl } };
+      const ZAI = (await import('z-ai-web-dev-sdk')).default;
+      const zai = await ZAI.create();
 
-    const response = await zai.chat.completions.createVision({
-      model: 'default',
-      messages: [
-        {
-          role: 'assistant',
-          content: [{ type: 'text', text: 'You are an expert OCR system. Extract ALL text from the provided document precisely. Preserve structure, headings, tables, and formatting. Output only the extracted text, no commentary.' }],
-        },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Extract all text from this document. Preserve structure and formatting.' },
-            contentItem,
-          ],
-        },
-      ],
-      thinking: { type: 'disabled' },
-    });
+      // Always use image_url type — it supports data: URLs for both images and PDFs
+      const contentItem = { type: 'image_url' as const, image_url: { url: dataUrl } };
 
-    const ocrText = response.choices?.[0]?.message?.content || '';
+      const response = await zai.chat.completions.createVision({
+        model: 'default',
+        messages: [
+          {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'You are an expert OCR system. Extract ALL text from the provided document precisely. Preserve structure, headings, tables, and formatting. Output only the extracted text, no commentary.' }],
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Extract all text from this document. Preserve structure and formatting.' },
+              contentItem,
+            ],
+          },
+        ],
+        thinking: { type: 'disabled' },
+      });
+
+      ocrText = response.choices?.[0]?.message?.content || '';
+    }
 
     if (ocrText && ocrText.trim().length > 0) {
       await db.document.update({

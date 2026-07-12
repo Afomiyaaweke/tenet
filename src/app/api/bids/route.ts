@@ -125,6 +125,21 @@ export async function GET(request: NextRequest) {
         include: {
           tender: { select: { id: true, title: true, status: true } },
           user: { select: { id: true, email: true, profile: { select: { fullName: true, jobTitle: true } }, company: { select: { id: true, name: true } } } },
+          documents: {
+            select: {
+              id: true,
+              fileName: true,
+              docType: true,
+              fileUrl: true,
+              status: true,
+              ocrStatus: true,
+              ocrProcessedAt: true,
+              aiReviewStatus: true,
+              aiReviewProcessedAt: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+          },
         },
       }),
       db.bid.count({ where }),

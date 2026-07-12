@@ -124,48 +124,56 @@ export async function POST(
       // fileUrl is like "/uploads/filename.ext" — actual file is at process.cwd() + fileUrl
       const filePath = process.cwd() + doc.fileUrl;
       const fileBuffer = await readFile(filePath);
-      const base64Data = fileBuffer.toString('base64');
 
-      // Determine MIME type and create data URL
-      const mimeType = getMimeType(doc.fileName);
-      const dataUrl = `data:${mimeType};base64,${base64Data}`;
+      // Determine file extension
+      const ext = doc.fileName.toLowerCase().split('.').pop() || '';
 
-      // Use z-ai-web-dev-sdk Vision API to extract text
-      const zai = await ZAI.create();
+      let ocrText = '';
 
-      // For images: use image_url type; for documents (pdf/docx/txt): use file_url type
-      const isImage = isImageFile(doc.fileName);
-      const contentItem = isImage
-        ? { type: 'image_url' as const, image_url: { url: dataUrl } }
-        : { type: 'file_url' as const, file_url: { url: dataUrl } };
+      // For plain text files, read content directly (no Vision API needed)
+      if (ext === 'txt') {
+        ocrText = fileBuffer.toString('utf-8');
+      } else {
+        // For images and documents (PDF, DOCX), use Vision API with image_url type
+        // image_url accepts data: URLs, file_url does NOT accept data: URLs
+        const base64Data = fileBuffer.toString('base64');
+        const mimeType = getMimeType(doc.fileName);
+        const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-      const response = await zai.chat.completions.createVision({
-        model: 'default',
-        messages: [
-          {
-            role: 'assistant',
-            content: [
-              {
-                type: 'text',
-                text: 'You are an expert OCR system. Extract ALL text from the provided document precisely. Preserve structure, headings, tables, and formatting. Output only the extracted text, no commentary.',
-              },
-            ],
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extract all text from this document. Preserve structure and formatting.',
-              },
-              contentItem,
-            ],
-          },
-        ],
-        thinking: { type: 'disabled' },
-      });
+        // Use z-ai-web-dev-sdk Vision API to extract text
+        const zai = await ZAI.create();
 
-      const ocrText = response.choices?.[0]?.message?.content || '';
+        // Always use image_url type — it supports data: URLs for both images and PDFs
+        const contentItem = { type: 'image_url' as const, image_url: { url: dataUrl } };
+
+        const response = await zai.chat.completions.createVision({
+          model: 'default',
+          messages: [
+            {
+              role: 'assistant',
+              content: [
+                {
+                  type: 'text',
+                  text: 'You are an expert OCR system. Extract ALL text from the provided document precisely. Preserve structure, headings, tables, and formatting. Output only the extracted text, no commentary.',
+                },
+              ],
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Extract all text from this document. Preserve structure and formatting.',
+                },
+                contentItem,
+              ],
+            },
+          ],
+          thinking: { type: 'disabled' },
+        });
+
+        ocrText = response.choices?.[0]?.message?.content || '';
+      }
 
       // Update the document with OCR results
       const updated = await db.document.update({

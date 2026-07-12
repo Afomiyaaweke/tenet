@@ -529,3 +529,34 @@ Work Log:
 Stage Summary:
 - Hydration mismatch fixed with mounted state pattern
 - Lint passes, no errors in browser console
+---
+Task ID: 8
+Agent: Main Agent
+Task: Add OCR and AI Review for external documents in the Bids section
+
+Work Log:
+- Updated bids GET API (`/api/bids/route.ts`) to include `documents` in Prisma include query
+- Added `BidDocument` TypeScript interface to `@/lib/api.ts`
+- Added `documents?: BidDocument[]` field to `Bid` interface
+- Completely rewrote `bids.tsx` component with:
+  - External Documents section in expanded bid view
+  - Document upload per bid (file input + doc type selector + upload button)
+  - OCR status badges (completed/processing/failed) per document
+  - AI Review status badges (completed/processing/none) per document
+  - OCR trigger button per document (with loading state)
+  - AI Review trigger button per document (disabled until OCR complete)
+  - Inline OCR text viewer (expandable)
+  - AI Review detail dialog (scores, findings, strengths, weaknesses, missing elements, recommendations)
+  - Document count badge on bid card headers
+- Fixed OCR processing: changed from `file_url` to `image_url` type for all file types
+  - `file_url` type does NOT accept `data:` URLs — only HTTP URLs
+  - `image_url` type supports `data:` URLs for both images and PDFs
+  - Plain text files (.txt) read directly without Vision API
+- Applied same fix to `/api/bids/[id]/documents/route.ts` async OCR helper
+- Browser verification: OCR and AI Review working correctly for existing files
+- Some test fixture files missing on disk (ENOENT) — not a code issue
+
+Stage Summary:
+- Bids section now has full OCR + AI Review workflow for external documents
+- Document upload, OCR scanning, AI review all functional
+- Fixed critical OCR API bug (data: URL + file_url incompatibility)
