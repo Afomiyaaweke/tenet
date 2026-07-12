@@ -23,7 +23,7 @@ import {
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator } from '@/components/translator';
 
-type BidTab = 'all' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected' | 'saved';
+type BidTab = 'all' | 'pending_review' | 'drafted' | 'shortlisted' | 'awarded' | 'rejected' | 'saved';
 
 interface AIReviewData {
   complianceScore?: number;
@@ -314,8 +314,19 @@ export function BidsView() {
     }
   }, [extractPrompt]);
 
+  const isDrafted = (b: Bid) => {
+    if (b.status !== 'pending_review') return false;
+    return (
+      !b.financialProposal ||
+      b.financialProposal === 0 ||
+      b.technicalProposal?.includes('Pending document upload') ||
+      b.timeline?.includes('Pending document upload')
+    );
+  };
+
   const stats = useMemo(() => ({
     pending: bids.filter(b => b.status === 'pending_review').length,
+    drafted: bids.filter(b => isDrafted(b)).length,
     shortlisted: bids.filter(b => b.status === 'shortlisted').length,
     awarded: bids.filter(b => b.status === 'awarded').length,
     rejected: bids.filter(b => b.status === 'rejected').length,
@@ -325,6 +336,7 @@ export function BidsView() {
   const filteredBids = useMemo(() => {
     if (activeTab === 'saved') return [] as Bid[];
     if (activeTab === 'all') return bids;
+    if (activeTab === 'drafted') return bids.filter(b => isDrafted(b));
     return bids.filter(b => b.status === activeTab);
   }, [bids, activeTab]);
 
@@ -374,6 +386,7 @@ export function BidsView() {
   const tabs: { key: BidTab; label: string; icon: typeof Clock; count: number; color: string }[] = [
     { key: 'all', label: 'All', icon: Gavel, count: stats.total, color: 'emerald' },
     { key: 'pending_review', label: 'Pending', icon: Clock, count: stats.pending, color: 'amber' },
+    { key: 'drafted', label: 'Drafted', icon: PenLine, count: stats.drafted, color: 'sky' },
     { key: 'shortlisted', label: 'Shortlisted', icon: Award, count: stats.shortlisted, color: 'teal' },
     { key: 'awarded', label: 'Awarded', icon: CheckCircle, count: stats.awarded, color: 'emerald' },
     { key: 'rejected', label: 'Rejected', icon: AlertCircle, count: stats.rejected, color: 'rose' },
@@ -407,9 +420,9 @@ export function BidsView() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]">
           {[
             { label: 'Pending', count: stats.pending, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+            { label: 'Drafted', count: stats.drafted, icon: PenLine, bg: 'bg-sky-50', color: 'text-sky-600' },
             { label: 'Shortlisted', count: stats.shortlisted, icon: Award, bg: 'bg-teal-50', color: 'text-teal-600' },
             { label: 'Awarded', count: stats.awarded, icon: CheckCircle, bg: 'bg-emerald-50', color: 'text-emerald-600' },
-            { label: 'Rejected', count: stats.rejected, icon: AlertCircle, bg: 'bg-rose-50', color: 'text-rose-600' },
           ].map(stat => (
             <div key={stat.label}>
               <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
@@ -628,12 +641,14 @@ export function BidsView() {
               const companyName = bid.user?.company?.name;
               const jobTitle = bid.user?.profile?.jobTitle;
               const bidDocs = bid.documents || [];
+              const bidIsDrafted = isDrafted(bid);
 
               return (
                 <div className="hover:-translate-y-[2px] transition-all duration-200" key={bid.id}>
                   <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                     {/* Status accent strip */}
                     <div className={`h-1 ${
+                      bidIsDrafted ? 'bg-gradient-to-r from-sky-400 to-sky-500' :
                       bid.status === 'pending_review' ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
                       bid.status === 'shortlisted' ? 'bg-gradient-to-r from-teal-400 to-teal-600' :
                       bid.status === 'awarded' ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
@@ -647,8 +662,10 @@ export function BidsView() {
                         onClick={() => setExpandedId(isExpanded ? null : bid.id)}>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className={`p-2.5 rounded-xl flex-shrink-0 ${sInfo.bg}`}>
-                              <SIcon className={`h-5 w-5 ${sInfo.color}`} />
+                            <div className={`p-2.5 rounded-xl flex-shrink-0 ${
+                              bidIsDrafted ? 'bg-sky-50' : sInfo.bg
+                            }`}>
+                              <SIcon className={`h-5 w-5 ${bidIsDrafted ? 'text-sky-600' : sInfo.color}`} />
                             </div>
                             <div className="min-w-0">
                               <p className="font-semibold text-sm truncate hover:text-emerald-700 transition-colors">
@@ -699,15 +716,29 @@ export function BidsView() {
                             {/* Status badge */}
                             <div className="flex items-center gap-1">
                               <CircleDot className={`h-2 w-2 ${
+                                bidIsDrafted ? 'text-sky-500' :
                                 bid.status === 'awarded' ? 'text-emerald-500' :
                                 bid.status === 'rejected' ? 'text-rose-500' :
                                 bid.status === 'shortlisted' ? 'text-teal-500' :
                                 'text-amber-500'
                               }`} />
-                              <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${statusBadge(bid.status)}`}>
-                                {bid.status.replace('_', ' ')}
+                              <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${
+                                bidIsDrafted ? 'bg-sky-100 text-sky-700 hover:bg-sky-100' :
+                                statusBadge(bid.status)
+                              }`}>
+                                {bidIsDrafted ? 'Drafted' : bid.status.replace('_', ' ')}
                               </Badge>
                             </div>
+                            {/* Continue button for drafted bids */}
+                            {bidIsDrafted && (
+                              <Button
+                                size="sm"
+                                className="h-7 text-[10px] gradient-sky text-white rounded-lg hover:opacity-90 px-3"
+                                onClick={(e) => { e.stopPropagation(); setExpandedId(bid.id); }}
+                              >
+                                <PenLine className="h-3 w-3 mr-1" /> Continue
+                              </Button>
+                            )}
                             <div className="text-muted-foreground ml-1">
                               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </div>
