@@ -26,7 +26,7 @@ import {
   Calendar, TrendingUp, TrendingDown, Sparkles, Plus, Search, Upload,
   MessageSquare, Eye, BarChart3, Target, Briefcase,
   Award, Zap, ChevronRight, Sun, Moon, Sunrise,
-  ArrowUpRight, ArrowDownRight, Activity,
+  ArrowUpRight, ArrowDownRight, Activity, Bot,
 } from 'lucide-react';
 
 // ─── Color Constants ────────────────────────────────────────────────
@@ -419,7 +419,7 @@ export function DashboardView() {
     { icon: Plus, label: 'Publish Tender', description: 'Create new opportunities', gradient: 'gradient-emerald', view: 'tenders' },
     { icon: Search, label: 'Browse Tenders', description: 'Find matching opportunities', gradient: 'gradient-amber', view: 'tenders' },
     { icon: Gavel, label: 'My Bids', description: 'Track your submissions', gradient: 'gradient-teal', view: 'bids' },
-    { icon: Sparkles, label: 'AI Doc Studio', description: 'Generate documents with AI', gradient: 'gradient-rose', view: 'agent' },
+    { icon: Bot, label: 'AI Doc Studio', description: 'Review & generate docs with AI', gradient: 'gradient-rose', view: 'agent' },
   ];
 
   const today = new Date();

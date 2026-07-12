@@ -1,0 +1,585 @@
+   770→                                        Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
+   771→                                      </p>
+   772→                                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
+   773→                                        <input
+   774→                                          ref={docFileRef}
+   775→                                          type="file"
+   776→                                          accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+   777→                                          className="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 file:cursor-pointer file:transition-colors"
+   778→                                        />
+   779→                                        <div className="flex items-center gap-2">
+   780→                                          <select
+   781→                                            value={docUploadType}
+   782→                                            onChange={e => setDocUploadType(e.target.value)}
+   783→                                            className="h-7 text-xs rounded-lg bg-white/80 border border-sky-200 px-2"
+   784→                                          >
+   785→                                            <option value="bid_attachment">Bid Attachment</option>
+   786→                                            <option value="business_license">Business License</option>
+   787→                                            <option value="tax_clearance">Tax Clearance</option>
+   788→                                            <option value="certificate">Certificate</option>
+   789→                                            <option value="portfolio">Portfolio</option>
+   790→                                            <option value="other">Other</option>
+   791→                                          </select>
+   792→                                          <Button
+   793→                                            size="sm"
+   794→                                            className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+   795→                                            onClick={() => handleDocUpload(bid.id)}
+   796→                                          >
+   797→                                            <CloudUpload className="h-3 w-3 mr-1" /> Upload & Process
+   798→                                          </Button>
+   799→                                        </div>
+   800→                                      </div>
+   801→                                      <div className="flex items-center justify-center gap-3 text-[9px] text-muted-foreground">
+   802→                                        <span className="flex items-center gap-1"><ScanSearch className="h-3 w-3 text-sky-500" /> Auto OCR</span>
+   803→                                        <span className="text-muted-foreground/40">→</span>
+   804→                                        <span className="flex items-center gap-1"><Brain className="h-3 w-3 text-purple-500" /> Auto AI Review</span>
+   805→                                        <span className="text-muted-foreground/40">→</span>
+   806→                                        <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Ready</span>
+   807→                                      </div>
+   808→                                    </div>
+   809→                                  </div>
+   810→                                )}
+   811→
+   812→                                {/* Document list with processing pipeline */}
+   813→                                {bidDocs.length > 0 ? (
+   814→                                  <div className="space-y-2">
+   815→                                    {bidDocs.map((doc: any) => {
+   816→                                      const isOcrLoading = ocrLoading.has(doc.id);
+   817→                                      const isReviewLoading = reviewLoading.has(doc.id);
+   818→                                      const isDocExpanded = expandedDocId === doc.id;
+   819→                                      const isFullyProcessed = doc.ocrStatus === 'completed' && doc.aiReviewStatus === 'completed';
+   820→
+   821→                                      return (
+   822→                                        <div key={doc.id} className={`bg-muted/20 rounded-xl overflow-hidden ${isFullyProcessed ? 'ring-1 ring-emerald-200/50' : ''}`}>
+   823→                                          {/* Document row */}
+   824→                                          <div className="p-2.5 flex items-center justify-between">
+   825→                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+   826→                                              <div className={`p-1.5 rounded-lg flex-shrink-0 ${
+   827→                                                doc.docType === 'bid_attachment' ? 'bg-sky-50' :
+   828→                                                doc.docType === 'business_license' ? 'bg-emerald-50' :
+   829→                                                doc.docType === 'tax_clearance' ? 'bg-amber-50' :
+   830→                                                'bg-muted/50'
+   831→                                              }`}>
+   832→                                                <FileText className={`h-3.5 w-3.5 ${
+   833→                                                  doc.docType === 'bid_attachment' ? 'text-sky-600' :
+   834→                                                  doc.docType === 'business_license' ? 'text-emerald-600' :
+   835→                                                  doc.docType === 'tax_clearance' ? 'text-amber-600' :
+   836→                                                  'text-muted-foreground'
+   837→                                                }`} />
+   838→                                              </div>
+   839→                                              <div className="min-w-0">
+   840→                                                <p className="text-xs font-medium truncate">{doc.fileName}</p>
+   841→                                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+   842→                                                  <Badge className="text-[8px] px-1 py-0 border-0 bg-muted/50 text-muted-foreground h-3.5">
+   843→                                                    {doc.docType?.replace('_', ' ')}
+   844→                                                  </Badge>
+   845→                                                  {/* Processing pipeline indicator */}
+   846→                                                  <div className="flex items-center gap-0.5">
+   847→                                                    {/* Step 1: Upload */}
+   848→                                                    <div className="flex items-center">
+   849→                                                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" title="Uploaded" />
+   850→                                                    </div>
+   851→                                                    {/* Step 2: OCR */}
+   852→                                                    <div className={`h-3 w-0.5 ${doc.ocrStatus === 'completed' ? 'bg-emerald-300' : doc.ocrStatus === 'processing' ? 'bg-sky-300 animate-pulse' : 'bg-muted-foreground/20'}`} />
+   853→                                                    <div className="flex items-center" title={doc.ocrStatus === 'completed' ? 'OCR Complete' : doc.ocrStatus === 'processing' ? 'OCR Processing...' : doc.ocrStatus === 'failed' ? 'OCR Failed' : 'OCR Pending'}>
+   854→                                                      {doc.ocrStatus === 'completed' ? (
+   855→                                                        <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 flex items-center justify-center">
+   856→                                                          <CheckCircle2 className="h-1.5 w-1.5 text-white" />
+   857→                                                        </div>
+   858→                                                      ) : doc.ocrStatus === 'processing' || isOcrLoading ? (
+   859→                                                        <div className="h-2.5 w-2.5 rounded-full bg-sky-400 animate-pulse flex items-center justify-center">
+   860→                                                          <Loader2 className="h-1.5 w-1.5 text-white animate-spin" />
+   861→                                                        </div>
+   862→                                                      ) : doc.ocrStatus === 'failed' ? (
+   863→                                                        <div className="h-2.5 w-2.5 rounded-full bg-rose-400 flex items-center justify-center">
+   864→                                                          <XCircle className="h-1.5 w-1.5 text-white" />
+   865→                                                        </div>
+   866→                                                      ) : (
+   867→                                                        <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+   868→                                                      )}
+   869→                                                    </div>
+   870→                                                    {/* Step 3: AI Review */}
+   871→                                                    <div className={`h-3 w-0.5 ${doc.aiReviewStatus === 'completed' ? 'bg-emerald-300' : doc.aiReviewStatus === 'processing' ? 'bg-purple-300 animate-pulse' : 'bg-muted-foreground/20'}`} />
+   872→                                                    <div className="flex items-center" title={doc.aiReviewStatus === 'completed' ? 'AI Review Complete' : doc.aiReviewStatus === 'processing' ? 'AI Reviewing...' : doc.aiReviewStatus === 'failed' ? 'AI Review Failed' : 'AI Review Pending'}>
+   873→                                                      {doc.aiReviewStatus === 'completed' ? (
+   874→                                                        <div className="h-2.5 w-2.5 rounded-full bg-purple-400 flex items-center justify-center">
+   875→                                                          <CheckCircle2 className="h-1.5 w-1.5 text-white" />
+   876→                                                        </div>
+   877→                                                      ) : doc.aiReviewStatus === 'processing' || isReviewLoading ? (
+   878→                                                        <div className="h-2.5 w-2.5 rounded-full bg-purple-400 animate-pulse flex items-center justify-center">
+   879→                                                          <Loader2 className="h-1.5 w-1.5 text-white animate-spin" />
+   880→                                                        </div>
+   881→                                                      ) : doc.aiReviewStatus === 'failed' ? (
+   882→                                                        <div className="h-2.5 w-2.5 rounded-full bg-rose-400 flex items-center justify-center">
+   883→                                                          <XCircle className="h-1.5 w-1.5 text-white" />
+   884→                                                        </div>
+   885→                                                      ) : (
+   886→                                                        <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+   887→                                                      )}
+   888→                                                    </div>
+   889→                                                  </div>
+   890→                                                  {/* Text labels */}
+   891→                                                  {(isOcrLoading || doc.ocrStatus === 'processing') && (
+   892→                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-sky-50 text-sky-600 h-3.5 animate-pulse">
+   893→                                                      <ScanSearch className="h-1.5 w-1.5 mr-0.5" /> Scanning...
+   894→                                                    </Badge>
+   895→                                                  )}
+   896→                                                  {(isReviewLoading || doc.aiReviewStatus === 'processing') && (
+   897→                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-purple-50 text-purple-600 h-3.5 animate-pulse">
+   898→                                                      <Brain className="h-1.5 w-1.5 mr-0.5" /> Reviewing...
+   899→                                                    </Badge>
+   900→                                                  )}
+   901→                                                  {isFullyProcessed && (
+   902→                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-emerald-50 text-emerald-600 h-3.5">
+   903→                                                      <CheckCircle2 className="h-1.5 w-1.5 mr-0.5" /> Processed
+   904→                                                    </Badge>
+   905→                                                  )}
+   906→                                                  {doc.ocrStatus === 'failed' && (
+   907→                                                    <Badge className="text-[7px] px-1 py-0 border-0 bg-rose-50 text-rose-600 h-3.5">
+   908→                                                      <XCircle className="h-1.5 w-1.5 mr-0.5" /> OCR failed
+   909→                                                    </Badge>
+   910→                                                  )}
+   911→                                                </div>
+   912→                                              </div>
+   913→                                            </div>
+   914→                                            <div className="flex items-center gap-1 flex-shrink-0">
+   915→                                              {/* Re-run OCR button */}
+   916→                                              <Button
+   917→                                                variant="ghost"
+   918→                                                size="sm"
+   919→                                                className="h-5 px-1.5 text-[9px] text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded"
+   920→                                                disabled={isOcrLoading || doc.ocrStatus === 'processing'}
+   921→                                                onClick={(e) => { e.stopPropagation(); handleRunOcr(doc.id); }}
+   922→                                                title={doc.ocrStatus === 'completed' ? 'Re-run OCR' : 'Run OCR'}
+   923→                                              >
+   924→                                                {isOcrLoading || doc.ocrStatus === 'processing' ? (
+   925→                                                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+   926→                                                ) : (
+   927→                                                  <ScanSearch className="h-2.5 w-2.5" />
+   928→                                                )}
+   929→                                              </Button>
+   930→                                              {/* AI Review button */}
+   931→                                              <Button
+   932→                                                variant="ghost"
+   933→                                                size="sm"
+   934→                                                className="h-5 px-1.5 text-[9px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded"
+   935→                                                disabled={isReviewLoading || doc.aiReviewStatus === 'processing' || (doc.ocrStatus !== 'completed' && doc.aiReviewStatus !== 'completed')}
+   936→                                                onClick={(e) => { e.stopPropagation(); handleRunReview(doc.id); }}
+   937→                                                title={doc.ocrStatus !== 'completed' && doc.aiReviewStatus !== 'completed' ? 'Run OCR first' : 'Run AI Review'}
+   938→                                              >
+   939→                                                {isReviewLoading || doc.aiReviewStatus === 'processing' ? (
+   940→                                                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+   941→                                                ) : (
+   942→                                                  <Brain className="h-2.5 w-2.5" />
+   943→                                                )}
+   944→                                              </Button>
+   945→                                              {/* View OCR text */}
+   946→                                              {doc.ocrStatus === 'completed' && (
+   947→                                                <Button
+   948→                                                  variant="ghost"
+   949→                                                  size="sm"
+   950→                                                  className="h-5 px-1.5 text-[9px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded"
+   951→                                                  onClick={(e) => { e.stopPropagation(); handleViewOcr(doc.id); }}
+   952→                                                  title="View extracted text"
+   953→                                                >
+   954→                                                  <Eye className="h-2.5 w-2.5" />
+   955→                                                </Button>
+   956→                                              )}
+   957→                                              {/* View AI Review */}
+   958→                                              {doc.aiReviewStatus === 'completed' && (
+   959→                                                <Button
+   960→                                                  variant="ghost"
+   961→                                                  size="sm"
+   962→                                                  className="h-5 px-1.5 text-[9px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded"
+   963→                                                  onClick={(e) => {
+   964→                                                    e.stopPropagation();
+   965→                                                    // Load review data if not cached
+   966→                                                    if (!docReview[doc.id]) {
+   967→                                                      api.get(`/document-review/${doc.id}`).then(res => {
+   968→                                                        if (res.success) {
+   969→                                                          let rd = res.data?.aiReview || {};
+   970→                                                          if (typeof rd === 'string') {
+   971→                                                            try { rd = JSON.parse(rd); } catch { rd = { summary: rd }; }
+   972→                                                          }
+   973→                                                          setDocReview(prev => ({ ...prev, [doc.id]: rd as AIReviewData }));
+   974→                                                        }
+   975→                                                      });
+   976→                                                    }
+   977→                                                    setReviewDialogDocId(doc.id);
+   978→                                                    setReviewDialogOpen(true);
+   979→                                                  }}
+   980→                                                  title="View AI review report"
+   981→                                                >
+   982→                                                  <BarChart3 className="h-2.5 w-2.5" />
+   983→                                                </Button>
+   984→                                              )}
+   985→                                            </div>
+   986→                                          </div>
+   987→
+   988→                                          {/* Expanded OCR text */}
+   989→                                          {isDocExpanded && (
+   990→                                            <div className="px-3 pb-3 animate-[fadeIn_0.2s_ease-out]">
+   991→                                              <div className="p-3 bg-emerald-50/30 border border-emerald-100 rounded-lg">
+   992→                                                <div className="flex items-center justify-between mb-1.5">
+   993→                                                  <div className="flex items-center gap-1.5">
+   994→                                                    <ScanSearch className="h-3 w-3 text-emerald-600" />
+   995→                                                    <p className="text-[10px] font-semibold text-emerald-700">OCR Extracted Text</p>
+   996→                                                  </div>
+   997→                                                  {doc.ocrProcessedAt && (
+   998→                                                    <span className="text-[8px] text-muted-foreground">
+   999→                                                      {new Date(doc.ocrProcessedAt).toLocaleString()}
+  1000→                                                    </span>
+  1001→                                                  )}
+  1002→                                                </div>
+  1003→                                                <div className="max-h-48 overflow-y-auto text-[11px] text-foreground/80 whitespace-pre-wrap bg-white/60 p-3 rounded border border-emerald-100/50 leading-relaxed">
+  1004→                                                  {docOcrText[doc.id] || 'Loading...'}
+  1005→                                                </div>
+  1006→                                                {/* Quick AI Review from OCR view */}
+  1007→                                                {doc.aiReviewStatus !== 'completed' && !isReviewLoading && (
+  1008→                                                  <Button
+  1009→                                                    size="sm"
+  1010→                                                    className="mt-2 gradient-purple text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+  1011→                                                    onClick={(e) => { e.stopPropagation(); handleRunReview(doc.id); }}
+  1012→                                                  >
+  1013→                                                    <Brain className="h-3 w-3 mr-1" /> Run AI Review on this text
+  1014→                                                  </Button>
+  1015→                                                )}
+  1016→                                              </div>
+  1017→                                            </div>
+  1018→                                          )}
+  1019→                                        </div>
+  1020→                                      );
+  1021→                                    })}
+  1022→                                  </div>
+  1023→                                ) : (
+  1024→                                  <div
+  1025→                                    className="text-center py-6 bg-muted/20 rounded-xl border-2 border-dashed border-muted/30 cursor-pointer hover:border-sky-300 hover:bg-sky-50/20 transition-all"
+  1026→                                    onClick={(e) => { e.stopPropagation(); setDocUploadBidId(bid.id); }}
+  1027→                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('border-sky-400', 'bg-sky-50/30'); }}
+  1028→                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('border-sky-400', 'bg-sky-50/30'); }}
+  1029→                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('border-sky-400', 'bg-sky-50/30'); handleDocDrop(bid.id, e.dataTransfer.files); }}
+  1030→                                  >
+  1031→                                    <CloudUpload className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+  1032→                                    <p className="text-[11px] text-muted-foreground font-medium">Drop external documents here or click to upload</p>
+  1033→                                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">OCR & AI Review will run automatically</p>
+  1034→                                  </div>
+  1035→                                )}
+  1036→                              </div>
+  1037→
+  1038→                              {/* Quick Actions */}
+  1039→                              <div className="flex flex-wrap gap-2 pt-2 border-t border-border/30">
+  1040→                                {/* Admin/Tender Owner actions */}
+  1041→                                {isAdminOrOwner && bid.status === 'pending_review' && (
+  1042→                                  <>
+  1043→                                    <Button
+  1044→                                      size="sm"
+  1045→                                      className="gradient-teal text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
+  1046→                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'shortlisted'); }}>
+  1047→                                      <Award className="h-3.5 w-3.5 mr-1.5" /> Shortlist
+  1048→                                    </Button>
+  1049→                                    <Button
+  1050→                                      size="sm"
+  1051→                                      variant="outline"
+  1052→                                      className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
+  1053→                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'rejected'); }}>
+  1054→                                      <X className="h-3.5 w-3.5 mr-1.5" /> Reject
+  1055→                                    </Button>
+  1056→                                  </>
+  1057→                                )}
+  1058→                                {isAdminOrOwner && bid.status === 'shortlisted' && (
+  1059→                                  <>
+  1060→                                    <Button
+  1061→                                      size="sm"
+  1062→                                      className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
+  1063→                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'awarded'); }}>
+  1064→                                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Award Bid
+  1065→                                    </Button>
+  1066→                                    <Button
+  1067→                                      size="sm"
+  1068→                                      variant="outline"
+  1069→                                      className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all"
+  1070→                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'rejected'); }}>
+  1071→                                      <X className="h-3.5 w-3.5 mr-1.5" /> Reject
+  1072→                                    </Button>
+  1073→                                  </>
+  1074→                                )}
+  1075→
+  1076→                                {/* Sign Bid */}
+  1077→                                <Button
+  1078→                                  size="sm"
+  1079→                                  variant="outline"
+  1080→                                  className="rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 transition-all"
+  1081→                                  onClick={(e) => { e.stopPropagation(); setSelectedBidId(bid.id); setStampSelectorOpen(true); }}>
+  1082→                                  <FileSignature className="h-3.5 w-3.5 mr-1.5" /> {bidSignatures[bid.id] ? 'Signed' : 'Sign Bid'}
+  1083→                                </Button>
+  1084→
+  1085→                                {/* View Tender */}
+  1086→                                {bid.tender && (
+  1087→                                  <Button
+  1088→                                    size="sm"
+  1089→                                    variant="ghost"
+  1090→                                    className="rounded-xl text-emerald-600 hover:bg-primary/10 hover:text-emerald-700 transition-all"
+  1091→                                    onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: bid.tender!.id }); }}>
+  1092→                                    <Eye className="h-3.5 w-3.5 mr-1.5" /> View Tender
+  1093→                                  </Button>
+  1094→                                )}
+  1095→
+  1096→                                {/* Review with AI */}
+  1097→                                {bid.tender && (
+  1098→                                  <Button
+  1099→                                    size="sm"
+  1100→                                    variant="ghost"
+  1101→                                    className="rounded-xl text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-all"
+  1102→                                    onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: bid.tender!.id, tab: 'ai-overview' }); }}>
+  1103→                                    <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Review with AI
+  1104→                                  </Button>
+  1105→                                )}
+  1106→
+  1107→                                {/* Contractor: Withdraw */}
+  1108→                                {user?.role === 'user' && bid.status === 'pending_review' && (
+  1109→                                  <Button
+  1110→                                    size="sm"
+  1111→                                    variant="outline"
+  1112→                                    className="rounded-xl text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all"
+  1113→                                    onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'rejected'); }}>
+  1114→                                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Withdraw
+  1115→                                  </Button>
+  1116→                                )}
+  1117→
+  1118→                              {/* Applied Signature Preview */}
+  1119→                              {bidSignatures[bid.id] && (
+  1120→                                <div className="flex items-center gap-2 mt-2 p-2 bg-orange-50/50 border border-orange-100 rounded-xl">
+  1121→                                  <div className="w-10 h-8 bg-white rounded overflow-hidden p-0.5 flex-shrink-0">
+  1122→                                    <img src={bidSignatures[bid.id].dataUrl} alt="signature" className="max-w-full max-h-full object-contain" />
+  1123→                                  </div>
+  1124→                                  <div className="flex-1 min-w-0">
+  1125→                                    <p className="text-[10px] font-medium text-orange-700 truncate">{bidSignatures[bid.id].label}</p>
+  1126→                                    <p className="text-[9px] text-orange-500">Applied to bid</p>
+  1127→                                  </div>
+  1128→                                  <Button
+  1129→                                    variant="ghost"
+  1130→                                    size="sm"
+  1131→                                    className="h-5 w-5 p-0 text-muted-foreground hover:text-rose-600 rounded"
+  1132→                                    onClick={(e) => { e.stopPropagation(); setBidSignatures(prev => { const next = { ...prev }; delete next[bid.id]; return next; }); }}
+  1133→                                  >
+  1134→                                    <X className="h-3 w-3" />
+  1135→                                  </Button>
+  1136→                                </div>
+  1137→                              )}
+  1138→
+  1139→                              {/* Status tracking for user */}
+  1140→                                {user?.role === 'user' && (
+  1141→                                  <div className="flex items-center gap-2 ml-auto">
+  1142→                                    <div className="flex items-center gap-1.5">
+  1143→                                      {['pending_review', 'shortlisted', 'awarded'].map((step, idx) => {
+  1144→                                        const stepOrder = ['pending_review', 'shortlisted', 'awarded'].indexOf(bid.status);
+  1145→                                        const isActive = stepOrder >= idx;
+  1146→                                        const isCurrent = bid.status === step;
+  1147→                                        return (
+  1148→                                          <div key={step} className="flex items-center gap-1.5">
+  1149→                                            <div className={`h-2 w-2 rounded-full transition-all ${
+  1150→                                              isActive ? (isCurrent ? 'bg-emerald-500 scale-125' : 'bg-emerald-300') : 'bg-muted'
+  1151→                                            }`} />
+  1152→                                            <span className={`text-[10px] ${isCurrent ? 'text-emerald-700 font-semibold' : 'text-muted-foreground'}`}>
+  1153→                                              {step === 'pending_review' ? 'Submitted' : step.charAt(0).toUpperCase() + step.slice(1)}
+  1154→                                            </span>
+  1155→                                            {idx < 2 && <ArrowRight className="h-2.5 w-2.5 text-muted-foreground/50" />}
+  1156→                                          </div>
+  1157→                                        );
+  1158→                                      })}
+  1159→                                    </div>
+  1160→                                  </div>
+  1161→                                )}
+  1162→                              </div>
+  1163→                            </div>
+  1164→                          </div>
+  1165→                        )}
+  1166→                    </CardContent>
+  1167→                  </Card>
+  1168→                </div>
+  1169→              );
+  1170→            })}
+  1171→          </div>
+  1172→      ))}
+  1173→
+  1174→      {/* See More / Load More bids */}
+  1175→      {activeTab !== 'saved' && !loading && filteredBids.length > visibleCount && (
+  1176→        <div className="flex justify-center pt-4">
+  1177→          <Button
+  1178→            variant="outline"
+  1179→            size="lg"
+  1180→            className="gap-2 rounded-xl border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+  1181→            onClick={() => setVisibleCount(prev => Math.min(prev + BID_PAGE_SIZE, filteredBids.length))}
+  1182→          >
+  1183→            <ChevronDown className="h-4 w-4" />
+  1184→            See More ({filteredBids.length - visibleCount} remaining)
+  1185→          </Button>
+  1186→        </div>
+  1187→      )}
+  1188→
+  1189→      {/* AI Review Detail Dialog */}
+  1190→      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+  1191→        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+  1192→          <DialogHeader>
+  1193→            <DialogTitle className="flex items-center gap-2">
+  1194→              <div className="p-1.5 rounded-lg bg-purple-50">
+  1195→                <Brain className="h-4 w-4 text-purple-600" />
+  1196→              </div>
+  1197→              AI Document Review
+  1198→            </DialogTitle>
+  1199→          </DialogHeader>
+  1200→          {reviewDialogData ? (
+  1201→            <div className="space-y-5 pt-2">
+  1202→              {/* Score cards */}
+  1203→              <div className="grid grid-cols-3 gap-3">
+  1204→                {reviewDialogData.complianceScore !== undefined && (
+  1205→                  <div className={`p-3 rounded-xl text-center ${getScoreBg(reviewDialogData.complianceScore)}`}>
+  1206→                    <p className={`text-2xl font-bold ${getScoreColor(reviewDialogData.complianceScore)}`}>
+  1207→                      {reviewDialogData.complianceScore}
+  1208→                    </p>
+  1209→                    <p className="text-[10px] text-muted-foreground mt-0.5">Compliance</p>
+  1210→                  </div>
+  1211→                )}
+  1212→                {reviewDialogData.completenessScore !== undefined && (
+  1213→                  <div className={`p-3 rounded-xl text-center ${getScoreBg(reviewDialogData.completenessScore)}`}>
+  1214→                    <p className={`text-2xl font-bold ${getScoreColor(reviewDialogData.completenessScore)}`}>
+  1215→                      {reviewDialogData.completenessScore}
+  1216→                    </p>
+  1217→                    <p className="text-[10px] text-muted-foreground mt-0.5">Completeness</p>
+  1218→                  </div>
+  1219→                )}
+  1220→                {reviewDialogData.riskLevel && (
+  1221→                  <div className="p-3 rounded-xl text-center bg-muted/30">
+  1222→                    <Badge className={`${getRiskColor(reviewDialogData.riskLevel)} text-xs px-2 py-0.5`}>
+  1223→                      {reviewDialogData.riskLevel.toUpperCase()}
+  1224→                    </Badge>
+  1225→                    <p className="text-[10px] text-muted-foreground mt-1.5">Risk Level</p>
+  1226→                  </div>
+  1227→                )}
+  1228→              </div>
+  1229→
+  1230→              {/* Summary */}
+  1231→              {reviewDialogData.summary && (
+  1232→                <div>
+  1233→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Summary</h4>
+  1234→                  <p className="text-sm text-foreground/80 bg-muted/30 p-3 rounded-lg">{reviewDialogData.summary}</p>
+  1235→                </div>
+  1236→              )}
+  1237→
+  1238→              {/* Findings */}
+  1239→              {reviewDialogData.findings && reviewDialogData.findings.length > 0 && (
+  1240→                <div>
+  1241→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Key Findings</h4>
+  1242→                  <div className="space-y-2">
+  1243→                    {reviewDialogData.findings.map((f, i) => {
+  1244→                      const isPositive = f.type === 'positive';
+  1245→                      const isWarning = f.type === 'warning';
+  1246→                      const icon = isPositive ? <ThumbsUp className="h-3.5 w-3.5" /> : isWarning ? <AlertTriangle className="h-3.5 w-3.5" /> : <ThumbsDown className="h-3.5 w-3.5" />;
+  1247→                      const colorClass = isPositive ? 'text-emerald-600 bg-emerald-50' : isWarning ? 'text-amber-600 bg-amber-50' : 'text-rose-600 bg-rose-50';
+  1248→                      const borderClass = isPositive ? 'border-emerald-100' : isWarning ? 'border-amber-100' : 'border-rose-100';
+  1249→                      return (
+  1250→                        <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg border ${borderClass}`}>
+  1251→                          <div className={`p-1 rounded ${colorClass} flex-shrink-0 mt-0.5`}>{icon}</div>
+  1252→                          <div className="min-w-0">
+  1253→                            {f.title && <p className="text-xs font-medium">{f.title}</p>}
+  1254→                            <p className="text-xs text-muted-foreground">{f.description}</p>
+  1255→                          </div>
+  1256→                        </div>
+  1257→                      );
+  1258→                    })}
+  1259→                  </div>
+  1260→                </div>
+  1261→              )}
+  1262→
+  1263→              {/* Strengths */}
+  1264→              {reviewDialogData.strengths && reviewDialogData.strengths.length > 0 && (
+  1265→                <div>
+  1266→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+  1267→                    <ThumbsUp className="h-3 w-3 text-emerald-600" /> Strengths
+  1268→                  </h4>
+  1269→                  <ul className="space-y-1">
+  1270→                    {reviewDialogData.strengths.map((s, i) => (
+  1271→                      <li key={i} className="text-xs text-emerald-700 flex items-start gap-1.5">
+  1272→                        <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" /> <span>{s}</span>
+  1273→                      </li>
+  1274→                    ))}
+  1275→                  </ul>
+  1276→                </div>
+  1277→              )}
+  1278→
+  1279→              {/* Weaknesses */}
+  1280→              {reviewDialogData.weaknesses && reviewDialogData.weaknesses.length > 0 && (
+  1281→                <div>
+  1282→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+  1283→                    <ThumbsDown className="h-3 w-3 text-rose-600" /> Weaknesses
+  1284→                  </h4>
+  1285→                  <ul className="space-y-1">
+  1286→                    {reviewDialogData.weaknesses.map((w, i) => (
+  1287→                      <li key={i} className="text-xs text-rose-700 flex items-start gap-1.5">
+  1288→                        <XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" /> <span>{w}</span>
+  1289→                      </li>
+  1290→                    ))}
+  1291→                  </ul>
+  1292→                </div>
+  1293→              )}
+  1294→
+  1295→              {/* Missing Elements */}
+  1296→              {reviewDialogData.missingElements && reviewDialogData.missingElements.length > 0 && (
+  1297→                <div>
+  1298→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+  1299→                    <AlertOctagon className="h-3 w-3 text-amber-600" /> Missing Elements
+  1300→                  </h4>
+  1301→                  <ul className="space-y-1">
+  1302→                    {reviewDialogData.missingElements.map((m, i) => (
+  1303→                      <li key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
+  1304→                        <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" /> <span>{m}</span>
+  1305→                      </li>
+  1306→                    ))}
+  1307→                  </ul>
+  1308→                </div>
+  1309→              )}
+  1310→
+  1311→              {/* Recommendations */}
+  1312→              {reviewDialogData.recommendations && reviewDialogData.recommendations.length > 0 && (
+  1313→                <div>
+  1314→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+  1315→                    <Sparkles className="h-3 w-3 text-sky-600" /> Recommendations
+  1316→                  </h4>
+  1317→                  <ul className="space-y-1">
+  1318→                    {reviewDialogData.recommendations.map((r, i) => (
+  1319→                      <li key={i} className="text-xs text-sky-700 flex items-start gap-1.5">
+  1320→                        <ArrowRight className="h-3 w-3 mt-0.5 flex-shrink-0" /> <span>{r}</span>
+  1321→                      </li>
+  1322→                    ))}
+  1323→                  </ul>
+  1324→                </div>
+  1325→              )}
+  1326→            </div>
+  1327→          ) : (
+  1328→            <div className="py-8 text-center text-muted-foreground">
+  1329→              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+  1330→              <p className="text-sm">Loading review data...</p>
+  1331→            </div>
+  1332→          )}
+  1333→        </DialogContent>
+  1334→      </Dialog>
+  1335→
+  1336→      {/* Stamp & Signature Selector Dialog */}
+  1337→      <StampSignatureSelector
+  1338→        hook={stampSigHook}
+  1339→        open={stampSelectorOpen}
+  1340→        onClose={() => { setStampSelectorOpen(false); setSelectedBidId(null); }}
+  1341→        onSelect={(item) => {
+  1342→          if (selectedBidId) {
+  1343→            setBidSignatures(prev => ({ ...prev, [selectedBidId]: item }));
+  1344→            toast.success(`${item.label} applied to bid`);
+  1345→          }
+  1346→          setStampSelectorOpen(false);
+  1347→          setSelectedBidId(null);
+  1348→        }}
+  1349→        title="Select Signature for Bid"
+  1350→      />
+  1351→    </div>
+  1352→  );
+  1353→}
+  1354→

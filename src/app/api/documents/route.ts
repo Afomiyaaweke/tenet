@@ -10,8 +10,11 @@ const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'image/jpeg',
   'image/png',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'text/plain',
 ];
-const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
+const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.docx', '.doc', '.txt'];
 
 /**
  * Sanitize filename to prevent path traversal attacks
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validDocTypes = ['business_license', 'tax_clearance', 'portfolio', 'certificate', 'other'];
+    const validDocTypes = ['business_license', 'tax_clearance', 'portfolio', 'certificate', 'other', 'bid_attachment', 'technical_proposal', 'financial_proposal', 'timeline_doc', 'external_doc'];
     if (!validDocTypes.includes(docType)) {
       return NextResponse.json(
         { success: false, error: `Invalid docType. Must be one of: ${validDocTypes.join(', ')}` },

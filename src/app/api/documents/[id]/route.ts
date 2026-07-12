@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { requireAuth, requireAdmin } from '@/lib/auth';
 
 /**
  * PATCH /api/documents/[id]
- * Admin only: approve/reject document
- * Body: { status: "approved" | "rejected", reviewNotes?: string }
+ * Supports two use cases:
+ * 1. Admin: approve/reject document (status + reviewNotes)
+ * 2. Document owner: update submitUrl on their own document
  */
 export async function PATCH(
   request: NextRequest,
@@ -13,7 +14,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { error } = await requireAdmin(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
 
     // Find the document
@@ -26,48 +27,79 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status, reviewNotes } = body;
 
-    // Validate status
-    const validStatuses = ['approved', 'rejected'];
-    if (!validStatuses.includes(status)) {
+    // Case 1: Admin approve/reject (status field present)
+    if (body.status) {
+      if (user!.role !== 'team_admin') {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: Only admins can approve/reject documents' },
+          { status: 403 }
+        );
+      }
+
+      const validStatuses = ['approved', 'rejected'];
+      if (!validStatuses.includes(body.status)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid status. Must be approved or rejected' },
+          { status: 400 }
+        );
+      }
+
+      const updatedDocument = await db.document.update({
+        where: { id },
+        data: {
+          status: body.status,
+          reviewNotes: body.reviewNotes || null,
+          reviewedAt: new Date(),
+        },
+      });
+
+      await db.notification.create({
+        data: {
+          userId: document.userId || '',
+          title: `Document ${body.status === 'approved' ? 'Approved' : 'Rejected'}`,
+          message:
+            body.status === 'approved'
+              ? `Your document "${document.fileName}" has been approved.`
+              : `Your document "${document.fileName}" has been rejected.${body.reviewNotes ? ` Reason: ${body.reviewNotes}` : ''}`,
+          type: body.status === 'approved' ? 'success' : 'warning',
+        },
+      });
+
+      return NextResponse.json({ success: true, data: updatedDocument });
+    }
+
+    // Case 2: Document owner updating submitUrl or aiReviewPrompt
+    const isOwner = document.userId === user!.id;
+    const isCompanyAdmin = user!.role === 'team_admin' && document.companyId === user!.companyId;
+    if (!isOwner && !isCompanyAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Invalid status. Must be approved or rejected' },
+        { success: false, error: 'Forbidden: You can only update your own documents' },
+        { status: 403 }
+      );
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (body.submitUrl !== undefined) updateData.submitUrl = body.submitUrl || null;
+    if (body.aiReviewPrompt !== undefined) updateData.aiReviewPrompt = body.aiReviewPrompt || null;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No updatable fields provided' },
         { status: 400 }
       );
     }
 
-    // Update document
     const updatedDocument = await db.document.update({
       where: { id },
-      data: {
-        status,
-        reviewNotes: reviewNotes || null,
-        reviewedAt: new Date(),
-      },
+      data: updateData,
     });
 
-    // Create notification for the user
-    await db.notification.create({
-      data: {
-        userId: document.userId || '',
-        title: `Document ${status === 'approved' ? 'Approved' : 'Rejected'}`,
-        message:
-          status === 'approved'
-            ? `Your document "${document.fileName}" has been approved.`
-            : `Your document "${document.fileName}" has been rejected.${reviewNotes ? ` Reason: ${reviewNotes}` : ''}`,
-        type: status === 'approved' ? 'success' : 'warning',
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: updatedDocument,
-    });
+    return NextResponse.json({ success: true, data: updatedDocument });
   } catch (error) {
-    console.error('Review document error:', error);
+    console.error('Update document error:', error);
     return NextResponse.json(
-      { success: false, error: 'An error occurred while reviewing the document' },
+      { success: false, error: 'An error occurred while updating the document' },
       { status: 500 }
     );
   }
