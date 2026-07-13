@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const offsetRaw = Number(searchParams.get('offset'));
     const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
-    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders', 'jica', 'adb', 'uk_contracts', 'dgmarket', 'apify_global', 'apify_procurement', 'govrider', 'tenderwell', 'seegenebid', 'canada_buyandsell', 'austender', 'portugal_base', 'ontario_tenders', 'nigeria_nocopo', 'kenya_tenders', 'india_cppp', 'south_africa', 'philgeps'];
+    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders', 'jica', 'adb', 'uk_contracts', 'dgmarket', 'apify_global', 'apify_procurement', 'govrider', 'tenderwell', 'seegenebid', 'canada_buyandsell', 'austender', 'portugal_base', 'ontario_tenders', 'nigeria_nocopo', 'kenya_tenders', 'india_cppp', 'south_africa', 'philgeps', 'colombia_secop', 'mexico_compranet', 'chile_mercado', 'argentina_comprar', 'uruguay_compras'];
     if (!allowedSources.includes(source)) {
       return NextResponse.json(
         { success: false, error: `Invalid source. Allowed: ${allowedSources.join(', ')}` },

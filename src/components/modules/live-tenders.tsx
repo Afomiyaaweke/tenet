@@ -55,6 +55,11 @@ const SOURCE_LABELS: Record<string, string> = {
   india_cppp: 'India CPPP',
   south_africa: 'South Africa eTenders',
   philgeps: 'PhilGEPS',
+  colombia_secop: 'Colombia SECOP',
+  mexico_compranet: 'Mexico CompraNet',
+  chile_mercado: 'Chile Mercado Público',
+  argentina_comprar: 'Argentina COMPR.AR',
+  uruguay_compras: 'Uruguay Compras',
 };
 
 const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -233,6 +238,41 @@ const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; 
     bg: 'from-sky-500/10 to-cyan-500/5',
     icon: Globe2,
   },
+  colombia_secop: {
+    dot: 'bg-yellow-500',
+    badge: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300',
+    ring: 'hover:border-yellow-400/60',
+    bg: 'from-yellow-500/10 to-amber-500/5',
+    icon: Building2,
+  },
+  mexico_compranet: {
+    dot: 'bg-green-500',
+    badge: 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300',
+    ring: 'hover:border-green-400/60',
+    bg: 'from-green-500/10 to-emerald-500/5',
+    icon: Landmark,
+  },
+  chile_mercado: {
+    dot: 'bg-red-500',
+    badge: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+    ring: 'hover:border-red-400/60',
+    bg: 'from-red-500/10 to-rose-500/5',
+    icon: Flag,
+  },
+  argentina_comprar: {
+    dot: 'bg-cyan-500',
+    badge: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300',
+    ring: 'hover:border-cyan-400/60',
+    bg: 'from-cyan-500/10 to-teal-500/5',
+    icon: Globe2,
+  },
+  uruguay_compras: {
+    dot: 'bg-blue-500',
+    badge: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+    ring: 'hover:border-blue-400/60',
+    bg: 'from-blue-500/10 to-indigo-500/5',
+    icon: FileSearch,
+  },
   default: {
     dot: 'bg-muted-foreground',
     badge: 'bg-muted text-muted-foreground',
@@ -254,6 +294,9 @@ const ACCENT_DOT: Record<string, string> = {
   red: 'bg-red-500',
   cyan: 'bg-cyan-500',
   lime: 'bg-lime-500',
+  yellow: 'bg-yellow-500',
+  green: 'bg-green-500',
+  pink: 'bg-pink-500',
 };
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1886,7 +1929,7 @@ export function LiveTendersView() {
       else setLoading(true);
 
       const currentOffset = append ? tenders.length : 0;
-      const params: Record<string, string> = { rows: '20', offset: String(currentOffset) };
+      const params: Record<string, string> = { rows: '40', offset: String(currentOffset) };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
       if (sectorFilter) params.sector = sectorFilter;
@@ -2423,6 +2466,11 @@ export function LiveTendersView() {
                   <SelectItem value="govrider">🛡️ GovRider</SelectItem>
                   <SelectItem value="tenderwell">🔍 Tenderwell</SelectItem>
                   <SelectItem value="seegenebid">🌐 SeeGeneBid</SelectItem>
+                  <SelectItem value="colombia_secop">🇨🇴 Colombia SECOP</SelectItem>
+                  <SelectItem value="mexico_compranet">🇲🇽 Mexico CompraNet</SelectItem>
+                  <SelectItem value="chile_mercado">🇨🇱 Chile Mercado Público</SelectItem>
+                  <SelectItem value="argentina_comprar">🇦🇷 Argentina COMPR.AR</SelectItem>
+                  <SelectItem value="uruguay_compras">🇺🇾 Uruguay Compras</SelectItem>
                 </SelectContent>
               </Select>
             </div>

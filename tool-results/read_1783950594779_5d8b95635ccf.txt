@@ -1,0 +1,683 @@
+   998→   998→                            )}
+   999→   999→                            {doc.aiReviewStatus === 'processing' && (
+  1000→  1000→                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+  1001→  1001→                                <Loader2 className="h-2 w-2 animate-spin" /> Review...
+  1002→  1002→                              </span>
+  1003→  1003→                            )}
+  1004→  1004→                            {doc.aiReviewStatus === 'completed' && (
+  1005→  1005→                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+  1006→  1006→                                <Brain className="h-2 w-2" /> Review ✓
+  1007→  1007→                              </span>
+  1008→  1008→                            )}
+  1009→  1009→                          </div>
+  1010→  1010→                        </div>
+  1011→  1011→                        <Button
+  1012→  1012→                          variant="ghost"
+  1013→  1013→                          size="sm"
+  1014→  1014→                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all rounded-lg"
+  1015→  1015→                          onClick={() => handleRemoveCreateDoc(doc.id)}
+  1016→  1016→                        >
+  1017→  1017→                          <Trash2 className="h-3 w-3" />
+  1018→  1018→                        </Button>
+  1019→  1019→                      </div>
+  1020→  1020→                    ))}
+  1021→  1021→                  </div>
+  1022→  1022→                )}
+  1023→  1023→              </div>
+  1024→  1024→
+  1025→  1025→              <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleCreate}>
+  1026→  1026→                Create Tender <ArrowRight className="h-4 w-4 ml-2" />
+  1027→  1027→              </Button>
+  1028→  1028→            </div>
+  1029→  1029→          </DialogContent>
+  1030→  1030→        </Dialog>
+  1031→  1031→      </div>
+  1032→  1032→
+  1033→  1033→      {/* Search / Filter Bar */}
+  1034→  1034→      <div className="animate-[fadeIn_0.3s_ease-out]">
+  1035→  1035→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1036→  1036→          <CardContent className="p-4 space-y-3">
+  1037→  1037→            {/* Search row */}
+  1038→  1038→            <div className="flex flex-col sm:flex-row gap-3">
+  1039→  1039→              <div className="relative flex-1">
+  1040→  1040→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  1041→  1041→                <Input placeholder="Search tenders by title, scope, or keyword..." value={search} onChange={e => setSearch(e.target.value)}
+  1042→  1042→                  className="pl-10 bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20 h-10" />
+  1043→  1043→              </div>
+  1044→  1044→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+  1045→  1045→                <SelectTrigger className="w-full sm:w-36 rounded-xl bg-muted/50 border-border/60 h-10">
+  1046→  1046→                  <SelectValue placeholder="Status" />
+  1047→  1047→                </SelectTrigger>
+  1048→  1048→                <SelectContent>
+  1049→  1049→                  <SelectItem value="all">All Status</SelectItem>
+  1050→  1050→                  <SelectItem value="open">Open</SelectItem>
+  1051→  1051→                  <SelectItem value="closed">Closed</SelectItem>
+  1052→  1052→                  <SelectItem value="awarded">Awarded</SelectItem>
+  1053→  1053→                </SelectContent>
+  1054→  1054→              </Select>
+  1055→  1055→            </div>
+  1056→  1056→          </CardContent>
+  1057→  1057→        </Card>
+  1058→  1058→      </div>
+  1059→  1059→
+  1060→  1060→      {/* Category Tabs - Horizontal Scrollable */}
+  1061→  1061→      <div className="animate-[fadeIn_0.3s_ease-out]">
+  1062→  1062→        <div
+  1063→  1063→          ref={categoryScrollRef}
+  1064→  1064→          className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent"
+  1065→  1065→        >
+  1066→  1066→          {/* "All" tab */}
+  1067→  1067→          <button
+  1068→  1068→            onClick={() => setCategoryFilter('')}
+  1069→  1069→            className={`flex-shrink-0 text-xs px-4 py-2 rounded-xl transition-all duration-200 font-medium border ${
+  1070→  1070→              !categoryFilter || categoryFilter === 'all'
+  1071→  1071→                ? 'gradient-emerald text-white border-transparent premium-shadow'
+  1072→  1072→                : 'bg-card border-border/60 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
+  1073→  1073→            }`}
+  1074→  1074→          >
+  1075→  1075→            All ({totalTenders || tenders.length})
+  1076→  1076→          </button>
+  1077→  1077→          {CATEGORIES.map(cat => {
+  1078→  1078→            const count = (tendersByCategory[cat] || []).length;
+  1079→  1079→            const meta = getCategoryMeta(cat);
+  1080→  1080→            const Icon = meta.icon;
+  1081→  1081→            const isActive = categoryFilter === cat;
+  1082→  1082→            return (
+  1083→  1083→              <button
+  1084→  1084→                key={cat}
+  1085→  1085→                onClick={() => setCategoryFilter(isActive ? '' : cat)}
+  1086→  1086→                className={`flex-shrink-0 text-xs px-3 py-2 rounded-xl transition-all duration-200 font-medium border flex items-center gap-1.5 ${
+  1087→  1087→                  isActive
+  1088→  1088→                    ? 'gradient-emerald text-white border-transparent premium-shadow'
+  1089→  1089→                    : count > 0
+  1090→  1090→                      ? 'bg-card border-border/60 text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
+  1091→  1091→                      : 'bg-muted/30 border-transparent text-muted-foreground/50 cursor-default'
+  1092→  1092→                }`}
+  1093→  1093→                disabled={count === 0 && !isActive}
+  1094→  1094→              >
+  1095→  1095→                <Icon className="h-3 w-3" />
+  1096→  1096→                {cat}
+  1097→  1097→                {count > 0 && (
+  1098→  1098→                  <span className={`text-[10px] px-1.5 py-0 rounded-full ${
+  1099→  1099→                    isActive ? 'bg-white/20' : 'bg-muted/60'
+  1100→  1100→                  }`}>
+  1101→  1101→                    {count}
+  1102→  1102→                  </span>
+  1103→  1103→                )}
+  1104→  1104→              </button>
+  1105→  1105→            );
+  1106→  1106→          })}
+  1107→  1107→        </div>
+  1108→  1108→      </div>
+  1109→  1109→
+  1110→  1110→      {/* Stats Summary */}
+  1111→  1111→      {!loading && tenders.length > 0 && (
+  1112→  1112→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]">
+  1113→  1113→          {[
+  1114→  1114→            { label: 'Open', count: stats.open, icon: FileSearch, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  1115→  1115→            { label: 'Closed', count: stats.closed, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+  1116→  1116→            { label: 'Awarded', count: stats.awarded, icon: TrendingUp, bg: 'bg-teal-50', color: 'text-teal-600' },
+  1117→  1117→            { label: 'Total', count: stats.total, icon: Target, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  1118→  1118→          ].map(stat => (
+  1119→  1119→            <div key={stat.label}>
+  1120→  1120→              <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
+  1121→  1121→                <CardContent className="p-4 flex items-center gap-3">
+  1122→  1122→                  <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
+  1123→  1123→                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+  1124→  1124→                  </div>
+  1125→  1125→                  <div>
+  1126→  1126→                    <p className="text-xl font-bold">{stat.count}</p>
+  1127→  1127→                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+  1128→  1128→                  </div>
+  1129→  1129→                </CardContent>
+  1130→  1130→              </Card>
+  1131→  1131→            </div>
+  1132→  1132→          ))}
+  1133→  1133→        </div>
+  1134→  1134→      )}
+  1135→  1135→
+  1136→  1136→      {/* Tenders List - Category Grouped or Flat */}
+  1137→  1137→      {loading ? (
+  1138→  1138→        <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
+  1139→  1139→          {[1, 2, 3].map(i => (
+  1140→  1140→            <div key={i} className="space-y-3">
+  1141→  1141→              <div className="flex items-center gap-3">
+  1142→  1142→                <div className="h-8 w-8 rounded-lg bg-muted/50 animate-pulse" />
+  1143→  1143→                <div className="h-5 bg-muted/50 rounded-xl w-32 animate-pulse" />
+  1144→  1144→              </div>
+  1145→  1145→              <div className="grid md:grid-cols-2 gap-3 pl-2">
+  1146→  1146→                {[1, 2].map(j => (
+  1147→  1147→                  <Card key={j} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
+  1148→  1148→                    <div className="h-1.5 bg-muted/30" />
+  1149→  1149→                    <CardContent className="p-4 space-y-2.5">
+  1150→  1150→                      <div className="h-4 bg-muted/50 rounded-xl w-3/4" />
+  1151→  1151→                      <div className="h-3 bg-muted/50 rounded-xl w-full" />
+  1152→  1152→                      <div className="h-3 bg-muted/50 rounded-xl w-1/2" />
+  1153→  1153→                    </CardContent>
+  1154→  1154→                  </Card>
+  1155→  1155→                ))}
+  1156→  1156→              </div>
+  1157→  1157→            </div>
+  1158→  1158→          ))}
+  1159→  1159→        </div>
+  1160→  1160→      ) : tenders.length === 0 ? (
+  1161→  1161→        <div className="animate-[fadeIn_0.3s_ease-out]">
+  1162→  1162→          <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1163→  1163→            <CardContent className="p-16 text-center">
+  1164→  1164→              <div className="relative w-20 h-20 mx-auto mb-6">
+  1165→  1165→                <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20" />
+  1166→  1166→                <div className="absolute inset-2 rounded-xl gradient-emerald flex items-center justify-center">
+  1167→  1167→                  <Globe2 className="h-8 w-8 text-white" />
+  1168→  1168→                </div>
+  1169→  1169→              </div>
+  1170→  1170→              <h3 className="text-lg font-semibold">No tenders found</h3>
+  1171→  1171→              <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+  1172→  1172→                {search || categoryFilter
+  1173→  1173→                  ? 'Try adjusting your search or filters to find more opportunities'
+  1174→  1174→                  : 'No tenders available at the moment. Check back later!'}
+  1175→  1175→              </p>
+  1176→  1176→              {(search || categoryFilter) && (
+  1177→  1177→                <Button variant="outline" className="mt-4 rounded-xl" onClick={() => { setSearch(''); setCategoryFilter(''); setStatusFilter(''); }}>
+  1178→  1178→                  Clear Filters
+  1179→  1179→                </Button>
+  1180→  1180→              )}
+  1181→  1181→            </CardContent>
+  1182→  1182→          </Card>
+  1183→  1183→        </div>
+  1184→  1184→      ) : categoryFilter && categoryFilter !== 'all' ? (
+  1185→  1185→        /* Single category view - show flat list with inline detail */
+  1186→  1186→        <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+  1187→  1187→          {(tendersByCategory[categoryFilter] || []).map(tender => {
+  1188→  1188→            const isExpanded = expandedTenderId === tender.id;
+  1189→  1189→            const days = daysUntil(tender.deadline);
+  1190→  1190→            const tags = tender.categoryTags.split(',').filter(Boolean);
+  1191→  1191→            const reqDocs = tender.requiredDocs ? tender.requiredDocs.split(',').filter(Boolean) : [];
+  1192→  1192→
+  1193→  1193→            return (
+  1194→  1194→              <div key={tender.id} className="space-y-0">
+  1195→  1195→                <div className={`hover:-translate-y-[3px] transition-all duration-200 ${isExpanded ? 'ring-2 ring-emerald-300 dark:ring-emerald-700 rounded-xl' : ''}`}>
+  1196→  1196→                  <Card
+  1197→  1197→                    className={`premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 ${
+  1198→  1198→                      compareSelection.includes(tender.id) ? 'ring-2 ring-emerald-400 ring-offset-2' : ''
+  1199→  1199→                    }`}
+  1200→  1200→                    onClick={() => setExpandedTenderId(isExpanded ? null : tender.id)}
+  1201→  1201→                  >
+  1202→  1202→                    <div className={`h-1.5 bg-gradient-to-r ${statusAccent(tender.status)}`} />
+  1203→  1203→                    <CardContent className="p-5 space-y-3">
+  1204→  1204→                      <div className="flex items-start justify-between gap-2">
+  1205→  1205→                        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+  1206→  1206→                          {tender.title}
+  1207→  1207→                        </h3>
+  1208→  1208→                        <div className="flex items-center gap-1.5 flex-shrink-0">
+  1209→  1209→                          <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
+  1210→  1210→                            {tender.status}
+  1211→  1211→                          </Badge>
+  1212→  1212→                          <button
+  1213→  1213→                            onClick={(e) => toggleCompare(tender.id, e)}
+  1214→  1214→                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+  1215→  1215→                              compareSelection.includes(tender.id)
+  1216→  1216→                                ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-200'
+  1217→  1217→                                : 'border-muted-foreground/30 hover:border-primary hover:bg-primary/10'
+  1218→  1218→                            }`}
+  1219→  1219→                            title="Select to compare"
+  1220→  1220→                          >
+  1221→  1221→                            {compareSelection.includes(tender.id) && (
+  1222→  1222→                              <CheckCircle className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+  1223→  1223→                            )}
+  1224→  1224→                          </button>
+  1225→  1225→                        </div>
+  1226→  1226→                      </div>
+  1227→  1227→
+  1228→  1228→                      <p className="text-xs text-muted-foreground line-clamp-2">{tender.scope}</p>
+  1229→  1229→
+  1230→  1230→                      <div className="flex items-center gap-1.5 text-xs">
+  1231→  1231→                        <div className="p-1 rounded bg-emerald-50">
+  1232→  1232→                          <DollarSign className="h-3 w-3 text-emerald-600" />
+  1233→  1233→                        </div>
+  1234→  1234→                        <span className="font-medium text-emerald-700">ETB {tender.budgetMin.toLocaleString()} – {tender.budgetMax.toLocaleString()}</span>
+  1235→  1235→                      </div>
+  1236→  1236→
+  1237→  1237→                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+  1238→  1238→                        <div className="flex items-center gap-1">
+  1239→  1239→                          <div className="p-1 rounded bg-amber-50">
+  1240→  1240→                            <MapPin className="h-3 w-3 text-amber-600" />
+  1241→  1241→                          </div>
+  1242→  1242→                          <span className="truncate max-w-[100px]">{tender.location}</span>
+  1243→  1243→                        </div>
+  1244→  1244→                        <div className="flex items-center gap-1">
+  1245→  1245→                          <div className="p-1 rounded bg-teal-50">
+  1246→  1246→                            <Calendar className="h-3 w-3 text-teal-600" />
+  1247→  1247→                          </div>
+  1248→  1248→                          <span>{new Date(tender.deadline).toLocaleDateString()}</span>
+  1249→  1249→                        </div>
+  1250→  1250→                      </div>
+  1251→  1251→
+  1252→  1252→                      <div className="flex items-center gap-2">
+  1253→  1253→                        <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)} hover:${deadlineBg(days)} flex items-center gap-1`}>
+  1254→  1254→                          <Timer className="h-2.5 w-2.5" />
+  1255→  1255→                          {days <= 0 ? 'Expired' : days === 1 ? '1 day left' : `${days} days left`}
+  1256→  1256→                        </Badge>
+  1257→  1257→                        {tender._count && (
+  1258→  1258→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60 flex items-center gap-1">
+  1259→  1259→                            <Users className="h-2.5 w-2.5" />
+  1260→  1260→                            {tender._count.bids} bid{tender._count.bids !== 1 ? 's' : ''}
+  1261→  1261→                          </Badge>
+  1262→  1262→                        )}
+  1263→  1263→                      </div>
+  1264→  1264→
+  1265→  1265→                      <div className="flex flex-wrap gap-1">
+  1266→  1266→                        {tags.slice(0, 3).map(tag => (
+  1267→  1267→                          <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+  1268→  1268→                            {tag.trim()}
+  1269→  1269→                          </Badge>
+  1270→  1270→                        ))}
+  1271→  1271→                        {tags.length > 3 && (
+  1272→  1272→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60">
+  1273→  1273→                            +{tags.length - 3}
+  1274→  1274→                          </Badge>
+  1275→  1275→                        )}
+  1276→  1276→                      </div>
+  1277→  1277→
+  1278→  1278→                      {reqDocs.length > 0 && (
+  1279→  1279→                        <div className="rounded-lg border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-2.5 space-y-1.5">
+  1280→  1280→                          <div className="flex items-center gap-1.5">
+  1281→  1281→                            <ClipboardList className="h-3 w-3 text-teal-600 dark:text-teal-400 shrink-0" />
+  1282→  1282→                            <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wide">Requirements</span>
+  1283→  1283→                            <span className="text-[9px] text-teal-600/70 dark:text-teal-400/70 ml-auto">{reqDocs.length} doc{reqDocs.length === 1 ? '' : 's'}</span>
+  1284→  1284→                          </div>
+  1285→  1285→                          <div className="flex flex-wrap gap-1">
+  1286→  1286→                            {reqDocs.slice(0, 3).map((doc, i) => (
+  1287→  1287→                              doc.trim().startsWith('http') ? (
+  1288→  1288→                                <a
+  1289→  1289→                                  key={`${doc}-${i}`}
+  1290→  1290→                                  href={doc.trim()}
+  1291→  1291→                                  target="_blank"
+  1292→  1292→                                  rel="noopener noreferrer"
+  1293→  1293→                                  className="inline-flex items-center gap-1 text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors"
+  1294→  1294→                                >
+  1295→  1295→                                  <FileText className="h-2.5 w-2.5" />
+  1296→  1296→                                  View Docs
+  1297→  1297→                                  <ExternalLink className="h-2 w-2" />
+  1298→  1298→                                </a>
+  1299→  1299→                              ) : (
+  1300→  1300→                                <span key={`${doc}-${i}`} className="inline-flex items-center text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5">
+  1301→  1301→                                  {doc.trim()}
+  1302→  1302→                                </span>
+  1303→  1303→                              )
+  1304→  1304→                            ))}
+  1305→  1305→                            {reqDocs.length > 3 && (
+  1306→  1306→                              <span className="text-[10px] text-teal-600/70 dark:text-teal-400/70 px-1.5 py-0.5">+{reqDocs.length - 3}</span>
+  1307→  1307→                            )}
+  1308→  1308→                          </div>
+  1309→  1309→                        </div>
+  1310→  1310→                      )}
+  1311→  1311→
+  1312→  1312→                      {tender.matchScore !== undefined && (
+  1313→  1313→                        <div className="pt-1 space-y-1">
+  1314→  1314→                          <div className="flex items-center justify-between">
+  1315→  1315→                            <span className="text-[10px] text-muted-foreground font-medium">Match Score</span>
+  1316→  1316→                            <span className={`text-[10px] font-bold ${
+  1317→  1317→                              tender.matchScore >= 70 ? 'text-emerald-700' : tender.matchScore >= 40 ? 'text-amber-700' : 'text-muted-foreground'
+  1318→  1318→                            }`}>
+  1319→  1319→                              {tender.matchScore}%
+  1320→  1320→                            </span>
+  1321→  1321→                          </div>
+  1322→  1322→                          <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+  1323→  1323→                            <div
+  1324→  1324→                              className={`h-full rounded-full bg-gradient-to-r ${matchBarColor(tender.matchScore)} transition-[width] duration-700`}
+  1325→  1325→                              style={{ width: `${tender.matchScore}%` }}
+  1326→  1326→                            />
+  1327→  1327→                          </div>
+  1328→  1328→                        </div>
+  1329→  1329→                      )}
+  1330→  1330→
+  1331→  1331→                      <div className="flex items-center justify-between pt-1">
+  1332→  1332→                        <div className="flex items-center gap-1">
+  1333→  1333→                          {tender.status === 'open' && (
+  1334→  1334→                            <Button
+  1335→  1335→                              variant="ghost"
+  1336→  1336→                              size="sm"
+  1337→  1337→                              className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 h-6 px-1.5 font-medium"
+  1338→  1338→                              onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, action: 'apply' }); }}
+  1339→  1339→                            >
+  1340→  1340→                              <Gavel className="h-3 w-3" />
+  1341→  1341→                              Apply
+  1342→  1342→                            </Button>
+  1343→  1343→                          )}
+  1344→  1344→                          <Button
+  1345→  1345→                            variant="ghost"
+  1346→  1346→                            size="sm"
+  1347→  1347→                            className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
+  1348→  1348→                            onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
+  1349→  1349→                          >
+  1350→  1350→                            <Sparkles className="h-3 w-3" />
+  1351→  1351→                            AI Review
+  1352→  1352→                          </Button>
+  1353→  1353→                          <Button
+  1354→  1354→                            variant="ghost"
+  1355→  1355→                            size="sm"
+  1356→  1356→                            className="gap-1 text-[10px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 h-6 px-1.5"
+  1357→  1357→                            onClick={(e) => { e.stopPropagation(); setView('bids', { tenderId: tender.id }); }}
+  1358→  1358→                          >
+  1359→  1359→                            <Briefcase className="h-3 w-3" />
+  1360→  1360→                            Track
+  1361→  1361→                          </Button>
+  1362→  1362→                        </div>
+  1363→  1363→                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+  1364→  1364→                          {isExpanded ? 'Collapse' : 'Expand'} Details
+  1365→  1365→                          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+  1366→  1366→                            <ChevronDown className="h-3 w-3" />
+  1367→  1367→                          </div>
+  1368→  1368→                        </span>
+  1369→  1369→                      </div>
+  1370→  1370→                    </CardContent>
+  1371→  1371→                  </Card>
+  1372→  1372→                </div>
+  1373→  1373→
+  1374→  1374→                {isExpanded && (
+  1375→  1375→                  <div className="mt-2 mb-1">
+  1376→  1376→                    <InlineTenderDetail
+  1377→  1377→                      tender={tender}
+  1378→  1378→                      onClose={() => setExpandedTenderId(null)}
+  1379→  1379→                      setView={setView}
+  1380→  1380→                    />
+  1381→  1381→                  </div>
+  1382→  1382→                )}
+  1383→  1383→              </div>
+  1384→  1384→            );
+  1385→  1385→          })}
+  1386→  1386→        </div>
+  1387→  1387→      ) : (
+  1388→  1388→        /* All categories view - grouped by category with collapsible sections */
+  1389→  1389→        <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
+  1390→  1390→          {displayCategories.map(cat => {
+  1391→  1391→            const catTenders = tendersByCategory[cat] || [];
+  1392→  1392→            if (catTenders.length === 0) return null;
+  1393→  1393→            return (
+  1394→  1394→              <CategorySection
+  1395→  1395→                key={cat}
+  1396→  1396→                category={cat}
+  1397→  1397→                tenders={catTenders}
+  1398→  1398→                expandedTenderId={expandedTenderId}
+  1399→  1399→                onExpandTender={setExpandedTenderId}
+  1400→  1400→                compareSelection={compareSelection}
+  1401→  1401→                toggleCompare={toggleCompare}
+  1402→  1402→                setView={setView}
+  1403→  1403→              />
+  1404→  1404→            );
+  1405→  1405→          })}
+  1406→  1406→        </div>
+  1407→  1407→      )}
+  1408→  1408→
+  1409→  1409→      {/* See More / Load More — server-side pagination */}
+  1410→  1410→      {!loading && tenders.length > 0 && (
+  1411→  1411→        <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+  1412→  1412→          <p className="text-xs text-muted-foreground">
+  1413→  1413→            {page >= totalPages
+  1414→  1414→              ? `All ${tenders.length} tenders loaded${totalTenders > tenders.length ? ` (${totalTenders} total)` : ''}`
+  1415→  1415→              : `${tenders.length} of ${totalTenders} tenders loaded · ${totalTenders - tenders.length} remaining`}
+  1416→  1416→          </p>
+  1417→  1417→          {page < totalPages ? (
+  1418→  1418→            <Button
+  1419→  1419→              variant="outline"
+  1420→  1420→              size="lg"
+  1421→  1421→              className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+  1422→  1422→              onClick={handleLoadMore}
+  1423→  1423→              disabled={loadingMore}
+  1424→  1424→            >
+  1425→  1425→              {loadingMore ? (
+  1426→  1426→                <Loader2 className="h-4 w-4 animate-spin" />
+  1427→  1427→              ) : (
+  1428→  1428→                <ChevronDown className="h-4 w-4" />
+  1429→  1429→              )}
+  1430→  1430→              Load More ({totalTenders - tenders.length} remaining)
+  1431→  1431→            </Button>
+  1432→  1432→          ) : (
+  1433→  1433→            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+  1434→  1434→              <CheckCircle className="h-3 w-3" />
+  1435→  1435→              All tenders loaded
+  1436→  1436→            </p>
+  1437→  1437→          )}
+  1438→  1438→        </div>
+  1439→  1439→      )}
+  1440→  1440→
+  1441→  1441→      {/* ─── External Tenders from Free Data Sources ─── */}
+  1442→  1442→      {showExternal && (
+  1443→  1443→        <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
+  1444→  1444→          <div className="flex items-center justify-between">
+  1445→  1445→            <div className="flex items-center gap-3">
+  1446→  1446→              <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-200/40 dark:border-emerald-800/30">
+  1447→  1447→                <Globe2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+  1448→  1448→              </div>
+  1449→  1449→              <div>
+  1450→  1450→                <h3 className="text-lg font-bold tracking-tight">
+  1451→  1451→                  <span className="text-gradient-emerald">External</span> Tender Opportunities
+  1452→  1452→                </h3>
+  1453→  1453→                <p className="text-xs text-muted-foreground">Live tenders from World Bank, EU TED, UNGM, SAM.gov &amp; more free sources</p>
+  1454→  1454→              </div>
+  1455→  1455→            </div>
+  1456→  1456→            <div className="flex items-center gap-2">
+  1457→  1457→              <Badge variant="outline" className="text-[10px] border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400">
+  1458→  1458→                <Radio className="h-2.5 w-2.5 mr-1 animate-pulse" />
+  1459→  1459→                Live
+  1460→  1460→              </Badge>
+  1461→  1461→              <Button
+  1462→  1462→                variant="ghost"
+  1463→  1463→                size="sm"
+  1464→  1464→                className="text-xs text-muted-foreground hover:text-foreground"
+  1465→  1465→                onClick={() => setShowExternal(false)}
+  1466→  1466→              >
+  1467→  1467→                Hide
+  1468→  1468→              </Button>
+  1469→  1469→            </div>
+  1470→  1470→          </div>
+  1471→  1471→
+  1472→  1472→          {externalLoading ? (
+  1473→  1473→            <div className="grid md:grid-cols-2 gap-3">
+  1474→  1474→              {[1, 2, 3, 4].map(i => (
+  1475→  1475→                <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
+  1476→  1476→                  <div className="h-1.5 bg-emerald-200/30" />
+  1477→  1477→                  <CardContent className="p-4 space-y-2.5">
+  1478→  1478→                    <div className="h-4 bg-muted/50 rounded-xl w-3/4" />
+  1479→  1479→                    <div className="h-3 bg-muted/50 rounded-xl w-full" />
+  1480→  1480→                    <div className="h-3 bg-muted/50 rounded-xl w-1/2" />
+  1481→  1481→                  </CardContent>
+  1482→  1482→                </Card>
+  1483→  1483→              ))}
+  1484→  1484→            </div>
+  1485→  1485→          ) : externalTenders.length > 0 ? (
+  1486→  1486→            <div className="grid md:grid-cols-2 gap-3">
+  1487→  1487→              {externalTenders.slice(0, 10).map(t => {
+  1488→  1488→                const days = daysUntil(t.deadline);
+  1489→  1489→                const sourceLabel = (t.source || 'external').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  1490→  1490→                return (
+  1491→  1491→                  <Card
+  1492→  1492→                    key={t.id}
+  1493→  1493→                    className="premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 hover:-translate-y-[2px] hover:ring-1 hover:ring-emerald-300/60"
+  1494→  1494→                    onClick={() => window.open(t.externalUrl, '_blank')}
+  1495→  1495→                  >
+  1496→  1496→                    <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
+  1497→  1497→                    <CardContent className="p-4 space-y-2.5">
+  1498→  1498→                      <div className="flex items-start justify-between gap-2">
+  1499→  1499→                        <h4 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+  1500→  1500→                          {t.title}
+  1501→  1501→                        </h4>
+  1502→  1502→                        <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 shrink-0">
+  1503→  1503→                          {sourceLabel}
+  1504→  1504→                        </Badge>
+  1505→  1505→                      </div>
+  1506→  1506→
+  1507→  1507→                      <p className="text-xs text-muted-foreground line-clamp-2">{t.scope}</p>
+  1508→  1508→
+  1509→  1509→                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+  1510→  1510→                        {t.budgetMax > 0 && (
+  1511→  1511→                          <div className="flex items-center gap-1">
+  1512→  1512→                            <DollarSign className="h-3 w-3 text-emerald-600" />
+  1513→  1513→                            <span className="font-medium text-emerald-700 dark:text-emerald-400">
+  1514→  1514→                              {t.currency || 'USD'} {t.budgetMin >= 1000000 ? `${(t.budgetMin/1000000).toFixed(1)}M` : t.budgetMin >= 1000 ? `${(t.budgetMin/1000).toFixed(0)}K` : t.budgetMin.toLocaleString()}
+  1515→  1515→                              {t.budgetMax !== t.budgetMin ? ` – ${t.budgetMax >= 1000000 ? `${(t.budgetMax/1000000).toFixed(1)}M` : t.budgetMax >= 1000 ? `${(t.budgetMax/1000).toFixed(0)}K` : t.budgetMax.toLocaleString()}` : ''}
+  1516→  1516→                            </span>
+  1517→  1517→                          </div>
+  1518→  1518→                        )}
+  1519→  1519→                        <div className="flex items-center gap-1">
+  1520→  1520→                          <MapPin className="h-3 w-3 text-amber-600" />
+  1521→  1521→                          <span className="truncate max-w-[100px]">{t.location}</span>
+  1522→  1522→                        </div>
+  1523→  1523→                        <div className="flex items-center gap-1">
+  1524→  1524→                          <Calendar className="h-3 w-3 text-teal-600" />
+  1525→  1525→                          <span>{new Date(t.deadline).toLocaleDateString()}</span>
+  1526→  1526→                        </div>
+  1527→  1527→                      </div>
+  1528→  1528→
+  1529→  1529→                      <div className="flex items-center justify-between">
+  1530→  1530→                        <div className="flex items-center gap-2">
+  1531→  1531→                          <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)}`}>
+  1532→  1532→                            <Timer className="h-2.5 w-2.5 mr-0.5" />
+  1533→  1533→                            {days <= 0 ? 'Expired' : days === 1 ? '1 day' : `${days} days`}
+  1534→  1534→                          </Badge>
+  1535→  1535→                          {(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))) && (
+  1536→  1536→                            <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
+  1537→  1537→                              <FileSearch className="h-2.5 w-2.5 mr-0.5" />
+  1538→  1538→                              Docs
+  1539→  1539→                            </Badge>
+  1540→  1540→                          )}
+  1541→  1541→                        </div>
+  1542→  1542→                        <a
+  1543→  1543→                          href={t.externalUrl}
+  1544→  1544→                          target="_blank"
+  1545→  1545→                          rel="noopener noreferrer"
+  1546→  1546→                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+  1547→  1547→                          onClick={(e) => e.stopPropagation()}
+  1548→  1548→                        >
+  1549→  1549→                          View <ExternalLink className="h-2.5 w-2.5" />
+  1550→  1550→                        </a>
+  1551→  1551→                      </div>
+  1552→  1552→                    </CardContent>
+  1553→  1553→                  </Card>
+  1554→  1554→                );
+  1555→  1555→              })}
+  1556→  1556→            </div>
+  1557→  1557→          ) : (
+  1558→  1558→            <Card className="bg-card border-border rounded-xl">
+  1559→  1559→              <CardContent className="p-8 text-center">
+  1560→  1560→                <Globe2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+  1561→  1561→                <p className="text-sm text-muted-foreground">No external tenders available right now. Try refreshing later.</p>
+  1562→  1562→              </CardContent>
+  1563→  1563→            </Card>
+  1564→  1564→          )}
+  1565→  1565→
+  1566→  1566→          {/* External Load More */}
+  1567→  1567→          {externalTenders.length > 0 && (
+  1568→  1568→            <div className="flex flex-col items-center gap-2 pt-2 pb-2">
+  1569→  1569→              {externalHasMore ? (
+  1570→  1570→                <Button
+  1571→  1571→                  variant="outline"
+  1572→  1572→                  size="sm"
+  1573→  1573→                  className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+  1574→  1574→                  onClick={() => loadExternalTenders(true)}
+  1575→  1575→                  disabled={externalLoadingMore}
+  1576→  1576→                >
+  1577→  1577→                  {externalLoadingMore ? (
+  1578→  1578→                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1579→  1579→                  ) : (
+  1580→  1580→                    <ChevronDown className="h-3.5 w-3.5" />
+  1581→  1581→                  )}
+  1582→  1582→                  Load More External Tenders
+  1583→  1583→                </Button>
+  1584→  1584→              ) : (
+  1585→  1585→                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+  1586→  1586→                  <CheckCircle className="h-3 w-3" />
+  1587→  1587→                  All external tenders loaded
+  1588→  1588→                </p>
+  1589→  1589→              )}
+  1590→  1590→            </div>
+  1591→  1591→          )}
+  1592→  1592→        </div>
+  1593→  1593→      )}
+  1594→  1594→
+  1595→  1595→      {/* Show External toggle when hidden */}
+  1596→  1596→      {!showExternal && (
+  1597→  1597→        <div className="flex justify-center pt-2">
+  1598→  1598→          <Button
+  1599→  1599→            variant="outline"
+  1600→  1600→            size="sm"
+  1601→  1601→            className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+  1602→  1602→            onClick={() => setShowExternal(true)}
+  1603→  1603→          >
+  1604→  1604→            <Globe2 className="h-3.5 w-3.5" />
+  1605→  1605→            Show External Tenders
+  1606→  1606→          </Button>
+  1607→  1607→        </div>
+  1608→  1608→      )}
+  1609→  1609→
+  1610→  1610→      {/* Floating Compare Bar */}
+  1611→  1611→      {compareSelection.length > 0 && (
+  1612→  1612→        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-[fadeIn_0.3s_ease-out]">
+  1613→  1613→          <div className="flex items-center gap-3 bg-card/95 backdrop-blur-md rounded-2xl px-5 py-3 premium-shadow-lg border border-primary/20">
+  1614→  1614→            <div className="flex items-center gap-2">
+  1615→  1615→              <div className="p-1.5 rounded-lg gradient-emerald">
+  1616→  1616→                <GitCompareArrows className="h-4 w-4 text-white" />
+  1617→  1617→              </div>
+  1618→  1618→              <div>
+  1619→  1619→                <p className="text-xs font-bold text-foreground">
+  1620→  1620→                  {compareSelection.length} tender{compareSelection.length !== 1 ? 's' : ''} selected
+  1621→  1621→                </p>
+  1622→  1622→                <p className="text-[10px] text-muted-foreground">Select 2-4 to compare</p>
+  1623→  1623→              </div>
+  1624→  1624→            </div>
+  1625→  1625→            <div className="h-8 w-px bg-border/60" />
+  1626→  1626→            <Button
+  1627→  1627→              size="sm"
+  1628→  1628→              className={`rounded-xl font-semibold transition-all hover:-translate-y-0.5 ${
+  1629→  1629→                compareSelection.length >= 2
+  1630→  1630→                  ? 'gradient-emerald hover:opacity-90 text-white premium-shadow'
+  1631→  1631→                  : 'bg-muted text-muted-foreground cursor-not-allowed'
+  1632→  1632→              }`}
+  1633→  1633→              disabled={compareSelection.length < 2}
+  1634→  1634→              onClick={goToCompare}
+  1635→  1635→            >
+  1636→  1636→              <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" />
+  1637→  1637→              Compare {compareSelection.length >= 2 ? `(${compareSelection.length})` : ''}
+  1638→  1638→            </Button>
+  1639→  1639→            <Button
+  1640→  1640→              size="sm"
+  1641→  1641→              variant="ghost"
+  1642→  1642→              className="rounded-xl text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
+  1643→  1643→              onClick={() => setCompareSelection([])}
+  1644→  1644→            >
+  1645→  1645→              <XIcon className="h-3.5 w-3.5 mr-1" /> Clear
+  1646→  1646→            </Button>
+  1647→  1647→          </div>
+  1648→  1648→        </div>
+  1649→  1649→      )}
+  1650→  1650→    </div>
+  1651→  1651→  );
+  1652→  1652→}
+  1653→  1653→
+  1654→  1654→// ─── Shared helpers ──────────────────────────────────────────────
+  1655→  1655→function statusColor(status: string) {
+  1656→  1656→  switch (status) {
+  1657→  1657→    case 'open': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+  1658→  1658→    case 'closed': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+  1659→  1659→    case 'awarded': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
+  1660→  1660→    case 'cancelled': return 'bg-muted text-muted-foreground hover:bg-muted';
+  1661→  1661→    default: return 'bg-muted text-muted-foreground hover:bg-muted';
+  1662→  1662→  }
+  1663→  1663→}
+  1664→  1664→
+  1665→  1665→function statusAccent(status: string) {
+  1666→  1666→  switch (status) {
+  1667→  1667→    case 'open': return 'from-emerald-400 to-emerald-600';
+  1668→  1668→    case 'closed': return 'from-rose-400 to-rose-600';
+  1669→  1669→    case 'awarded': return 'from-teal-400 to-teal-600';
+  1670→  1670→    case 'cancelled': return 'from-gray-300 to-gray-400';
+  1671→  1671→    default: return 'from-gray-300 to-gray-400';
+  1672→  1672→  }
+  1673→  1673→}
+  1674→  1674→
+  1675→  1675→function matchBarColor(score: number) {
+  1676→  1676→  if (score >= 70) return 'from-emerald-400 to-emerald-600';
+  1677→  1677→  if (score >= 40) return 'from-amber-400 to-amber-600';
+  1678→  1678→  return 'from-gray-300 to-gray-400';
+  1679→  1679→}
+  1680→  1680→
