@@ -985,10 +985,15 @@ function TenderCard({
           )}
 
           {/* Document/Requirement files indicator */}
-          {(tender.documentUrl || (tender.requiredDocs && tender.requiredDocs.startsWith('http'))) && (
+          {(tender.documentUrl || (tender.requiredDocs && tender.requiredDocs.startsWith('http')) || (tender.documentFiles && tender.documentFiles.length > 0)) && (
             <div className="flex items-center gap-1.5 mt-2">
               <FileSearch className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
               <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">Requirement Documents Available</span>
+              {tender.documentFiles && tender.documentFiles.length > 0 && (
+                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 ml-0.5">
+                  {tender.documentFiles.length} file{tender.documentFiles.length !== 1 ? 's' : ''}
+                </Badge>
+              )}
               <a
                 href={tender.documentUrl || tender.requiredDocs}
                 target="_blank"
@@ -1962,7 +1967,7 @@ export function LiveTendersView() {
       else setLoading(true);
 
       const currentOffset = append ? tenders.length : 0;
-      const params: Record<string, string> = { rows: '100', offset: String(currentOffset) };
+      const params: Record<string, string> = { rows: append ? '100' : '50', offset: String(currentOffset) };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
       if (sectorFilter) params.sector = sectorFilter;
@@ -2653,13 +2658,25 @@ export function LiveTendersView() {
           </div>
         )}
 
-        {/* Load More button — server-side pagination */}
+        {/* Load More section — server-side pagination */}
         {tenders.length > 0 && (
-          <div className="flex flex-col items-center gap-3 pt-6 pb-4">
+          <div className="flex flex-col items-center gap-4 pt-8 pb-6">
+            {/* Expand All indicator */}
+            {hasMore && totalAvailable > 0 && (
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-700 to-transparent min-w-[40px]" />
+                <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5" />
+                  Expand All — {totalAvailable.toLocaleString()} tenders available
+                </span>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-700 to-transparent min-w-[40px]" />
+              </div>
+            )}
+
             {/* Progress bar */}
             {totalAvailable > 0 && (
-              <div className="w-full max-w-md">
-                <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+              <div className="w-full max-w-lg">
+                <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
                     style={{ width: `${Math.min(100, Math.round((tenders.length / totalAvailable) * 100))}%` }}
@@ -2667,53 +2684,75 @@ export function LiveTendersView() {
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+
+            {/* Stats row */}
+            <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
                 <FileText className="h-3 w-3" />
                 {totalAvailable > 0
-                  ? `Showing ${tenders.length} of ${totalAvailable} tenders`
+                  ? `Showing ${tenders.length} of ${totalAvailable.toLocaleString()} tenders`
                   : `${tenders.length} tenders loaded`}
               </span>
-              {tenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length > 0 && (
+              {tenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0)).length > 0 && (
                 <>
                   <span className="text-border">·</span>
                   <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                     <FolderKanban className="h-3 w-3" />
-                    {tenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length} with requirement documents
+                    {tenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0)).length} with requirement documents
                   </span>
                 </>
               )}
-              {hasMore && (
+              {tenders.filter(t => t.documentFiles && t.documentFiles.length > 0).length > 0 && (
                 <>
                   <span className="text-border">·</span>
-                  <span>More available</span>
+                  <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+                    <FileSearch className="h-3 w-3" />
+                    {tenders.reduce((sum, t) => sum + (t.documentFiles?.length || 0), 0)} downloadable files
+                  </span>
                 </>
               )}
             </div>
+
+            {/* Load More button or completion */}
             {hasMore ? (
-              <Button
-                variant="outline"
-                size="lg"
-                className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[220px]"
-                onClick={() => load(false, true)}
-                disabled={loadingMore}
-              >
-                {loadingMore ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
+              <div className="flex flex-col items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="gap-2.5 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[280px] h-12 text-sm font-medium shadow-sm"
+                  onClick={() => load(false, true)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  {loadingMore
+                    ? 'Loading More…'
+                    : totalAvailable > 0
+                      ? `Load More (${Math.round((tenders.length / totalAvailable) * 100)}% loaded)`
+                      : 'Load More Tenders'}
+                  {!loadingMore && (
+                    <Badge className="ml-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0 h-5 min-w-[20px] flex items-center justify-center">
+                      +100
+                    </Badge>
+                  )}
+                </Button>
+                {totalAvailable > 0 && (
+                  <span className="text-[11px] text-muted-foreground">
+                    {Math.min(100, totalAvailable - tenders.length)} new tenders will be loaded
+                  </span>
                 )}
-                {loadingMore
-                  ? 'Loading More…'
-                  : totalAvailable > 0
-                    ? `Load More (${Math.round((tenders.length / totalAvailable) * 100)}% loaded)`
-                    : 'Load More Tenders'}
-              </Button>
+              </div>
             ) : (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                {totalAvailable > 0 ? `All ${totalAvailable} tenders loaded` : 'All tenders loaded'}
-              </p>
+              <div className="flex flex-col items-center gap-1.5">
+                <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {totalAvailable > 0 ? `All ${totalAvailable.toLocaleString()} tenders loaded` : 'All tenders loaded'}
+                </p>
+                <p className="text-[11px] text-muted-foreground">You&apos;ve reached the end of available tenders</p>
+              </div>
             )}
           </div>
         )}

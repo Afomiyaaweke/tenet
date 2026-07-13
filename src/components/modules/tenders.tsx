@@ -87,7 +87,7 @@ function formatBudget(min: number, max: number) {
 function InlineTenderDetail({ tender, onClose, setView }: {
   tender: Tender;
   onClose: () => void;
-  setView: (view: string, params?: Record<string, string>) => void;
+  setView: (view: 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle', params?: Record<string, string>) => void;
 }) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidsLoading, setBidsLoading] = useState(true);
@@ -366,7 +366,7 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
   onExpandTender: (id: string | null) => void;
   compareSelection: string[];
   toggleCompare: (tenderId: string, e: React.MouseEvent) => void;
-  setView: (view: string, params?: Record<string, string>) => void;
+  setView: (view: 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle', params?: Record<string, string>) => void;
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const meta = getCategoryMeta(category);
@@ -563,7 +563,7 @@ export function TendersView() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalTenders, setTotalTenders] = useState(0);
-  const LIMIT = 20;
+  const LIMIT = 30;
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -681,7 +681,7 @@ export function TendersView() {
     else setExternalLoading(true);
 
     const currentOffset = append ? externalTenders.length : 0;
-    const params: Record<string, string> = { rows: '50', offset: String(currentOffset) };
+    const params: Record<string, string> = { rows: '100', offset: String(currentOffset) };
     if (search) params.search = search;
     if (categoryFilter && categoryFilter !== 'all') params.source = categoryFilter.toLowerCase();
 
@@ -1457,8 +1457,8 @@ export function TendersView() {
         <div className="flex flex-col items-center gap-3 pt-6 pb-4">
           {/* Progress bar */}
           {totalTenders > 0 && (
-            <div className="w-full max-w-md">
-              <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+            <div className="w-full max-w-lg">
+              <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
                   style={{ width: `${Math.min(100, Math.round((tenders.length / totalTenders) * 100))}%` }}
@@ -1483,29 +1483,38 @@ export function TendersView() {
             )}
           </div>
           {page < totalPages ? (
-            <Button
-              variant="outline"
-              size="lg"
-              className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[240px]"
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-            >
-              {loadingMore ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-              {loadingMore
-                ? 'Loading More…'
-                : totalTenders > 0
-                  ? `Load More (${Math.round((tenders.length / totalTenders) * 100)}% loaded)`
-                  : `Load More (${totalTenders - tenders.length} remaining)`}
-            </Button>
+            <div className="flex flex-col items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="lg"
+                className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[280px] h-12 shadow-sm font-medium"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+                {loadingMore ? 'Loading More…' : 'Load More'}
+                {!loadingMore && (
+                  <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
+                    +{Math.min(LIMIT, totalTenders - tenders.length)}
+                  </Badge>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {totalTenders - tenders.length} more tenders available
+              </p>
+            </div>
           ) : (
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              <CheckCircle className="h-3 w-3" />
-              All tenders loaded
-            </p>
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle className="h-4 w-4" />
+                All tenders loaded
+              </p>
+              <p className="text-xs text-muted-foreground">You&apos;ve reached the end</p>
+            </div>
           )}
         </div>
       )}
@@ -1562,7 +1571,7 @@ export function TendersView() {
               {externalTenders.map(t => {
                 const days = daysUntil(t.deadline);
                 const sourceLabel = (t.source || 'external').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                const hasDocs = !!(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')));
+                const hasDocs = !!(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0));
                 const isDocExpanded = extDocExpanded === t.id;
                 const doc = extDocData[t.id];
                 const isDocLoading = extDocLoading === t.id;
@@ -1883,8 +1892,8 @@ export function TendersView() {
             <div className="flex flex-col items-center gap-3 pt-4 pb-2">
               {/* Progress bar */}
               {externalTotalAvailable > 0 && (
-                <div className="w-full max-w-md">
-                  <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                <div className="w-full max-w-lg">
+                  <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
                       style={{ width: `${Math.min(100, Math.round((externalTenders.length / externalTotalAvailable) * 100))}%` }}
@@ -1899,12 +1908,21 @@ export function TendersView() {
                     ? `Showing ${externalTenders.length} of ${externalTotalAvailable} external tenders`
                     : `${externalTenders.length} external tenders loaded`}
                 </span>
-                {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length > 0 && (
+                {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0)).length > 0 && (
                   <>
                     <span className="text-border">·</span>
                     <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                       <FileSearch className="h-3 w-3" />
-                      {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length} with documents
+                      {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0)).length} with documents
+                    </span>
+                  </>
+                )}
+                {externalTenders.filter(t => t.documentFiles && t.documentFiles.length > 0).length > 0 && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+                      <FileText className="h-3 w-3" />
+                      {externalTenders.reduce((sum, t) => sum + (t.documentFiles?.length || 0), 0)} downloadable files
                     </span>
                   </>
                 )}
@@ -1916,29 +1934,40 @@ export function TendersView() {
                 )}
               </div>
               {externalHasMore ? (
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[260px]"
-                  onClick={() => loadExternalTenders(true)}
-                  disabled={externalLoadingMore}
-                >
-                  {externalLoadingMore ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  {externalLoadingMore
-                    ? 'Loading More…'
-                    : externalTotalAvailable > 0
-                      ? `Load More (${Math.round((externalTenders.length / externalTotalAvailable) * 100)}% loaded)`
-                      : 'Load More External Tenders'}
-                </Button>
+                <div className="flex flex-col items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[280px] h-12 shadow-sm font-medium"
+                    onClick={() => loadExternalTenders(true)}
+                    disabled={externalLoadingMore}
+                  >
+                    {externalLoadingMore ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                    {externalLoadingMore ? 'Loading More…' : 'Load More'}
+                    {!externalLoadingMore && (
+                      <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
+                        +100
+                      </Badge>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {externalTotalAvailable > 0
+                      ? `${externalTotalAvailable - externalTenders.length} more tenders available`
+                      : 'More tenders available'}
+                  </p>
+                </div>
               ) : (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <CheckCircle className="h-3 w-3" />
-                  {externalTotalAvailable > 0 ? `All ${externalTotalAvailable} external tenders loaded` : 'All external tenders loaded'}
-                </p>
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle className="h-4 w-4" />
+                    {externalTotalAvailable > 0 ? `All ${externalTotalAvailable} external tenders loaded` : 'All external tenders loaded'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">You&apos;ve reached the end</p>
+                </div>
               )}
             </div>
           )}

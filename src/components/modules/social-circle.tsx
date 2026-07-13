@@ -265,7 +265,7 @@ function LeftSidebar() {
       try {
         const [connRes, postsRes, endRes] = await Promise.all([
           api.get('/social/connections', { status: 'accepted', limit: '1' }),
-          api.get('/social/posts', { authorId: user?.id, limit: '1' }),
+          api.get('/social/posts', { authorId: user?.id || '', limit: '1' }),
           api.get('/social/endorsements', { userId: user?.id || '' }),
         ]);
         setStats({
