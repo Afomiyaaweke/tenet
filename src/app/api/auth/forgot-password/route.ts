@@ -51,13 +51,17 @@ export async function POST(request: NextRequest) {
       },
     }).catch(() => {});
 
-    // In production, you would send an email with the reset link
-    // For now, return the token so the frontend can use it
+    // TODO: Integrate email service (e.g., SendGrid, Resend, AWS SES)
+    // to send the reset link: `${frontendUrl}/reset-password?token=${token}`
+    // For now, the token is stored in the database and must be retrieved separately
+    // in development mode only.
+    const isDev = process.env.NODE_ENV !== 'production';
+
     return NextResponse.json({
       success: true,
       message: 'If an account with that email exists, a reset link has been sent.',
-      // Only in development - remove in production
-      resetToken: token,
+      // Development only — expose token for testing without email infrastructure
+      ...(isDev ? { resetToken: token } : {}),
     });
   } catch (err) {
     console.error('[POST /api/auth/forgot-password] error:', err);

@@ -1,13 +1,19 @@
 import { db } from '../src/lib/db';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 async function main() {
   console.log('🌱 Seeding database...');
 
+  // Read admin credentials from environment or generate secure defaults
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@tenet.app';
+  const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(16).toString('base64url');
+  const companyName = process.env.ADMIN_COMPANY || 'Tenet Admin';
+
   // Create a default team_admin company and user
   const company = await db.company.create({
     data: {
-      name: 'Tenet Admin',
+      name: companyName,
       industry: 'Technology',
       country: 'Ethiopia',
       city: 'Addis Ababa',
@@ -16,11 +22,11 @@ async function main() {
     },
   });
 
-  const passwordHash = await bcrypt.hash('Admin@123', 12);
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
 
   const admin = await db.user.create({
     data: {
-      email: 'admin@tenet.app',
+      email: adminEmail,
       passwordHash,
       role: 'team_admin',
       companyId: company.id,
@@ -41,8 +47,20 @@ async function main() {
     },
   });
 
-  console.log(`✅ Created admin user: ${admin.email}`);
-  console.log(`✅ Created company: ${company.name}`);
+  console.log(`✅ Created admin user: ${adminEmail}`);
+  console.log(`✅ Created company: ${companyName}`);
+
+  // Only print the password if it was auto-generated (first-time setup)
+  if (!process.env.ADMIN_PASSWORD) {
+    console.log('');
+    console.log('⚠️  ──────────────────────────────────────────────────────────');
+    console.log('⚠️  AUTO-GENERATED ADMIN PASSWORD (save this — it won\'t show again):');
+    console.log(`⚠️  ${adminPassword}`);
+    console.log('⚠️  ──────────────────────────────────────────────────────────');
+    console.log('');
+    console.log('💡 TIP: Set ADMIN_PASSWORD env var to use a specific password instead.');
+  }
+
   console.log('🌱 Seed completed.');
 }
 

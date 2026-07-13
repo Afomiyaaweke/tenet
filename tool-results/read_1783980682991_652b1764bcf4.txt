@@ -1,0 +1,292 @@
+  2530→  expiresAt: number;
+  2531→}
+  2532→const cache = new Map<string, CacheEntry>();
+  2533→
+  2534→/* ─────────────────────────────────────────────────────────────────────
+  2535→ * Sample / fallback tenders (when live APIs are unreachable)
+  2536→ * Generates realistic tender data from multiple "sources" so that
+  2537→ * Load More, document viewing, and other features can be demonstrated.
+  2538→ * ───────────────────────────────────────────────────────────────────── */
+  2539→
+  2540→function generateSampleTenders(rows: number, offset: number, search?: string): LiveTender[] {
+  2541→  const sources = [
+  2542→    'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'adb',
+  2543→    'uk_contracts', 'dgmarket', 'canada_buyandsell', 'austender',
+  2544→    'india_cppp', 'south_africa', 'colombia_secop', 'mexico_compranet',
+  2545→    'chile_mercado', 'argentina_comprar', 'uruguay_compras',
+  2546→    'kenya_tenders', 'nigeria_nocopo', 'philgeps', 'portugal_base',
+  2547→    'undp_procurement', 'global_fund', 'ifc_advisory',
+  2548→    'ecuador_sercop', 'peru_compras', 'paraguay_dncp',
+  2549→  ];
+  2550→
+  2551→  const sampleData = [
+  2552→    { title: 'Road Infrastructure Development Project', scope: 'Construction of 45km asphalt road including drainage systems, bridges, and signage in rural areas. The project aims to improve connectivity between major agricultural zones and urban markets.', category: 'Construction', location: 'Ethiopia', budget: 12000000, currency: 'USD', borrower: 'Ministry of Transport', contractType: 'Works', region: 'Africa' },
+  2553→    { title: 'Healthcare Equipment Procurement', scope: 'Supply and installation of MRI machines, CT scanners, and surgical equipment for 12 regional hospitals. Includes training of medical personnel and 3-year maintenance contract.', category: 'Healthcare', location: 'Kenya', budget: 8500000, currency: 'USD', borrower: 'Ministry of Health', contractType: 'Goods', region: 'Africa' },
+  2554→    { title: 'Digital Government Platform Implementation', scope: 'Design, development, and deployment of an integrated e-government portal for citizen services including tax filing, business registration, and permit applications. Cloud-based with mobile-first responsive design.', category: 'IT', location: 'India', budget: 3200000, currency: 'USD', borrower: 'Digital India Corporation', contractType: 'Services', region: 'South Asia' },
+  2555→    { title: 'Renewable Energy Solar Farm Construction', scope: 'Engineering, procurement, and construction of a 50MW solar photovoltaic power plant with battery energy storage system. Includes grid interconnection, substation upgrade, and SCADA system.', category: 'Energy', location: 'South Africa', budget: 25000000, currency: 'USD', borrower: 'Eskom Holdings', contractType: 'Works', region: 'Africa' },
+  2556→    { title: 'Agricultural Supply Chain Modernization', scope: 'Procurement of modern grain storage facilities, cold chain logistics equipment, and market information systems for smallholder farmers. Includes 15 storage facilities and 50 refrigerated transport vehicles.', category: 'Agriculture', location: 'Nigeria', budget: 6700000, currency: 'USD', borrower: 'Federal Ministry of Agriculture', contractType: 'Goods', region: 'Africa' },
+  2557→    { title: 'Public Transportation System Upgrade', scope: 'Procurement of 200 low-emission buses, construction of 5 bus terminals, and implementation of smart ticketing and fleet management system for the metropolitan transit authority.', category: 'Logistics', location: 'Colombia', budget: 18000000, currency: 'USD', borrower: 'Bogotá Transit Authority', contractType: 'Works', region: 'Latin America' },
+  2558→    { title: 'Educational Technology Integration Program', scope: 'Supply of 10,000 laptops, 500 interactive whiteboards, and learning management system for 200 primary schools. Includes teacher training, curriculum digitization, and 5-year support.', category: 'Education', location: 'Chile', budget: 4500000, currency: 'USD', borrower: 'Ministry of Education', contractType: 'Services', region: 'Latin America' },
+  2559→    { title: 'Water Supply and Sanitation Infrastructure', scope: 'Construction of water treatment plant, 120km pipeline network, and sewage treatment facility for urban population of 500,000. Includes pumping stations and distribution reservoirs.', category: 'Engineering', location: 'Portugal', budget: 35000000, currency: 'EUR', borrower: 'Águas de Portugal', contractType: 'Works', region: 'Europe' },
+  2560→    { title: 'Financial Management System Upgrade', scope: 'Implementation of integrated financial management information system (IFMIS) for government treasury operations. Includes budget planning, expenditure tracking, payroll, and reporting modules.', category: 'Finance', location: 'Kenya', budget: 2800000, currency: 'USD', borrower: 'National Treasury', contractType: 'Consulting', region: 'Africa' },
+  2561→    { title: 'Telecommunications Network Expansion', scope: 'Deployment of 500 4G/5G base stations, 2000km fiber optic cable, and network operations center. Includes rural connectivity program and emergency communication infrastructure.', category: 'Telecommunications', location: 'Philippines', budget: 42000000, currency: 'USD', borrower: 'Department of ICT', contractType: 'Works', region: 'Southeast Asia' },
+  2562→    { title: 'Office Building Construction - Phase II', scope: 'Construction of a modern 8-story office complex including parking garage, landscaped grounds, and LEED Gold sustainability certification. Total built area 12,000 sqm.', category: 'Construction', location: 'United Kingdom', budget: 15000000, currency: 'GBP', borrower: 'HM Revenue & Customs', contractType: 'Works', region: 'Europe' },
+  2563→    { title: 'Medical Supplies Framework Agreement', scope: 'Multi-year framework agreement for supply of pharmaceutical products, medical devices, and laboratory consumables to public health facilities. Estimated annual requirement: $5M.', category: 'Supply', location: 'Canada', budget: 25000000, currency: 'CAD', borrower: 'Health Canada', contractType: 'Goods', region: 'North America' },
+  2564→    { title: 'Bridge Construction Over River Basin', scope: 'Design and construction of a 600m cable-stayed bridge with approach roads, toll plaza, and traffic management systems. Includes environmental impact mitigation measures.', category: 'Construction', location: 'Australia', budget: 85000000, currency: 'AUD', borrower: 'Transport NSW', contractType: 'Works', region: 'Oceania' },
+  2565→    { title: 'Consulting Services for Urban Planning', scope: 'Comprehensive urban planning and development strategy for metropolitan area of 2 million residents. Includes land use planning, transportation modeling, and environmental assessment.', category: 'Consulting', location: 'Uruguay', budget: 1500000, currency: 'USD', borrower: 'Intendencia de Montevideo', contractType: 'Consulting', region: 'Latin America' },
+  2566→    { title: 'Power Grid Modernization Project', scope: 'Rehabilitation and upgrade of 220kV transmission lines, construction of 3 new substations, and deployment of smart grid automation systems across the national grid.', category: 'Energy', location: 'India', budget: 65000000, currency: 'USD', borrower: 'Power Grid Corporation', contractType: 'Works', region: 'South Asia' },
+  2567→    { title: 'School Construction Program', scope: 'Construction of 25 primary schools and 10 secondary schools with modern facilities including laboratories, libraries, computer rooms, and sports grounds. Total capacity: 15,000 students.', category: 'Construction', location: 'Nigeria', budget: 22000000, currency: 'USD', borrower: 'Universal Basic Education Commission', contractType: 'Works', region: 'Africa' },
+  2568→    { title: 'IT Security Infrastructure Enhancement', scope: 'Procurement and deployment of cybersecurity infrastructure including firewalls, intrusion detection systems, SIEM platform, and security operations center for government networks.', category: 'IT', location: 'United States', budget: 5000000, currency: 'USD', borrower: 'General Services Administration', contractType: 'Services', region: 'North America' },
+  2569→    { title: 'Agricultural Research Center Construction', scope: 'Construction of a modern agricultural research facility including laboratories, greenhouse complexes, field trial stations, and administrative buildings. Area: 5 hectares.', category: 'Agriculture', location: 'Mexico', budget: 8000000, currency: 'USD', borrower: 'SAGARPA', contractType: 'Works', region: 'Latin America' },
+  2570→    { title: 'Public Hospital Renovation Program', scope: 'Major renovation and modernization of 3 public hospitals including new surgical suites, diagnostic imaging departments, patient wards, and emergency departments. Total area: 45,000 sqm.', category: 'Healthcare', location: 'Argentina', budget: 35000000, currency: 'USD', borrower: 'Ministerio de Salud', contractType: 'Works', region: 'Latin America' },
+  2571→    { title: 'Supply of Vaccination Equipment', scope: 'Procurement of cold chain equipment, vaccination supplies, and mobile health units for nationwide immunization program. Includes 200 solar refrigerators and 50 mobile clinics.', category: 'Supply', location: 'Kenya', budget: 3500000, currency: 'USD', borrower: 'Ministry of Health Kenya', contractType: 'Goods', region: 'Africa' },
+  2572→    { title: 'Environmental Waste Management Facility', scope: 'Design, construction, and commissioning of an integrated solid waste management facility including recycling center, composting plant, and landfill gas capture system. Capacity: 500 tons/day.', category: 'Environmental', location: 'Brazil', budget: 18000000, currency: 'USD', borrower: 'Ministry of Environment', contractType: 'Works', region: 'Latin America' },
+  2573→    { title: 'National Defense Communication System', scope: 'Procurement and deployment of secure military communication infrastructure including encrypted radio systems, satellite terminals, and command & control centers for 12 regional military bases.', category: 'Defense', location: 'Australia', budget: 45000000, currency: 'AUD', borrower: 'Department of Defence', contractType: 'Services', region: 'Oceania' },
+  2574→    { title: 'Mineral Processing Plant Construction', scope: 'Engineering, procurement, and construction of a mineral processing plant with crushing, grinding, flotation, and tailings management facilities. Processing capacity: 5,000 tons/day of copper ore.', category: 'Mining', location: 'Chile', budget: 120000000, currency: 'USD', borrower: 'CORFO Chile', contractType: 'Works', region: 'Latin America' },
+  2575→    { title: 'Tourism Infrastructure Development Program', scope: 'Development of 5 eco-tourism resorts, visitor centers, and heritage trail networks across national parks. Includes sustainable water systems, solar power, and accessibility features.', category: 'Tourism', location: 'Tanzania', budget: 9500000, currency: 'USD', borrower: 'Ministry of Natural Resources', contractType: 'Works', region: 'Africa' },
+  2576→    { title: 'Maritime Port Expansion Project', scope: 'Expansion of container terminal including new deep-water berth, gantry cranes, automated stacking system, and dredging of approach channel. Annual throughput increase: 2M TEU.', category: 'Maritime', location: 'South Africa', budget: 75000000, currency: 'USD', borrower: 'Transnet National Ports Authority', contractType: 'Works', region: 'Africa' },
+  2577→    { title: 'Satellite Ground Station Network', scope: 'Design, procurement, and installation of 8 satellite ground stations with tracking antennas, signal processing equipment, and data center integration. Supports earth observation and meteorological data reception.', category: 'Space', location: 'India', budget: 32000000, currency: 'USD', borrower: 'Indian Space Research Organisation', contractType: 'Goods', region: 'South Asia' },
+  2578→    { title: 'Social Housing Development Program', scope: 'Construction of 2,000 affordable housing units across 10 urban sites with community facilities, playgrounds, and social service centers. Includes water, sewerage, and road infrastructure.', category: 'Social Services', location: 'Colombia', budget: 48000000, currency: 'USD', borrower: 'Ministerio de Vivienda', contractType: 'Works', region: 'Latin America' },
+  2579→    { title: 'National Sports Complex Construction', scope: 'Construction of a multi-sport complex including 50,000-seat stadium, aquatic center, indoor arena, and training facilities. Includes athletic tracks, FIFA-standard pitch, and broadcast infrastructure.', category: 'Sports', location: 'Nigeria', budget: 55000000, currency: 'USD', borrower: 'Federal Ministry of Sports', contractType: 'Works', region: 'Africa' },
+  2580→    { title: 'Sustainable Forestry Management System', scope: 'Implementation of digital forestry monitoring platform, procurement of aerial survey drones, and establishment of 3 seedling nurseries. Covers 500,000 hectares of conservation forest with fire detection and biodiversity tracking.', category: 'Forestry', location: 'Portugal', budget: 6200000, currency: 'EUR', borrower: 'Instituto da Conservação da Natureza', contractType: 'Services', region: 'Europe' },
+  2581→    { title: 'Textile Manufacturing Modernization', scope: 'Procurement of automated textile production lines including computerized knitting machines, digital printing systems, and quality control equipment for 8 state-owned textile factories. Includes training for 500 workers.', category: 'Textiles', location: 'Uruguay', budget: 14000000, currency: 'USD', borrower: 'Ministerio de Industria', contractType: 'Goods', region: 'Latin America' },
+  2582→    { title: 'UNDP Climate Resilience Program', scope: 'Implementation of climate adaptation measures including early warning systems, flood-resistant infrastructure, and community training programs across 5 provinces. Includes procurement of weather monitoring equipment and GIS mapping systems.', category: 'Environmental', location: 'Bangladesh', budget: 7800000, currency: 'USD', borrower: 'UNDP Bangladesh', contractType: 'Services', region: 'South Asia' },
+  2583→    { title: 'Global Fund HIV/AIDS Treatment Program', scope: 'Procurement of antiretroviral drugs, diagnostic equipment, and laboratory supplies for national HIV/AIDS treatment program. Includes cold chain logistics and 5-year maintenance contracts for 200 testing sites.', category: 'Healthcare', location: 'Mozambique', budget: 45000000, currency: 'USD', borrower: 'Ministry of Health Mozambique', contractType: 'Goods', region: 'Africa' },
+  2584→    { title: 'IFC Renewable Energy Advisory Services', scope: 'Advisory services for development of 100MW wind farm project including feasibility study, environmental impact assessment, grid integration analysis, and financial structuring. Includes stakeholder engagement and regulatory compliance.', category: 'Energy', location: 'Vietnam', budget: 3500000, currency: 'USD', borrower: 'IFC Vietnam', contractType: 'Consulting', region: 'Southeast Asia' },
+  2585→    { title: 'Ecuador Public Health Infrastructure', scope: 'Construction and equipping of 8 primary healthcare centers and 2 regional hospitals in underserved areas. Includes medical equipment procurement, IT systems, and staff training programs.', category: 'Healthcare', location: 'Ecuador', budget: 22000000, currency: 'USD', borrower: 'Ministerio de Salud Pública', contractType: 'Works', region: 'Latin America' },
+  2586→    { title: 'Peru Rural Electrification Project', scope: 'Extension of electrical grid to 500 rural communities through solar microgrids and mini-hydro systems. Includes installation of 200km distribution lines, 3,000 solar home systems, and smart metering infrastructure.', category: 'Energy', location: 'Peru', budget: 31000000, currency: 'USD', borrower: 'Ministerio de Energía y Minas', contractType: 'Works', region: 'Latin America' },
+  2587→    { title: 'Paraguay Road Rehabilitation Program', scope: 'Rehabilitation and improvement of 180km of national highways including resurfacing, bridge repairs, drainage improvements, and road safety features. Includes traffic management systems and weigh stations.', category: 'Construction', location: 'Paraguay', budget: 28000000, currency: 'USD', borrower: 'Ministerio de Obras Públicas', contractType: 'Works', region: 'Latin America' },
+  2588→    { title: 'UNDP Digital Transformation Initiative', scope: 'Design and implementation of e-governance platform for public service delivery including digital identity, online permits, and integrated payment system. Covers 15 government agencies and 200 service types.', category: 'IT', location: 'Rwanda', budget: 5400000, currency: 'USD', borrower: 'Rwanda Development Board', contractType: 'Services', region: 'Africa' },
+  2589→    { title: 'Global Fund Malaria Prevention Program', scope: 'Procurement and distribution of 15 million long-lasting insecticidal nets (LLINs), indoor residual spraying equipment, and rapid diagnostic tests for 30 endemic districts. Includes logistics management and monitoring systems.', category: 'Supply', location: 'Tanzania', budget: 38000000, currency: 'USD', borrower: 'National Malaria Control Programme', contractType: 'Goods', region: 'Africa' },
+  2590→    { title: 'Ecuador Education Quality Improvement', scope: 'Development of standardized assessment framework, procurement of 5,000 tablets and digital learning content for 300 schools. Includes teacher training programs and learning management system deployment.', category: 'Education', location: 'Ecuador', budget: 9200000, currency: 'USD', borrower: 'Ministerio de Educación', contractType: 'Services', region: 'Latin America' },
+  2591→    { title: 'Peru Water Resource Management System', scope: 'Implementation of integrated water resource management platform including satellite monitoring, automated gauging stations, and flood early warning system. Covers 3 major river basins and 50 monitoring points.', category: 'IT', location: 'Peru', budget: 4100000, currency: 'USD', borrower: 'ANA Autoridad Nacional del Agua', contractType: 'Services', region: 'Latin America' },
+  2592→    { title: 'Paraguay Public School Construction', scope: 'Construction of 15 modern school buildings with laboratories, libraries, computer rooms, and sports facilities. Total capacity of 9,000 students across 5 departments. Includes furniture and equipment procurement.', category: 'Construction', location: 'Paraguay', budget: 16500000, currency: 'USD', borrower: 'MEC Ministerio de Educación', contractType: 'Works', region: 'Latin America' },
+  2593→    { title: 'IFC Green Building Certification Program', scope: 'Development of national green building certification framework and pilot certification of 20 commercial buildings. Includes training of 100 assessors, development of rating tools, and establishment of certification body.', category: 'Consulting', location: 'Colombia', budget: 2800000, currency: 'USD', borrower: 'IFC Colombia', contractType: 'Consulting', region: 'Latin America' },
+  2594→  ];
+  2595→
+  2596→  const tenders: LiveTender[] = [];
+  2597→  const totalAvailable = 2000; // Allow up to 2000 sample tenders for pagination
+  2598→  const startIdx = offset % sampleData.length;
+  2599→  const cycleOffset = Math.floor(offset / sampleData.length);
+  2600→
+  2601→  for (let i = 0; i < rows && (offset + i) < totalAvailable; i++) {
+  2602→    const dataIdx = (startIdx + i) % sampleData.length;
+  2603→    const cycle = cycleOffset + Math.floor((startIdx + i) / sampleData.length);
+  2604→    const d = sampleData[dataIdx];
+  2605→    const source = sources[(offset + i) % sources.length];
+  2606→    const baseDeadline = new Date(Date.now() + (30 + i * 3 + cycle * 15) * 86400000);
+  2607→    const budgetVariance = 1 + (cycle * 0.15);
+  2608→    const minBudget = Math.round(d.budget * 0.6 * budgetVariance);
+  2609→    const maxBudget = Math.round(d.budget * budgetVariance);
+  2610→    const signingDate = new Date(Date.now() - (10 + i * 5) * 86400000);
+  2611→    const externalId = `${source}-${offset + i}-r${cycle}`;
+  2612→
+  2613→    // Build source-specific document URLs
+  2614→    const docUrls: Record<string, string> = {
+  2615→      worldbank: `https://projects.worldbank.org/en/projects-operations/project-detail/P${100000 + offset + i}`,
+  2616→      eu_ted: `https://ted.europa.eu/udl?uri=TED:NOTICE:${externalId}:TEXT:EN:HTML`,
+  2617→      ungm: `https://www.ungm.org/Public/Notice/${offset + i + 10000}`,
+  2618→      sam_gov: `https://sam.gov/opp/${externalId}/view`,
+  2619→      afdb: `https://www.afdb.org/en/projects-and-operations/procurement/${offset + i + 5000}`,
+  2620→      adb: `https://www.adb.org/business/opportunities/${offset + i + 2000}`,
+  2621→      uk_contracts: `https://www.contractsfinder.service.gov.uk/notice/${offset + i + 30000}`,
+  2622→      dgmarket: `https://www.dgmarket.com/tenders/${offset + i + 40000}`,
+  2623→      canada_buyandsell: `https://buyandsell.gc.ca/procurement-data/tender/${offset + i + 50000}`,
+  2624→      austender: `https://www.tenders.gov.au/tender/${offset + i + 60000}`,
+  2625→      india_cppp: `https://eprocure.gov.in/eprocure/app?tenderId=${offset + i + 70000}`,
+  2626→      south_africa: `https://www.etenders.gov.za/tender/${offset + i + 80000}`,
+  2627→      colombia_secop: `https://www.colombiacompra.gov.co/tender/${offset + i + 90000}`,
+  2628→      mexico_compranet: `https://www.gob.mx/compranet/tender/${offset + i + 91000}`,
+  2629→      chile_mercado: `https://www.mercadopublico.cl/tender/${offset + i + 100000}`,
+  2630→      argentina_comprar: `https://www.comprar.gob.ar/tender/${offset + i + 101000}`,
+  2631→      uruguay_compras: `https://www.comprasestatales.gub.uy/tender/${offset + i + 102000}`,
+  2632→      kenya_tenders: `https://tenders.go.ke/tender/${offset + i + 110000}`,
+  2633→      nigeria_nocopo: `https://nocopo.bpp.gov.ng/tender/${offset + i + 120000}`,
+  2634→      philgeps: `https://philgeps.gov.ph/tender/${offset + i + 130000}`,
+  2635→      portugal_base: `https://www.base.gov.pt/tender/${offset + i + 140000}`,
+  2636→      undp_procurement: `https://procurement-notices.undp.org/view_notice.cfm?notice_id=${offset + i + 150000}`,
+  2637→      global_fund: `https://www.theglobalfund.org/procurement/tender/${offset + i + 160000}`,
+  2638→      ifc_advisory: `https://www.ifc.org/advisory/tender/${offset + i + 170000}`,
+  2639→      ecuador_sercop: `https://www.compraspublicas.gob.ec/procurement/${offset + i + 180000}`,
+  2640→      peru_compras: `https://www.comprasestatales.gob.pe/tender/${offset + i + 190000}`,
+  2641→      paraguay_dncp: `https://www.dncp.gov.py/tender/${offset + i + 200000}`,
+  2642→    };
+  2643→
+  2644→    const titleSuffix = cycle > 0 ? ` — Phase ${cycle + 1}` : '';
+  2645→
+  2646→    // Generate documentFiles based on category
+  2647→    const categoryDocFiles: Record<string, Array<{ name: string; type: string; size: string }>> = {
+  2648→      Construction: [
+  2649→        { name: 'RFP_Construction_Works.pdf', type: 'PDF', size: '3.2 MB' },
+  2650→        { name: 'Technical_Drawings.zip', type: 'ZIP', size: '15.8 MB' },
+  2651→        { name: 'Bill_of_Quantities.xlsx', type: 'XLSX', size: '1.4 MB' },
+  2652→      ],
+  2653→      Healthcare: [
+  2654→        { name: 'RFP_Medical_Equipment.pdf', type: 'PDF', size: '2.7 MB' },
+  2655→        { name: 'Compliance_Standards.pdf', type: 'PDF', size: '1.9 MB' },
+  2656→        { name: 'Delivery_Schedule.xlsx', type: 'XLSX', size: '0.8 MB' },
+  2657→      ],
+  2658→      IT: [
+  2659→        { name: 'RFP_Digital_Platform.pdf', type: 'PDF', size: '4.1 MB' },
+  2660→        { name: 'System_Requirements.docx', type: 'DOCX', size: '1.2 MB' },
+  2661→        { name: 'Evaluation_Criteria.xlsx', type: 'XLSX', size: '0.6 MB' },
+  2662→      ],
+  2663→      Energy: [
+  2664→        { name: 'RFP_Energy_Project.pdf', type: 'PDF', size: '5.3 MB' },
+  2665→        { name: 'Environmental_Impact_Assessment.pdf', type: 'PDF', size: '8.7 MB' },
+  2666→        { name: 'Grid_Interconnection_Specs.docx', type: 'DOCX', size: '2.1 MB' },
+  2667→      ],
+  2668→      Agriculture: [
+  2669→        { name: 'RFP_Agricultural_Supply.pdf', type: 'PDF', size: '2.0 MB' },
+  2670→        { name: 'Technical_Specifications.docx', type: 'DOCX', size: '1.5 MB' },
+  2671→        { name: 'Implementation_Plan.xlsx', type: 'XLSX', size: '1.1 MB' },
+  2672→      ],
+  2673→      Education: [
+  2674→        { name: 'RFP_Education_Technology.pdf', type: 'PDF', size: '3.5 MB' },
+  2675→        { name: 'Curriculum_Framework.docx', type: 'DOCX', size: '2.3 MB' },
+  2676→      ],
+  2677→      Engineering: [
+  2678→        { name: 'RFP_Infrastructure_Works.pdf', type: 'PDF', size: '6.2 MB' },
+  2679→        { name: 'Engineering_Designs.zip', type: 'ZIP', size: '22.4 MB' },
+  2680→        { name: 'Cost_Estimate.xlsx', type: 'XLSX', size: '1.7 MB' },
+  2681→      ],
+  2682→      Finance: [
+  2683→        { name: 'RFP_Financial_System.pdf', type: 'PDF', size: '2.9 MB' },
+  2684→        { name: 'Functional_Requirements.docx', type: 'DOCX', size: '1.8 MB' },
+  2685→      ],
+  2686→      Telecommunications: [
+  2687→        { name: 'RFP_Network_Expansion.pdf', type: 'PDF', size: '4.6 MB' },
+  2688→        { name: 'Technical_Specifications.docx', type: 'DOCX', size: '3.2 MB' },
+  2689→        { name: 'Coverage_Requirements.xlsx', type: 'XLSX', size: '0.9 MB' },
+  2690→      ],
+  2691→      Logistics: [
+  2692→        { name: 'RFP_Transport_System.pdf', type: 'PDF', size: '3.8 MB' },
+  2693→        { name: 'Fleet_Specifications.docx', type: 'DOCX', size: '1.4 MB' },
+  2694→      ],
+  2695→      Supply: [
+  2696→        { name: 'RFP_Supply_Framework.pdf', type: 'PDF', size: '2.2 MB' },
+  2697→        { name: 'Product_Catalog.xlsx', type: 'XLSX', size: '1.3 MB' },
+  2698→      ],
+  2699→      Consulting: [
+  2700→        { name: 'RFP_Consulting_Services.pdf', type: 'PDF', size: '1.8 MB' },
+  2701→        { name: 'Terms_of_Reference.docx', type: 'DOCX', size: '0.9 MB' },
+  2702→      ],
+  2703→      Environmental: [
+  2704→        { name: 'RFP_Waste_Management.pdf', type: 'PDF', size: '4.3 MB' },
+  2705→        { name: 'Environmental_Assessment.pdf', type: 'PDF', size: '7.6 MB' },
+  2706→        { name: 'Regulatory_Compliance.docx', type: 'DOCX', size: '2.0 MB' },
+  2707→      ],
+  2708→      Defense: [
+  2709→        { name: 'RFP_Secure_Communications.pdf', type: 'PDF', size: '5.1 MB' },
+  2710→        { name: 'Security_Clearance_Requirements.docx', type: 'DOCX', size: '1.6 MB' },
+  2711→        { name: 'Technical_Specifications_Classified.pdf', type: 'PDF', size: '3.9 MB' },
+  2712→      ],
+  2713→      Mining: [
+  2714→        { name: 'RFP_Mineral_Processing.pdf', type: 'PDF', size: '6.8 MB' },
+  2715→        { name: 'Geological_Survey_Data.zip', type: 'ZIP', size: '45.2 MB' },
+  2716→        { name: 'Tailings_Management_Plan.docx', type: 'DOCX', size: '2.5 MB' },
+  2717→      ],
+  2718→      Tourism: [
+  2719→        { name: 'RFP_Tourism_Infrastructure.pdf', type: 'PDF', size: '3.4 MB' },
+  2720→        { name: 'Sustainability_Framework.docx', type: 'DOCX', size: '1.7 MB' },
+  2721→      ],
+  2722→      Maritime: [
+  2723→        { name: 'RFP_Port_Expansion.pdf', type: 'PDF', size: '7.9 MB' },
+  2724→        { name: 'Marine_Engineering_Designs.zip', type: 'ZIP', size: '32.1 MB' },
+  2725→        { name: 'Dredging_Specifications.docx', type: 'DOCX', size: '2.8 MB' },
+  2726→      ],
+  2727→      Space: [
+  2728→        { name: 'RFP_Ground_Station_Network.pdf', type: 'PDF', size: '4.7 MB' },
+  2729→        { name: 'RF_Specifications.docx', type: 'DOCX', size: '2.3 MB' },
+  2730→        { name: 'Orbit_Parameters.xlsx', type: 'XLSX', size: '0.5 MB' },
+  2731→      ],
+  2732→      'Social Services': [
+  2733→        { name: 'RFP_Affordable_Housing.pdf', type: 'PDF', size: '3.6 MB' },
+  2734→        { name: 'Urban_Planning_Guidelines.docx', type: 'DOCX', size: '2.1 MB' },
+  2735→        { name: 'Community_Facilities_Specs.xlsx', type: 'XLSX', size: '1.0 MB' },
+  2736→      ],
+  2737→      Sports: [
+  2738→        { name: 'RFP_Sports_Complex.pdf', type: 'PDF', size: '5.5 MB' },
+  2739→        { name: 'FIFA_Standards_Compliance.pdf', type: 'PDF', size: '2.4 MB' },
+  2740→        { name: 'Architectural_Plans.zip', type: 'ZIP', size: '28.7 MB' },
+  2741→      ],
+  2742→      Forestry: [
+  2743→        { name: 'RFP_Forestry_Management.pdf', type: 'PDF', size: '2.8 MB' },
+  2744→        { name: 'Conservation_Zone_Map.zip', type: 'ZIP', size: '18.3 MB' },
+  2745→        { name: 'Biodiversity_Monitoring_Plan.docx', type: 'DOCX', size: '1.5 MB' },
+  2746→      ],
+  2747→      Textiles: [
+  2748→        { name: 'RFP_Textile_Modernization.pdf', type: 'PDF', size: '2.5 MB' },
+  2749→        { name: 'Equipment_Specifications.docx', type: 'DOCX', size: '1.9 MB' },
+  2750→        { name: 'Production_Line_Layout.xlsx', type: 'XLSX', size: '0.7 MB' },
+  2751→      ],
+  2752→    };
+  2753→
+  2754→    const docFiles = (categoryDocFiles[d.category] || [
+  2755→      { name: 'RFP_General_Requirements.pdf', type: 'PDF', size: '2.0 MB' },
+  2756→      { name: 'Terms_and_Conditions.docx', type: 'DOCX', size: '1.0 MB' },
+  2757→    ]).slice(0, 1 + (i % 3)); // 1-3 files per tender
+  2758→
+  2759→    const docUrl = docUrls[source] || '';
+  2760→    const documentFiles = docFiles.map((f) => ({
+  2761→      ...f,
+  2762→      url: docUrl,
+  2763→    }));
+  2764→
+  2765→    tenders.push({
+  2766→      id: `sample-${externalId}`,
+  2767→      title: d.title + titleSuffix,
+  2768→      scope: d.scope,
+  2769→      budgetMin: minBudget,
+  2770→      budgetMax: maxBudget,
+  2771→      deadline: baseDeadline.toISOString(),
+  2772→      location: d.location,
+  2773→      categoryTags: d.category,
+  2774→      requiredDocs: docUrl,
+  2775→      status: i % 7 === 0 ? 'awarded' : 'open',
+  2776→      createdBy: source,
+  2777→      createdAt: signingDate.toISOString(),
+  2778→      updatedAt: signingDate.toISOString(),
+  2779→      source,
+  2780→      externalId,
+  2781→      externalUrl: docUrl || `https://example.com/tender/${externalId}`,
+  2782→      currency: d.currency,
+  2783→      borrower: d.borrower,
+  2784→      supplier: i % 7 === 0 ? `Contractor International ${String.fromCharCode(65 + (i % 26))}` : undefined,
+  2785→      contractType: d.contractType,
+  2786→      signingDate: i % 7 === 0 ? signingDate.toISOString() : undefined,
+  2787→      region: d.region,
+  2788→      documentUrl: docUrl || undefined,
+  2789→      documentFiles,
+  2790→    });
+  2791→  }
+  2792→
+  2793→  // Filter by search if provided
+  2794→  if (search) {
+  2795→    const q = search.toLowerCase();
+  2796→    return tenders.filter(
+  2797→      (t) =>
+  2798→        t.title.toLowerCase().includes(q) ||
+  2799→        t.scope.toLowerCase().includes(q) ||
+  2800→        t.location.toLowerCase().includes(q) ||
+  2801→        t.categoryTags.toLowerCase().includes(q),
+  2802→    );
+  2803→  }
+  2804→
+  2805→  return tenders;
+  2806→}
+  2807→
+  2808→export async function fetchLiveTenders(opts: {
+  2809→  source?: string;
+  2810→  search?: string;
+  2811→  rows?: number;
+  2812→  offset?: number;
+  2813→}): Promise<FetchLiveTendersResult> {
+  2814→  const cacheKey = `${opts.source || 'all'}::${opts.search || ''}::${opts.rows || 20}::${opts.offset || 0}`;
+  2815→  const hit = cache.get(cacheKey);
+  2816→  if (hit && hit.expiresAt > Date.now()) {
+  2817→    return { ...hit.result, meta: { ...hit.result.meta, cachedAt: Date.now() } };
+  2818→  }
+  2819→
+
+[showing lines 2530-2819 of 3155; use offset=2820 with limit to continue reading]

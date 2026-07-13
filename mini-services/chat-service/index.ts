@@ -2,12 +2,29 @@ import { createServer } from 'http'
 import { Server, Socket } from 'socket.io'
 
 const httpServer = createServer()
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean)
+const isDev = process.env.NODE_ENV !== 'production'
+
 const io = new Server(httpServer, {
   // DO NOT change the path, it is used by Caddy to forward the request to the correct port
   path: '/',
   cors: {
-    origin: '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true)
+      // In development, allow all origins
+      if (isDev) return callback(null, true)
+      // In production, only allow configured origins
+      if (ALLOWED_ORIGINS.length === 0) {
+        console.warn('[ChatService] No CORS_ORIGINS configured — rejecting cross-origin request from:', origin)
+        return callback(new Error('Not allowed by CORS'), false)
+      }
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true)
+      console.warn('[ChatService] CORS rejected origin:', origin)
+      return callback(new Error('Not allowed by CORS'), false)
+    },
     methods: ['GET', 'POST'],
+    credentials: true,
   },
   pingTimeout: 60000,
   pingInterval: 25000,
