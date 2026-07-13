@@ -241,6 +241,12 @@ export interface LiveTender extends Tender {
   signingDate?: string;
   region?: string;
   documentUrl?: string; // Direct link to requirement documents / RFP files
+  documentFiles?: Array<{
+    name: string;
+    type: string;
+    size: string;
+    url: string;
+  }>;
 }
 
 /**

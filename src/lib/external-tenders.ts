@@ -2026,10 +2026,20 @@ function generateSampleTenders(rows: number, offset: number, search?: string): L
     { title: 'Agricultural Research Center Construction', scope: 'Construction of a modern agricultural research facility including laboratories, greenhouse complexes, field trial stations, and administrative buildings. Area: 5 hectares.', category: 'Agriculture', location: 'Mexico', budget: 8000000, currency: 'USD', borrower: 'SAGARPA', contractType: 'Works', region: 'Latin America' },
     { title: 'Public Hospital Renovation Program', scope: 'Major renovation and modernization of 3 public hospitals including new surgical suites, diagnostic imaging departments, patient wards, and emergency departments. Total area: 45,000 sqm.', category: 'Healthcare', location: 'Argentina', budget: 35000000, currency: 'USD', borrower: 'Ministerio de Salud', contractType: 'Works', region: 'Latin America' },
     { title: 'Supply of Vaccination Equipment', scope: 'Procurement of cold chain equipment, vaccination supplies, and mobile health units for nationwide immunization program. Includes 200 solar refrigerators and 50 mobile clinics.', category: 'Supply', location: 'Kenya', budget: 3500000, currency: 'USD', borrower: 'Ministry of Health Kenya', contractType: 'Goods', region: 'Africa' },
+    { title: 'Environmental Waste Management Facility', scope: 'Design, construction, and commissioning of an integrated solid waste management facility including recycling center, composting plant, and landfill gas capture system. Capacity: 500 tons/day.', category: 'Environmental', location: 'Brazil', budget: 18000000, currency: 'USD', borrower: 'Ministry of Environment', contractType: 'Works', region: 'Latin America' },
+    { title: 'National Defense Communication System', scope: 'Procurement and deployment of secure military communication infrastructure including encrypted radio systems, satellite terminals, and command & control centers for 12 regional military bases.', category: 'Defense', location: 'Australia', budget: 45000000, currency: 'AUD', borrower: 'Department of Defence', contractType: 'Services', region: 'Oceania' },
+    { title: 'Mineral Processing Plant Construction', scope: 'Engineering, procurement, and construction of a mineral processing plant with crushing, grinding, flotation, and tailings management facilities. Processing capacity: 5,000 tons/day of copper ore.', category: 'Mining', location: 'Chile', budget: 120000000, currency: 'USD', borrower: 'CORFO Chile', contractType: 'Works', region: 'Latin America' },
+    { title: 'Tourism Infrastructure Development Program', scope: 'Development of 5 eco-tourism resorts, visitor centers, and heritage trail networks across national parks. Includes sustainable water systems, solar power, and accessibility features.', category: 'Tourism', location: 'Tanzania', budget: 9500000, currency: 'USD', borrower: 'Ministry of Natural Resources', contractType: 'Works', region: 'Africa' },
+    { title: 'Maritime Port Expansion Project', scope: 'Expansion of container terminal including new deep-water berth, gantry cranes, automated stacking system, and dredging of approach channel. Annual throughput increase: 2M TEU.', category: 'Maritime', location: 'South Africa', budget: 75000000, currency: 'USD', borrower: 'Transnet National Ports Authority', contractType: 'Works', region: 'Africa' },
+    { title: 'Satellite Ground Station Network', scope: 'Design, procurement, and installation of 8 satellite ground stations with tracking antennas, signal processing equipment, and data center integration. Supports earth observation and meteorological data reception.', category: 'Space', location: 'India', budget: 32000000, currency: 'USD', borrower: 'Indian Space Research Organisation', contractType: 'Goods', region: 'South Asia' },
+    { title: 'Social Housing Development Program', scope: 'Construction of 2,000 affordable housing units across 10 urban sites with community facilities, playgrounds, and social service centers. Includes water, sewerage, and road infrastructure.', category: 'Social Services', location: 'Colombia', budget: 48000000, currency: 'USD', borrower: 'Ministerio de Vivienda', contractType: 'Works', region: 'Latin America' },
+    { title: 'National Sports Complex Construction', scope: 'Construction of a multi-sport complex including 50,000-seat stadium, aquatic center, indoor arena, and training facilities. Includes athletic tracks, FIFA-standard pitch, and broadcast infrastructure.', category: 'Sports', location: 'Nigeria', budget: 55000000, currency: 'USD', borrower: 'Federal Ministry of Sports', contractType: 'Works', region: 'Africa' },
+    { title: 'Sustainable Forestry Management System', scope: 'Implementation of digital forestry monitoring platform, procurement of aerial survey drones, and establishment of 3 seedling nurseries. Covers 500,000 hectares of conservation forest with fire detection and biodiversity tracking.', category: 'Forestry', location: 'Portugal', budget: 6200000, currency: 'EUR', borrower: 'Instituto da Conservação da Natureza', contractType: 'Services', region: 'Europe' },
+    { title: 'Textile Manufacturing Modernization', scope: 'Procurement of automated textile production lines including computerized knitting machines, digital printing systems, and quality control equipment for 8 state-owned textile factories. Includes training for 500 workers.', category: 'Textiles', location: 'Uruguay', budget: 14000000, currency: 'USD', borrower: 'Ministerio de Industria', contractType: 'Goods', region: 'Latin America' },
   ];
 
   const tenders: LiveTender[] = [];
-  const totalAvailable = 200; // Allow up to 200 sample tenders for pagination
+  const totalAvailable = 500; // Allow up to 500 sample tenders for pagination
   const startIdx = offset % sampleData.length;
   const cycleOffset = Math.floor(offset / sampleData.length);
 
@@ -2069,6 +2079,125 @@ function generateSampleTenders(rows: number, offset: number, search?: string): L
 
     const titleSuffix = cycle > 0 ? ` — Phase ${cycle + 1}` : '';
 
+    // Generate documentFiles based on category
+    const categoryDocFiles: Record<string, Array<{ name: string; type: string; size: string }>> = {
+      Construction: [
+        { name: 'RFP_Construction_Works.pdf', type: 'PDF', size: '3.2 MB' },
+        { name: 'Technical_Drawings.zip', type: 'ZIP', size: '15.8 MB' },
+        { name: 'Bill_of_Quantities.xlsx', type: 'XLSX', size: '1.4 MB' },
+      ],
+      Healthcare: [
+        { name: 'RFP_Medical_Equipment.pdf', type: 'PDF', size: '2.7 MB' },
+        { name: 'Compliance_Standards.pdf', type: 'PDF', size: '1.9 MB' },
+        { name: 'Delivery_Schedule.xlsx', type: 'XLSX', size: '0.8 MB' },
+      ],
+      IT: [
+        { name: 'RFP_Digital_Platform.pdf', type: 'PDF', size: '4.1 MB' },
+        { name: 'System_Requirements.docx', type: 'DOCX', size: '1.2 MB' },
+        { name: 'Evaluation_Criteria.xlsx', type: 'XLSX', size: '0.6 MB' },
+      ],
+      Energy: [
+        { name: 'RFP_Energy_Project.pdf', type: 'PDF', size: '5.3 MB' },
+        { name: 'Environmental_Impact_Assessment.pdf', type: 'PDF', size: '8.7 MB' },
+        { name: 'Grid_Interconnection_Specs.docx', type: 'DOCX', size: '2.1 MB' },
+      ],
+      Agriculture: [
+        { name: 'RFP_Agricultural_Supply.pdf', type: 'PDF', size: '2.0 MB' },
+        { name: 'Technical_Specifications.docx', type: 'DOCX', size: '1.5 MB' },
+        { name: 'Implementation_Plan.xlsx', type: 'XLSX', size: '1.1 MB' },
+      ],
+      Education: [
+        { name: 'RFP_Education_Technology.pdf', type: 'PDF', size: '3.5 MB' },
+        { name: 'Curriculum_Framework.docx', type: 'DOCX', size: '2.3 MB' },
+      ],
+      Engineering: [
+        { name: 'RFP_Infrastructure_Works.pdf', type: 'PDF', size: '6.2 MB' },
+        { name: 'Engineering_Designs.zip', type: 'ZIP', size: '22.4 MB' },
+        { name: 'Cost_Estimate.xlsx', type: 'XLSX', size: '1.7 MB' },
+      ],
+      Finance: [
+        { name: 'RFP_Financial_System.pdf', type: 'PDF', size: '2.9 MB' },
+        { name: 'Functional_Requirements.docx', type: 'DOCX', size: '1.8 MB' },
+      ],
+      Telecommunications: [
+        { name: 'RFP_Network_Expansion.pdf', type: 'PDF', size: '4.6 MB' },
+        { name: 'Technical_Specifications.docx', type: 'DOCX', size: '3.2 MB' },
+        { name: 'Coverage_Requirements.xlsx', type: 'XLSX', size: '0.9 MB' },
+      ],
+      Logistics: [
+        { name: 'RFP_Transport_System.pdf', type: 'PDF', size: '3.8 MB' },
+        { name: 'Fleet_Specifications.docx', type: 'DOCX', size: '1.4 MB' },
+      ],
+      Supply: [
+        { name: 'RFP_Supply_Framework.pdf', type: 'PDF', size: '2.2 MB' },
+        { name: 'Product_Catalog.xlsx', type: 'XLSX', size: '1.3 MB' },
+      ],
+      Consulting: [
+        { name: 'RFP_Consulting_Services.pdf', type: 'PDF', size: '1.8 MB' },
+        { name: 'Terms_of_Reference.docx', type: 'DOCX', size: '0.9 MB' },
+      ],
+      Environmental: [
+        { name: 'RFP_Waste_Management.pdf', type: 'PDF', size: '4.3 MB' },
+        { name: 'Environmental_Assessment.pdf', type: 'PDF', size: '7.6 MB' },
+        { name: 'Regulatory_Compliance.docx', type: 'DOCX', size: '2.0 MB' },
+      ],
+      Defense: [
+        { name: 'RFP_Secure_Communications.pdf', type: 'PDF', size: '5.1 MB' },
+        { name: 'Security_Clearance_Requirements.docx', type: 'DOCX', size: '1.6 MB' },
+        { name: 'Technical_Specifications_Classified.pdf', type: 'PDF', size: '3.9 MB' },
+      ],
+      Mining: [
+        { name: 'RFP_Mineral_Processing.pdf', type: 'PDF', size: '6.8 MB' },
+        { name: 'Geological_Survey_Data.zip', type: 'ZIP', size: '45.2 MB' },
+        { name: 'Tailings_Management_Plan.docx', type: 'DOCX', size: '2.5 MB' },
+      ],
+      Tourism: [
+        { name: 'RFP_Tourism_Infrastructure.pdf', type: 'PDF', size: '3.4 MB' },
+        { name: 'Sustainability_Framework.docx', type: 'DOCX', size: '1.7 MB' },
+      ],
+      Maritime: [
+        { name: 'RFP_Port_Expansion.pdf', type: 'PDF', size: '7.9 MB' },
+        { name: 'Marine_Engineering_Designs.zip', type: 'ZIP', size: '32.1 MB' },
+        { name: 'Dredging_Specifications.docx', type: 'DOCX', size: '2.8 MB' },
+      ],
+      Space: [
+        { name: 'RFP_Ground_Station_Network.pdf', type: 'PDF', size: '4.7 MB' },
+        { name: 'RF_Specifications.docx', type: 'DOCX', size: '2.3 MB' },
+        { name: 'Orbit_Parameters.xlsx', type: 'XLSX', size: '0.5 MB' },
+      ],
+      'Social Services': [
+        { name: 'RFP_Affordable_Housing.pdf', type: 'PDF', size: '3.6 MB' },
+        { name: 'Urban_Planning_Guidelines.docx', type: 'DOCX', size: '2.1 MB' },
+        { name: 'Community_Facilities_Specs.xlsx', type: 'XLSX', size: '1.0 MB' },
+      ],
+      Sports: [
+        { name: 'RFP_Sports_Complex.pdf', type: 'PDF', size: '5.5 MB' },
+        { name: 'FIFA_Standards_Compliance.pdf', type: 'PDF', size: '2.4 MB' },
+        { name: 'Architectural_Plans.zip', type: 'ZIP', size: '28.7 MB' },
+      ],
+      Forestry: [
+        { name: 'RFP_Forestry_Management.pdf', type: 'PDF', size: '2.8 MB' },
+        { name: 'Conservation_Zone_Map.zip', type: 'ZIP', size: '18.3 MB' },
+        { name: 'Biodiversity_Monitoring_Plan.docx', type: 'DOCX', size: '1.5 MB' },
+      ],
+      Textiles: [
+        { name: 'RFP_Textile_Modernization.pdf', type: 'PDF', size: '2.5 MB' },
+        { name: 'Equipment_Specifications.docx', type: 'DOCX', size: '1.9 MB' },
+        { name: 'Production_Line_Layout.xlsx', type: 'XLSX', size: '0.7 MB' },
+      ],
+    };
+
+    const docFiles = (categoryDocFiles[d.category] || [
+      { name: 'RFP_General_Requirements.pdf', type: 'PDF', size: '2.0 MB' },
+      { name: 'Terms_and_Conditions.docx', type: 'DOCX', size: '1.0 MB' },
+    ]).slice(0, 1 + (i % 3)); // 1-3 files per tender
+
+    const docUrl = docUrls[source] || '';
+    const documentFiles = docFiles.map((f) => ({
+      ...f,
+      url: docUrl,
+    }));
+
     tenders.push({
       id: `sample-${externalId}`,
       title: d.title + titleSuffix,
@@ -2078,21 +2207,22 @@ function generateSampleTenders(rows: number, offset: number, search?: string): L
       deadline: baseDeadline.toISOString(),
       location: d.location,
       categoryTags: d.category,
-      requiredDocs: docUrls[source] || '',
+      requiredDocs: docUrl,
       status: i % 7 === 0 ? 'awarded' : 'open',
       createdBy: source,
       createdAt: signingDate.toISOString(),
       updatedAt: signingDate.toISOString(),
       source,
       externalId,
-      externalUrl: docUrls[source] || `https://example.com/tender/${externalId}`,
+      externalUrl: docUrl || `https://example.com/tender/${externalId}`,
       currency: d.currency,
       borrower: d.borrower,
       supplier: i % 7 === 0 ? `Contractor International ${String.fromCharCode(65 + (i % 26))}` : undefined,
       contractType: d.contractType,
       signingDate: i % 7 === 0 ? signingDate.toISOString() : undefined,
       region: d.region,
-      documentUrl: docUrls[source] || undefined,
+      documentUrl: docUrl || undefined,
+      documentFiles,
     });
   }
 

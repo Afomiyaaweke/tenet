@@ -1367,6 +1367,38 @@ function TenderCard({
                 )}
               </div>
 
+              {/* Document Files list */}
+              {tender.documentFiles && tender.documentFiles.length > 0 && (
+                <div className="rounded-lg border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/40 dark:bg-sky-950/20 p-2.5 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <FileSearch className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                    <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wide">Requirement Files</span>
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-sky-200 dark:border-sky-700 text-sky-600 dark:text-sky-400">
+                      {tender.documentFiles.length}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    {tender.documentFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-[10px]">
+                        <span className="shrink-0 px-1.5 py-0.5 rounded bg-white dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 font-mono text-sky-700 dark:text-sky-300">
+                          {file.type}
+                        </span>
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {file.name}
+                        </a>
+                        <span className="text-muted-foreground ml-auto shrink-0">{file.size}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* ── AI Review Section (inline in detail view) ── */}
               <div className="rounded-lg border border-violet-200/50 dark:border-violet-800/30 bg-gradient-to-b from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
@@ -1856,6 +1888,7 @@ export function LiveTendersView() {
   // Server-side pagination state
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [totalAvailable, setTotalAvailable] = useState(0);
 
   // Inline document state
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1942,6 +1975,7 @@ export function LiveTendersView() {
         if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
         if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
         setHasMore(res.meta?.hasMore ?? false);
+        if (res.meta?.totalAvailable) setTotalAvailable(res.meta.totalAvailable);
       } else {
         toast.error(res.error || 'Failed to load live tenders');
       }
@@ -2622,10 +2656,23 @@ export function LiveTendersView() {
         {/* Load More button — server-side pagination */}
         {tenders.length > 0 && (
           <div className="flex flex-col items-center gap-3 pt-6 pb-4">
+            {/* Progress bar */}
+            {totalAvailable > 0 && (
+              <div className="w-full max-w-md">
+                <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.round((tenders.length / totalAvailable) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <FileText className="h-3 w-3" />
-                {tenders.length} tenders loaded
+                {totalAvailable > 0
+                  ? `Showing ${tenders.length} of ${totalAvailable} tenders`
+                  : `${tenders.length} tenders loaded`}
               </span>
               {tenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length > 0 && (
                 <>
@@ -2656,12 +2703,16 @@ export function LiveTendersView() {
                 ) : (
                   <ChevronDown className="h-4 w-4" />
                 )}
-                {loadingMore ? 'Loading More…' : 'Load More Tenders'}
+                {loadingMore
+                  ? 'Loading More…'
+                  : totalAvailable > 0
+                    ? `Load More (${Math.round((tenders.length / totalAvailable) * 100)}% loaded)`
+                    : 'Load More Tenders'}
               </Button>
             ) : (
               <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3" />
-                All tenders loaded
+                {totalAvailable > 0 ? `All ${totalAvailable} tenders loaded` : 'All tenders loaded'}
               </p>
             )}
           </div>

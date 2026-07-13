@@ -71,6 +71,13 @@ export async function GET(request: NextRequest) {
     const dataSources: DataSource[] = DATA_SOURCES;
     const sectors = getSectorCounts();
 
+    const isFallback = result.meta.fallback;
+    const totalAvailable = isFallback ? 500 : undefined;
+    const hasMore = isFallback
+      ? (offset + tenders.length) < (totalAvailable || 500)
+      : tenders.length >= rows;
+    const docsCount = tenders.filter((t) => t.documentUrl || t.documentFiles?.length).length;
+
     return NextResponse.json({
       success: true,
       data: tenders,
@@ -81,7 +88,9 @@ export async function GET(request: NextRequest) {
         search: search || '',
         rows,
         offset,
-        hasMore: result.tenders.length >= rows,
+        hasMore,
+        totalAvailable,
+        docsCount,
         sectors,
         sources: result.meta.sources,
         dataSources,
