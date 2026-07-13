@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validDocTypes = ['business_license', 'tax_clearance', 'portfolio', 'certificate', 'other', 'bid_attachment', 'technical_proposal', 'financial_proposal', 'timeline_doc', 'external_doc'];
+    const validDocTypes = ['business_license', 'tax_clearance', 'portfolio', 'certificate', 'other', 'bid_attachment', 'technical_proposal', 'financial_proposal', 'timeline_doc', 'external_doc', 'tender_document'];
     if (!validDocTypes.includes(docType)) {
       return NextResponse.json(
         { success: false, error: `Invalid docType. Must be one of: ${validDocTypes.join(', ')}` },

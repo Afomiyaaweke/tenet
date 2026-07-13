@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuthStore, useNavStore } from '@/store';
-import { api, Tender, Bid, LiveTender } from '@/lib/api';
+import { api, Tender, Bid, LiveTender, TenderDocument } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import {
   ClipboardList, ChevronDown, ChevronUp, Sparkles, Gavel,
   ExternalLink, FileText, Tag, Briefcase, Eye, ShieldCheck,
   Wallet, Clock3, Globe2, Award, CircleDot, ListChecks,
+  Upload, CloudUpload, FileUp, ScanSearch, Brain, Trash2, Loader2,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -566,6 +567,11 @@ export function TendersView() {
     location: '', categoryTags: '', requiredDocs: '',
   });
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [createDocs, setCreateDocs] = useState<TenderDocument[]>([]);
+  const [createDocUploading, setCreateDocUploading] = useState(false);
+  const [createDocType, setCreateDocType] = useState('tender_document');
+  const createFileInputRef = useRef<HTMLInputElement>(null);
+  const createDropRef = useRef<HTMLDivElement>(null);
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
   const [expandedTenderId, setExpandedTenderId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(24);
@@ -592,10 +598,14 @@ export function TendersView() {
       budgetMin: parseFloat(createData.budgetMin),
       budgetMax: parseFloat(createData.budgetMax),
       categoryTags: selectedCategories.join(','),
+      documentIds: createDocs.map(d => d.id),
     });
     if (res.success) {
       toast.success('Tender created successfully!');
       setShowCreate(false);
+      setCreateData({ title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '', location: '', categoryTags: '', requiredDocs: '' });
+      setSelectedCategories([]);
+      setCreateDocs([]);
       loadTenders();
     } else {
       toast.error(res.error || 'Failed to create tender');
@@ -605,6 +615,83 @@ export function TendersView() {
   const toggleCategory = (cat: string) => {
     setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   };
+
+  // ── Tender Document Upload ──
+  const handleCreateDocUpload = useCallback(async (docType?: string) => {
+    const fileInput = createFileInputRef.current;
+    if (!fileInput?.files?.length) {
+      toast.error('Please select a file first');
+      return;
+    }
+    setCreateDocUploading(true);
+    try {
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('docType', docType || createDocType);
+      formData.append('autoOcr', 'true');
+      formData.append('autoReview', 'true');
+      const res = await api.upload('/tenders/documents', formData);
+      if (res.success) {
+        setCreateDocs(prev => [...prev, res.data]);
+        toast.success('Document uploaded — OCR & AI Review started');
+        fileInput.value = '';
+      } else {
+        toast.error(res.error || 'Upload failed');
+      }
+    } catch {
+      toast.error('Upload failed');
+    }
+    setCreateDocUploading(false);
+  }, [createDocType]);
+
+  const handleCreateDocDrop = useCallback(async (files: FileList, docType?: string) => {
+    if (!files.length) return;
+    setCreateDocUploading(true);
+    try {
+      const file = files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('docType', docType || createDocType);
+      formData.append('autoOcr', 'true');
+      formData.append('autoReview', 'true');
+      const res = await api.upload('/tenders/documents', formData);
+      if (res.success) {
+        setCreateDocs(prev => [...prev, res.data]);
+        toast.success('Document uploaded — OCR & AI Review started');
+      } else {
+        toast.error(res.error || 'Upload failed');
+      }
+    } catch {
+      toast.error('Upload failed');
+    }
+    setCreateDocUploading(false);
+  }, [createDocType]);
+
+  const handleRemoveCreateDoc = useCallback(async (docId: string) => {
+    try {
+      // Use fetch directly since api.delete doesn't support body
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: HeadersInit = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      headers['Content-Type'] = 'application/json';
+      const res = await fetch('/api/tenders/documents', {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({ documentId: docId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCreateDocs(prev => prev.filter(d => d.id !== docId));
+        toast.success('Document removed');
+      } else {
+        // Still remove from local state even if server delete fails
+        setCreateDocs(prev => prev.filter(d => d.id !== docId));
+      }
+    } catch {
+      setCreateDocs(prev => prev.filter(d => d.id !== docId));
+    }
+  }, []);
 
   const toggleCompare = (tenderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -690,7 +777,7 @@ export function TendersView() {
             <p className="text-muted-foreground text-sm mt-0.5">Explore published tender opportunities by sector — click to apply</p>
           </div>
         </div>
-        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setCreateDocs([]); setCreateDocType('tender_document'); } }}>
           <DialogTrigger asChild>
             <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
               <Plus className="h-4 w-4 mr-2" /> Create Tender
@@ -759,6 +846,124 @@ export function TendersView() {
                   ))}
                 </div>
               </div>
+
+              {/* ── Tender Document Upload ── */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg gradient-emerald">
+                    <FileUp className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <Label className="text-sm font-semibold uppercase tracking-wide">Tender Documents</Label>
+                  <span className="text-[10px] text-muted-foreground ml-1">RFP, specifications, terms of reference, etc.</span>
+                </div>
+
+                {/* Upload area with drag & drop */}
+                <div
+                  ref={createDropRef}
+                  className="relative"
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); }}
+                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); handleCreateDocDrop(e.dataTransfer.files, createDocType); }}
+                >
+                  <div className="p-4 bg-gradient-to-b from-emerald-50/40 to-emerald-50/10 border-2 border-dashed border-emerald-200 rounded-xl text-center hover:border-emerald-300 transition-colors">
+                    <CloudUpload className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+                    <p className="text-xs font-medium text-emerald-700 mb-1">
+                      Drag & drop tender documents here
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mb-3">
+                      Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
+                      <input
+                        ref={createFileInputRef}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+                        className="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 file:cursor-pointer file:transition-colors"
+                      />
+                      <select
+                        value={createDocType}
+                        onChange={e => setCreateDocType(e.target.value)}
+                        className="h-7 text-xs rounded-lg bg-white/80 border border-emerald-200 px-2"
+                      >
+                        <option value="tender_document">Tender Document</option>
+                        <option value="external_doc">External Document</option>
+                        <option value="technical_proposal">Technical Spec</option>
+                        <option value="financial_proposal">Financial Spec</option>
+                        <option value="business_license">Business License</option>
+                        <option value="tax_clearance">Tax Clearance</option>
+                        <option value="certificate">Certificate</option>
+                        <option value="portfolio">Portfolio</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <Button
+                        size="sm"
+                        className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+                        onClick={() => handleCreateDocUpload(createDocType)}
+                        disabled={createDocUploading}
+                      >
+                        {createDocUploading ? (
+                          <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Uploading...</>
+                        ) : (
+                          <><Upload className="h-3 w-3 mr-1" /> Upload</>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground">
+                      <ScanSearch className="h-2.5 w-2.5 text-emerald-500" /> Auto OCR
+                      <span className="text-muted-foreground/40">→</span>
+                      <Brain className="h-2.5 w-2.5 text-purple-500" /> Auto AI Review
+                    </div>
+                  </div>
+                </div>
+
+                {/* Uploaded documents list */}
+                {createDocs.length > 0 && (
+                  <div className="space-y-2">
+                    {createDocs.map(doc => (
+                      <div key={doc.id} className="flex items-center gap-3 p-2.5 bg-muted/40 rounded-xl border border-border/40 group hover:bg-muted/60 transition-colors">
+                        <div className="p-1.5 rounded-lg bg-emerald-50 flex-shrink-0">
+                          <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{doc.fileName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className="text-[8px] h-4 px-1.5">{doc.docType.replace(/_/g, ' ')}</Badge>
+                            {doc.ocrStatus === 'processing' && (
+                              <span className="text-[8px] text-amber-600 flex items-center gap-0.5">
+                                <Loader2 className="h-2 w-2 animate-spin" /> OCR...
+                              </span>
+                            )}
+                            {doc.ocrStatus === 'completed' && (
+                              <span className="text-[8px] text-emerald-600 flex items-center gap-0.5">
+                                <CheckCircle className="h-2 w-2" /> OCR ✓
+                              </span>
+                            )}
+                            {doc.aiReviewStatus === 'processing' && (
+                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+                                <Loader2 className="h-2 w-2 animate-spin" /> Review...
+                              </span>
+                            )}
+                            {doc.aiReviewStatus === 'completed' && (
+                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+                                <Brain className="h-2 w-2" /> Review ✓
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all rounded-lg"
+                          onClick={() => handleRemoveCreateDoc(doc.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleCreate}>
                 Create Tender <ArrowRight className="h-4 w-4 ml-2" />
               </Button>

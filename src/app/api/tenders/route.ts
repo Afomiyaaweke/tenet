@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       categoryTags,
       requiredDocs,
       status,
+      documentIds,
     } = body;
 
     if (!title || !scope || budgetMin === undefined || budgetMax === undefined || !deadline || !location || !categoryTags) {
@@ -52,7 +53,25 @@ export async function POST(request: NextRequest) {
         createdBy: user!.id,
         companyId: user!.companyId || null,
       },
+      include: {
+        documents: true,
+        _count: { select: { bids: true } },
+      },
     });
+
+    // If documentIds were provided (pre-uploaded before tender creation), link them now
+    if (documentIds && Array.isArray(documentIds) && documentIds.length > 0) {
+      await db.document.updateMany({
+        where: {
+          id: { in: documentIds },
+          userId: user!.id,
+          tenderId: null, // only link unlinked docs
+        },
+        data: {
+          tenderId: tender.id,
+        },
+      });
+    }
 
     return NextResponse.json(
       { success: true, data: tender },

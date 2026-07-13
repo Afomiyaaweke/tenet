@@ -193,6 +193,19 @@ export interface AIReviewResult {
   summary: string;
 }
 
+export interface TenderDocument {
+  id: string;
+  fileName: string;
+  docType: string;
+  fileUrl: string;
+  status: string;
+  ocrStatus: string;
+  ocrProcessedAt: string | null;
+  aiReviewStatus: string;
+  aiReviewProcessedAt: string | null;
+  createdAt: string;
+}
+
 export interface Tender {
   id: string;
   title: string;
@@ -209,6 +222,7 @@ export interface Tender {
   updatedAt: string;
   matchScore?: number;
   _count?: { bids: number };
+  documents?: TenderDocument[];
 }
 
 /**
