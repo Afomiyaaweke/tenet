@@ -558,6 +558,11 @@ export function TendersView() {
   const { setView } = useNavStore();
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTenders, setTotalTenders] = useState(0);
+  const LIMIT = 12;
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -574,23 +579,48 @@ export function TendersView() {
   const createDropRef = useRef<HTMLDivElement>(null);
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
   const [expandedTenderId, setExpandedTenderId] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(24);
-  const TENDER_PAGE_SIZE = 12;
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
-  const loadTenders = useCallback(async () => {
-    setLoading(true);
-    const params: Record<string, string> = {};
+  const loadTenders = useCallback(async (pageNum: number = 1, append: boolean = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
+    const params: Record<string, string> = { page: String(pageNum), limit: String(LIMIT) };
     if (search) params.search = search;
     if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
     if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
     const res = await api.get('/tenders', params);
-    if (res.success) setTenders(res.data);
+    if (res.success) {
+      const newTenders = res.data as Tender[];
+      setTenders(append ? (prev: Tender[]) => [...prev, ...newTenders] : newTenders);
+      if (res.meta) {
+        setTotalPages(res.meta.totalPages || 1);
+        setTotalTenders(res.meta.total || newTenders.length);
+      }
+    }
     setLoading(false);
+    setLoadingMore(false);
   }, [search, categoryFilter, statusFilter]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadTenders(); }, [loadTenders]);
+  // Re-fetch when filters change (always reset to page 1)
+  const filterKey = `${search}|${categoryFilter}|${statusFilter}`;
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    loadTenders(1, false);
+  }, [filterKey, loadTenders]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Fetch additional pages when page increments
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (page > 1) {
+      loadTenders(page, true);
+    }
+  }, [page, loadTenders]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const handleLoadMore = () => {
+    setPage(prev => prev + 1);
+  };
 
   const handleCreate = async () => {
     const res = await api.post('/tenders', {
@@ -606,7 +636,7 @@ export function TendersView() {
       setCreateData({ title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '', location: '', categoryTags: '', requiredDocs: '' });
       setSelectedCategories([]);
       setCreateDocs([]);
-      loadTenders();
+      loadTenders(1, false);
     } else {
       toast.error(res.error || 'Failed to create tender');
     }
@@ -743,8 +773,8 @@ export function TendersView() {
     open: tenders.filter(t => t.status === 'open').length,
     closed: tenders.filter(t => t.status === 'closed').length,
     awarded: tenders.filter(t => t.status === 'awarded').length,
-    total: tenders.length,
-  }), [tenders]);
+    total: totalTenders || tenders.length,
+  }), [tenders, totalTenders]);
 
   // When a specific category is selected, show only that category's tenders
   const displayCategories = useMemo(() => {
@@ -753,14 +783,6 @@ export function TendersView() {
     }
     return activeCategories;
   }, [categoryFilter, activeCategories]);
-
-  // Flat list when a specific category is selected
-  const filteredTenders = useMemo(() => {
-    if (categoryFilter && categoryFilter !== 'all') {
-      return tendersByCategory[categoryFilter] || [];
-    }
-    return tenders;
-  }, [categoryFilter, tendersByCategory, tenders]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
@@ -1014,7 +1036,7 @@ export function TendersView() {
                 : 'bg-card border-border/60 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
             }`}
           >
-            All ({tenders.length})
+            All ({totalTenders || tenders.length})
           </button>
           {CATEGORIES.map(cat => {
             const count = (tendersByCategory[cat] || []).length;
@@ -1106,14 +1128,14 @@ export function TendersView() {
               <div className="relative w-20 h-20 mx-auto mb-6">
                 <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20" />
                 <div className="absolute inset-2 rounded-xl gradient-emerald flex items-center justify-center">
-                  <FileSearch className="h-8 w-8 text-white" />
+                  <Globe2 className="h-8 w-8 text-white" />
                 </div>
               </div>
               <h3 className="text-lg font-semibold">No tenders found</h3>
               <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
                 {search || categoryFilter
                   ? 'Try adjusting your search or filters to find more opportunities'
-                  : 'New tenders are posted regularly. Check back soon!'}
+                  : 'No tenders available at the moment. Check back later!'}
               </p>
               {(search || categoryFilter) && (
                 <Button variant="outline" className="mt-4 rounded-xl" onClick={() => { setSearch(''); setCategoryFilter(''); setStatusFilter(''); }}>
@@ -1336,7 +1358,7 @@ export function TendersView() {
               <CategorySection
                 key={cat}
                 category={cat}
-                tenders={catTenders.slice(0, visibleCount)}
+                tenders={catTenders}
                 expandedTenderId={expandedTenderId}
                 onExpandTender={setExpandedTenderId}
                 compareSelection={compareSelection}
@@ -1348,18 +1370,35 @@ export function TendersView() {
         </div>
       )}
 
-      {/* See More / Load More */}
-      {!loading && filteredTenders.length > visibleCount && (
-        <div className="flex justify-center pt-4">
-          <Button
-            variant="outline"
-            size="lg"
-            className="gap-2 rounded-xl border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
-            onClick={() => setVisibleCount(prev => Math.min(prev + TENDER_PAGE_SIZE, filteredTenders.length))}
-          >
-            <ChevronDown className="h-4 w-4" />
-            See More ({filteredTenders.length - visibleCount} remaining)
-          </Button>
+      {/* See More / Load More — server-side pagination */}
+      {!loading && tenders.length > 0 && (
+        <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+          <p className="text-xs text-muted-foreground">
+            {page >= totalPages
+              ? `All ${tenders.length} tenders loaded${totalTenders > tenders.length ? ` (${totalTenders} total)` : ''}`
+              : `${tenders.length} of ${totalTenders} tenders loaded · ${totalTenders - tenders.length} remaining`}
+          </p>
+          {page < totalPages ? (
+            <Button
+              variant="outline"
+              size="lg"
+              className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+              Load More ({totalTenders - tenders.length} remaining)
+            </Button>
+          ) : (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" />
+              All tenders loaded
+            </p>
+          )}
         </div>
       )}
 

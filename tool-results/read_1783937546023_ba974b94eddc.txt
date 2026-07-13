@@ -1,0 +1,502 @@
+   500→   500→                              onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, action: 'apply' }); }}
+   501→   501→                            >
+   502→   502→                              <Gavel className="h-3 w-3" />
+   503→   503→                              Apply
+   504→   504→                            </Button>
+   505→   505→                          )}
+   506→   506→                          <Button
+   507→   507→                            variant="ghost"
+   508→   508→                            size="sm"
+   509→   509→                            className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
+   510→   510→                            onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
+   511→   511→                          >
+   512→   512→                            <Sparkles className="h-3 w-3" />
+   513→   513→                            AI Review
+   514→   514→                          </Button>
+   515→   515→                          <Button
+   516→   516→                            variant="ghost"
+   517→   517→                            size="sm"
+   518→   518→                            className="gap-1 text-[10px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 h-6 px-1.5"
+   519→   519→                            onClick={(e) => { e.stopPropagation(); setView('bids', { tenderId: tender.id }); }}
+   520→   520→                          >
+   521→   521→                            <Briefcase className="h-3 w-3" />
+   522→   522→                            Track
+   523→   523→                          </Button>
+   524→   524→                        </div>
+   525→   525→                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+   526→   526→                          {isExpanded ? 'Collapse' : 'Expand'} Details
+   527→   527→                          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+   528→   528→                            <ChevronDown className="h-3 w-3" />
+   529→   529→                          </div>
+   530→   530→                        </span>
+   531→   531→                      </div>
+   532→   532→                    </CardContent>
+   533→   533→                  </Card>
+   534→   534→                </div>
+   535→   535→
+   536→   536→                {/* Inline Detail Panel */}
+   537→   537→                {isExpanded && (
+   538→   538→                  <div className="mt-2 mb-1">
+   539→   539→                    <InlineTenderDetail
+   540→   540→                      tender={tender}
+   541→   541→                      onClose={() => onExpandTender(null)}
+   542→   542→                      setView={setView}
+   543→   543→                    />
+   544→   544→                  </div>
+   545→   545→                )}
+   546→   546→              </div>
+   547→   547→            );
+   548→   548→          })}
+   549→   549→        </div>
+   550→   550→      </CollapsibleContent>
+   551→   551→    </Collapsible>
+   552→   552→  );
+   553→   553→}
+   554→   554→
+   555→   555→// ─── Main Tenders View ──────────────────────────────────────────
+   556→   556→export function TendersView() {
+   557→   557→  const { user } = useAuthStore();
+   558→   558→  const { setView } = useNavStore();
+   559→   559→  const [tenders, setTenders] = useState<Tender[]>([]);
+   560→   560→  const [loading, setLoading] = useState(true);
+   561→   561→  const [search, setSearch] = useState('');
+   562→   562→  const [categoryFilter, setCategoryFilter] = useState('');
+   563→   563→  const [statusFilter, setStatusFilter] = useState('');
+   564→   564→  const [showCreate, setShowCreate] = useState(false);
+   565→   565→  const [createData, setCreateData] = useState({
+   566→   566→    title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '',
+   567→   567→    location: '', categoryTags: '', requiredDocs: '',
+   568→   568→  });
+   569→   569→  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+   570→   570→  const [createDocs, setCreateDocs] = useState<TenderDocument[]>([]);
+   571→   571→  const [createDocUploading, setCreateDocUploading] = useState(false);
+   572→   572→  const [createDocType, setCreateDocType] = useState('tender_document');
+   573→   573→  const createFileInputRef = useRef<HTMLInputElement>(null);
+   574→   574→  const createDropRef = useRef<HTMLDivElement>(null);
+   575→   575→  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+   576→   576→  const [expandedTenderId, setExpandedTenderId] = useState<string | null>(null);
+   577→   577→  const [visibleCount, setVisibleCount] = useState(24);
+   578→   578→  const TENDER_PAGE_SIZE = 12;
+   579→   579→  const categoryScrollRef = useRef<HTMLDivElement>(null);
+   580→   580→
+   581→   581→  const loadTenders = useCallback(async () => {
+   582→   582→    setLoading(true);
+   583→   583→    const params: Record<string, string> = {};
+   584→   584→    if (search) params.search = search;
+   585→   585→    if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+   586→   586→    if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+   587→   587→    const res = await api.get('/tenders', params);
+   588→   588→    if (res.success) setTenders(res.data);
+   589→   589→    setLoading(false);
+   590→   590→  }, [search, categoryFilter, statusFilter]);
+   591→   591→
+   592→   592→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   593→   593→  useEffect(() => { loadTenders(); }, [loadTenders]);
+   594→   594→
+   595→   595→  const handleCreate = async () => {
+   596→   596→    const res = await api.post('/tenders', {
+   597→   597→      ...createData,
+   598→   598→      budgetMin: parseFloat(createData.budgetMin),
+   599→   599→      budgetMax: parseFloat(createData.budgetMax),
+   600→   600→      categoryTags: selectedCategories.join(','),
+   601→   601→      documentIds: createDocs.map(d => d.id),
+   602→   602→    });
+   603→   603→    if (res.success) {
+   604→   604→      toast.success('Tender created successfully!');
+   605→   605→      setShowCreate(false);
+   606→   606→      setCreateData({ title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '', location: '', categoryTags: '', requiredDocs: '' });
+   607→   607→      setSelectedCategories([]);
+   608→   608→      setCreateDocs([]);
+   609→   609→      loadTenders();
+   610→   610→    } else {
+   611→   611→      toast.error(res.error || 'Failed to create tender');
+   612→   612→    }
+   613→   613→  };
+   614→   614→
+   615→   615→  const toggleCategory = (cat: string) => {
+   616→   616→    setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+   617→   617→  };
+   618→   618→
+   619→   619→  // ── Tender Document Upload ──
+   620→   620→  const handleCreateDocUpload = useCallback(async (docType?: string) => {
+   621→   621→    const fileInput = createFileInputRef.current;
+   622→   622→    if (!fileInput?.files?.length) {
+   623→   623→      toast.error('Please select a file first');
+   624→   624→      return;
+   625→   625→    }
+   626→   626→    setCreateDocUploading(true);
+   627→   627→    try {
+   628→   628→      const file = fileInput.files[0];
+   629→   629→      const formData = new FormData();
+   630→   630→      formData.append('file', file);
+   631→   631→      formData.append('docType', docType || createDocType);
+   632→   632→      formData.append('autoOcr', 'true');
+   633→   633→      formData.append('autoReview', 'true');
+   634→   634→      const res = await api.upload('/tenders/documents', formData);
+   635→   635→      if (res.success) {
+   636→   636→        setCreateDocs(prev => [...prev, res.data]);
+   637→   637→        toast.success('Document uploaded — OCR & AI Review started');
+   638→   638→        fileInput.value = '';
+   639→   639→      } else {
+   640→   640→        toast.error(res.error || 'Upload failed');
+   641→   641→      }
+   642→   642→    } catch {
+   643→   643→      toast.error('Upload failed');
+   644→   644→    }
+   645→   645→    setCreateDocUploading(false);
+   646→   646→  }, [createDocType]);
+   647→   647→
+   648→   648→  const handleCreateDocDrop = useCallback(async (files: FileList, docType?: string) => {
+   649→   649→    if (!files.length) return;
+   650→   650→    setCreateDocUploading(true);
+   651→   651→    try {
+   652→   652→      const file = files[0];
+   653→   653→      const formData = new FormData();
+   654→   654→      formData.append('file', file);
+   655→   655→      formData.append('docType', docType || createDocType);
+   656→   656→      formData.append('autoOcr', 'true');
+   657→   657→      formData.append('autoReview', 'true');
+   658→   658→      const res = await api.upload('/tenders/documents', formData);
+   659→   659→      if (res.success) {
+   660→   660→        setCreateDocs(prev => [...prev, res.data]);
+   661→   661→        toast.success('Document uploaded — OCR & AI Review started');
+   662→   662→      } else {
+   663→   663→        toast.error(res.error || 'Upload failed');
+   664→   664→      }
+   665→   665→    } catch {
+   666→   666→      toast.error('Upload failed');
+   667→   667→    }
+   668→   668→    setCreateDocUploading(false);
+   669→   669→  }, [createDocType]);
+   670→   670→
+   671→   671→  const handleRemoveCreateDoc = useCallback(async (docId: string) => {
+   672→   672→    try {
+   673→   673→      // Use fetch directly since api.delete doesn't support body
+   674→   674→      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+   675→   675→      const headers: HeadersInit = {};
+   676→   676→      if (token) headers['Authorization'] = `Bearer ${token}`;
+   677→   677→      headers['Content-Type'] = 'application/json';
+   678→   678→      const res = await fetch('/api/tenders/documents', {
+   679→   679→        method: 'DELETE',
+   680→   680→        headers,
+   681→   681→        body: JSON.stringify({ documentId: docId }),
+   682→   682→      });
+   683→   683→      const data = await res.json();
+   684→   684→      if (data.success) {
+   685→   685→        setCreateDocs(prev => prev.filter(d => d.id !== docId));
+   686→   686→        toast.success('Document removed');
+   687→   687→      } else {
+   688→   688→        // Still remove from local state even if server delete fails
+   689→   689→        setCreateDocs(prev => prev.filter(d => d.id !== docId));
+   690→   690→      }
+   691→   691→    } catch {
+   692→   692→      setCreateDocs(prev => prev.filter(d => d.id !== docId));
+   693→   693→    }
+   694→   694→  }, []);
+   695→   695→
+   696→   696→  const toggleCompare = (tenderId: string, e: React.MouseEvent) => {
+   697→   697→    e.stopPropagation();
+   698→   698→    setCompareSelection(prev =>
+   699→   699→      prev.includes(tenderId) ? prev.filter(id => id !== tenderId) : [...prev, tenderId].slice(-4)
+   700→   700→    );
+   701→   701→  };
+   702→   702→
+   703→   703→  const goToCompare = () => {
+   704→   704→    if (compareSelection.length >= 2) {
+   705→   705→      setView('tender-compare', { ids: compareSelection.join(',') });
+   706→   706→    }
+   707→   707→  };
+   708→   708→
+   709→   709→  // Group tenders by category
+   710→   710→  const tendersByCategory = useMemo(() => {
+   711→   711→    const map: Record<string, Tender[]> = {};
+   712→   712→    tenders.forEach(t => {
+   713→   713→      const cats = t.categoryTags.split(',').filter(Boolean).map(c => c.trim());
+   714→   714→      if (cats.length === 0) {
+   715→   715→        if (!map['Uncategorized']) map['Uncategorized'] = [];
+   716→   716→        map['Uncategorized'].push(t);
+   717→   717→      } else {
+   718→   718→        cats.forEach(cat => {
+   719→   719→          if (!map[cat]) map[cat] = [];
+   720→   720→          // avoid duplicate if tender has multiple categories
+   721→   721→          if (!map[cat].some(existing => existing.id === t.id)) {
+   722→   722→            map[cat].push(t);
+   723→   723→          }
+   724→   724→        });
+   725→   725→      }
+   726→   726→    });
+   727→   727→    return map;
+   728→   728→  }, [tenders]);
+   729→   729→
+   730→   730→  // Get active categories (those with tenders), sorted by CATEGORIES order
+   731→   731→  const activeCategories = useMemo(() => {
+   732→   732→    const catSet = new Set<string>();
+   733→   733→    tenders.forEach(t => {
+   734→   734→      t.categoryTags.split(',').filter(Boolean).forEach(c => catSet.add(c.trim()));
+   735→   735→    });
+   736→   736→    // Sort by CATEGORIES order, then alphabetically for any not in list
+   737→   737→    const ordered = CATEGORIES.filter(c => catSet.has(c));
+   738→   738→    const extras = Array.from(catSet).filter(c => !CATEGORIES.includes(c)).sort();
+   739→   739→    return [...ordered, ...extras];
+   740→   740→  }, [tenders]);
+   741→   741→
+   742→   742→  const stats = useMemo(() => ({
+   743→   743→    open: tenders.filter(t => t.status === 'open').length,
+   744→   744→    closed: tenders.filter(t => t.status === 'closed').length,
+   745→   745→    awarded: tenders.filter(t => t.status === 'awarded').length,
+   746→   746→    total: tenders.length,
+   747→   747→  }), [tenders]);
+   748→   748→
+   749→   749→  // When a specific category is selected, show only that category's tenders
+   750→   750→  const displayCategories = useMemo(() => {
+   751→   751→    if (categoryFilter && categoryFilter !== 'all') {
+   752→   752→      return [categoryFilter];
+   753→   753→    }
+   754→   754→    return activeCategories;
+   755→   755→  }, [categoryFilter, activeCategories]);
+   756→   756→
+   757→   757→  // Flat list when a specific category is selected
+   758→   758→  const filteredTenders = useMemo(() => {
+   759→   759→    if (categoryFilter && categoryFilter !== 'all') {
+   760→   760→      return tendersByCategory[categoryFilter] || [];
+   761→   761→    }
+   762→   762→    return tenders;
+   763→   763→  }, [categoryFilter, tendersByCategory, tenders]);
+   764→   764→
+   765→   765→  return (
+   766→   766→    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
+   767→   767→      {/* Header */}
+   768→   768→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]">
+   769→   769→        <div className="flex items-center gap-4">
+   770→   770→          <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
+   771→   771→            <FileSearch className="h-6 w-6 text-white" />
+   772→   772→          </div>
+   773→   773→          <div>
+   774→   774→            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   775→   775→              <span className="text-gradient-emerald">My</span> Tenders
+   776→   776→            </h2>
+   777→   777→            <p className="text-muted-foreground text-sm mt-0.5">Explore published tender opportunities by sector — click to apply</p>
+   778→   778→          </div>
+   779→   779→        </div>
+   780→   780→        <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setCreateDocs([]); setCreateDocType('tender_document'); } }}>
+   781→   781→          <DialogTrigger asChild>
+   782→   782→            <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
+   783→   783→              <Plus className="h-4 w-4 mr-2" /> Create Tender
+   784→   784→            </Button>
+   785→   785→          </DialogTrigger>
+   786→   786→          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
+   787→   787→            <DialogHeader>
+   788→   788→              <DialogTitle className="text-xl font-bold">
+   789→   789→                <span className="text-gradient-emerald">Create New</span> Tender
+   790→   790→              </DialogTitle>
+   791→   791→            </DialogHeader>
+   792→   792→            <div className="space-y-4">
+   793→   793→              <div className="space-y-2">
+   794→   794→                <Label className="text-sm font-medium">Title *</Label>
+   795→   795→                <Input placeholder="e.g. Office Building Construction" value={createData.title}
+   796→   796→                  onChange={e => setCreateData(d => ({ ...d, title: e.target.value }))}
+   797→   797→                  className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   798→   798→              </div>
+   799→   799→              <div className="space-y-2">
+   800→   800→                <Label className="text-sm font-medium">Scope of Work *</Label>
+   801→   801→                <Textarea placeholder="Detailed project description, deliverables, requirements" rows={4}
+   802→   802→                  value={createData.scope} onChange={e => setCreateData(d => ({ ...d, scope: e.target.value }))}
+   803→   803→                  className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   804→   804→              </div>
+   805→   805→              <div className="grid grid-cols-2 gap-4">
+   806→   806→                <div className="space-y-2">
+   807→   807→                  <Label className="text-sm font-medium">Budget Min (ETB) *</Label>
+   808→   808→                  <Input type="number" placeholder="100000" value={createData.budgetMin}
+   809→   809→                    onChange={e => setCreateData(d => ({ ...d, budgetMin: e.target.value }))}
+   810→   810→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   811→   811→                </div>
+   812→   812→                <div className="space-y-2">
+   813→   813→                  <Label className="text-sm font-medium">Budget Max (ETB) *</Label>
+   814→   814→                  <Input type="number" placeholder="500000" value={createData.budgetMax}
+   815→   815→                    onChange={e => setCreateData(d => ({ ...d, budgetMax: e.target.value }))}
+   816→   816→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   817→   817→                </div>
+   818→   818→              </div>
+   819→   819→              <div className="grid grid-cols-2 gap-4">
+   820→   820→                <div className="space-y-2">
+   821→   821→                  <Label className="text-sm font-medium">Deadline *</Label>
+   822→   822→                  <Input type="datetime-local" value={createData.deadline}
+   823→   823→                    onChange={e => setCreateData(d => ({ ...d, deadline: e.target.value }))}
+   824→   824→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   825→   825→                </div>
+   826→   826→                <div className="space-y-2">
+   827→   827→                  <Label className="text-sm font-medium">Location *</Label>
+   828→   828→                  <Input placeholder="Addis Ababa" value={createData.location}
+   829→   829→                    onChange={e => setCreateData(d => ({ ...d, location: e.target.value }))}
+   830→   830→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   831→   831→                </div>
+   832→   832→              </div>
+   833→   833→              <div className="space-y-2">
+   834→   834→                <Label className="text-sm font-medium">Category Tags</Label>
+   835→   835→                <div className="flex flex-wrap gap-2">
+   836→   836→                  {CATEGORIES.map(cat => (
+   837→   837→                    <Badge key={cat}
+   838→   838→                      className={`cursor-pointer text-xs rounded-lg transition-all duration-200 ${
+   839→   839→                        selectedCategories.includes(cat)
+   840→   840→                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'
+   841→   841→                          : 'bg-background border-border/60 text-muted-foreground hover:bg-muted/80'
+   842→   842→                      }`}
+   843→   843→                      onClick={() => toggleCategory(cat)}>
+   844→   844→                      {cat}
+   845→   845→                    </Badge>
+   846→   846→                  ))}
+   847→   847→                </div>
+   848→   848→              </div>
+   849→   849→
+   850→   850→              {/* ── Tender Document Upload ── */}
+   851→   851→              <div className="space-y-3">
+   852→   852→                <div className="flex items-center gap-2">
+   853→   853→                  <div className="p-1.5 rounded-lg gradient-emerald">
+   854→   854→                    <FileUp className="h-3.5 w-3.5 text-white" />
+   855→   855→                  </div>
+   856→   856→                  <Label className="text-sm font-semibold uppercase tracking-wide">Tender Documents</Label>
+   857→   857→                  <span className="text-[10px] text-muted-foreground ml-1">RFP, specifications, terms of reference, etc.</span>
+   858→   858→                </div>
+   859→   859→
+   860→   860→                {/* Upload area with drag & drop */}
+   861→   861→                <div
+   862→   862→                  ref={createDropRef}
+   863→   863→                  className="relative"
+   864→   864→                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); }}
+   865→   865→                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); }}
+   866→   866→                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); handleCreateDocDrop(e.dataTransfer.files, createDocType); }}
+   867→   867→                >
+   868→   868→                  <div className="p-4 bg-gradient-to-b from-emerald-50/40 to-emerald-50/10 border-2 border-dashed border-emerald-200 rounded-xl text-center hover:border-emerald-300 transition-colors">
+   869→   869→                    <CloudUpload className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+   870→   870→                    <p className="text-xs font-medium text-emerald-700 mb-1">
+   871→   871→                      Drag & drop tender documents here
+   872→   872→                    </p>
+   873→   873→                    <p className="text-[10px] text-muted-foreground mb-3">
+   874→   874→                      Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
+   875→   875→                    </p>
+   876→   876→                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
+   877→   877→                      <input
+   878→   878→                        ref={createFileInputRef}
+   879→   879→                        type="file"
+   880→   880→                        accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+   881→   881→                        className="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 file:cursor-pointer file:transition-colors"
+   882→   882→                      />
+   883→   883→                      <select
+   884→   884→                        value={createDocType}
+   885→   885→                        onChange={e => setCreateDocType(e.target.value)}
+   886→   886→                        className="h-7 text-xs rounded-lg bg-white/80 border border-emerald-200 px-2"
+   887→   887→                      >
+   888→   888→                        <option value="tender_document">Tender Document</option>
+   889→   889→                        <option value="external_doc">External Document</option>
+   890→   890→                        <option value="technical_proposal">Technical Spec</option>
+   891→   891→                        <option value="financial_proposal">Financial Spec</option>
+   892→   892→                        <option value="business_license">Business License</option>
+   893→   893→                        <option value="tax_clearance">Tax Clearance</option>
+   894→   894→                        <option value="certificate">Certificate</option>
+   895→   895→                        <option value="portfolio">Portfolio</option>
+   896→   896→                        <option value="other">Other</option>
+   897→   897→                      </select>
+   898→   898→                      <Button
+   899→   899→                        size="sm"
+   900→   900→                        className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+   901→   901→                        onClick={() => handleCreateDocUpload(createDocType)}
+   902→   902→                        disabled={createDocUploading}
+   903→   903→                      >
+   904→   904→                        {createDocUploading ? (
+   905→   905→                          <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Uploading...</>
+   906→   906→                        ) : (
+   907→   907→                          <><Upload className="h-3 w-3 mr-1" /> Upload</>
+   908→   908→                        )}
+   909→   909→                      </Button>
+   910→   910→                    </div>
+   911→   911→                    <div className="flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground">
+   912→   912→                      <ScanSearch className="h-2.5 w-2.5 text-emerald-500" /> Auto OCR
+   913→   913→                      <span className="text-muted-foreground/40">→</span>
+   914→   914→                      <Brain className="h-2.5 w-2.5 text-purple-500" /> Auto AI Review
+   915→   915→                    </div>
+   916→   916→                  </div>
+   917→   917→                </div>
+   918→   918→
+   919→   919→                {/* Uploaded documents list */}
+   920→   920→                {createDocs.length > 0 && (
+   921→   921→                  <div className="space-y-2">
+   922→   922→                    {createDocs.map(doc => (
+   923→   923→                      <div key={doc.id} className="flex items-center gap-3 p-2.5 bg-muted/40 rounded-xl border border-border/40 group hover:bg-muted/60 transition-colors">
+   924→   924→                        <div className="p-1.5 rounded-lg bg-emerald-50 flex-shrink-0">
+   925→   925→                          <FileText className="h-3.5 w-3.5 text-emerald-600" />
+   926→   926→                        </div>
+   927→   927→                        <div className="flex-1 min-w-0">
+   928→   928→                          <p className="text-xs font-medium truncate">{doc.fileName}</p>
+   929→   929→                          <div className="flex items-center gap-2 mt-0.5">
+   930→   930→                            <Badge variant="outline" className="text-[8px] h-4 px-1.5">{doc.docType.replace(/_/g, ' ')}</Badge>
+   931→   931→                            {doc.ocrStatus === 'processing' && (
+   932→   932→                              <span className="text-[8px] text-amber-600 flex items-center gap-0.5">
+   933→   933→                                <Loader2 className="h-2 w-2 animate-spin" /> OCR...
+   934→   934→                              </span>
+   935→   935→                            )}
+   936→   936→                            {doc.ocrStatus === 'completed' && (
+   937→   937→                              <span className="text-[8px] text-emerald-600 flex items-center gap-0.5">
+   938→   938→                                <CheckCircle className="h-2 w-2" /> OCR ✓
+   939→   939→                              </span>
+   940→   940→                            )}
+   941→   941→                            {doc.aiReviewStatus === 'processing' && (
+   942→   942→                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+   943→   943→                                <Loader2 className="h-2 w-2 animate-spin" /> Review...
+   944→   944→                              </span>
+   945→   945→                            )}
+   946→   946→                            {doc.aiReviewStatus === 'completed' && (
+   947→   947→                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+   948→   948→                                <Brain className="h-2 w-2" /> Review ✓
+   949→   949→                              </span>
+   950→   950→                            )}
+   951→   951→                          </div>
+   952→   952→                        </div>
+   953→   953→                        <Button
+   954→   954→                          variant="ghost"
+   955→   955→                          size="sm"
+   956→   956→                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all rounded-lg"
+   957→   957→                          onClick={() => handleRemoveCreateDoc(doc.id)}
+   958→   958→                        >
+   959→   959→                          <Trash2 className="h-3 w-3" />
+   960→   960→                        </Button>
+   961→   961→                      </div>
+   962→   962→                    ))}
+   963→   963→                  </div>
+   964→   964→                )}
+   965→   965→              </div>
+   966→   966→
+   967→   967→              <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleCreate}>
+   968→   968→                Create Tender <ArrowRight className="h-4 w-4 ml-2" />
+   969→   969→              </Button>
+   970→   970→            </div>
+   971→   971→          </DialogContent>
+   972→   972→        </Dialog>
+   973→   973→      </div>
+   974→   974→
+   975→   975→      {/* Search / Filter Bar */}
+   976→   976→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   977→   977→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+   978→   978→          <CardContent className="p-4 space-y-3">
+   979→   979→            {/* Search row */}
+   980→   980→            <div className="flex flex-col sm:flex-row gap-3">
+   981→   981→              <div className="relative flex-1">
+   982→   982→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   983→   983→                <Input placeholder="Search tenders by title, scope, or keyword..." value={search} onChange={e => setSearch(e.target.value)}
+   984→   984→                  className="pl-10 bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20 h-10" />
+   985→   985→              </div>
+   986→   986→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   987→   987→                <SelectTrigger className="w-full sm:w-36 rounded-xl bg-muted/50 border-border/60 h-10">
+   988→   988→                  <SelectValue placeholder="Status" />
+   989→   989→                </SelectTrigger>
+   990→   990→                <SelectContent>
+   991→   991→                  <SelectItem value="all">All Status</SelectItem>
+   992→   992→                  <SelectItem value="open">Open</SelectItem>
+   993→   993→                  <SelectItem value="closed">Closed</SelectItem>
+   994→   994→                  <SelectItem value="awarded">Awarded</SelectItem>
+   995→   995→                </SelectContent>
+   996→   996→              </Select>
+   997→   997→            </div>
+   998→   998→          </CardContent>
+   999→   999→        </Card>
+
+[showing lines 500-999 of 1436; use offset=1000 with limit to continue reading]

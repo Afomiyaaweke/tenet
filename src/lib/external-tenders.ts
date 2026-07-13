@@ -599,73 +599,11 @@ export async function fetchAfdbTenders(opts: {
 
     if (!res.ok) throw new Error(`AfDB returned ${res.status}`);
 
-    // AfDB doesn't have a JSON API, so we generate realistic sample data
-    // based on publicly known AfDB procurement categories and countries
-    const sampleTenders = generateAfdbSampleData(rows, opts.search);
-    return { tenders: sampleTenders, total: sampleTenders.length, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   } catch {
     clearTimeout(timer);
-    // Fallback: generate sample data so the UI always shows something
-    const sampleTenders = generateAfdbSampleData(rows, opts.search);
-    return { tenders: sampleTenders, total: sampleTenders.length, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   }
-}
-
-function generateAfdbSampleData(count: number, search?: string): LiveTender[] {
-  const projects = [
-    { title: 'Ethiopia Road Infrastructure Development Project', country: 'Ethiopia', sector: 'Construction', budget: 45000000, doc: 'https://www.afdb.org/en/projects-operations/project/ET-Road-Infra' },
-    { title: 'Kenya Water Supply and Sanitation Program', country: 'Kenya', sector: 'Engineering', budget: 32000000, doc: 'https://www.afdb.org/en/projects-operations/project/KE-Water-San' },
-    { title: 'Nigeria Power Sector Reform Program', country: 'Nigeria', sector: 'Energy', budget: 78000000, doc: 'https://www.afdb.org/en/projects-operations/project/NG-Power-Reform' },
-    { title: 'Tanzania Agricultural Value Chain Development', country: 'Tanzania', sector: 'Agriculture', budget: 25000000, doc: 'https://www.afdb.org/en/projects-operations/project/TZ-Agri-Value' },
-    { title: 'Ghana Urban Transport Improvement Project', country: 'Ghana', sector: 'Construction', budget: 38000000, doc: 'https://www.afdb.org/en/projects-operations/project/GH-Urban-Transport' },
-    { title: 'Senegal Digital Economy Enhancement', country: 'Senegal', sector: 'IT', budget: 15000000, doc: 'https://www.afdb.org/en/projects-operations/project/SN-Digital-Econ' },
-    { title: 'Mozambique Education Quality Improvement', country: 'Mozambique', sector: 'Education', budget: 18000000, doc: 'https://www.afdb.org/en/projects-operations/project/MZ-Edu-Quality' },
-    { title: 'Côte d\'Ivoire Health System Strengthening', country: 'Côte d\'Ivoire', sector: 'Healthcare', budget: 22000000, doc: 'https://www.afdb.org/en/projects-operations/project/CI-Health-System' },
-    { title: 'Uganda Renewable Energy Development', country: 'Uganda', sector: 'Energy', budget: 55000000, doc: 'https://www.afdb.org/en/projects-operations/project/UG-Renew-Energy' },
-    { title: 'Rwanda ICT Infrastructure Expansion', country: 'Rwanda', sector: 'IT', budget: 12000000, doc: 'https://www.afdb.org/en/projects-operations/project/RW-ICT-Expand' },
-    { title: 'Cameroon Port Infrastructure Modernization', country: 'Cameroon', sector: 'Construction', budget: 62000000, doc: 'https://www.afdb.org/en/projects-operations/project/CM-Port-Modern' },
-    { title: 'Mali Irrigation and Watershed Management', country: 'Mali', sector: 'Agriculture', budget: 20000000, doc: 'https://www.afdb.org/en/projects-operations/project/ML-Irrigation' },
-    { title: 'Zambia Mining Sector Governance', country: 'Zambia', sector: 'Consulting', budget: 8500000, doc: 'https://www.afdb.org/en/projects-operations/project/ZM-Mining-Gov' },
-    { title: 'Benin Financial Inclusion Support', country: 'Benin', sector: 'Finance', budget: 11000000, doc: 'https://www.afdb.org/en/projects-operations/project/BJ-Fin-Inclusion' },
-    { title: 'DRC Forest Conservation Program', country: 'DRC', sector: 'Consulting', budget: 28000000, doc: 'https://www.afdb.org/en/projects-operations/project/CD-Forest-Cons' },
-    { title: 'Morocco Solar Energy Initiative', country: 'Morocco', sector: 'Energy', budget: 95000000, doc: 'https://www.afdb.org/en/projects-operations/project/MA-Solar-Init' },
-    { title: 'Egypt Urban Development Project', country: 'Egypt', sector: 'Construction', budget: 72000000, doc: 'https://www.afdb.org/en/projects-operations/project/EG-Urban-Dev' },
-    { title: 'South Africa Healthcare Supply Chain', country: 'South Africa', sector: 'Supply', budget: 16000000, doc: 'https://www.afdb.org/en/projects-operations/project/ZA-Health-Supply' },
-    { title: 'Burkina Faso Rural Electrification', country: 'Burkina Faso', sector: 'Energy', budget: 35000000, doc: 'https://www.afdb.org/en/projects-operations/project/BF-Rural-Elec' },
-    { title: 'Niger Agricultural Resilience Program', country: 'Niger', sector: 'Agriculture', budget: 13000000, doc: 'https://www.afdb.org/en/projects-operations/project/NE-Agri-Resil' },
-  ];
-
-  let items = projects;
-  if (search) {
-    const q = search.toLowerCase();
-    items = projects.filter(p =>
-      p.title.toLowerCase().includes(q) ||
-      p.country.toLowerCase().includes(q) ||
-      p.sector.toLowerCase().includes(q)
-    );
-  }
-
-  return items.slice(0, count).map((p, idx) => ({
-    id: `afdb-${idx}-${Date.now()}`,
-    title: truncate(p.title, 160),
-    scope: truncate(`${p.title}. Procurement of goods, works, and consulting services for AfDB-funded development projects.`, 400),
-    budgetMin: p.budget * 0.7,
-    budgetMax: p.budget,
-    deadline: new Date(Date.now() + (30 + idx * 5) * 86400000).toISOString(),
-    location: p.country,
-    categoryTags: p.sector,
-    requiredDocs: p.doc,
-    status: 'open' as const,
-    createdBy: 'afdb',
-    createdAt: new Date(Date.now() - idx * 3 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'afdb',
-    externalId: `afdb-${idx}`,
-    externalUrl: 'https://www.afdb.org/en/projects-operations/procurement',
-    currency: 'USD',
-    borrower: p.country,
-    region: 'Africa',
-  }));
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -718,56 +656,12 @@ export async function fetchEuOpenTenders(opts: {
       }
     }
 
-    // Fallback with realistic sample data
-    return { tenders: generateEuOpenTendersSample(rows, opts.search), total: rows, ok: true };
+    // No data returned from API
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   } catch {
     clearTimeout(timer);
-    return { tenders: generateEuOpenTendersSample(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   }
-}
-
-function generateEuOpenTendersSample(count: number, search?: string): LiveTender[] {
-  const samples = [
-    { title: 'Digital Transformation Services for Public Administration', country: 'Germany', sector: 'IT', budget: 2500000 },
-    { title: 'Sustainable Urban Mobility Plan Consultation', country: 'Netherlands', sector: 'Consulting', budget: 800000 },
-    { title: 'Hospital Medical Equipment Supply', country: 'Poland', sector: 'Supply', budget: 4500000 },
-    { title: 'Road Bridge Rehabilitation Works', country: 'Romania', sector: 'Construction', budget: 12000000 },
-    { title: 'Renewable Energy Infrastructure Development', country: 'Spain', sector: 'Energy', budget: 8500000 },
-    { title: 'School Building Renovation Program', country: 'Italy', sector: 'Construction', budget: 3200000 },
-    { title: 'Public Transport Ticketing System', country: 'France', sector: 'IT', budget: 1800000 },
-    { title: 'Water Treatment Plant Upgrade', country: 'Greece', sector: 'Engineering', budget: 5500000 },
-    { title: 'Cultural Heritage Conservation Works', country: 'Portugal', sector: 'Consulting', budget: 650000 },
-    { title: 'Agricultural Modernization Support Services', country: 'Hungary', sector: 'Agriculture', budget: 1200000 },
-    { title: 'Cybersecurity Framework Implementation', country: 'Estonia', sector: 'IT', budget: 900000 },
-    { title: 'Railway Signal System Modernization', country: 'Czech Republic', sector: 'Engineering', budget: 7800000 },
-  ];
-
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.country.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  return items.slice(0, count).map((s, idx) => ({
-    id: `eu_opentenders-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. European public procurement notice for goods, services, or works. Full tender documents available on the national procurement portal.`, 400),
-    budgetMin: s.budget * 0.8,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (20 + idx * 7) * 86400000).toISOString(),
-    location: s.country,
-    categoryTags: s.sector,
-    requiredDocs: `https://opentender.eu/tender/2024-eu-${idx}`,
-    status: 'open' as const,
-    createdBy: 'eu_opentenders',
-    createdAt: new Date(Date.now() - idx * 5 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'eu_opentenders',
-    externalId: `eu_opentenders-${idx}`,
-    externalUrl: `https://opentender.eu/tender/2024-eu-${idx}`,
-    currency: 'EUR',
-    region: 'Europe',
-  }));
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -778,52 +672,8 @@ export async function fetchJicaTenders(opts: {
   search?: string;
   rows?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-
-  const samples = [
-    { title: 'Mekong Delta Climate Change Adaptation Project', country: 'Vietnam', sector: 'Engineering', budget: 42000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Nairobi Urban Transport Improvement', country: 'Kenya', sector: 'Construction', budget: 35000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Philippines Disaster Risk Reduction Program', country: 'Philippines', sector: 'Consulting', budget: 18000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Bangladesh Health System Strengthening', country: 'Bangladesh', sector: 'Healthcare', budget: 22000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Indonesia Geothermal Power Development', country: 'Indonesia', sector: 'Energy', budget: 68000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Myanmar Rural Electrification Project', country: 'Myanmar', sector: 'Energy', budget: 28000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Jordan Water Supply Network Expansion', country: 'Jordan', sector: 'Engineering', budget: 15000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Afghanistan Agricultural Development Initiative', country: 'Afghanistan', sector: 'Agriculture', budget: 12000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Sri Lanka Port Infrastructure Modernization', country: 'Sri Lanka', sector: 'Construction', budget: 55000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Ethiopia Industrial Park Development', country: 'Ethiopia', sector: 'Construction', budget: 32000000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Cambodia Education Quality Improvement', country: 'Cambodia', sector: 'Education', budget: 8500000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-    { title: 'Tanzania ICT Infrastructure Project', country: 'Tanzania', sector: 'IT', budget: 9500000, doc: 'https://www.jica.go.jp/english/our_work/procurement/' },
-  ];
-
-  const { search } = opts;
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.country.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  const tenders: LiveTender[] = items.slice(0, rows).map((s, idx) => ({
-    id: `jica-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. JICA ODA loan/grant project. Procurement of consulting services, goods, and works.`, 400),
-    budgetMin: s.budget * 0.75,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (25 + idx * 6) * 86400000).toISOString(),
-    location: s.country,
-    categoryTags: s.sector,
-    requiredDocs: s.doc,
-    status: 'open' as const,
-    createdBy: 'jica',
-    createdAt: new Date(Date.now() - idx * 4 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'jica',
-    externalId: `jica-${idx}`,
-    externalUrl: 'https://www.jica.go.jp/english/our_work/procurement/index.html',
-    currency: 'JPY',
-    region: 'Asia-Pacific',
-  }));
-
-  return { tenders, total: tenders.length, ok: true };
+  void opts;
+  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -876,55 +726,11 @@ export async function fetchAdbTenders(opts: {
       }
     }
 
-    return { tenders: generateAdbSampleData(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   } catch {
     clearTimeout(timer);
-    return { tenders: generateAdbSampleData(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   }
-}
-
-function generateAdbSampleData(count: number, search?: string): LiveTender[] {
-  const samples = [
-    { title: 'Pakistan Motorway Construction Phase IV', country: 'Pakistan', sector: 'Construction', budget: 85000000 },
-    { title: 'Vietnam Urban Metro System Development', country: 'Vietnam', sector: 'Engineering', budget: 120000000 },
-    { title: 'Philippines Flood Management Infrastructure', country: 'Philippines', sector: 'Engineering', budget: 42000000 },
-    { title: 'Bangladesh Power Grid Expansion', country: 'Bangladesh', sector: 'Energy', budget: 56000000 },
-    { title: 'India Smart Cities IT Infrastructure', country: 'India', sector: 'IT', budget: 28000000 },
-    { title: 'Indonesia Maritime Port Development', country: 'Indonesia', sector: 'Construction', budget: 95000000 },
-    { title: 'Kazakhstan Transport Corridor Improvement', country: 'Kazakhstan', sector: 'Construction', budget: 38000000 },
-    { title: 'Myanmar Agriculture Value Chain Project', country: 'Myanmar', sector: 'Agriculture', budget: 15000000 },
-    { title: 'Nepal Water Resources Development', country: 'Nepal', sector: 'Engineering', budget: 22000000 },
-    { title: 'Sri Lanka Education Quality Enhancement', country: 'Sri Lanka', sector: 'Education', budget: 8000000 },
-    { title: 'Mongolia Renewable Energy Program', country: 'Mongolia', sector: 'Energy', budget: 35000000 },
-    { title: 'Fiji Climate Resilience Infrastructure', country: 'Fiji', sector: 'Construction', budget: 12000000 },
-  ];
-
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.country.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  return items.slice(0, count).map((s, idx) => ({
-    id: `adb-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. ADB-funded procurement for infrastructure development. Consulting services, goods, and civil works.`, 400),
-    budgetMin: s.budget * 0.7,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (20 + idx * 8) * 86400000).toISOString(),
-    location: s.country,
-    categoryTags: s.sector,
-    requiredDocs: `https://www.adb.org/business/opportunities/adb-2024-${idx}`,
-    status: 'open' as const,
-    createdBy: 'adb',
-    createdAt: new Date(Date.now() - idx * 5 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'adb',
-    externalId: `adb-${idx}`,
-    externalUrl: `https://www.adb.org/business/opportunities/adb-2024-${idx}`,
-    currency: 'USD',
-    region: 'Asia-Pacific',
-  }));
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -983,55 +789,11 @@ export async function fetchUkContractsTenders(opts: {
       }
     }
 
-    return { tenders: generateUkContractsSample(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   } catch {
     clearTimeout(timer);
-    return { tenders: generateUkContractsSample(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   }
-}
-
-function generateUkContractsSample(count: number, search?: string): LiveTender[] {
-  const samples = [
-    { title: 'NHS Digital Health Records System', org: 'NHS England', sector: 'IT', budget: 3500000 },
-    { title: 'Ministry of Defence Equipment Supply', org: 'MOD', sector: 'Supply', budget: 8200000 },
-    { title: 'Highways England Road Maintenance Framework', org: 'National Highways', sector: 'Construction', budget: 15000000 },
-    { title: 'DfE School Building Programme', org: 'Department for Education', sector: 'Construction', budget: 6800000 },
-    { title: 'Home Office Biometric Services', org: 'Home Office', sector: 'IT', budget: 4200000 },
-    { title: 'Environment Agency Flood Defense Works', org: 'Environment Agency', sector: 'Engineering', budget: 9500000 },
-    { title: 'HMRC Tax System Modernization', org: 'HMRC', sector: 'IT', budget: 11000000 },
-    { title: 'DWP Universal Credit Infrastructure', org: 'DWP', sector: 'IT', budget: 7500000 },
-    { title: 'Met Police Vehicle Fleet Replacement', org: 'Metropolitan Police', sector: 'Supply', budget: 2800000 },
-    { title: 'Scottish Government Renewable Energy Grant', org: 'Scottish Government', sector: 'Energy', budget: 5000000 },
-    { title: 'Welsh Government Healthcare Supply Chain', org: 'NHS Wales', sector: 'Supply', budget: 1800000 },
-    { title: 'UK Research Innovation Laboratory Equipment', org: 'UKRI', sector: 'Supply', budget: 900000 },
-  ];
-
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.org.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  return items.slice(0, count).map((s, idx) => ({
-    id: `uk_contracts-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. UK public sector contract notice by ${s.org}. Full tender documents and specification available on Contracts Finder.`, 400),
-    budgetMin: s.budget * 0.75,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (15 + idx * 5) * 86400000).toISOString(),
-    location: 'United Kingdom',
-    categoryTags: s.sector,
-    requiredDocs: `https://www.contractsfinder.service.gov.uk/notice/uk-2024-${idx}`,
-    status: 'open' as const,
-    createdBy: 'uk_contracts',
-    createdAt: new Date(Date.now() - idx * 3 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'uk_contracts',
-    externalId: `uk-2024-${idx}`,
-    externalUrl: `https://www.contractsfinder.service.gov.uk/notice/uk-2024-${idx}`,
-    currency: 'GBP',
-    region: 'Europe',
-  }));
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1042,53 +804,8 @@ export async function fetchDgMarketTenders(opts: {
   search?: string;
   rows?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-
-  // DgMarket doesn't have a public JSON API; generate realistic sample data
-  const samples = [
-    { title: 'World Bank Funded Road Rehabilitation — West Africa', country: 'Ghana', sector: 'Construction', budget: 25000000, doc: 'https://www.dgmarket.com/tender/worldbank-gh-road' },
-    { title: 'UNDP Climate Resilience Program — Caribbean', country: 'Jamaica', sector: 'Consulting', budget: 4500000, doc: 'https://www.dgmarket.com/tender/undp-jm-climate' },
-    { title: 'AfDB Water Supply Expansion — East Africa', country: 'Tanzania', sector: 'Engineering', budget: 18000000, doc: 'https://www.dgmarket.com/tender/afdb-tz-water' },
-    { title: 'IFC Private Sector Development — South Asia', country: 'Bangladesh', sector: 'Consulting', budget: 3200000, doc: 'https://www.dgmarket.com/tender/ifc-bd-private' },
-    { title: 'EU Infrastructure Grant — Western Balkans', country: 'Serbia', sector: 'Construction', budget: 12000000, doc: 'https://www.dgmarket.com/tender/eu-rs-infra' },
-    { title: 'UNICEF Education Supplies — Middle East', country: 'Jordan', sector: 'Supply', budget: 5800000, doc: 'https://www.dgmarket.com/tender/unicef-jo-edu' },
-    { title: 'ADB Transport Corridor — Central Asia', country: 'Uzbekistan', sector: 'Construction', budget: 42000000, doc: 'https://www.dgmarket.com/tender/adb-uz-transport' },
-    { title: 'WHO Medical Equipment Procurement — Global', country: 'Multiple', sector: 'Supply', budget: 8500000, doc: 'https://www.dgmarket.com/tender/who-global-medical' },
-    { title: 'Green Climate Fund Renewable Energy — Pacific', country: 'Fiji', sector: 'Energy', budget: 15000000, doc: 'https://www.dgmarket.com/tender/gcf-fj-renewable' },
-    { title: 'IDB Agricultural Modernization — Latin America', country: 'Colombia', sector: 'Agriculture', budget: 9200000, doc: 'https://www.dgmarket.com/tender/idb-co-agri' },
-    { title: 'IsDB Education Infrastructure — North Africa', country: 'Tunisia', sector: 'Construction', budget: 7500000, doc: 'https://www.dgmarket.com/tender/isdb-tn-edu' },
-    { title: 'UNOPS Construction Management — Horn of Africa', country: 'Somalia', sector: 'Consulting', budget: 2800000, doc: 'https://www.dgmarket.com/tender/unops-so-construction' },
-  ];
-
-  const { search } = opts;
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.country.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  const tenders: LiveTender[] = items.slice(0, rows).map((s, idx) => ({
-    id: `dgmarket-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. International development procurement notice aggregated from multilateral development banks and UN agencies.`, 400),
-    budgetMin: s.budget * 0.7,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (20 + idx * 6) * 86400000).toISOString(),
-    location: s.country,
-    categoryTags: s.sector,
-    requiredDocs: s.doc,
-    status: 'open' as const,
-    createdBy: 'dgmarket',
-    createdAt: new Date(Date.now() - idx * 4 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'dgmarket',
-    externalId: `dgmarket-${idx}`,
-    externalUrl: 'https://www.dgmarket.com',
-    currency: 'USD',
-    region: 'Global',
-  }));
-
-  return { tenders, total: tenders.length, ok: true };
+  void opts;
+  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1395,55 +1112,11 @@ export async function fetchCanadaBuyandsellTenders(opts: {
       }
     }
 
-    return { tenders: generateCanadaBuyandsellSample(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   } catch {
     clearTimeout(timer);
-    return { tenders: generateCanadaBuyandsellSample(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   }
-}
-
-function generateCanadaBuyandsellSample(count: number, search?: string): LiveTender[] {
-  const samples = [
-    { title: 'Department of National Defence IT Infrastructure Upgrade', org: 'DND', sector: 'IT', budget: 4200000 },
-    { title: 'Parks Canada Conservation Equipment Supply', org: 'Parks Canada', sector: 'Supply', budget: 1500000 },
-    { title: 'CBSA Border Security Technology Modernization', org: 'CBSA', sector: 'IT', budget: 8500000 },
-    { title: 'Health Canada Laboratory Testing Services', org: 'Health Canada', sector: 'Healthcare', budget: 2200000 },
-    { title: 'Transport Canada Aviation Safety Systems', org: 'Transport Canada', sector: 'IT', budget: 3800000 },
-    { title: 'Public Services Vehicle Fleet Replacement', org: 'PSPC', sector: 'Supply', budget: 6500000 },
-    { title: 'Environment Canada Climate Monitoring Network', org: 'ECCC', sector: 'Engineering', budget: 2800000 },
-    { title: 'Crown-Indigenous Relations Consulting Services', org: 'CIRNAC', sector: 'Consulting', budget: 900000 },
-    { title: 'RCMP National Police Services Equipment', org: 'RCMP', sector: 'Supply', budget: 3100000 },
-    { title: 'Agriculture Canada Food Safety Laboratory', org: 'AAFC', sector: 'Healthcare', budget: 1800000 },
-    { title: 'Fisheries Ocean Vessel Maintenance Contract', org: 'DFO', sector: 'Construction', budget: 4500000 },
-    { title: 'Innovation Science Economic Development Canada R&D', org: 'ISED', sector: 'Consulting', budget: 1200000 },
-  ];
-
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.org.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  return items.slice(0, count).map((s, idx) => ({
-    id: `canada_buyandsell-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. Canadian federal government procurement notice by ${s.org}. Tender documents and specifications available on buyandsell.gc.ca.`, 400),
-    budgetMin: s.budget * 0.75,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (18 + idx * 4) * 86400000).toISOString(),
-    location: 'Canada',
-    categoryTags: s.sector,
-    requiredDocs: `https://buyandsell.gc.ca/procurement-data/tender/ca-2024-${idx}`,
-    status: 'open' as const,
-    createdBy: 'canada_buyandsell',
-    createdAt: new Date(Date.now() - idx * 3 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'canada_buyandsell',
-    externalId: `ca-2024-${idx}`,
-    externalUrl: `https://buyandsell.gc.ca/procurement-data/tender/ca-2024-${idx}`,
-    currency: 'CAD',
-    region: 'North America',
-  }));
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1495,55 +1168,11 @@ export async function fetchAusTenderTenders(opts: {
       }
     }
 
-    return { tenders: generateAusTenderSample(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   } catch {
     clearTimeout(timer);
-    return { tenders: generateAusTenderSample(rows, opts.search), total: rows, ok: true };
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
   }
-}
-
-function generateAusTenderSample(count: number, search?: string): LiveTender[] {
-  const samples = [
-    { title: 'Defence Digital Transformation Program', org: 'Department of Defence', sector: 'IT', budget: 12000000 },
-    { title: 'National Broadband Network Expansion', org: 'NBN Co', sector: 'Telecommunications', budget: 8500000 },
-    { title: 'Great Barrier Reef Monitoring Systems', org: 'GBRMPA', sector: 'Engineering', budget: 3200000 },
-    { title: 'Medicare Services Platform Upgrade', org: 'Services Australia', sector: 'IT', budget: 5600000 },
-    { title: 'Australian Federal Police Equipment', org: 'AFP', sector: 'Supply', budget: 2800000 },
-    { title: 'Bureau of Meteorology Data Infrastructure', org: 'BoM', sector: 'IT', budget: 4100000 },
-    { title: 'National Transport Infrastructure Maintenance', org: 'DITRDCA', sector: 'Construction', budget: 15000000 },
-    { title: 'CSIRO Research Equipment Procurement', org: 'CSIRO', sector: 'Supply', budget: 1800000 },
-    { title: 'Border Force Maritime Surveillance', org: 'ABF', sector: 'Consulting', budget: 7200000 },
-    { title: 'Indigenous Housing Construction Program', org: 'NIAA', sector: 'Construction', budget: 9800000 },
-    { title: 'Cyber Security Centre Operations', org: 'ACSC', sector: 'IT', budget: 6300000 },
-    { title: 'Agriculture Biosecurity Systems', org: 'DAFF', sector: 'IT', budget: 2400000 },
-  ];
-
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.org.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  return items.slice(0, count).map((s, idx) => ({
-    id: `austender-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. Australian government procurement by ${s.org}. Tender documents and requirements available on AusTender.`, 400),
-    budgetMin: s.budget * 0.7,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (15 + idx * 6) * 86400000).toISOString(),
-    location: 'Australia',
-    categoryTags: s.sector,
-    requiredDocs: `https://www.tenders.gov.au/tender/au-2024-${idx}`,
-    status: 'open' as const,
-    createdBy: 'austender',
-    createdAt: new Date(Date.now() - idx * 4 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'austender',
-    externalId: `au-2024-${idx}`,
-    externalUrl: `https://www.tenders.gov.au/tender/au-2024-${idx}`,
-    currency: 'AUD',
-    region: 'Oceania',
-  }));
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1554,50 +1183,8 @@ export async function fetchPortugalBaseTenders(opts: {
   search?: string;
   rows?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-
-  const samples = [
-    { title: 'Lisbon Metro Line Extension — Civil Works', org: 'Metropolitano de Lisboa', sector: 'Construction', budget: 45000000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-metro-2024' },
-    { title: 'National Health Service Medical Equipment Supply', org: 'SNS', sector: 'Supply', budget: 3200000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-sns-equip' },
-    { title: 'Porto Smart City IoT Platform', org: 'Câmara Municipal do Porto', sector: 'IT', budget: 1800000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-porto-iot' },
-    { title: 'Renewable Energy Grid Connection — Alentejo', org: 'REN', sector: 'Energy', budget: 8500000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-ren-alentejo' },
-    { title: 'Highway Bridge Safety Inspection Services', org: 'Infraestruturas de Portugal', sector: 'Consulting', budget: 950000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-ip-bridge' },
-    { title: 'Public School Building Renovation — Coimbra', org: 'Ministério da Educação', sector: 'Construction', budget: 2800000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-edu-coimbra' },
-    { title: 'Water Treatment Plant Modernization — Algarve', org: 'Águas do Algarve', sector: 'Engineering', budget: 5200000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-aguas-algarve' },
-    { title: 'Government Cloud Services Migration', org: 'AMA', sector: 'IT', budget: 2100000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-ama-cloud' },
-    { title: 'National Archives Digitization Program', org: 'DGARQ', sector: 'Consulting', budget: 750000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-dgarq-digital' },
-    { title: 'Railway Electrification — Norte Line', org: 'CP', sector: 'Engineering', budget: 12000000, doc: 'https://www.base.gov.pt/Base4/Detail/pt-cp-norte' },
-  ];
-
-  const { search } = opts;
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.org.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  const tenders: LiveTender[] = items.slice(0, rows).map((s, idx) => ({
-    id: `portugal_base-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. Portuguese public procurement notice by ${s.org}. Full tender documents and requirements available on the BASE portal.`, 400),
-    budgetMin: s.budget * 0.8,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (22 + idx * 5) * 86400000).toISOString(),
-    location: 'Portugal',
-    categoryTags: s.sector,
-    requiredDocs: s.doc,
-    status: 'open' as const,
-    createdBy: 'portugal_base',
-    createdAt: new Date(Date.now() - idx * 3 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'portugal_base',
-    externalId: `pt-2024-${idx}`,
-    externalUrl: s.doc,
-    currency: 'EUR',
-    region: 'Europe',
-  }));
-
-  return { tenders, total: tenders.length, ok: true };
+  void opts;
+  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1608,50 +1195,8 @@ export async function fetchOntarioTendersTenders(opts: {
   search?: string;
   rows?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-
-  const samples = [
-    { title: 'Ontario Health Laboratory Services Expansion', org: 'Ontario Health', sector: 'Healthcare', budget: 3500000 },
-    { title: 'Metrolinx GO Transit Station Upgrades', org: 'Metrolinx', sector: 'Construction', budget: 12000000 },
-    { title: 'OPP Communication Systems Modernization', org: 'OPP', sector: 'IT', budget: 4800000 },
-    { title: 'LCBO Warehouse Management System', org: 'LCBO', sector: 'IT', budget: 2200000 },
-    { title: 'Ministry of Education School Bus Fleet', org: 'MOE', sector: 'Supply', budget: 5500000 },
-    { title: 'Ontario Power Generation Nuclear Safety Systems', org: 'OPG', sector: 'Engineering', budget: 8500000 },
-    { title: 'Provincial Parks Infrastructure Renewal', org: 'MNRF', sector: 'Construction', budget: 2800000 },
-    { title: 'Ontario Digital Service Platform', org: 'ODS', sector: 'IT', budget: 1900000 },
-    { title: 'Ministry of Transportation Highway Resurfacing', org: 'MTO', sector: 'Construction', budget: 6200000 },
-    { title: 'Healthcare Supply Chain Ontario — PPE Procurement', org: 'Supply Ontario', sector: 'Supply', budget: 1200000 },
-  ];
-
-  const { search } = opts;
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.org.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  const tenders: LiveTender[] = items.slice(0, rows).map((s, idx) => ({
-    id: `ontario_tenders-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. Ontario provincial government procurement by ${s.org}. Tender documents and specifications available on Ontario Tenders Portal.`, 400),
-    budgetMin: s.budget * 0.75,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (14 + idx * 5) * 86400000).toISOString(),
-    location: 'Ontario, Canada',
-    categoryTags: s.sector,
-    requiredDocs: `https://www.ontariotenders.ca/tender/on-2024-${idx}`,
-    status: 'open' as const,
-    createdBy: 'ontario_tenders',
-    createdAt: new Date(Date.now() - idx * 3 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'ontario_tenders',
-    externalId: `on-2024-${idx}`,
-    externalUrl: `https://www.ontariotenders.ca/tender/on-2024-${idx}`,
-    currency: 'CAD',
-    region: 'North America',
-  }));
-
-  return { tenders, total: tenders.length, ok: true };
+  void opts;
+  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1662,50 +1207,8 @@ export async function fetchNigeriaNocopoTenders(opts: {
   search?: string;
   rows?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-
-  const samples = [
-    { title: 'Lagos-Ibadan Expressway Rehabilitation Phase III', org: 'Federal Ministry of Works', sector: 'Construction', budget: 25000000, doc: 'https://nocopo.bpp.gov.ng/tender/fmworks-road-2024' },
-    { title: 'National Primary Healthcare Development Agency — Medical Supplies', org: 'NPHCDA', sector: 'Supply', budget: 5200000, doc: 'https://nocopo.bpp.gov.ng/tender/nphcda-supplies-2024' },
-    { title: 'Nigeria Electricity Transmission Infrastructure', org: 'TCN', sector: 'Energy', budget: 38000000, doc: 'https://nocopo.bpp.gov.ng/tender/tcn-infra-2024' },
-    { title: 'Federal Ministry of Education — Digital Learning Platform', org: 'FME', sector: 'IT', budget: 1800000, doc: 'https://nocopo.bpp.gov.ng/tender/fme-digital-2024' },
-    { title: 'Abuja Water Supply Network Expansion', org: 'FCT Water Board', sector: 'Engineering', budget: 8500000, doc: 'https://nocopo.bpp.gov.ng/tender/fct-water-2024' },
-    { title: 'Niger Delta Development Commission Infrastructure', org: 'NDDC', sector: 'Construction', budget: 15000000, doc: 'https://nocopo.bpp.gov.ng/tender/nddc-infra-2024' },
-    { title: 'National Identity Management System Upgrade', org: 'NIMC', sector: 'IT', budget: 3200000, doc: 'https://nocopo.bpp.gov.ng/tender/nimc-upgrade-2024' },
-    { title: 'Nigerian Ports Authority Dredging Services', org: 'NPA', sector: 'Engineering', budget: 12000000, doc: 'https://nocopo.bpp.gov.ng/tender/npa-dredge-2024' },
-    { title: 'Agricultural Transformation Agenda — Equipment Supply', org: 'FMARD', sector: 'Agriculture', budget: 4500000, doc: 'https://nocopo.bpp.gov.ng/tender/fmard-equip-2024' },
-    { title: 'National Security Communications Network', org: 'ONSA', sector: 'IT', budget: 6800000, doc: 'https://nocopo.bpp.gov.ng/tender/onsa-comms-2024' },
-  ];
-
-  const { search } = opts;
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.org.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  const tenders: LiveTender[] = items.slice(0, rows).map((s, idx) => ({
-    id: `nigeria_nocopo-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. Nigerian federal procurement notice by ${s.org}. Tender documents and requirements available on the NOCOPO portal.`, 400),
-    budgetMin: s.budget * 0.7,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (20 + idx * 6) * 86400000).toISOString(),
-    location: 'Nigeria',
-    categoryTags: s.sector,
-    requiredDocs: s.doc,
-    status: 'open' as const,
-    createdBy: 'nigeria_nocopo',
-    createdAt: new Date(Date.now() - idx * 4 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'nigeria_nocopo',
-    externalId: `ng-2024-${idx}`,
-    externalUrl: s.doc,
-    currency: 'NGN',
-    region: 'Africa',
-  }));
-
-  return { tenders, total: tenders.length, ok: true };
+  void opts;
+  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1716,50 +1219,8 @@ export async function fetchKenyaTendersTenders(opts: {
   search?: string;
   rows?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-
-  const samples = [
-    { title: 'Kenya Railways Standard Gauge Railway Maintenance', org: 'KR', sector: 'Construction', budget: 18000000, doc: 'https://tenders.go.ke/tender/kr-sgr-2024' },
-    { title: 'Kenyatta National Hospital Equipment Supply', org: 'KNH', sector: 'Supply', budget: 3200000, doc: 'https://tenders.go.ke/tender/knh-equip-2024' },
-    { title: 'Kenya Electricity Generating Company — Geothermal Development', org: 'KenGen', sector: 'Energy', budget: 45000000, doc: 'https://tenders.go.ke/tender/kengen-geo-2024' },
-    { title: 'Ministry of ICT Digital Literacy Programme', org: 'MoICT', sector: 'IT', budget: 2500000, doc: 'https://tenders.go.ke/tender/moict-dlp-2024' },
-    { title: 'Nairobi County Water Supply Improvement', org: 'Nairobi Water', sector: 'Engineering', budget: 6800000, doc: 'https://tenders.go.ke/tender/nairobi-water-2024' },
-    { title: 'Kenya Revenue Authority Tax System Modernization', org: 'KRA', sector: 'IT', budget: 4200000, doc: 'https://tenders.go.ke/tender/kra-tax-2024' },
-    { title: 'Mombasa Port Infrastructure Expansion', org: 'KPA', sector: 'Construction', budget: 22000000, doc: 'https://tenders.go.ke/tender/kpa-port-2024' },
-    { title: 'National Police Service Communication Equipment', org: 'NPS', sector: 'Supply', budget: 1500000, doc: 'https://tenders.go.ke/tender/nps-comms-2024' },
-    { title: 'Ministry of Agriculture Fertilizer Subsidy Programme', org: 'MoA', sector: 'Agriculture', budget: 8500000, doc: 'https://tenders.go.ke/tender/moa-fert-2024' },
-    { title: 'Kenya Forest Service Conservation IT Systems', org: 'KFS', sector: 'IT', budget: 950000, doc: 'https://tenders.go.ke/tender/kfs-it-2024' },
-  ];
-
-  const { search } = opts;
-  let items = samples;
-  if (search) {
-    const q = search.toLowerCase();
-    items = samples.filter(s => s.title.toLowerCase().includes(q) || s.org.toLowerCase().includes(q) || s.sector.toLowerCase().includes(q));
-  }
-
-  const tenders: LiveTender[] = items.slice(0, rows).map((s, idx) => ({
-    id: `kenya_tenders-${idx}-${Date.now()}`,
-    title: truncate(s.title, 160),
-    scope: truncate(`${s.title}. Kenyan public procurement notice by ${s.org}. Tender documents and requirements available on the public procurement portal.`, 400),
-    budgetMin: s.budget * 0.7,
-    budgetMax: s.budget,
-    deadline: new Date(Date.now() + (18 + idx * 5) * 86400000).toISOString(),
-    location: 'Kenya',
-    categoryTags: s.sector,
-    requiredDocs: s.doc,
-    status: 'open' as const,
-    createdBy: 'kenya_tenders',
-    createdAt: new Date(Date.now() - idx * 4 * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    source: 'kenya_tenders',
-    externalId: `ke-2024-${idx}`,
-    externalUrl: s.doc,
-    currency: 'KES',
-    region: 'Africa',
-  }));
-
-  return { tenders, total: tenders.length, ok: true };
+  void opts;
+  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
 }
 
 /* ─────────────────────────────────────────────────────────────────────
