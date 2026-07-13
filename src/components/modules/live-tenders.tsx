@@ -1764,7 +1764,6 @@ export function LiveTendersView() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [fallback, setFallback] = useState(false);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('');
@@ -1851,7 +1850,6 @@ export function LiveTendersView() {
       if (res.success) {
         setTenders(res.data as LiveTender[]);
         setSourceMeta(res.meta?.sources || []);
-        setFallback(Boolean(res.meta?.fallback));
         if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
         if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
       } else {
@@ -2343,20 +2341,6 @@ export function LiveTendersView() {
           </Card>
         </div>
 
-        {fallback && (
-          <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
-            <ServerCrash className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium text-amber-900 dark:text-amber-200">
-                Showing curated sample data
-              </p>
-              <p className="text-amber-700 dark:text-amber-300/80 mt-0.5">
-                Upstream APIs are currently unreachable from this environment. The records below are representative samples.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* ───────────────── Filters ───────────────── */}
         <Card className="bg-card border-border">
           <CardContent className="p-4">
@@ -2491,10 +2475,10 @@ export function LiveTendersView() {
         ) : tenders.length === 0 ? (
           <Card className="bg-card border-border">
             <CardContent className="p-12 text-center">
-              <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <Globe2 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-foreground font-medium">No live tenders found</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Try a different search term or source filter.
+                Try adjusting your filters or check back later.
               </p>
             </CardContent>
           </Card>
@@ -2544,11 +2528,11 @@ export function LiveTendersView() {
           <div className="flex flex-col items-center gap-2 pt-4 pb-2">
             <p className="text-xs text-muted-foreground">
               {visibleCount >= tenders.length
-                ? `${tenders.length} of ${tenders.length} tenders shown`
+                ? `All ${tenders.length} tenders loaded`
                 : `${Math.min(visibleCount, tenders.length)} of ${tenders.length} tenders shown · ${tenders.length - visibleCount} remaining`
               }
             </p>
-            {visibleCount < tenders.length && (
+            {visibleCount < tenders.length ? (
               <Button
                 variant="outline"
                 size="lg"
@@ -2558,6 +2542,11 @@ export function LiveTendersView() {
                 <ChevronDown className="h-4 w-4" />
                 Load More ({tenders.length - visibleCount} remaining)
               </Button>
+            ) : (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                All loaded
+              </p>
             )}
           </div>
         )}

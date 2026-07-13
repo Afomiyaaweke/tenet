@@ -1,0 +1,502 @@
+   936→   936→                            {doc.ocrStatus === 'completed' && (
+   937→   937→                              <span className="text-[8px] text-emerald-600 flex items-center gap-0.5">
+   938→   938→                                <CheckCircle className="h-2 w-2" /> OCR ✓
+   939→   939→                              </span>
+   940→   940→                            )}
+   941→   941→                            {doc.aiReviewStatus === 'processing' && (
+   942→   942→                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+   943→   943→                                <Loader2 className="h-2 w-2 animate-spin" /> Review...
+   944→   944→                              </span>
+   945→   945→                            )}
+   946→   946→                            {doc.aiReviewStatus === 'completed' && (
+   947→   947→                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+   948→   948→                                <Brain className="h-2 w-2" /> Review ✓
+   949→   949→                              </span>
+   950→   950→                            )}
+   951→   951→                          </div>
+   952→   952→                        </div>
+   953→   953→                        <Button
+   954→   954→                          variant="ghost"
+   955→   955→                          size="sm"
+   956→   956→                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all rounded-lg"
+   957→   957→                          onClick={() => handleRemoveCreateDoc(doc.id)}
+   958→   958→                        >
+   959→   959→                          <Trash2 className="h-3 w-3" />
+   960→   960→                        </Button>
+   961→   961→                      </div>
+   962→   962→                    ))}
+   963→   963→                  </div>
+   964→   964→                )}
+   965→   965→              </div>
+   966→   966→
+   967→   967→              <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleCreate}>
+   968→   968→                Create Tender <ArrowRight className="h-4 w-4 ml-2" />
+   969→   969→              </Button>
+   970→   970→            </div>
+   971→   971→          </DialogContent>
+   972→   972→        </Dialog>
+   973→   973→      </div>
+   974→   974→
+   975→   975→      {/* Search / Filter Bar */}
+   976→   976→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   977→   977→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+   978→   978→          <CardContent className="p-4 space-y-3">
+   979→   979→            {/* Search row */}
+   980→   980→            <div className="flex flex-col sm:flex-row gap-3">
+   981→   981→              <div className="relative flex-1">
+   982→   982→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   983→   983→                <Input placeholder="Search tenders by title, scope, or keyword..." value={search} onChange={e => setSearch(e.target.value)}
+   984→   984→                  className="pl-10 bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20 h-10" />
+   985→   985→              </div>
+   986→   986→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   987→   987→                <SelectTrigger className="w-full sm:w-36 rounded-xl bg-muted/50 border-border/60 h-10">
+   988→   988→                  <SelectValue placeholder="Status" />
+   989→   989→                </SelectTrigger>
+   990→   990→                <SelectContent>
+   991→   991→                  <SelectItem value="all">All Status</SelectItem>
+   992→   992→                  <SelectItem value="open">Open</SelectItem>
+   993→   993→                  <SelectItem value="closed">Closed</SelectItem>
+   994→   994→                  <SelectItem value="awarded">Awarded</SelectItem>
+   995→   995→                </SelectContent>
+   996→   996→              </Select>
+   997→   997→            </div>
+   998→   998→          </CardContent>
+   999→   999→        </Card>
+  1000→  1000→      </div>
+  1001→  1001→
+  1002→  1002→      {/* Category Tabs - Horizontal Scrollable */}
+  1003→  1003→      <div className="animate-[fadeIn_0.3s_ease-out]">
+  1004→  1004→        <div
+  1005→  1005→          ref={categoryScrollRef}
+  1006→  1006→          className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent"
+  1007→  1007→        >
+  1008→  1008→          {/* "All" tab */}
+  1009→  1009→          <button
+  1010→  1010→            onClick={() => setCategoryFilter('')}
+  1011→  1011→            className={`flex-shrink-0 text-xs px-4 py-2 rounded-xl transition-all duration-200 font-medium border ${
+  1012→  1012→              !categoryFilter || categoryFilter === 'all'
+  1013→  1013→                ? 'gradient-emerald text-white border-transparent premium-shadow'
+  1014→  1014→                : 'bg-card border-border/60 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
+  1015→  1015→            }`}
+  1016→  1016→          >
+  1017→  1017→            All ({tenders.length})
+  1018→  1018→          </button>
+  1019→  1019→          {CATEGORIES.map(cat => {
+  1020→  1020→            const count = (tendersByCategory[cat] || []).length;
+  1021→  1021→            const meta = getCategoryMeta(cat);
+  1022→  1022→            const Icon = meta.icon;
+  1023→  1023→            const isActive = categoryFilter === cat;
+  1024→  1024→            return (
+  1025→  1025→              <button
+  1026→  1026→                key={cat}
+  1027→  1027→                onClick={() => setCategoryFilter(isActive ? '' : cat)}
+  1028→  1028→                className={`flex-shrink-0 text-xs px-3 py-2 rounded-xl transition-all duration-200 font-medium border flex items-center gap-1.5 ${
+  1029→  1029→                  isActive
+  1030→  1030→                    ? 'gradient-emerald text-white border-transparent premium-shadow'
+  1031→  1031→                    : count > 0
+  1032→  1032→                      ? 'bg-card border-border/60 text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
+  1033→  1033→                      : 'bg-muted/30 border-transparent text-muted-foreground/50 cursor-default'
+  1034→  1034→                }`}
+  1035→  1035→                disabled={count === 0 && !isActive}
+  1036→  1036→              >
+  1037→  1037→                <Icon className="h-3 w-3" />
+  1038→  1038→                {cat}
+  1039→  1039→                {count > 0 && (
+  1040→  1040→                  <span className={`text-[10px] px-1.5 py-0 rounded-full ${
+  1041→  1041→                    isActive ? 'bg-white/20' : 'bg-muted/60'
+  1042→  1042→                  }`}>
+  1043→  1043→                    {count}
+  1044→  1044→                  </span>
+  1045→  1045→                )}
+  1046→  1046→              </button>
+  1047→  1047→            );
+  1048→  1048→          })}
+  1049→  1049→        </div>
+  1050→  1050→      </div>
+  1051→  1051→
+  1052→  1052→      {/* Stats Summary */}
+  1053→  1053→      {!loading && tenders.length > 0 && (
+  1054→  1054→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]">
+  1055→  1055→          {[
+  1056→  1056→            { label: 'Open', count: stats.open, icon: FileSearch, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  1057→  1057→            { label: 'Closed', count: stats.closed, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+  1058→  1058→            { label: 'Awarded', count: stats.awarded, icon: TrendingUp, bg: 'bg-teal-50', color: 'text-teal-600' },
+  1059→  1059→            { label: 'Total', count: stats.total, icon: Target, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  1060→  1060→          ].map(stat => (
+  1061→  1061→            <div key={stat.label}>
+  1062→  1062→              <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
+  1063→  1063→                <CardContent className="p-4 flex items-center gap-3">
+  1064→  1064→                  <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
+  1065→  1065→                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+  1066→  1066→                  </div>
+  1067→  1067→                  <div>
+  1068→  1068→                    <p className="text-xl font-bold">{stat.count}</p>
+  1069→  1069→                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+  1070→  1070→                  </div>
+  1071→  1071→                </CardContent>
+  1072→  1072→              </Card>
+  1073→  1073→            </div>
+  1074→  1074→          ))}
+  1075→  1075→        </div>
+  1076→  1076→      )}
+  1077→  1077→
+  1078→  1078→      {/* Tenders List - Category Grouped or Flat */}
+  1079→  1079→      {loading ? (
+  1080→  1080→        <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
+  1081→  1081→          {[1, 2, 3].map(i => (
+  1082→  1082→            <div key={i} className="space-y-3">
+  1083→  1083→              <div className="flex items-center gap-3">
+  1084→  1084→                <div className="h-8 w-8 rounded-lg bg-muted/50 animate-pulse" />
+  1085→  1085→                <div className="h-5 bg-muted/50 rounded-xl w-32 animate-pulse" />
+  1086→  1086→              </div>
+  1087→  1087→              <div className="grid md:grid-cols-2 gap-3 pl-2">
+  1088→  1088→                {[1, 2].map(j => (
+  1089→  1089→                  <Card key={j} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
+  1090→  1090→                    <div className="h-1.5 bg-muted/30" />
+  1091→  1091→                    <CardContent className="p-4 space-y-2.5">
+  1092→  1092→                      <div className="h-4 bg-muted/50 rounded-xl w-3/4" />
+  1093→  1093→                      <div className="h-3 bg-muted/50 rounded-xl w-full" />
+  1094→  1094→                      <div className="h-3 bg-muted/50 rounded-xl w-1/2" />
+  1095→  1095→                    </CardContent>
+  1096→  1096→                  </Card>
+  1097→  1097→                ))}
+  1098→  1098→              </div>
+  1099→  1099→            </div>
+  1100→  1100→          ))}
+  1101→  1101→        </div>
+  1102→  1102→      ) : tenders.length === 0 ? (
+  1103→  1103→        <div className="animate-[fadeIn_0.3s_ease-out]">
+  1104→  1104→          <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1105→  1105→            <CardContent className="p-16 text-center">
+  1106→  1106→              <div className="relative w-20 h-20 mx-auto mb-6">
+  1107→  1107→                <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20" />
+  1108→  1108→                <div className="absolute inset-2 rounded-xl gradient-emerald flex items-center justify-center">
+  1109→  1109→                  <FileSearch className="h-8 w-8 text-white" />
+  1110→  1110→                </div>
+  1111→  1111→              </div>
+  1112→  1112→              <h3 className="text-lg font-semibold">No tenders found</h3>
+  1113→  1113→              <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+  1114→  1114→                {search || categoryFilter
+  1115→  1115→                  ? 'Try adjusting your search or filters to find more opportunities'
+  1116→  1116→                  : 'New tenders are posted regularly. Check back soon!'}
+  1117→  1117→              </p>
+  1118→  1118→              {(search || categoryFilter) && (
+  1119→  1119→                <Button variant="outline" className="mt-4 rounded-xl" onClick={() => { setSearch(''); setCategoryFilter(''); setStatusFilter(''); }}>
+  1120→  1120→                  Clear Filters
+  1121→  1121→                </Button>
+  1122→  1122→              )}
+  1123→  1123→            </CardContent>
+  1124→  1124→          </Card>
+  1125→  1125→        </div>
+  1126→  1126→      ) : categoryFilter && categoryFilter !== 'all' ? (
+  1127→  1127→        /* Single category view - show flat list with inline detail */
+  1128→  1128→        <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+  1129→  1129→          {(tendersByCategory[categoryFilter] || []).map(tender => {
+  1130→  1130→            const isExpanded = expandedTenderId === tender.id;
+  1131→  1131→            const days = daysUntil(tender.deadline);
+  1132→  1132→            const tags = tender.categoryTags.split(',').filter(Boolean);
+  1133→  1133→            const reqDocs = tender.requiredDocs ? tender.requiredDocs.split(',').filter(Boolean) : [];
+  1134→  1134→
+  1135→  1135→            return (
+  1136→  1136→              <div key={tender.id} className="space-y-0">
+  1137→  1137→                <div className={`hover:-translate-y-[3px] transition-all duration-200 ${isExpanded ? 'ring-2 ring-emerald-300 dark:ring-emerald-700 rounded-xl' : ''}`}>
+  1138→  1138→                  <Card
+  1139→  1139→                    className={`premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 ${
+  1140→  1140→                      compareSelection.includes(tender.id) ? 'ring-2 ring-emerald-400 ring-offset-2' : ''
+  1141→  1141→                    }`}
+  1142→  1142→                    onClick={() => setExpandedTenderId(isExpanded ? null : tender.id)}
+  1143→  1143→                  >
+  1144→  1144→                    <div className={`h-1.5 bg-gradient-to-r ${statusAccent(tender.status)}`} />
+  1145→  1145→                    <CardContent className="p-5 space-y-3">
+  1146→  1146→                      <div className="flex items-start justify-between gap-2">
+  1147→  1147→                        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+  1148→  1148→                          {tender.title}
+  1149→  1149→                        </h3>
+  1150→  1150→                        <div className="flex items-center gap-1.5 flex-shrink-0">
+  1151→  1151→                          <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
+  1152→  1152→                            {tender.status}
+  1153→  1153→                          </Badge>
+  1154→  1154→                          <button
+  1155→  1155→                            onClick={(e) => toggleCompare(tender.id, e)}
+  1156→  1156→                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+  1157→  1157→                              compareSelection.includes(tender.id)
+  1158→  1158→                                ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-200'
+  1159→  1159→                                : 'border-muted-foreground/30 hover:border-primary hover:bg-primary/10'
+  1160→  1160→                            }`}
+  1161→  1161→                            title="Select to compare"
+  1162→  1162→                          >
+  1163→  1163→                            {compareSelection.includes(tender.id) && (
+  1164→  1164→                              <CheckCircle className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+  1165→  1165→                            )}
+  1166→  1166→                          </button>
+  1167→  1167→                        </div>
+  1168→  1168→                      </div>
+  1169→  1169→
+  1170→  1170→                      <p className="text-xs text-muted-foreground line-clamp-2">{tender.scope}</p>
+  1171→  1171→
+  1172→  1172→                      <div className="flex items-center gap-1.5 text-xs">
+  1173→  1173→                        <div className="p-1 rounded bg-emerald-50">
+  1174→  1174→                          <DollarSign className="h-3 w-3 text-emerald-600" />
+  1175→  1175→                        </div>
+  1176→  1176→                        <span className="font-medium text-emerald-700">ETB {tender.budgetMin.toLocaleString()} – {tender.budgetMax.toLocaleString()}</span>
+  1177→  1177→                      </div>
+  1178→  1178→
+  1179→  1179→                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+  1180→  1180→                        <div className="flex items-center gap-1">
+  1181→  1181→                          <div className="p-1 rounded bg-amber-50">
+  1182→  1182→                            <MapPin className="h-3 w-3 text-amber-600" />
+  1183→  1183→                          </div>
+  1184→  1184→                          <span className="truncate max-w-[100px]">{tender.location}</span>
+  1185→  1185→                        </div>
+  1186→  1186→                        <div className="flex items-center gap-1">
+  1187→  1187→                          <div className="p-1 rounded bg-teal-50">
+  1188→  1188→                            <Calendar className="h-3 w-3 text-teal-600" />
+  1189→  1189→                          </div>
+  1190→  1190→                          <span>{new Date(tender.deadline).toLocaleDateString()}</span>
+  1191→  1191→                        </div>
+  1192→  1192→                      </div>
+  1193→  1193→
+  1194→  1194→                      <div className="flex items-center gap-2">
+  1195→  1195→                        <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)} hover:${deadlineBg(days)} flex items-center gap-1`}>
+  1196→  1196→                          <Timer className="h-2.5 w-2.5" />
+  1197→  1197→                          {days <= 0 ? 'Expired' : days === 1 ? '1 day left' : `${days} days left`}
+  1198→  1198→                        </Badge>
+  1199→  1199→                        {tender._count && (
+  1200→  1200→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60 flex items-center gap-1">
+  1201→  1201→                            <Users className="h-2.5 w-2.5" />
+  1202→  1202→                            {tender._count.bids} bid{tender._count.bids !== 1 ? 's' : ''}
+  1203→  1203→                          </Badge>
+  1204→  1204→                        )}
+  1205→  1205→                      </div>
+  1206→  1206→
+  1207→  1207→                      <div className="flex flex-wrap gap-1">
+  1208→  1208→                        {tags.slice(0, 3).map(tag => (
+  1209→  1209→                          <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+  1210→  1210→                            {tag.trim()}
+  1211→  1211→                          </Badge>
+  1212→  1212→                        ))}
+  1213→  1213→                        {tags.length > 3 && (
+  1214→  1214→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60">
+  1215→  1215→                            +{tags.length - 3}
+  1216→  1216→                          </Badge>
+  1217→  1217→                        )}
+  1218→  1218→                      </div>
+  1219→  1219→
+  1220→  1220→                      {reqDocs.length > 0 && (
+  1221→  1221→                        <div className="rounded-lg border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-2.5 space-y-1.5">
+  1222→  1222→                          <div className="flex items-center gap-1.5">
+  1223→  1223→                            <ClipboardList className="h-3 w-3 text-teal-600 dark:text-teal-400 shrink-0" />
+  1224→  1224→                            <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wide">Requirements</span>
+  1225→  1225→                            <span className="text-[9px] text-teal-600/70 dark:text-teal-400/70 ml-auto">{reqDocs.length} doc{reqDocs.length === 1 ? '' : 's'}</span>
+  1226→  1226→                          </div>
+  1227→  1227→                          <div className="flex flex-wrap gap-1">
+  1228→  1228→                            {reqDocs.slice(0, 3).map((doc, i) => (
+  1229→  1229→                              doc.trim().startsWith('http') ? (
+  1230→  1230→                                <a
+  1231→  1231→                                  key={`${doc}-${i}`}
+  1232→  1232→                                  href={doc.trim()}
+  1233→  1233→                                  target="_blank"
+  1234→  1234→                                  rel="noopener noreferrer"
+  1235→  1235→                                  className="inline-flex items-center gap-1 text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors"
+  1236→  1236→                                >
+  1237→  1237→                                  <FileText className="h-2.5 w-2.5" />
+  1238→  1238→                                  View Docs
+  1239→  1239→                                  <ExternalLink className="h-2 w-2" />
+  1240→  1240→                                </a>
+  1241→  1241→                              ) : (
+  1242→  1242→                                <span key={`${doc}-${i}`} className="inline-flex items-center text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5">
+  1243→  1243→                                  {doc.trim()}
+  1244→  1244→                                </span>
+  1245→  1245→                              )
+  1246→  1246→                            ))}
+  1247→  1247→                            {reqDocs.length > 3 && (
+  1248→  1248→                              <span className="text-[10px] text-teal-600/70 dark:text-teal-400/70 px-1.5 py-0.5">+{reqDocs.length - 3}</span>
+  1249→  1249→                            )}
+  1250→  1250→                          </div>
+  1251→  1251→                        </div>
+  1252→  1252→                      )}
+  1253→  1253→
+  1254→  1254→                      {tender.matchScore !== undefined && (
+  1255→  1255→                        <div className="pt-1 space-y-1">
+  1256→  1256→                          <div className="flex items-center justify-between">
+  1257→  1257→                            <span className="text-[10px] text-muted-foreground font-medium">Match Score</span>
+  1258→  1258→                            <span className={`text-[10px] font-bold ${
+  1259→  1259→                              tender.matchScore >= 70 ? 'text-emerald-700' : tender.matchScore >= 40 ? 'text-amber-700' : 'text-muted-foreground'
+  1260→  1260→                            }`}>
+  1261→  1261→                              {tender.matchScore}%
+  1262→  1262→                            </span>
+  1263→  1263→                          </div>
+  1264→  1264→                          <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+  1265→  1265→                            <div
+  1266→  1266→                              className={`h-full rounded-full bg-gradient-to-r ${matchBarColor(tender.matchScore)} transition-[width] duration-700`}
+  1267→  1267→                              style={{ width: `${tender.matchScore}%` }}
+  1268→  1268→                            />
+  1269→  1269→                          </div>
+  1270→  1270→                        </div>
+  1271→  1271→                      )}
+  1272→  1272→
+  1273→  1273→                      <div className="flex items-center justify-between pt-1">
+  1274→  1274→                        <div className="flex items-center gap-1">
+  1275→  1275→                          {tender.status === 'open' && (
+  1276→  1276→                            <Button
+  1277→  1277→                              variant="ghost"
+  1278→  1278→                              size="sm"
+  1279→  1279→                              className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 h-6 px-1.5 font-medium"
+  1280→  1280→                              onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, action: 'apply' }); }}
+  1281→  1281→                            >
+  1282→  1282→                              <Gavel className="h-3 w-3" />
+  1283→  1283→                              Apply
+  1284→  1284→                            </Button>
+  1285→  1285→                          )}
+  1286→  1286→                          <Button
+  1287→  1287→                            variant="ghost"
+  1288→  1288→                            size="sm"
+  1289→  1289→                            className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
+  1290→  1290→                            onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
+  1291→  1291→                          >
+  1292→  1292→                            <Sparkles className="h-3 w-3" />
+  1293→  1293→                            AI Review
+  1294→  1294→                          </Button>
+  1295→  1295→                          <Button
+  1296→  1296→                            variant="ghost"
+  1297→  1297→                            size="sm"
+  1298→  1298→                            className="gap-1 text-[10px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 h-6 px-1.5"
+  1299→  1299→                            onClick={(e) => { e.stopPropagation(); setView('bids', { tenderId: tender.id }); }}
+  1300→  1300→                          >
+  1301→  1301→                            <Briefcase className="h-3 w-3" />
+  1302→  1302→                            Track
+  1303→  1303→                          </Button>
+  1304→  1304→                        </div>
+  1305→  1305→                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+  1306→  1306→                          {isExpanded ? 'Collapse' : 'Expand'} Details
+  1307→  1307→                          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+  1308→  1308→                            <ChevronDown className="h-3 w-3" />
+  1309→  1309→                          </div>
+  1310→  1310→                        </span>
+  1311→  1311→                      </div>
+  1312→  1312→                    </CardContent>
+  1313→  1313→                  </Card>
+  1314→  1314→                </div>
+  1315→  1315→
+  1316→  1316→                {isExpanded && (
+  1317→  1317→                  <div className="mt-2 mb-1">
+  1318→  1318→                    <InlineTenderDetail
+  1319→  1319→                      tender={tender}
+  1320→  1320→                      onClose={() => setExpandedTenderId(null)}
+  1321→  1321→                      setView={setView}
+  1322→  1322→                    />
+  1323→  1323→                  </div>
+  1324→  1324→                )}
+  1325→  1325→              </div>
+  1326→  1326→            );
+  1327→  1327→          })}
+  1328→  1328→        </div>
+  1329→  1329→      ) : (
+  1330→  1330→        /* All categories view - grouped by category with collapsible sections */
+  1331→  1331→        <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
+  1332→  1332→          {displayCategories.map(cat => {
+  1333→  1333→            const catTenders = tendersByCategory[cat] || [];
+  1334→  1334→            if (catTenders.length === 0) return null;
+  1335→  1335→            return (
+  1336→  1336→              <CategorySection
+  1337→  1337→                key={cat}
+  1338→  1338→                category={cat}
+  1339→  1339→                tenders={catTenders.slice(0, visibleCount)}
+  1340→  1340→                expandedTenderId={expandedTenderId}
+  1341→  1341→                onExpandTender={setExpandedTenderId}
+  1342→  1342→                compareSelection={compareSelection}
+  1343→  1343→                toggleCompare={toggleCompare}
+  1344→  1344→                setView={setView}
+  1345→  1345→              />
+  1346→  1346→            );
+  1347→  1347→          })}
+  1348→  1348→        </div>
+  1349→  1349→      )}
+  1350→  1350→
+  1351→  1351→      {/* See More / Load More */}
+  1352→  1352→      {!loading && filteredTenders.length > visibleCount && (
+  1353→  1353→        <div className="flex justify-center pt-4">
+  1354→  1354→          <Button
+  1355→  1355→            variant="outline"
+  1356→  1356→            size="lg"
+  1357→  1357→            className="gap-2 rounded-xl border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+  1358→  1358→            onClick={() => setVisibleCount(prev => Math.min(prev + TENDER_PAGE_SIZE, filteredTenders.length))}
+  1359→  1359→          >
+  1360→  1360→            <ChevronDown className="h-4 w-4" />
+  1361→  1361→            See More ({filteredTenders.length - visibleCount} remaining)
+  1362→  1362→          </Button>
+  1363→  1363→        </div>
+  1364→  1364→      )}
+  1365→  1365→
+  1366→  1366→      {/* Floating Compare Bar */}
+  1367→  1367→      {compareSelection.length > 0 && (
+  1368→  1368→        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-[fadeIn_0.3s_ease-out]">
+  1369→  1369→          <div className="flex items-center gap-3 bg-card/95 backdrop-blur-md rounded-2xl px-5 py-3 premium-shadow-lg border border-primary/20">
+  1370→  1370→            <div className="flex items-center gap-2">
+  1371→  1371→              <div className="p-1.5 rounded-lg gradient-emerald">
+  1372→  1372→                <GitCompareArrows className="h-4 w-4 text-white" />
+  1373→  1373→              </div>
+  1374→  1374→              <div>
+  1375→  1375→                <p className="text-xs font-bold text-foreground">
+  1376→  1376→                  {compareSelection.length} tender{compareSelection.length !== 1 ? 's' : ''} selected
+  1377→  1377→                </p>
+  1378→  1378→                <p className="text-[10px] text-muted-foreground">Select 2-4 to compare</p>
+  1379→  1379→              </div>
+  1380→  1380→            </div>
+  1381→  1381→            <div className="h-8 w-px bg-border/60" />
+  1382→  1382→            <Button
+  1383→  1383→              size="sm"
+  1384→  1384→              className={`rounded-xl font-semibold transition-all hover:-translate-y-0.5 ${
+  1385→  1385→                compareSelection.length >= 2
+  1386→  1386→                  ? 'gradient-emerald hover:opacity-90 text-white premium-shadow'
+  1387→  1387→                  : 'bg-muted text-muted-foreground cursor-not-allowed'
+  1388→  1388→              }`}
+  1389→  1389→              disabled={compareSelection.length < 2}
+  1390→  1390→              onClick={goToCompare}
+  1391→  1391→            >
+  1392→  1392→              <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" />
+  1393→  1393→              Compare {compareSelection.length >= 2 ? `(${compareSelection.length})` : ''}
+  1394→  1394→            </Button>
+  1395→  1395→            <Button
+  1396→  1396→              size="sm"
+  1397→  1397→              variant="ghost"
+  1398→  1398→              className="rounded-xl text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
+  1399→  1399→              onClick={() => setCompareSelection([])}
+  1400→  1400→            >
+  1401→  1401→              <XIcon className="h-3.5 w-3.5 mr-1" /> Clear
+  1402→  1402→            </Button>
+  1403→  1403→          </div>
+  1404→  1404→        </div>
+  1405→  1405→      )}
+  1406→  1406→    </div>
+  1407→  1407→  );
+  1408→  1408→}
+  1409→  1409→
+  1410→  1410→// ─── Shared helpers ──────────────────────────────────────────────
+  1411→  1411→function statusColor(status: string) {
+  1412→  1412→  switch (status) {
+  1413→  1413→    case 'open': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+  1414→  1414→    case 'closed': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+  1415→  1415→    case 'awarded': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
+  1416→  1416→    case 'cancelled': return 'bg-muted text-muted-foreground hover:bg-muted';
+  1417→  1417→    default: return 'bg-muted text-muted-foreground hover:bg-muted';
+  1418→  1418→  }
+  1419→  1419→}
+  1420→  1420→
+  1421→  1421→function statusAccent(status: string) {
+  1422→  1422→  switch (status) {
+  1423→  1423→    case 'open': return 'from-emerald-400 to-emerald-600';
+  1424→  1424→    case 'closed': return 'from-rose-400 to-rose-600';
+  1425→  1425→    case 'awarded': return 'from-teal-400 to-teal-600';
+  1426→  1426→    case 'cancelled': return 'from-gray-300 to-gray-400';
+  1427→  1427→    default: return 'from-gray-300 to-gray-400';
+  1428→  1428→  }
+  1429→  1429→}
+  1430→  1430→
+  1431→  1431→function matchBarColor(score: number) {
+  1432→  1432→  if (score >= 70) return 'from-emerald-400 to-emerald-600';
+  1433→  1433→  if (score >= 40) return 'from-amber-400 to-amber-600';
+  1434→  1434→  return 'from-gray-300 to-gray-400';
+  1435→  1435→}
+
+[showing lines 936-1435 of 1436; use offset=1436 with limit to continue reading]
