@@ -563,7 +563,7 @@ export function TendersView() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalTenders, setTotalTenders] = useState(0);
-  const LIMIT = 30;
+  const LIMIT = 50;
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -676,25 +676,33 @@ export function TendersView() {
   };
 
   // ── External/Live Tenders ──
+  // Ref to track external tenders length for offset calculation without re-creating callback
+  const externalTendersLengthRef = useRef(0);
+
   const loadExternalTenders = useCallback(async (append = false) => {
     if (append) setExternalLoadingMore(true);
     else setExternalLoading(true);
 
-    const currentOffset = append ? externalTenders.length : 0;
-    const params: Record<string, string> = { rows: '100', offset: String(currentOffset) };
+    const currentOffset = append ? externalTendersLengthRef.current : 0;
+    const params: Record<string, string> = { rows: '200', offset: String(currentOffset) };
     if (search) params.search = search;
     if (categoryFilter && categoryFilter !== 'all') params.source = categoryFilter.toLowerCase();
 
     const res = await api.get('/tenders/live', params);
     if (res.success) {
       const newTenders = res.data as LiveTender[];
-      setExternalTenders(append ? (prev: LiveTender[]) => [...prev, ...newTenders] : newTenders);
+      setExternalTenders(append ? (prev: LiveTender[]) => {
+        const updated = [...prev, ...newTenders];
+        externalTendersLengthRef.current = updated.length;
+        return updated;
+      } : newTenders);
+      if (!append) externalTendersLengthRef.current = newTenders.length;
       setExternalHasMore(res.meta?.hasMore ?? false);
       if (res.meta?.totalAvailable) setExternalTotalAvailable(res.meta.totalAvailable);
     }
     setExternalLoading(false);
     setExternalLoadingMore(false);
-  }, [search, categoryFilter, externalTenders.length]);
+  }, [search, categoryFilter]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -1950,7 +1958,7 @@ export function TendersView() {
                     {externalLoadingMore ? 'Loading More…' : 'Load More'}
                     {!externalLoadingMore && (
                       <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
-                        +100
+                        +200
                       </Badge>
                     )}
                   </Button>
