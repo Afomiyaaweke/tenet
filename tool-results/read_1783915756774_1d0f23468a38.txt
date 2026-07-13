@@ -1,0 +1,502 @@
+  1200→              <strong>#${a.rank} ${a.name}</strong> (${a.company}) — Score: <strong>${a.overallScore}</strong>
+  1201→              <br/>Technical: ${a.technicalScore}% | Financial: ${a.financialScore}%
+  1202→              <br/>Risk: ${a.riskLevel} | Recommendation: ${a.recommendation}
+  1203→            </div>`;
+  1204→          }
+  1205→        }
+  1206→        if (d.budgetAnalysis) html += formatAIResultToHTML({ budgetAnalysis: d.budgetAnalysis });
+  1207→        if (d.riskSummary) html += formatAIResultToHTML({ riskSummary: d.riskSummary });
+  1208→        if (d.finalRecommendation) html += formatAIResultToHTML({ finalRecommendation: d.finalRecommendation });
+  1209→        setDocumentContent(html || '<p>No results</p>');
+  1210→        toast.success('Applicants analyzed!');
+  1211→      } else { toast.error(res.error || 'Failed to analyze'); }
+  1212→    } catch { toast.error('AI analysis failed'); }
+  1213→    finally { setAiLoading(false); }
+  1214→  };
+  1215→
+  1216→  /* ── AI Panel Content ── */
+  1217→  const AIPanelContent = () => {
+  1218→    const formClass = "h-8 text-xs bg-muted/50 border-border/50";
+  1219→    return (
+  1220→      <ScrollArea className="h-full">
+  1221→        <div className="p-3 space-y-3">
+  1222→          {/* Close button */}
+  1223→          <div className="flex items-center justify-between">
+  1224→            <div className="flex items-center gap-2">
+  1225→              <Sparkles className="h-4 w-4 text-emerald-600" />
+  1226→              <span className="text-sm font-semibold">AI Assistant</span>
+  1227→            </div>
+  1228→            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setAiPanelOpen(false)}>
+  1229→              <X className="h-3.5 w-3.5" />
+  1230→            </Button>
+  1231→          </div>
+  1232→
+  1233→          {/* Tool selector */}
+  1234→          <div className="flex flex-wrap gap-1">
+  1235→            {AI_TOOLS.map(tool => {
+  1236→              const Icon = tool.icon;
+  1237→              const isActive = activeAITool === tool.id;
+  1238→              return (
+  1239→                <button key={tool.id} onClick={() => setActiveAITool(tool.id)}
+  1240→                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border transition-colors ${
+  1241→                    isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border text-muted-foreground hover:bg-muted'
+  1242→                  }`}>
+  1243→                  <Icon className="h-3 w-3" /> {tool.label}
+  1244→                </button>
+  1245→              );
+  1246→            })}
+  1247→          </div>
+  1248→
+  1249→          <Separator />
+  1250→
+  1251→          {/* Tender Builder Form */}
+  1252→          {activeAITool === 'tender-builder' && (
+  1253→            <div className="space-y-2">
+  1254→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tender Builder</Label>
+  1255→              <div><Label className="text-[10px]">Title *</Label><Input placeholder="Tender title" value={tenderForm.title} onChange={e => updateTenderField('title', e.target.value)} className={formClass} /></div>
+  1256→              <div><Label className="text-[10px]">Category *</Label>
+  1257→                <Select value={tenderForm.category} onValueChange={v => updateTenderField('category', v)}>
+  1258→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+  1259→                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+  1260→                </Select>
+  1261→              </div>
+  1262→              <div><Label className="text-[10px]">Location</Label><Input placeholder="e.g., Addis Ababa" value={tenderForm.location} onChange={e => updateTenderField('location', e.target.value)} className={formClass} /></div>
+  1263→              <div className="grid grid-cols-2 gap-2">
+  1264→                <div><Label className="text-[10px]">Budget Min</Label><Input type="number" placeholder="0" value={tenderForm.budgetMin} onChange={e => updateTenderField('budgetMin', e.target.value)} className={formClass} /></div>
+  1265→                <div><Label className="text-[10px]">Budget Max</Label><Input type="number" placeholder="0" value={tenderForm.budgetMax} onChange={e => updateTenderField('budgetMax', e.target.value)} className={formClass} /></div>
+  1266→              </div>
+  1267→              <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={tenderForm.deadline} onChange={e => updateTenderField('deadline', e.target.value)} className={formClass} /></div>
+  1268→              <div><Label className="text-[10px]">Description *</Label><Textarea placeholder="Scope and requirements..." value={tenderForm.description} onChange={e => updateTenderField('description', e.target.value)} className="min-h-[60px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1269→              <div><Label className="text-[10px]">Notes</Label><Textarea placeholder="Optional notes..." value={tenderForm.notes} onChange={e => updateTenderField('notes', e.target.value)} className="min-h-[40px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1270→              <GenerateButton onClick={generateTender} loading={aiLoading} />
+  1271→            </div>
+  1272→          )}
+  1273→
+  1274→          {/* Bid Builder Form */}
+  1275→          {activeAITool === 'bid-builder' && (
+  1276→            <div className="space-y-2">
+  1277→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Bid Proposal</Label>
+  1278→              <div><Label className="text-[10px]">Select Tender</Label>
+  1279→                <Select value={bidSelectedTender} onValueChange={selectBidTender}>
+  1280→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1281→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1282→                </Select>
+  1283→              </div>
+  1284→              <Separator />
+  1285→              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+  1286→              <div><Label className="text-[10px]">Tender Title</Label><Input value={bidForm.tenderTitle} onChange={e => updateBidField('tenderTitle', e.target.value)} className={formClass} /></div>
+  1287→              <div><Label className="text-[10px]">Scope</Label><Textarea value={bidForm.scope} onChange={e => updateBidField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1288→              <div className="grid grid-cols-2 gap-2">
+  1289→                <div><Label className="text-[10px]">Budget Range</Label><Input value={bidForm.budgetRange} onChange={e => updateBidField('budgetRange', e.target.value)} className={formClass} /></div>
+  1290→                <div><Label className="text-[10px]">Category</Label>
+  1291→                  <Select value={bidForm.category} onValueChange={v => updateBidField('category', v)}>
+  1292→                    <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+  1293→                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+  1294→                  </Select>
+  1295→                </div>
+  1296→              </div>
+  1297→              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={bidSkills} onChange={setBidSkills} /></div>
+  1298→              <div><Label className="text-[10px]">Company</Label><Input value={bidForm.companyName} onChange={e => updateBidField('companyName', e.target.value)} className={formClass} /></div>
+  1299→              <div><Label className="text-[10px]">Experience</Label><Textarea value={bidForm.experience} onChange={e => updateBidField('experience', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1300→              <div className="grid grid-cols-2 gap-2">
+  1301→                <div><Label className="text-[10px]">Proposed Budget</Label><Input type="number" value={bidForm.proposedBudget} onChange={e => updateBidField('proposedBudget', e.target.value)} className={formClass} /></div>
+  1302→                <div><Label className="text-[10px]">Timeline</Label><Input value={bidForm.proposedTimeline} onChange={e => updateBidField('proposedTimeline', e.target.value)} className={formClass} /></div>
+  1303→              </div>
+  1304→              <GenerateButton onClick={generateBid} loading={aiLoading} />
+  1305→            </div>
+  1306→          )}
+  1307→
+  1308→          {/* Requirement Analyzer Form */}
+  1309→          {activeAITool === 'requirement-analyzer' && (
+  1310→            <div className="space-y-2">
+  1311→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Requirement Analyzer</Label>
+  1312→              <div><Label className="text-[10px]">Select Tender</Label>
+  1313→                <Select value={reqSelectedTender} onValueChange={selectReqTender}>
+  1314→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1315→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1316→                </Select>
+  1317→              </div>
+  1318→              <Separator />
+  1319→              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+  1320→              <div><Label className="text-[10px]">Tender Title</Label><Input value={reqForm.tenderTitle} onChange={e => updateReqField('tenderTitle', e.target.value)} className={formClass} /></div>
+  1321→              <div><Label className="text-[10px]">Scope</Label><Textarea value={reqForm.scope} onChange={e => updateReqField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+  1322→              <div className="grid grid-cols-2 gap-2">
+  1323→                <div><Label className="text-[10px]">Budget</Label><Input value={reqForm.budget} onChange={e => updateReqField('budget', e.target.value)} className={formClass} /></div>
+  1324→                <div><Label className="text-[10px]">Category</Label><Input value={reqForm.category} onChange={e => updateReqField('category', e.target.value)} className={formClass} /></div>
+  1325→              </div>
+  1326→              <div className="grid grid-cols-2 gap-2">
+  1327→                <div><Label className="text-[10px]">Required Docs</Label><Input value={reqForm.requiredDocs} onChange={e => updateReqField('requiredDocs', e.target.value)} className={formClass} /></div>
+  1328→                <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={reqForm.deadline} onChange={e => updateReqField('deadline', e.target.value)} className={formClass} /></div>
+  1329→              </div>
+  1330→              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={reqSkills} onChange={setReqSkills} /></div>
+  1331→              <GenerateButton onClick={generateReq} loading={aiLoading} />
+  1332→            </div>
+  1333→          )}
+  1334→
+  1335→          {/* Applicant Analyzer Form */}
+  1336→          {activeAITool === 'applicant-analyzer' && (
+  1337→            <div className="space-y-2">
+  1338→              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Applicant Analyzer</Label>
+  1339→              <div><Label className="text-[10px]">Select Your Tender</Label>
+  1340→                <Select value={appSelectedTender} onValueChange={setAppSelectedTender}>
+  1341→                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+  1342→                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+  1343→                </Select>
+  1344→              </div>
+  1345→              <GenerateButton onClick={generateApplicant} loading={aiLoading} disabled={!appSelectedTender} />
+  1346→            </div>
+  1347→          )}
+  1348→        </div>
+  1349→      </ScrollArea>
+  1350→    );
+  1351→  };
+  1352→
+  1353→  /* ════════════════════════════════════════════════════════════
+  1354→     DOC REVIEW MAIN CONTENT
+  1355→     ════════════════════════════════════════════════════════════ */
+  1356→  const DocReviewContent = () => {
+  1357→    const selectedDoc = documents.find(d => d.id === selectedDocId);
+  1358→    const expandedDoc = documents.find(d => d.id === expandedDocId);
+  1359→
+  1360→    return (
+  1361→      <div className="flex-1 flex overflow-hidden bg-muted/30">
+  1362→        {/* Left: Document List */}
+  1363→        <div className="w-[380px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+  1364→          <div className="p-3 border-b border-border/40">
+  1365→            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+  1366→              <FileSearch className="h-4 w-4 text-emerald-600" />
+  1367→              Document Vault
+  1368→            </h3>
+  1369→
+  1370→            {/* Upload Drop Zone */}
+  1371→            <div
+  1372→              className={`border-2 border-dashed rounded-lg p-4 text-center transition-all cursor-pointer ${
+  1373→                dragOver
+  1374→                  ? 'border-emerald-500 bg-emerald-50/50'
+  1375→                  : 'border-border/60 hover:border-emerald-300 hover:bg-muted/30'
+  1376→              }`}
+  1377→              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+  1378→              onDragLeave={() => setDragOver(false)}
+  1379→              onDrop={handleDrop}
+  1380→              onClick={() => fileInputRef.current?.click()}
+  1381→            >
+  1382→              {uploading ? (
+  1383→                <div className="flex flex-col items-center gap-1">
+  1384→                  <Loader2 className="h-6 w-6 text-emerald-600 animate-spin" />
+  1385→                  <p className="text-xs text-muted-foreground">Uploading...</p>
+  1386→                </div>
+  1387→              ) : (
+  1388→                <div className="flex flex-col items-center gap-1">
+  1389→                  <Upload className="h-6 w-6 text-muted-foreground" />
+  1390→                  <p className="text-xs font-medium text-muted-foreground">
+  1391→                    Drag & drop or click to upload
+  1392→                  </p>
+  1393→                  <p className="text-[10px] text-muted-foreground/70">
+  1394→                    PDF, DOCX, DOC, TXT, JPG, PNG
+  1395→                  </p>
+  1396→                </div>
+  1397→              )}
+  1398→            </div>
+  1399→
+  1400→            {/* Hidden file input */}
+  1401→            <input
+  1402→              ref={fileInputRef}
+  1403→              type="file"
+  1404→              accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png"
+  1405→              className="hidden"
+  1406→              onChange={e => {
+  1407→                if (e.target.files) handleFileUpload(e.target.files);
+  1408→                e.target.value = '';
+  1409→              }}
+  1410→            />
+  1411→          </div>
+  1412→
+  1413→          {/* Document List */}
+  1414→          <ScrollArea className="flex-1">
+  1415→            <div className="p-2 space-y-1.5">
+  1416→              {docsLoading ? (
+  1417→                <div className="space-y-2 p-2">
+  1418→                  {[1, 2, 3].map(i => (
+  1419→                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+  1420→                  ))}
+  1421→                </div>
+  1422→              ) : documents.length === 0 ? (
+  1423→                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+  1424→                  <FileText className="h-8 w-8 mb-2 opacity-30" />
+  1425→                  <p className="text-xs">No documents uploaded yet</p>
+  1426→                  <p className="text-[10px] mt-1">Upload a document to start reviewing</p>
+  1427→                </div>
+  1428→              ) : (
+  1429→                documents.map(doc => {
+  1430→                  const extBadge = getFileExtBadge(doc.fileName);
+  1431→                  const isOcrLoading = ocrStatusMap[doc.id]?.loading;
+  1432→                  const isReviewLoading = reviewStatusMap[doc.id]?.loading;
+  1433→                  const ocrDone = doc.ocrStatus === 'completed';
+  1434→                  const reviewDone = doc.aiReviewStatus === 'completed';
+  1435→                  const isSelected = selectedDocId === doc.id;
+  1436→                  const isExpanded = expandedDocId === doc.id;
+  1437→
+  1438→                  return (
+  1439→                    <div
+  1440→                      key={doc.id}
+  1441→                      className={`rounded-lg border p-2.5 transition-all cursor-pointer ${
+  1442→                        isSelected
+  1443→                          ? 'border-emerald-300 bg-emerald-50/30 shadow-sm'
+  1444→                          : 'border-border/40 hover:border-emerald-200 hover:bg-muted/20'
+  1445→                      }`}
+  1446→                      onClick={() => setSelectedDocId(doc.id)}
+  1447→                    >
+  1448→                      {/* Doc Header */}
+  1449→                      <div className="flex items-start gap-2">
+  1450→                        <div className="p-1.5 rounded bg-muted/50 flex-shrink-0">
+  1451→                          <FileText className="h-4 w-4 text-muted-foreground" />
+  1452→                        </div>
+  1453→                        <div className="min-w-0 flex-1">
+  1454→                          <div className="flex items-center gap-1.5">
+  1455→                            <p className="text-xs font-medium truncate">{doc.fileName}</p>
+  1456→                            <Badge className={`text-[9px] px-1 py-0 border-0 ${extBadge.color}`}>
+  1457→                              {extBadge.label}
+  1458→                            </Badge>
+  1459→                          </div>
+  1460→                          <p className="text-[10px] text-muted-foreground mt-0.5">
+  1461→                            {DOC_TYPE_OPTIONS.find(o => o.value === doc.docType)?.label || doc.docType}
+  1462→                          </p>
+  1463→                        </div>
+  1464→                        <Button
+  1465→                          variant="ghost"
+  1466→                          size="sm"
+  1467→                          className="h-5 w-5 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50"
+  1468→                          onClick={async (e) => {
+  1469→                            e.stopPropagation();
+  1470→                            if (!confirm(`Delete "${doc.fileName}"? This cannot be undone.`)) return;
+  1471→                            const res = await api.delete(`/documents/${doc.id}`);
+  1472→                            if (res.success) {
+  1473→                              toast.success('Document deleted');
+  1474→                              loadDocuments();
+  1475→                            } else {
+  1476→                              toast.error(res.error || 'Failed to delete');
+  1477→                            }
+  1478→                          }}
+  1479→                          title="Delete document"
+  1480→                        >
+  1481→                          <Trash2 className="h-3 w-3" />
+  1482→                        </Button>
+  1483→                        <button
+  1484→                          onClick={e => { e.stopPropagation(); setExpandedDocId(isExpanded ? null : doc.id); }}
+  1485→                          className="p-0.5 hover:bg-muted rounded transition-colors"
+  1486→                        >
+  1487→                          <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+  1488→                        </button>
+  1489→                      </div>
+  1490→
+  1491→                      {/* Status Row */}
+  1492→                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+  1493→                        {/* OCR Status */}
+  1494→                        <div className="flex items-center gap-1">
+  1495→                          {doc.ocrStatus === 'completed' ? (
+  1496→                            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  1497→                              <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> OCR
+  1498→                            </Badge>
+  1499→                          ) : doc.ocrStatus === 'processing' ? (
+  1500→                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 hover:bg-amber-100">
+  1501→                              <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> OCR
+  1502→                            </Badge>
+  1503→                          ) : doc.ocrStatus === 'failed' ? (
+  1504→                            <Badge className="text-[9px] px-1.5 py-0 bg-rose-100 text-rose-700 border-0 hover:bg-rose-100">
+  1505→                              <XCircle className="h-2.5 w-2.5 mr-0.5" /> OCR
+  1506→                            </Badge>
+  1507→                          ) : (
+  1508→                            <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-600 border-0 hover:bg-gray-100">
+  1509→                              OCR
+  1510→                            </Badge>
+  1511→                          )}
+  1512→                        </div>
+  1513→
+  1514→                        {/* AI Review Status */}
+  1515→                        <div className="flex items-center gap-1">
+  1516→                          {doc.aiReviewStatus === 'completed' ? (
+  1517→                            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  1518→                              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> Reviewed
+  1519→                            </Badge>
+  1520→                          ) : doc.aiReviewStatus === 'processing' ? (
+  1521→                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 hover:bg-amber-100">
+  1522→                              <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> Reviewing
+  1523→                            </Badge>
+  1524→                          ) : doc.aiReviewStatus === 'failed' ? (
+  1525→                            <Badge className="text-[9px] px-1.5 py-0 bg-rose-100 text-rose-700 border-0 hover:bg-rose-100">
+  1526→                              <XCircle className="h-2.5 w-2.5 mr-0.5" /> Review
+  1527→                            </Badge>
+  1528→                          ) : (
+  1529→                            <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-600 border-0 hover:bg-gray-100">
+  1530→                              AI Review
+  1531→                            </Badge>
+  1532→                          )}
+  1533→                        </div>
+  1534→                      </div>
+  1535→
+  1536→                      {/* Expanded Content */}
+  1537→                      {isExpanded && (
+  1538→                        <div className="mt-2.5 space-y-2 border-t border-border/30 pt-2.5" onClick={e => e.stopPropagation()}>
+  1539→                          {/* Action Buttons Row */}
+  1540→                          <div className="flex items-center gap-1.5">
+  1541→                            {/* OCR Button */}
+  1542→                            <Button
+  1543→                              size="sm"
+  1544→                              variant="outline"
+  1545→                              className="h-6 text-[10px] px-2"
+  1546→                              disabled={isOcrLoading || doc.ocrStatus === 'processing' || doc.ocrStatus === 'completed'}
+  1547→                              onClick={() => triggerOCR(doc.id)}
+  1548→                            >
+  1549→                              {isOcrLoading || doc.ocrStatus === 'processing' ? (
+  1550→                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> OCR...</>
+  1551→                              ) : doc.ocrStatus === 'completed' ? (
+  1552→                                <><CheckCircle2 className="h-3 w-3 mr-1" /> OCR Done</>
+  1553→                              ) : (
+  1554→                                <><Eye className="h-3 w-3 mr-1" /> Run OCR</>
+  1555→                              )}
+  1556→                            </Button>
+  1557→
+  1558→                            {/* AI Review Button */}
+  1559→                            <Button
+  1560→                              size="sm"
+  1561→                              variant="outline"
+  1562→                              className="h-6 text-[10px] px-2"
+  1563→                              disabled={isReviewLoading || doc.aiReviewStatus === 'processing' || !ocrDone}
+  1564→                              onClick={() => triggerReview(doc.id)}
+  1565→                              title={!ocrDone ? 'Run OCR first' : 'Run AI Review'}
+  1566→                            >
+  1567→                              {isReviewLoading || doc.aiReviewStatus === 'processing' ? (
+  1568→                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Review...</>
+  1569→                              ) : doc.aiReviewStatus === 'completed' ? (
+  1570→                                <><Sparkles className="h-3 w-3 mr-1" /> Re-Review</>
+  1571→                              ) : (
+  1572→                                <><Sparkles className="h-3 w-3 mr-1" /> AI Review</>
+  1573→                              )}
+  1574→                            </Button>
+  1575→                          </div>
+  1576→
+  1577→                          {!ocrDone && (
+  1578→                            <p className="text-[10px] text-amber-600 flex items-center gap-1">
+  1579→                              <AlertTriangle className="h-3 w-3" /> Run OCR first before AI Review
+  1580→                            </p>
+  1581→                          )}
+  1582→
+  1583→                          {/* Custom Review Prompt */}
+  1584→                          <div>
+  1585→                            <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1586→                              <Bot className="h-3 w-3" /> Review Instructions
+  1587→                            </Label>
+  1588→                            <Textarea
+  1589→                              placeholder={PROMPT_SUGGESTIONS[doc.docType] || 'Enter custom review instructions...'}
+  1590→                              value={reviewPrompts[doc.id] || ''}
+  1591→                              onChange={e => setReviewPrompts(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1592→                              onBlur={() => saveReviewPrompt(doc.id)}
+  1593→                              className="min-h-[60px] text-[11px] bg-muted/30 border-border/50 resize-none"
+  1594→                            />
+  1595→                            <p className="text-[9px] text-muted-foreground mt-0.5">
+  1596→                              Leave empty for default procurement review
+  1597→                            </p>
+  1598→                          </div>
+  1599→
+  1600→                          {/* Submit URL */}
+  1601→                          <div>
+  1602→                            <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1603→                              <Link2 className="h-3 w-3" /> Submit URL
+  1604→                            </Label>
+  1605→                            <div className="flex items-center gap-1.5">
+  1606→                              <Input
+  1607→                                placeholder="https://portal.example.com/submit"
+  1608→                                value={submitUrls[doc.id] || ''}
+  1609→                                onChange={e => setSubmitUrls(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1610→                                onBlur={() => saveSubmitUrl(doc.id)}
+  1611→                                className="h-6 text-[11px] bg-muted/30 border-border/50 flex-1"
+  1612→                              />
+  1613→                              <Button
+  1614→                                size="sm"
+  1615→                                variant="outline"
+  1616→                                className="h-6 text-[10px] px-2 flex-shrink-0"
+  1617→                                disabled={!submitUrls[doc.id]?.trim()}
+  1618→                                onClick={() => openSubmitUrl(doc.id)}
+  1619→                                title="Open submit URL"
+  1620→                              >
+  1621→                                <ExternalLink className="h-3 w-3" />
+  1622→                              </Button>
+  1623→                            </div>
+  1624→                          </div>
+  1625→
+  1626→                          {/* Submit Document Button */}
+  1627→                          {submitUrls[doc.id]?.trim() && (
+  1628→                            <Button
+  1629→                              size="sm"
+  1630→                              className="h-7 text-[10px] w-full gradient-emerald text-white border-0 hover:opacity-90"
+  1631→                              onClick={() => openSubmitUrl(doc.id)}
+  1632→                            >
+  1633→                              <ExternalLink className="h-3 w-3 mr-1.5" />
+  1634→                              Submit Document
+  1635→                            </Button>
+  1636→                          )}
+  1637→
+  1638→                          {/* AI Extract Section */}
+  1639→                          {ocrDone && (
+  1640→                            <div className="border-t border-border/30 pt-2">
+  1641→                              <div className="flex items-center gap-1.5">
+  1642→                                <Button
+  1643→                                  size="sm"
+  1644→                                  variant="outline"
+  1645→                                  className="h-6 text-[10px] px-2"
+  1646→                                  onClick={() => {
+  1647→                                    setShowExtract(prev => {
+  1648→                                      const s = new Set(prev);
+  1649→                                      if (s.has(doc.id)) s.delete(doc.id);
+  1650→                                      else s.add(doc.id);
+  1651→                                      return s;
+  1652→                                    });
+  1653→                                  }}
+  1654→                                >
+  1655→                                  <Sparkles className="h-3 w-3 mr-1" />
+  1656→                                  {showExtract.has(doc.id) ? 'Hide Extract' : 'AI Extract'}
+  1657→                                </Button>
+  1658→                              </div>
+  1659→
+  1660→                              {showExtract.has(doc.id) && (
+  1661→                                <div className="mt-2 space-y-1.5">
+  1662→                                  <Input
+  1663→                                    placeholder="What do you want to extract?"
+  1664→                                    value={extractPrompt[doc.id] || ''}
+  1665→                                    onChange={e => setExtractPrompt(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1666→                                    className="h-6 text-[11px] bg-muted/30 border-border/50"
+  1667→                                    onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(doc.id); }}
+  1668→                                  />
+  1669→                                  {/* Quick prompt suggestions */}
+  1670→                                  <div className="flex flex-wrap gap-1">
+  1671→                                    {[
+  1672→                                      'Extract financial figures',
+  1673→                                      'List deadlines',
+  1674→                                      'Summarize requirements',
+  1675→                                      'Find contact info',
+  1676→                                      'Identify compliance issues',
+  1677→                                    ].map(suggestion => (
+  1678→                                      <button
+  1679→                                        key={suggestion}
+  1680→                                        type="button"
+  1681→                                        onClick={() => setExtractPrompt(prev => ({ ...prev, [doc.id]: suggestion }))}
+  1682→                                        className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+  1683→                                      >
+  1684→                                        {suggestion}
+  1685→                                      </button>
+  1686→                                    ))}
+  1687→                                  </div>
+  1688→                                  <Button
+  1689→                                    size="sm"
+  1690→                                    className="h-6 text-[10px] px-2 w-full gradient-emerald text-white border-0 hover:opacity-90"
+  1691→                                    disabled={extractLoading.has(doc.id) || !extractPrompt[doc.id]?.trim()}
+  1692→                                    onClick={() => handleAiExtract(doc.id)}
+  1693→                                  >
+  1694→                                    {extractLoading.has(doc.id) ? (
+  1695→                                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Extracting...</>
+  1696→                                    ) : (
+  1697→                                      <><MessageSquare className="h-3 w-3 mr-1" /> Extract</>
+  1698→                                    )}
+  1699→                                  </Button>
+
+[showing lines 1200-1699 of 3082; use offset=1700 with limit to continue reading]

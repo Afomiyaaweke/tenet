@@ -2843,6 +2843,76 @@ export function AIDocStudio() {
    REVIEW RESULT DISPLAY COMPONENT
    ══════════════════════════════════════════════════════════════ */
 
+function formatReviewAsText(review: Record<string, unknown>, prompt: string): string {
+  const complianceScore = typeof review.complianceScore === 'number' ? review.complianceScore : null;
+  const completenessScore = typeof review.completenessScore === 'number' ? review.completenessScore : null;
+  const riskLevel = typeof review.riskLevel === 'string' ? review.riskLevel : null;
+  const findings = Array.isArray(review.findings) ? review.findings : [];
+  const strengths = Array.isArray(review.strengths) ? review.strengths : [];
+  const weaknesses = Array.isArray(review.weaknesses) ? review.weaknesses : [];
+  const missingElements = Array.isArray(review.missingElements) ? review.missingElements : [];
+  const recommendations = Array.isArray(review.recommendations) ? review.recommendations : [];
+  const overallAssessment = typeof review.overallAssessment === 'string' ? review.overallAssessment : null;
+  const summary = typeof review.summary === 'string' ? review.summary : null;
+
+  const lines: string[] = [];
+  lines.push('AI Review Report');
+  lines.push('================');
+  if (complianceScore !== null) lines.push(`Compliance Score: ${complianceScore}/100`);
+  if (completenessScore !== null) lines.push(`Completeness Score: ${completenessScore}/100`);
+  if (riskLevel) lines.push(`Risk Level: ${riskLevel.toUpperCase()}`);
+  lines.push('');
+
+  if (overallAssessment || summary) {
+    lines.push('Overall Assessment:');
+    lines.push(overallAssessment || summary || '');
+    lines.push('');
+  }
+
+  if (findings.length > 0) {
+    lines.push('Key Findings:');
+    findings.forEach((f) => {
+      const finding = f as Record<string, string>;
+      const type = finding.type ? finding.type.toUpperCase() : 'INFO';
+      const category = finding.title || finding.category || '';
+      const desc = finding.description || '';
+      lines.push(`- [${type}] ${category}${desc ? ': ' + desc : ''}`);
+    });
+    lines.push('');
+  }
+
+  if (strengths.length > 0) {
+    lines.push('Strengths:');
+    strengths.forEach((s) => lines.push(`- ${String(s)}`));
+    lines.push('');
+  }
+
+  if (weaknesses.length > 0) {
+    lines.push('Weaknesses:');
+    weaknesses.forEach((w) => lines.push(`- ${String(w)}`));
+    lines.push('');
+  }
+
+  if (missingElements.length > 0) {
+    lines.push('Missing Elements:');
+    missingElements.forEach((m) => lines.push(`- ${String(m)}`));
+    lines.push('');
+  }
+
+  if (recommendations.length > 0) {
+    lines.push('Recommendations:');
+    recommendations.forEach((r) => lines.push(`- ${String(r)}`));
+    lines.push('');
+  }
+
+  if (prompt) {
+    lines.push('Custom Review Prompt:');
+    lines.push(`"${prompt}"`);
+  }
+
+  return lines.join('\n');
+}
+
 function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; prompt: string }) {
   let review: Record<string, unknown> = {};
   try {
@@ -2851,11 +2921,46 @@ function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; promp
     // If not JSON, display as raw text
     return (
       <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
-        <div className="p-3 border-b border-border/30 bg-muted/20">
+        <div className="p-3 border-b border-border/30 bg-muted/20 flex items-center justify-between">
           <h4 className="text-xs font-semibold flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
             AI Review Result
           </h4>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[10px]"
+              onClick={() => {
+                navigator.clipboard.writeText(reviewJson);
+                toast.success('Review result copied');
+              }}
+            >
+              <Copy className="h-3 w-3 mr-1" /> Copy
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[10px]"
+              onClick={() => {
+                exportAsTxt(reviewJson, 'ai-review-result.txt');
+                toast.success('Exported as TXT');
+              }}
+            >
+              <FileDown className="h-3 w-3 mr-1" /> TXT
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[10px]"
+              onClick={() => {
+                exportAsPdf('AI Review Result', reviewJson, 'ai-review-result.pdf');
+                toast.success('Export as PDF — use print dialog');
+              }}
+            >
+              <Download className="h-3 w-3 mr-1" /> PDF
+            </Button>
+          </div>
         </div>
         <ScrollArea className="max-h-[400px]">
           <div className="p-3 text-xs whitespace-pre-wrap">{reviewJson}</div>
@@ -2905,11 +3010,49 @@ function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; promp
           <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
           AI Review Result
         </h4>
-        {prompt && (
-          <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
-            Custom Prompt
-          </Badge>
-        )}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[10px]"
+            onClick={() => {
+              const text = formatReviewAsText(review, prompt);
+              navigator.clipboard.writeText(text);
+              toast.success('Review result copied');
+            }}
+          >
+            <Copy className="h-3 w-3 mr-1" /> Copy
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[10px]"
+            onClick={() => {
+              const text = formatReviewAsText(review, prompt);
+              exportAsTxt(text, 'ai-review-result.txt');
+              toast.success('Exported as TXT');
+            }}
+          >
+            <FileDown className="h-3 w-3 mr-1" /> TXT
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[10px]"
+            onClick={() => {
+              const text = formatReviewAsText(review, prompt);
+              exportAsPdf('AI Review Result', text, 'ai-review-result.pdf');
+              toast.success('Export as PDF — use print dialog');
+            }}
+          >
+            <Download className="h-3 w-3 mr-1" /> PDF
+          </Button>
+          {prompt && (
+            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+              Custom Prompt
+            </Badge>
+          )}
+        </div>
       </div>
 
       <div className="p-4 space-y-4">

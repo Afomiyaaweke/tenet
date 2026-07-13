@@ -1307,4 +1307,96 @@ Stage Summary:
 - AI Review is integrated inline in the detail view for seamless analysis
 - Metadata/classification info moved below as supporting detail
 - All existing functionality preserved — inline doc viewer and AI review panel still work when detail view is not open
-- Document content section has full lifecycle: load button → loading skeleton → content display → error with retry
+
+---
+Task ID: 3
+Agent: Code Agent
+Task: Add export buttons (Copy/TXT/PDF) to the AI Review Result Display in AI Doc Studio
+
+Work Log:
+- Read existing code to understand the ReviewResultDisplay component (lines 2846-3053 originally)
+- Reviewed existing export button patterns in OCR text section (~line 1920), AI Extract results (~line 2063), and extraction history (~line 2473)
+- Confirmed existing export helper functions: `exportAsTxt()`, `exportAsPdf()`, `exportExtractAsPdf()` (lines 129, 139, 167)
+- Confirmed all needed icons already imported: Copy, FileDown, Download (line 40)
+- Added `formatReviewAsText()` helper function before `ReviewResultDisplay` (line 2846)
+  - Formats review data into structured plain-text: header with scores, assessment, findings with type tags, strengths, weaknesses, missing elements, recommendations, and custom prompt
+  - Mirrors the visual layout of the component in text form
+- Added Copy/TXT/PDF export buttons to the main ReviewResultDisplay header (JSON-parsed branch)
+  - Buttons placed in a flex container alongside the "Custom Prompt" badge
+  - Copy: copies formatted text via `navigator.clipboard.writeText()`
+  - TXT: exports via `exportAsTxt()` as `ai-review-result.txt`
+  - PDF: exports via `exportAsPdf()` as `ai-review-result.pdf`
+  - Styling matches existing pattern: `variant="ghost" size="sm" className="h-6 text-[10px]"`
+- Also added Copy/TXT/PDF export buttons to the raw text fallback case (non-JSON reviewJson)
+  - Same button style and behavior, but exports raw reviewJson directly
+- Lint passes cleanly with no errors
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add proper "drafted" status support for bids
+
+Work Log:
+- Updated Prisma schema: added `drafted` to Bid status comment (`// drafted, pending_review, shortlisted, awarded, rejected`)
+- Ran `db:push` to apply schema changes (database was already in sync since it's a String field)
+- Updated Bid creation API (`/api/bids/route.ts`):
+  - Added `status: requestedStatus` to destructured request body
+  - Added validation: only 'drafted' or 'pending_review' (default) allowed on creation
+  - Passes `status: bidStatus` to `db.bid.create()` data
+- Updated Bid status transition API (`/api/bids/[id]/status/route.ts`):
+  - Changed from `requireAdmin` to `requireAuth` to allow regular users to transition their own bids
+  - Added `drafted: ['pending_review', 'rejected']` transition
+  - Added `'drafted'` to `pending_review` transitions: `['shortlisted', 'rejected', 'drafted']`
+  - Added permission model: regular users can only transition between drafted/pending_review on their own bids; admins have full control with company isolation
+- Updated Bid type in `api.ts`: changed `status` type from `'pending_review' | 'shortlisted' | 'awarded' | 'rejected'` to `'drafted' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected'`
+- Updated `bids.tsx` component:
+  - Updated `isDrafted()` function: checks `b.status === 'drafted'` first, falls back to heuristic for backward compatibility
+  - Added `case 'drafted'` to `statusBadge()`: returns `'bg-sky-100 text-sky-700 hover:bg-sky-100'`
+  - Added `case 'drafted'` to `statusIcon()`: returns `{ icon: PenLine, bg: 'bg-sky-50', color: 'text-sky-600' }`
+  - Added `handleMarkAsDraft()` function: transitions bid to 'drafted' status via API
+  - Added `handleSubmitDraft()` function: transitions bid to 'pending_review' status via API
+  - Updated "Withdraw" button: only shows for pending_review bids that are NOT heuristic drafts (`!bidIsDrafted`)
+  - Added "Save as Draft" button: shows for pending_review bids that ARE heuristic drafts (allows converting to proper drafted status)
+  - Added "Submit Bid" button: shows for drafted bids (proper database status), transitions to pending_review
+- All lint checks pass with no errors
+- Dev server compiles without errors
+
+---
+Task ID: 1
+Agent: Subagent
+Task: Modify Live Tenders to auto-load document content when clicking "View Details"
+
+Work Log:
+- Read `/home/z/my-project/src/components/modules/live-tenders.tsx` to understand current behavior
+- Identified the key components: `loadDocument` callback (line ~1841), `detailOpenId` state (line ~1738), `onCardClick` handler (line ~2452)
+- Current behavior: `onCardClick` only toggles `detailOpenId`, document content requires a separate "Load Document Content" button click via `onLoadDocument`
+- Created new `fetchDocumentContent` callback that fetches document content without toggling `expandedId` (pure fetch, no UI toggle)
+  - Guards against re-fetching: skips if `docData[id]` already exists or `docLoading === id` (currently loading)
+  - Manages `docLoading`, `docError`, and `docData` state
+- Modified `loadDocument` to delegate the actual fetch to `fetchDocumentContent` while keeping its toggle behavior for `expandedId`
+- Modified `onCardClick` handler (line ~2461) to call `fetchDocumentContent(t)` when opening the detail view (`detailOpenId !== t.id`)
+  - Closing behavior unchanged: sets `detailOpenId` to null
+- Declaration order fixed: `fetchDocumentContent` is now declared before `loadDocument` to avoid the react-hooks/immutability lint error (variable accessed before declaration)
+- `loadDocument` dependency array updated to include `fetchDocumentContent`
+- "Load Document Content" button still works as a manual retry (calls `onLoadDocument` → `loadDocument`)
+- "See More" button behavior unchanged
+- All lint checks pass with no errors
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Three feature requests - Live Tender auto-load doc, Bids Drafted status, AI Review export buttons
+
+Work Log:
+- Delegated Task 1 (Live Tender auto-load) to subagent: Modified `onCardClick` to auto-call `fetchDocumentContent()` when detail view opens
+- Delegated Task 2 (Bids Drafted status) to subagent: Added `drafted` as proper Bid status in schema, API, and UI
+- Delegated Task 3 (AI Review export) to subagent: Added Copy/TXT/PDF export buttons to `ReviewResultDisplay` component
+- Verified all changes compile cleanly (lint pass)
+- Verified via Agent Browser: Dashboard, Bids (Drafted tab visible), AI Doc Studio (Doc Review + AI Extract tabs)
+- Confirmed no browser errors
+
+Stage Summary:
+- **Live Tender Detail**: Clicking "View Details" now auto-fetches the full tender document content from the source site. Users no longer need to click "Load Document Content" separately.
+- **Bids Drafted Section**: Added `drafted` as a proper database status for bids. Users can now save bids as drafts (status=`drafted`) and later submit them (transition to `pending_review`). The Drafted tab in the Bids view works with both the new database status and backward-compatible heuristic. "Save as Draft" and "Submit Bid" buttons added to bid cards.
+- **AI Doc Studio**: AI Extract already had its own dedicated PDF uploader. Added export buttons (Copy, TXT, PDF) to the AI Review Result Display component using a `formatReviewAsText()` helper that converts structured review data to formatted plain text.
+- Key files modified: `live-tenders.tsx`, `bids.tsx`, `ai-doc-studio.tsx`, `prisma/schema.prisma`, `api/bids/route.ts`, `api/bids/[id]/status/route.ts`, `lib/api.ts`

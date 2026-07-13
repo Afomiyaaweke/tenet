@@ -1838,20 +1838,13 @@ export function LiveTendersView() {
   }, [tenders]);
 
   /* ────── Inline document loading ────── */
-  const loadDocument = useCallback(async (tender: LiveTender) => {
+
+  /** Fetch document content from external URL — does NOT toggle expandedId */
+  const fetchDocumentContent = useCallback(async (tender: LiveTender) => {
     const id = tender.id;
-    if (expandedId === id) {
-      setExpandedId(null);
-      return;
-    }
+    // Already fetched or currently loading?
+    if (docData[id] || docLoading === id) return;
 
-    // Already fetched?
-    if (docData[id]) {
-      setExpandedId(id);
-      return;
-    }
-
-    setExpandedId(id);
     setDocLoading(id);
     setDocError((prev) => { const n = { ...prev }; delete n[id]; return n; });
 
@@ -1866,7 +1859,25 @@ export function LiveTendersView() {
       setDocError((prev) => ({ ...prev, [id]: 'Network error' }));
     }
     setDocLoading(null);
-  }, [expandedId, docData]);
+  }, [docData, docLoading]);
+
+  /** Load document content and toggle the inline expanded view */
+  const loadDocument = useCallback(async (tender: LiveTender) => {
+    const id = tender.id;
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+
+    // Already fetched?
+    if (docData[id]) {
+      setExpandedId(id);
+      return;
+    }
+
+    setExpandedId(id);
+    fetchDocumentContent(tender);
+  }, [expandedId, docData, fetchDocumentContent]);
 
   /* ────── AI Review ────── */
   const loadAIReview = useCallback(async (tender: LiveTender) => {
@@ -2449,7 +2460,16 @@ export function LiveTendersView() {
                     onLoadDocument={() => loadDocument(t)}
                     onLoadAIReview={() => loadAIReview(t)}
                     onImport={() => importTender(t)}
-                    onCardClick={() => setDetailOpenId(detailOpenId === t.id ? null : t.id)}
+                    onCardClick={() => {
+                      if (detailOpenId !== t.id) {
+                        // Opening detail view — also auto-fetch document content
+                        setDetailOpenId(t.id);
+                        fetchDocumentContent(t);
+                      } else {
+                        // Closing detail view
+                        setDetailOpenId(null);
+                      }
+                    }}
                     onStartBidApplication={() => startBidApplication(t)}
                   />
                 );

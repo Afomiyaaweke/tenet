@@ -114,6 +114,26 @@ export function BidsView() {
     }
   };
 
+  const handleMarkAsDraft = async (bidId: string) => {
+    const res = await api.patch(`/bids/${bidId}/status`, { status: 'drafted' });
+    if (res.success) {
+      toast.success('Bid saved as draft');
+      loadBids();
+    } else {
+      toast.error(res.error || 'Failed to update bid');
+    }
+  };
+
+  const handleSubmitDraft = async (bidId: string) => {
+    const res = await api.patch(`/bids/${bidId}/status`, { status: 'pending_review' });
+    if (res.success) {
+      toast.success('Bid submitted for review');
+      loadBids();
+    } else {
+      toast.error(res.error || 'Failed to submit bid');
+    }
+  };
+
   // ── Document Upload (with auto-OCR + auto-AI Review) ──
   const handleDocUpload = useCallback(async (bidId: string, docType?: string, fileInputRef?: React.RefObject<HTMLInputElement | null>) => {
     const ref = fileInputRef || docFileRef;
@@ -315,6 +335,8 @@ export function BidsView() {
   }, [extractPrompt]);
 
   const isDrafted = (b: Bid) => {
+    if (b.status === 'drafted') return true;
+    // Backward compatibility: treat pending_review bids with no real data as drafted
     if (b.status !== 'pending_review') return false;
     return (
       !b.financialProposal ||
@@ -342,6 +364,7 @@ export function BidsView() {
 
   const statusBadge = (status: string) => {
     switch (status) {
+      case 'drafted': return 'bg-sky-100 text-sky-700 hover:bg-sky-100';
       case 'pending_review': return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
       case 'shortlisted': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
       case 'awarded': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
@@ -352,6 +375,7 @@ export function BidsView() {
 
   const statusIcon = (status: string) => {
     switch (status) {
+      case 'drafted': return { icon: PenLine, bg: 'bg-sky-50', color: 'text-sky-600' };
       case 'pending_review': return { icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' };
       case 'shortlisted': return { icon: Award, bg: 'bg-teal-50', color: 'text-teal-600' };
       case 'awarded': return { icon: CheckCircle, bg: 'bg-emerald-50', color: 'text-emerald-600' };
@@ -1477,13 +1501,34 @@ export function BidsView() {
                                 )}
 
                                 {/* Contractor: Withdraw */}
-                                {user?.role === 'user' && bid.status === 'pending_review' && (
+                                {user?.role === 'user' && bid.status === 'pending_review' && !bidIsDrafted && (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     className="rounded-xl text-muted-foreground hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all"
                                     onClick={(e) => { e.stopPropagation(); handleStatusUpdate(bid.id, 'rejected'); }}>
                                     <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Withdraw
+                                  </Button>
+                                )}
+
+                                {/* Mark as Draft - for pending_review bids with incomplete data (heuristic drafts) */}
+                                {user?.role === 'user' && bid.status === 'pending_review' && bidIsDrafted && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-xl border-sky-200 text-sky-600 hover:bg-sky-50 hover:text-sky-700 transition-all"
+                                    onClick={(e) => { e.stopPropagation(); handleMarkAsDraft(bid.id); }}>
+                                    <PenLine className="h-3.5 w-3.5 mr-1.5" /> Save as Draft
+                                  </Button>
+                                )}
+
+                                {/* Submit Draft - for drafted bids (proper database status) */}
+                                {bid.status === 'drafted' && (
+                                  <Button
+                                    size="sm"
+                                    className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
+                                    onClick={(e) => { e.stopPropagation(); handleSubmitDraft(bid.id); }}>
+                                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Submit Bid
                                   </Button>
                                 )}
 

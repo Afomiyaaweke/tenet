@@ -1228,3 +1228,84 @@
   1228→- Applicants/Published Tenders shows tender cards first, with drill-down to applicant details
   1229→- All lint checks pass, dev server runs clean, browser verification confirms changes
   1230→
+  1231→---
+  1232→Task ID: 2-3
+  1233→Agent: Bids Draft Tab + AI Extract Uploader
+  1234→Task: Add Drafted tab to bids, PDF uploader to AI Extract, export methods for OCR and Extractor
+  1235→
+  1236→Work Log:
+  1237→- Added 'drafted' tab type to BidTab union: `'all' | 'pending_review' | 'drafted' | 'shortlisted' | 'awarded' | 'rejected' | 'saved'`
+  1238→- Implemented `isDrafted()` helper: a bid is drafted if status is `pending_review` AND (financialProposal is 0/null OR technicalProposal contains "Pending document upload" OR timeline contains "Pending document upload")
+  1239→- Added drafted count to stats useMemo
+  1240→- Added drafted filter logic to filteredBids useMemo
+  1241→- Added Drafted tab to tabs array with PenLine icon, 'sky' color, positioned between Pending and Shortlisted
+  1242→- Updated stats summary grid to show Drafted (replaced Rejected) with PenLine icon and sky colors
+  1243→- Added sky-themed status accent strip for drafted bids on bid cards
+  1244→- Updated bid card status badge to show "Drafted" label with sky styling for drafted bids
+  1245→- Added "Continue" button on drafted bid cards (expands the bid to show document upload areas)
+  1246→- Updated bid card icon styling with sky color when drafted
+  1247→- Added PDF upload area to AIExtractContent left panel with dashed-border upload zone
+  1248→- Upload area supports .pdf, .doc, .docx, .png, .jpg files via hidden file input
+  1249→- Upload handler uses existing /documents API with docType='external_doc' and autoOcr=true
+  1250→- After upload, automatically triggers OCR and polls for completion with progress states
+  1251→- Once OCR completes, document auto-selects for extraction
+  1252→- Added export helper functions: `exportAsTxt()`, `exportAsPdf()`, `exportExtractAsPdf()`
+  1253→- TXT export creates a Blob with text/plain and triggers download
+  1254→- PDF export opens a new window with styled HTML content and auto-triggers print dialog
+  1255→- Extract-specific PDF export includes prompt section and result section
+  1256→- Added export buttons (TXT + PDF) next to Copy button in Doc Review OCR text display
+  1257→- Added export buttons (TXT + PDF) next to Copy button in Doc Review AI Extract results
+  1258→- Added export buttons (TXT + PDF) next to Copy button in AI Extract tab extract results
+  1259→- Added export buttons (TXT + PDF) to each extraction history entry in AI Extract tab
+  1260→- Added export buttons (TXT + PDF) to OCR Text Source section in AI Extract tab
+  1261→- Added FileDown icon import from lucide-react
+  1262→- All lint checks pass, dev server compiles cleanly
+  1263→
+  1264→Stage Summary:
+  1265→- Bids view now has a 'Drafted' tab showing in-progress bids with incomplete document uploads, featuring sky-themed styling and a Continue button
+  1266→- AI Extract tab has a PDF upload area that auto-uploads, runs OCR, and selects the document for extraction
+  1267→- All OCR text displays and AI Extract results now have Export as TXT and Export as PDF buttons alongside the existing Copy button
+  1268→
+  1269→---
+  1270→Task ID: 1
+  1271→Agent: Live Tender Doc Detail
+  1272→Task: Make specific tender documents viewable in detail on live tenders
+  1273→
+  1274→Work Log:
+  1275→- Read the full live-tenders.tsx file (~2300 lines) to understand current structure
+  1276→- Identified key components: TenderCard, InlineDocumentViewer, AIReviewPanel
+  1277→- Identified the detail view (isDetailOpen) section that showed only metadata/classification
+  1278→- Identified existing loadDocument and loadAIReview functions that were already working
+  1279→- Redesigned the detail view to prioritize document content over metadata:
+  1280→  1. Added a prominent "Tender Document Content" section as the FIRST item in detail view
+  1281→     - Features a styled card with BookOpen icon header
+  1282→     - "View Full Document" link to external URL in header
+  1283→     - Loading state with skeleton placeholders
+  1284→     - Error state with retry button and direct link to original
+  1285→     - Success state showing: loaded-from info, copy button, extracted metadata pills (deadlines/budgets)
+  1286→     - Document content rendered in scrollable panel (max-h-96) with sections or raw text
+  1287→     - Inline translator for document content
+  1288→     - "Load Document Content" button with description when not yet loaded
+  1289→  2. Added an inline "AI Review & Analysis" section as the SECOND item in detail view
+  1290→     - Integrated the full AIReviewPanel content directly into the detail view
+  1291→     - Summary, key requirements, eligibility check, risk assessment, recommended approach, competitive landscape, bid readiness score, tips
+  1292→     - "Run AI Review" toggle button in the section header
+  1293→     - Loading skeleton state and empty prompt state
+  1294→  3. Moved the metadata/classification fields BELOW document content and AI review
+  1295→     - Renamed section to "Tender Classification & Details" to clarify it's secondary
+  1296→     - Budget, deadline, location, borrower, contract type, region, source, categories all preserved
+  1297→  4. Prevented duplication by hiding standalone InlineDocumentViewer and AIReviewPanel when detail view is open
+  1298→     - Changed `isExpanded && (...)` to `isExpanded && !isDetailOpen && (...)` for inline doc viewer
+  1299→     - Changed `showAiReview && (...)` to `showAiReview && !isDetailOpen && (...)` for AI review panel
+  1300→  5. Removed the now-redundant "Quick access" buttons from the detail view footer (Load Doc / AI Review)
+  1301→     since both features are now prominently available in their own sections above
+  1302→- Lint passes cleanly with no errors
+  1303→- Dev server compiles successfully
+  1304→
+  1305→Stage Summary:
+  1306→- Detail view now shows ACTUAL DOCUMENT CONTENT as the primary focus, not just metadata
+  1307→- AI Review is integrated inline in the detail view for seamless analysis
+  1308→- Metadata/classification info moved below as supporting detail
+  1309→- All existing functionality preserved — inline doc viewer and AI review panel still work when detail view is not open
+  1310→- Document content section has full lifecycle: load button → loading skeleton → content display → error with retry
+  1311→

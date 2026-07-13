@@ -1,0 +1,502 @@
+  1500→                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 hover:bg-amber-100">
+  1501→                              <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> OCR
+  1502→                            </Badge>
+  1503→                          ) : doc.ocrStatus === 'failed' ? (
+  1504→                            <Badge className="text-[9px] px-1.5 py-0 bg-rose-100 text-rose-700 border-0 hover:bg-rose-100">
+  1505→                              <XCircle className="h-2.5 w-2.5 mr-0.5" /> OCR
+  1506→                            </Badge>
+  1507→                          ) : (
+  1508→                            <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-600 border-0 hover:bg-gray-100">
+  1509→                              OCR
+  1510→                            </Badge>
+  1511→                          )}
+  1512→                        </div>
+  1513→
+  1514→                        {/* AI Review Status */}
+  1515→                        <div className="flex items-center gap-1">
+  1516→                          {doc.aiReviewStatus === 'completed' ? (
+  1517→                            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
+  1518→                              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> Reviewed
+  1519→                            </Badge>
+  1520→                          ) : doc.aiReviewStatus === 'processing' ? (
+  1521→                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-700 border-0 hover:bg-amber-100">
+  1522→                              <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" /> Reviewing
+  1523→                            </Badge>
+  1524→                          ) : doc.aiReviewStatus === 'failed' ? (
+  1525→                            <Badge className="text-[9px] px-1.5 py-0 bg-rose-100 text-rose-700 border-0 hover:bg-rose-100">
+  1526→                              <XCircle className="h-2.5 w-2.5 mr-0.5" /> Review
+  1527→                            </Badge>
+  1528→                          ) : (
+  1529→                            <Badge className="text-[9px] px-1.5 py-0 bg-gray-100 text-gray-600 border-0 hover:bg-gray-100">
+  1530→                              AI Review
+  1531→                            </Badge>
+  1532→                          )}
+  1533→                        </div>
+  1534→                      </div>
+  1535→
+  1536→                      {/* Expanded Content */}
+  1537→                      {isExpanded && (
+  1538→                        <div className="mt-2.5 space-y-2 border-t border-border/30 pt-2.5" onClick={e => e.stopPropagation()}>
+  1539→                          {/* Action Buttons Row */}
+  1540→                          <div className="flex items-center gap-1.5">
+  1541→                            {/* OCR Button */}
+  1542→                            <Button
+  1543→                              size="sm"
+  1544→                              variant="outline"
+  1545→                              className="h-6 text-[10px] px-2"
+  1546→                              disabled={isOcrLoading || doc.ocrStatus === 'processing' || doc.ocrStatus === 'completed'}
+  1547→                              onClick={() => triggerOCR(doc.id)}
+  1548→                            >
+  1549→                              {isOcrLoading || doc.ocrStatus === 'processing' ? (
+  1550→                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> OCR...</>
+  1551→                              ) : doc.ocrStatus === 'completed' ? (
+  1552→                                <><CheckCircle2 className="h-3 w-3 mr-1" /> OCR Done</>
+  1553→                              ) : (
+  1554→                                <><Eye className="h-3 w-3 mr-1" /> Run OCR</>
+  1555→                              )}
+  1556→                            </Button>
+  1557→
+  1558→                            {/* AI Review Button */}
+  1559→                            <Button
+  1560→                              size="sm"
+  1561→                              variant="outline"
+  1562→                              className="h-6 text-[10px] px-2"
+  1563→                              disabled={isReviewLoading || doc.aiReviewStatus === 'processing' || !ocrDone}
+  1564→                              onClick={() => triggerReview(doc.id)}
+  1565→                              title={!ocrDone ? 'Run OCR first' : 'Run AI Review'}
+  1566→                            >
+  1567→                              {isReviewLoading || doc.aiReviewStatus === 'processing' ? (
+  1568→                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Review...</>
+  1569→                              ) : doc.aiReviewStatus === 'completed' ? (
+  1570→                                <><Sparkles className="h-3 w-3 mr-1" /> Re-Review</>
+  1571→                              ) : (
+  1572→                                <><Sparkles className="h-3 w-3 mr-1" /> AI Review</>
+  1573→                              )}
+  1574→                            </Button>
+  1575→                          </div>
+  1576→
+  1577→                          {!ocrDone && (
+  1578→                            <p className="text-[10px] text-amber-600 flex items-center gap-1">
+  1579→                              <AlertTriangle className="h-3 w-3" /> Run OCR first before AI Review
+  1580→                            </p>
+  1581→                          )}
+  1582→
+  1583→                          {/* Custom Review Prompt */}
+  1584→                          <div>
+  1585→                            <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1586→                              <Bot className="h-3 w-3" /> Review Instructions
+  1587→                            </Label>
+  1588→                            <Textarea
+  1589→                              placeholder={PROMPT_SUGGESTIONS[doc.docType] || 'Enter custom review instructions...'}
+  1590→                              value={reviewPrompts[doc.id] || ''}
+  1591→                              onChange={e => setReviewPrompts(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1592→                              onBlur={() => saveReviewPrompt(doc.id)}
+  1593→                              className="min-h-[60px] text-[11px] bg-muted/30 border-border/50 resize-none"
+  1594→                            />
+  1595→                            <p className="text-[9px] text-muted-foreground mt-0.5">
+  1596→                              Leave empty for default procurement review
+  1597→                            </p>
+  1598→                          </div>
+  1599→
+  1600→                          {/* Submit URL */}
+  1601→                          <div>
+  1602→                            <Label className="text-[10px] font-medium flex items-center gap-1 mb-1">
+  1603→                              <Link2 className="h-3 w-3" /> Submit URL
+  1604→                            </Label>
+  1605→                            <div className="flex items-center gap-1.5">
+  1606→                              <Input
+  1607→                                placeholder="https://portal.example.com/submit"
+  1608→                                value={submitUrls[doc.id] || ''}
+  1609→                                onChange={e => setSubmitUrls(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1610→                                onBlur={() => saveSubmitUrl(doc.id)}
+  1611→                                className="h-6 text-[11px] bg-muted/30 border-border/50 flex-1"
+  1612→                              />
+  1613→                              <Button
+  1614→                                size="sm"
+  1615→                                variant="outline"
+  1616→                                className="h-6 text-[10px] px-2 flex-shrink-0"
+  1617→                                disabled={!submitUrls[doc.id]?.trim()}
+  1618→                                onClick={() => openSubmitUrl(doc.id)}
+  1619→                                title="Open submit URL"
+  1620→                              >
+  1621→                                <ExternalLink className="h-3 w-3" />
+  1622→                              </Button>
+  1623→                            </div>
+  1624→                          </div>
+  1625→
+  1626→                          {/* Submit Document Button */}
+  1627→                          {submitUrls[doc.id]?.trim() && (
+  1628→                            <Button
+  1629→                              size="sm"
+  1630→                              className="h-7 text-[10px] w-full gradient-emerald text-white border-0 hover:opacity-90"
+  1631→                              onClick={() => openSubmitUrl(doc.id)}
+  1632→                            >
+  1633→                              <ExternalLink className="h-3 w-3 mr-1.5" />
+  1634→                              Submit Document
+  1635→                            </Button>
+  1636→                          )}
+  1637→
+  1638→                          {/* AI Extract Section */}
+  1639→                          {ocrDone && (
+  1640→                            <div className="border-t border-border/30 pt-2">
+  1641→                              <div className="flex items-center gap-1.5">
+  1642→                                <Button
+  1643→                                  size="sm"
+  1644→                                  variant="outline"
+  1645→                                  className="h-6 text-[10px] px-2"
+  1646→                                  onClick={() => {
+  1647→                                    setShowExtract(prev => {
+  1648→                                      const s = new Set(prev);
+  1649→                                      if (s.has(doc.id)) s.delete(doc.id);
+  1650→                                      else s.add(doc.id);
+  1651→                                      return s;
+  1652→                                    });
+  1653→                                  }}
+  1654→                                >
+  1655→                                  <Sparkles className="h-3 w-3 mr-1" />
+  1656→                                  {showExtract.has(doc.id) ? 'Hide Extract' : 'AI Extract'}
+  1657→                                </Button>
+  1658→                              </div>
+  1659→
+  1660→                              {showExtract.has(doc.id) && (
+  1661→                                <div className="mt-2 space-y-1.5">
+  1662→                                  <Input
+  1663→                                    placeholder="What do you want to extract?"
+  1664→                                    value={extractPrompt[doc.id] || ''}
+  1665→                                    onChange={e => setExtractPrompt(prev => ({ ...prev, [doc.id]: e.target.value }))}
+  1666→                                    className="h-6 text-[11px] bg-muted/30 border-border/50"
+  1667→                                    onKeyDown={e => { if (e.key === 'Enter') handleAiExtract(doc.id); }}
+  1668→                                  />
+  1669→                                  {/* Quick prompt suggestions */}
+  1670→                                  <div className="flex flex-wrap gap-1">
+  1671→                                    {[
+  1672→                                      'Extract financial figures',
+  1673→                                      'List deadlines',
+  1674→                                      'Summarize requirements',
+  1675→                                      'Find contact info',
+  1676→                                      'Identify compliance issues',
+  1677→                                    ].map(suggestion => (
+  1678→                                      <button
+  1679→                                        key={suggestion}
+  1680→                                        type="button"
+  1681→                                        onClick={() => setExtractPrompt(prev => ({ ...prev, [doc.id]: suggestion }))}
+  1682→                                        className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+  1683→                                      >
+  1684→                                        {suggestion}
+  1685→                                      </button>
+  1686→                                    ))}
+  1687→                                  </div>
+  1688→                                  <Button
+  1689→                                    size="sm"
+  1690→                                    className="h-6 text-[10px] px-2 w-full gradient-emerald text-white border-0 hover:opacity-90"
+  1691→                                    disabled={extractLoading.has(doc.id) || !extractPrompt[doc.id]?.trim()}
+  1692→                                    onClick={() => handleAiExtract(doc.id)}
+  1693→                                  >
+  1694→                                    {extractLoading.has(doc.id) ? (
+  1695→                                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Extracting...</>
+  1696→                                    ) : (
+  1697→                                      <><MessageSquare className="h-3 w-3 mr-1" /> Extract</>
+  1698→                                    )}
+  1699→                                  </Button>
+  1700→                                  {extractResults[doc.id] && (
+  1701→                                    <div className="rounded border border-border/40 bg-muted/20 overflow-hidden">
+  1702→                                      <div className="flex items-center justify-between px-2 py-1 border-b border-border/30">
+  1703→                                        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted Info</span>
+  1704→                                        <div className="flex items-center gap-0.5">
+  1705→                                          <Button
+  1706→                                            variant="ghost"
+  1707→                                            size="sm"
+  1708→                                            className="h-4 text-[9px] px-1"
+  1709→                                            onClick={() => {
+  1710→                                              navigator.clipboard.writeText(extractResults[doc.id]);
+  1711→                                              toast.success('Copied to clipboard');
+  1712→                                            }}
+  1713→                                          >
+  1714→                                            <Copy className="h-2.5 w-2.5 mr-0.5" /> Copy
+  1715→                                          </Button>
+  1716→                                          <Button
+  1717→                                            variant="ghost"
+  1718→                                            size="sm"
+  1719→                                            className="h-4 text-[9px] px-1"
+  1720→                                            onClick={() => {
+  1721→                                              const safeName = (doc.fileName || 'extract').replace(/\.[^.]+$/, '');
+  1722→                                              exportAsTxt(
+  1723→                                                `Document: ${doc.fileName}\nPrompt: ${extractPrompt[doc.id] || ''}\n\n---\n\n${extractResults[doc.id]}`,
+  1724→                                                `${safeName}-extract.txt`
+  1725→                                              );
+  1726→                                              toast.success('Exported as TXT');
+  1727→                                            }}
+  1728→                                            title="Export as TXT"
+  1729→                                          >
+  1730→                                            <FileDown className="h-2.5 w-2.5" />
+  1731→                                          </Button>
+  1732→                                          <Button
+  1733→                                            variant="ghost"
+  1734→                                            size="sm"
+  1735→                                            className="h-4 text-[9px] px-1"
+  1736→                                            onClick={() => {
+  1737→                                              const safeName = (doc.fileName || 'extract').replace(/\.[^.]+$/, '');
+  1738→                                              exportExtractAsPdf(
+  1739→                                                `${safeName} — AI Extract`,
+  1740→                                                extractPrompt[doc.id] || '',
+  1741→                                                extractResults[doc.id],
+  1742→                                                `${safeName}-extract.pdf`
+  1743→                                              );
+  1744→                                              toast.success('Export as PDF — use print dialog');
+  1745→                                            }}
+  1746→                                            title="Export as PDF"
+  1747→                                          >
+  1748→                                            <Download className="h-2.5 w-2.5" />
+  1749→                                          </Button>
+  1750→                                        </div>
+  1751→                                      </div>
+  1752→                                      <ScrollArea className="max-h-[150px]">
+  1753→                                        <pre className="p-2 text-[10px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+  1754→                                          {extractResults[doc.id]}
+  1755→                                        </pre>
+  1756→                                      </ScrollArea>
+  1757→                                    </div>
+  1758→                                  )}
+  1759→                                </div>
+  1760→                              )}
+  1761→                            </div>
+  1762→                          )}
+  1763→                        </div>
+  1764→                      )}
+  1765→                    </div>
+  1766→                  );
+  1767→                })
+  1768→              )}
+  1769→            </div>
+  1770→          </ScrollArea>
+  1771→        </div>
+  1772→
+  1773→        {/* Right: Document Detail / Results */}
+  1774→        <div className="flex-1 overflow-auto bg-muted/30">
+  1775→          {selectedDoc ? (
+  1776→            <div className="p-4 space-y-4 max-w-3xl mx-auto">
+  1777→              {/* Document Header */}
+  1778→              <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/40">
+  1779→                <div className="p-3 rounded-xl gradient-emerald shadow-sm">
+  1780→                  <FileText className="h-6 w-6 text-white" />
+  1781→                </div>
+  1782→                <div className="min-w-0 flex-1">
+  1783→                  <h3 className="text-base font-semibold truncate">{selectedDoc.fileName}</h3>
+  1784→                  <p className="text-xs text-muted-foreground mt-0.5">
+  1785→                    {DOC_TYPE_OPTIONS.find(o => o.value === selectedDoc.docType)?.label || selectedDoc.docType} · Uploaded {new Date(selectedDoc.createdAt).toLocaleDateString()}
+  1786→                  </p>
+  1787→                </div>
+  1788→                <div className="flex items-center gap-2 flex-shrink-0">
+  1789→                  {getFileExtBadge(selectedDoc.fileName).label && (
+  1790→                    <Badge className={`text-xs px-2 py-0.5 border-0 ${getFileExtBadge(selectedDoc.fileName).color}`}>
+  1791→                      {getFileExtBadge(selectedDoc.fileName).label}
+  1792→                    </Badge>
+  1793→                  )}
+  1794→                </div>
+  1795→              </div>
+  1796→
+  1797→              {/* Status Cards */}
+  1798→              <div className="grid grid-cols-3 gap-3">
+  1799→                {/* OCR Status Card */}
+  1800→                <div className={`p-3 rounded-lg border ${
+  1801→                  selectedDoc.ocrStatus === 'completed' ? 'border-emerald-200 bg-emerald-50/30' :
+  1802→                  selectedDoc.ocrStatus === 'processing' ? 'border-amber-200 bg-amber-50/30' :
+  1803→                  selectedDoc.ocrStatus === 'failed' ? 'border-rose-200 bg-rose-50/30' :
+  1804→                  'border-border/40 bg-card'
+  1805→                }`}>
+  1806→                  <div className="flex items-center justify-between mb-1">
+  1807→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">OCR</span>
+  1808→                    {selectedDoc.ocrStatus === 'completed' ? (
+  1809→                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+  1810→                    ) : selectedDoc.ocrStatus === 'processing' ? (
+  1811→                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+  1812→                    ) : (
+  1813→                      <Eye className="h-4 w-4 text-muted-foreground" />
+  1814→                    )}
+  1815→                  </div>
+  1816→                  <p className="text-xs font-medium capitalize">{selectedDoc.ocrStatus === 'none' ? 'Not Started' : selectedDoc.ocrStatus}</p>
+  1817→                  {selectedDoc.ocrProcessedAt && (
+  1818→                    <p className="text-[10px] text-muted-foreground mt-0.5">
+  1819→                      {new Date(selectedDoc.ocrProcessedAt).toLocaleString()}
+  1820→                    </p>
+  1821→                  )}
+  1822→                </div>
+  1823→
+  1824→                {/* AI Review Status Card */}
+  1825→                <div className={`p-3 rounded-lg border ${
+  1826→                  selectedDoc.aiReviewStatus === 'completed' ? 'border-emerald-200 bg-emerald-50/30' :
+  1827→                  selectedDoc.aiReviewStatus === 'processing' ? 'border-amber-200 bg-amber-50/30' :
+  1828→                  selectedDoc.aiReviewStatus === 'failed' ? 'border-rose-200 bg-rose-50/30' :
+  1829→                  'border-border/40 bg-card'
+  1830→                }`}>
+  1831→                  <div className="flex items-center justify-between mb-1">
+  1832→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">AI Review</span>
+  1833→                    {selectedDoc.aiReviewStatus === 'completed' ? (
+  1834→                      <Sparkles className="h-4 w-4 text-emerald-600" />
+  1835→                    ) : selectedDoc.aiReviewStatus === 'processing' ? (
+  1836→                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+  1837→                    ) : (
+  1838→                      <Bot className="h-4 w-4 text-muted-foreground" />
+  1839→                    )}
+  1840→                  </div>
+  1841→                  <p className="text-xs font-medium capitalize">{selectedDoc.aiReviewStatus === 'none' ? 'Not Started' : selectedDoc.aiReviewStatus}</p>
+  1842→                  {selectedDoc.aiReviewProcessedAt && (
+  1843→                    <p className="text-[10px] text-muted-foreground mt-0.5">
+  1844→                      {new Date(selectedDoc.aiReviewProcessedAt).toLocaleString()}
+  1845→                    </p>
+  1846→                  )}
+  1847→                </div>
+  1848→
+  1849→                {/* Submit Status Card */}
+  1850→                <div className={`p-3 rounded-lg border ${
+  1851→                  selectedDoc.submitUrl ? 'border-teal-200 bg-teal-50/30' : 'border-border/40 bg-card'
+  1852→                }`}>
+  1853→                  <div className="flex items-center justify-between mb-1">
+  1854→                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Submit</span>
+  1855→                    {selectedDoc.submitUrl ? (
+  1856→                      <ExternalLink className="h-4 w-4 text-teal-600" />
+  1857→                    ) : (
+  1858→                      <Link2 className="h-4 w-4 text-muted-foreground" />
+  1859→                    )}
+  1860→                  </div>
+  1861→                  <p className="text-xs font-medium">{selectedDoc.submitUrl ? 'URL Set' : 'No URL'}</p>
+  1862→                </div>
+  1863→              </div>
+  1864→
+  1865→              {/* Action Buttons */}
+  1866→              <div className="flex items-center gap-2 flex-wrap">
+  1867→                <Button
+  1868→                  size="sm"
+  1869→                  variant="outline"
+  1870→                  className="h-8 text-xs"
+  1871→                  disabled={selectedDoc.ocrStatus === 'processing' || selectedDoc.ocrStatus === 'completed'}
+  1872→                  onClick={() => triggerOCR(selectedDoc.id)}
+  1873→                >
+  1874→                  {ocrStatusMap[selectedDoc.id]?.loading || selectedDoc.ocrStatus === 'processing' ? (
+  1875→                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Processing OCR...</>
+  1876→                  ) : selectedDoc.ocrStatus === 'completed' ? (
+  1877→                    <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> OCR Complete</>
+  1878→                  ) : (
+  1879→                    <><Eye className="h-3.5 w-3.5 mr-1.5" /> Run OCR</>
+  1880→                  )}
+  1881→                </Button>
+  1882→                <Button
+  1883→                  size="sm"
+  1884→                  variant="outline"
+  1885→                  className="h-8 text-xs"
+  1886→                  disabled={
+  1887→                    selectedDoc.aiReviewStatus === 'processing' ||
+  1888→                    !ocrDone
+  1889→                  }
+  1890→                  onClick={() => triggerReview(selectedDoc.id)}
+  1891→                  title={!ocrDone ? 'Run OCR first' : 'Run AI Review with custom prompt'}
+  1892→                >
+  1893→                  {reviewStatusMap[selectedDoc.id]?.loading || selectedDoc.aiReviewStatus === 'processing' ? (
+  1894→                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> AI Reviewing...</>
+  1895→                  ) : selectedDoc.aiReviewStatus === 'completed' ? (
+  1896→                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Re-Run AI Review</>
+  1897→                  ) : (
+  1898→                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Run AI Review</>
+  1899→                  )}
+  1900→                </Button>
+  1901→                {selectedDoc.submitUrl && (
+  1902→                  <Button
+  1903→                    size="sm"
+  1904→                    className="h-8 text-xs gradient-emerald text-white border-0 hover:opacity-90"
+  1905→                    onClick={() => openSubmitUrl(selectedDoc.id)}
+  1906→                  >
+  1907→                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Submit Document
+  1908→                  </Button>
+  1909→                )}
+  1910→              </div>
+  1911→
+  1912→              {/* OCR Text Display */}
+  1913→              {(selectedDoc.ocrStatus === 'completed' || ocrStatusMap[selectedDoc.id]?.text) && (
+  1914→                <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  1915→                  <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+  1916→                    <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  1917→                      <Eye className="h-3.5 w-3.5 text-emerald-600" />
+  1918→                      Extracted Text (OCR)
+  1919→                    </h4>
+  1920→                    <div className="flex items-center gap-1">
+  1921→                      <Button
+  1922→                        variant="ghost"
+  1923→                        size="sm"
+  1924→                        className="h-6 text-[10px]"
+  1925→                        onClick={() => {
+  1926→                          const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+  1927→                          navigator.clipboard.writeText(text);
+  1928→                          toast.success('OCR text copied');
+  1929→                        }}
+  1930→                      >
+  1931→                        <Copy className="h-3 w-3 mr-1" /> Copy
+  1932→                      </Button>
+  1933→                      <Button
+  1934→                        variant="ghost"
+  1935→                        size="sm"
+  1936→                        className="h-6 text-[10px]"
+  1937→                        onClick={() => {
+  1938→                          const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+  1939→                          const safeName = (selectedDoc.fileName || 'ocr-text').replace(/\.[^.]+$/, '');
+  1940→                          exportAsTxt(text, `${safeName}-ocr.txt`);
+  1941→                          toast.success('Exported as TXT');
+  1942→                        }}
+  1943→                      >
+  1944→                        <FileDown className="h-3 w-3 mr-1" /> TXT
+  1945→                      </Button>
+  1946→                      <Button
+  1947→                        variant="ghost"
+  1948→                        size="sm"
+  1949→                        className="h-6 text-[10px]"
+  1950→                        onClick={() => {
+  1951→                          const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+  1952→                          const safeName = (selectedDoc.fileName || 'ocr-text').replace(/\.[^.]+$/, '');
+  1953→                          exportAsPdf(`${safeName} — OCR Text`, text, `${safeName}-ocr.pdf`);
+  1954→                          toast.success('Export as PDF — use print dialog');
+  1955→                        }}
+  1956→                      >
+  1957→                        <Download className="h-3 w-3 mr-1" /> PDF
+  1958→                      </Button>
+  1959→                    </div>
+  1960→                  </div>
+  1961→                  <ScrollArea className="max-h-[200px]">
+  1962→                    <pre className="p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+  1963→                      {selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || 'No text extracted'}
+  1964→                    </pre>
+  1965→                  </ScrollArea>
+  1966→                </div>
+  1967→              )}
+  1968→
+  1969→              {/* AI Review Result Display */}
+  1970→              {(selectedDoc.aiReviewStatus === 'completed' || reviewStatusMap[selectedDoc.id]?.result) && (
+  1971→                <ReviewResultDisplay
+  1972→                  reviewJson={selectedDoc.aiReview || reviewStatusMap[selectedDoc.id]?.result || ''}
+  1973→                  prompt={selectedDoc.aiReviewPrompt || reviewPrompts[selectedDoc.id] || ''}
+  1974→                />
+  1975→              )}
+  1976→
+  1977→              {/* AI Extract Panel */}
+  1978→              {ocrDone && (
+  1979→                <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+  1980→                  <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
+  1981→                    <h4 className="text-xs font-semibold flex items-center gap-1.5">
+  1982→                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+  1983→                      AI Prompt Writer — Extract Information
+  1984→                    </h4>
+  1985→                    <Button
+  1986→                      variant="ghost"
+  1987→                      size="sm"
+  1988→                      className="h-6 text-[10px]"
+  1989→                      onClick={() => {
+  1990→                        setShowExtract(prev => {
+  1991→                          const s = new Set(prev);
+  1992→                          if (s.has(selectedDoc.id)) s.delete(selectedDoc.id);
+  1993→                          else s.add(selectedDoc.id);
+  1994→                          return s;
+  1995→                        });
+  1996→                      }}
+  1997→                    >
+  1998→                      {showExtract.has(selectedDoc.id) ? <><ChevronDown className="h-3 w-3 mr-1" /> Hide</> : <><ChevronRight className="h-3 w-3 mr-1" /> Open</>}
+  1999→                    </Button>
+
+[showing lines 1500-1999 of 3082; use offset=2000 with limit to continue reading]
