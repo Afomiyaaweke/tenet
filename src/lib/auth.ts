@@ -19,8 +19,59 @@ function getSecret(): string {
 // Avoids a 3-table JOIN on every authenticated request.
 // In production, replace with Redis. This in-process cache works for single-instance.
 const AUTH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Explicit type for the auth user with includes
+export type AuthUser = {
+  id: string;
+  email: string;
+  passwordHash: string;
+  role: string;
+  companyId: string | null;
+  status: string;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  profile: {
+    id: string;
+    userId: string;
+    companyId: string | null;
+    fullName: string;
+    jobTitle: string | null;
+    phone: string | null;
+    location: string | null;
+    address: string | null;
+    tinNumber: string | null;
+    licenseNumber: string | null;
+    skillTags: string;
+    bio: string | null;
+    logoUrl: string | null;
+    profilePhoto: string | null;
+    verified: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
+  company: {
+    id: string;
+    name: string;
+    registrationNo: string | null;
+    industry: string;
+    tinNumber: string | null;
+    address: string | null;
+    city: string | null;
+    country: string;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+    logoUrl: string | null;
+    verified: boolean;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
+}
+
 interface CachedAuthUser {
-  user: NonNullable<Awaited<ReturnType<typeof db.user.findUnique>>>;
+  user: AuthUser;
   cachedAt: number;
 }
 const authCache = new Map<string, CachedAuthUser>();
@@ -79,7 +130,7 @@ export function extractBearerToken(request: NextRequest): string | null {
  * Uses an in-process cache (5-min TTL) to avoid DB queries on every request.
  * For multi-instance deployments, replace with Redis-backed cache.
  */
-export async function getAuthUser(request: NextRequest) {
+export async function getAuthUser(request: NextRequest): Promise<AuthUser | null> {
   const token = extractBearerToken(request);
   if (!token) return null;
 
@@ -101,16 +152,16 @@ export async function getAuthUser(request: NextRequest) {
 
   if (!user) return null;
 
-  // Update cache
-  authCache.set(cacheKey, { user, cachedAt: Date.now() });
+  // Update cache (cast to AuthUser since we know the shape matches)
+  authCache.set(cacheKey, { user: user as AuthUser, cachedAt: Date.now() });
 
-  return user;
+  return user as AuthUser;
 }
 
 /**
  * Require authentication - returns user or a JSON error response
  */
-export async function requireAuth(request: NextRequest) {
+export async function requireAuth(request: NextRequest): Promise<{ user: AuthUser; error: null } | { user: null; error: Response }> {
   const user = await getAuthUser(request);
   if (!user) {
     return { user: null, error: Response.json({ success: false, error: 'Unauthorized' }, { status: 401 }) };
