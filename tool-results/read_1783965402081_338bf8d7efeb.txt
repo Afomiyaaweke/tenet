@@ -1,0 +1,525 @@
+  1890→    });
+  1891→    clearTimeout(timer);
+  1892→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Compras Estatales returned ${res.status}` };
+  1893→
+  1894→    const json = (await res.json()) as { data?: Record<string, unknown>[] };
+  1895→    const items = Array.isArray(json.data) ? json.data : [];
+  1896→
+  1897→    const tenders: LiveTender[] = items.map((row, idx) => {
+  1898→      const id = String(row.id || row.numero || `uy-${idx}`);
+  1899→      const title = String(row.nombre || row.objeto || `Uruguayan Tender ${idx + 1}`);
+  1900→      const amount = Number(row.monto_estimado || row.monto || 0) || 0;
+  1901→      const docUrl = row.url_documento ? String(row.url_documento) : row.url_pliego ? String(row.url_pliego) : undefined;
+  1902→
+  1903→      return {
+  1904→        id: `uruguay_compras-${id}`,
+  1905→        title: truncate(title, 160),
+  1906→        scope: truncate(String(row.objeto || row.descripcion || title), 400),
+  1907→        budgetMin: amount,
+  1908→        budgetMax: amount,
+  1909→        deadline: String(row.fecha_cierre || row.fecha_limite || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1910→        location: 'Uruguay',
+  1911→        categoryTags: String(row.tipo || row.rubro || 'Supply'),
+  1912→        requiredDocs: docUrl || '',
+  1913→        status: 'open' as const,
+  1914→        createdBy: 'uruguay_compras',
+  1915→        createdAt: String(row.fecha_publicacion || new Date().toISOString()),
+  1916→        updatedAt: new Date().toISOString(),
+  1917→        source: 'uruguay_compras',
+  1918→        externalId: id,
+  1919→        externalUrl: `https://www.comprasestatales.gub.uy`,
+  1920→        currency: 'UYU',
+  1921→        borrower: String(row.organismo || row.entidad || '') || undefined,
+  1922→        contractType: String(row.tipo || '') || undefined,
+  1923→        region: 'South America',
+  1924→        documentUrl: docUrl,
+  1925→      } satisfies LiveTender;
+  1926→    });
+  1927→
+  1928→    return { tenders, total: items.length, ok: true };
+  1929→  } catch {
+  1930→    clearTimeout(timer);
+  1931→    return { tenders: [], total: 0, ok: false, error: 'Compras Estatales API unreachable' };
+  1932→  }
+  1933→}
+  1934→
+  1935→export const SECTOR_IDS = [
+  1936→  'medical', 'construction', 'retail', 'it', 'energy',
+  1937→  'agriculture', 'education', 'transport', 'finance', 'telecom',
+  1938→] as const;
+  1939→
+  1940→export type SectorId = (typeof SECTOR_IDS)[number];
+  1941→
+  1942→export const SECTOR_META: Record<SectorId, { label: string; icon: string; color: string }> = {
+  1943→  medical: { label: 'Medical & Healthcare', icon: '🏥', color: 'rose' },
+  1944→  construction: { label: 'Construction', icon: '🏗️', color: 'amber' },
+  1945→  retail: { label: 'Retail & Consumer', icon: '🛒', color: 'pink' },
+  1946→  it: { label: 'IT & Technology', icon: '💻', color: 'violet' },
+  1947→  energy: { label: 'Energy', icon: '⚡', color: 'yellow' },
+  1948→  agriculture: { label: 'Agriculture', icon: '🌾', color: 'green' },
+  1949→  education: { label: 'Education', icon: '📚', color: 'blue' },
+  1950→  transport: { label: 'Transport', icon: '🚛', color: 'cyan' },
+  1951→  finance: { label: 'Finance & Banking', icon: '🏦', color: 'emerald' },
+  1952→  telecom: { label: 'Telecommunications', icon: '📡', color: 'sky' },
+  1953→};
+  1954→
+  1955→export function fetchSectorTenders(sector: string, search?: string): { tenders: LiveTender[]; ok: boolean; error?: string } {
+  1956→  // Sector filtering relies on live API data from sources that require credentials.
+  1957→  // Not available until upstream adapters are connected.
+  1958→  void search;
+  1959→  void sector;
+  1960→  return { tenders: [], ok: false, error: 'Requires API credentials - Coming Soon' };
+  1961→}
+  1962→
+  1963→export function getSectorCounts(): { id: SectorId; label: string; count: number; available: boolean }[] {
+  1964→  // Sector counts rely on live API data from sources that require credentials.
+  1965→  return SECTOR_IDS.map((id) => ({
+  1966→    id,
+  1967→    label: SECTOR_META[id].label,
+  1968→    count: 0,
+  1969→    available: false,
+  1970→  }));
+  1971→}
+  1972→
+  1973→/* ─────────────────────────────────────────────────────────────────────
+  1974→ * Aggregator — called by the API route
+  1975→ * ───────────────────────────────────────────────────────────────────── */
+  1976→
+  1977→export interface FetchLiveTendersResult {
+  1978→  tenders: LiveTender[];
+  1979→  meta: {
+  1980→    total: number;
+  1981→    sources: { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[];
+  1982→    fallback: boolean;
+  1983→    cachedAt: number;
+  1984→  };
+  1985→}
+  1986→
+  1987→const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+  1988→interface CacheEntry {
+  1989→  result: FetchLiveTendersResult;
+  1990→  expiresAt: number;
+  1991→}
+  1992→const cache = new Map<string, CacheEntry>();
+  1993→
+  1994→/* ─────────────────────────────────────────────────────────────────────
+  1995→ * Sample / fallback tenders (when live APIs are unreachable)
+  1996→ * Generates realistic tender data from multiple "sources" so that
+  1997→ * Load More, document viewing, and other features can be demonstrated.
+  1998→ * ───────────────────────────────────────────────────────────────────── */
+  1999→
+  2000→function generateSampleTenders(rows: number, offset: number, search?: string): LiveTender[] {
+  2001→  const sources = [
+  2002→    'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'adb',
+  2003→    'uk_contracts', 'dgmarket', 'canada_buyandsell', 'austender',
+  2004→    'india_cppp', 'south_africa', 'colombia_secop', 'chile_mercado',
+  2005→    'kenya_tenders', 'nigeria_nocopo', 'philgeps', 'portugal_base',
+  2006→  ];
+  2007→
+  2008→  const sampleData = [
+  2009→    { title: 'Road Infrastructure Development Project', scope: 'Construction of 45km asphalt road including drainage systems, bridges, and signage in rural areas. The project aims to improve connectivity between major agricultural zones and urban markets.', category: 'Construction', location: 'Ethiopia', budget: 12000000, currency: 'USD', borrower: 'Ministry of Transport', contractType: 'Works', region: 'Africa' },
+  2010→    { title: 'Healthcare Equipment Procurement', scope: 'Supply and installation of MRI machines, CT scanners, and surgical equipment for 12 regional hospitals. Includes training of medical personnel and 3-year maintenance contract.', category: 'Healthcare', location: 'Kenya', budget: 8500000, currency: 'USD', borrower: 'Ministry of Health', contractType: 'Goods', region: 'Africa' },
+  2011→    { title: 'Digital Government Platform Implementation', scope: 'Design, development, and deployment of an integrated e-government portal for citizen services including tax filing, business registration, and permit applications. Cloud-based with mobile-first responsive design.', category: 'IT', location: 'India', budget: 3200000, currency: 'USD', borrower: 'Digital India Corporation', contractType: 'Services', region: 'South Asia' },
+  2012→    { title: 'Renewable Energy Solar Farm Construction', scope: 'Engineering, procurement, and construction of a 50MW solar photovoltaic power plant with battery energy storage system. Includes grid interconnection, substation upgrade, and SCADA system.', category: 'Energy', location: 'South Africa', budget: 25000000, currency: 'USD', borrower: 'Eskom Holdings', contractType: 'Works', region: 'Africa' },
+  2013→    { title: 'Agricultural Supply Chain Modernization', scope: 'Procurement of modern grain storage facilities, cold chain logistics equipment, and market information systems for smallholder farmers. Includes 15 storage facilities and 50 refrigerated transport vehicles.', category: 'Agriculture', location: 'Nigeria', budget: 6700000, currency: 'USD', borrower: 'Federal Ministry of Agriculture', contractType: 'Goods', region: 'Africa' },
+  2014→    { title: 'Public Transportation System Upgrade', scope: 'Procurement of 200 low-emission buses, construction of 5 bus terminals, and implementation of smart ticketing and fleet management system for the metropolitan transit authority.', category: 'Logistics', location: 'Colombia', budget: 18000000, currency: 'USD', borrower: 'Bogotá Transit Authority', contractType: 'Works', region: 'Latin America' },
+  2015→    { title: 'Educational Technology Integration Program', scope: 'Supply of 10,000 laptops, 500 interactive whiteboards, and learning management system for 200 primary schools. Includes teacher training, curriculum digitization, and 5-year support.', category: 'Education', location: 'Chile', budget: 4500000, currency: 'USD', borrower: 'Ministry of Education', contractType: 'Services', region: 'Latin America' },
+  2016→    { title: 'Water Supply and Sanitation Infrastructure', scope: 'Construction of water treatment plant, 120km pipeline network, and sewage treatment facility for urban population of 500,000. Includes pumping stations and distribution reservoirs.', category: 'Engineering', location: 'Portugal', budget: 35000000, currency: 'EUR', borrower: 'Águas de Portugal', contractType: 'Works', region: 'Europe' },
+  2017→    { title: 'Financial Management System Upgrade', scope: 'Implementation of integrated financial management information system (IFMIS) for government treasury operations. Includes budget planning, expenditure tracking, payroll, and reporting modules.', category: 'Finance', location: 'Kenya', budget: 2800000, currency: 'USD', borrower: 'National Treasury', contractType: 'Consulting', region: 'Africa' },
+  2018→    { title: 'Telecommunications Network Expansion', scope: 'Deployment of 500 4G/5G base stations, 2000km fiber optic cable, and network operations center. Includes rural connectivity program and emergency communication infrastructure.', category: 'Telecommunications', location: 'Philippines', budget: 42000000, currency: 'USD', borrower: 'Department of ICT', contractType: 'Works', region: 'Southeast Asia' },
+  2019→    { title: 'Office Building Construction - Phase II', scope: 'Construction of a modern 8-story office complex including parking garage, landscaped grounds, and LEED Gold sustainability certification. Total built area 12,000 sqm.', category: 'Construction', location: 'United Kingdom', budget: 15000000, currency: 'GBP', borrower: 'HM Revenue & Customs', contractType: 'Works', region: 'Europe' },
+  2020→    { title: 'Medical Supplies Framework Agreement', scope: 'Multi-year framework agreement for supply of pharmaceutical products, medical devices, and laboratory consumables to public health facilities. Estimated annual requirement: $5M.', category: 'Supply', location: 'Canada', budget: 25000000, currency: 'CAD', borrower: 'Health Canada', contractType: 'Goods', region: 'North America' },
+  2021→    { title: 'Bridge Construction Over River Basin', scope: 'Design and construction of a 600m cable-stayed bridge with approach roads, toll plaza, and traffic management systems. Includes environmental impact mitigation measures.', category: 'Construction', location: 'Australia', budget: 85000000, currency: 'AUD', borrower: 'Transport NSW', contractType: 'Works', region: 'Oceania' },
+  2022→    { title: 'Consulting Services for Urban Planning', scope: 'Comprehensive urban planning and development strategy for metropolitan area of 2 million residents. Includes land use planning, transportation modeling, and environmental assessment.', category: 'Consulting', location: 'Uruguay', budget: 1500000, currency: 'USD', borrower: 'Intendencia de Montevideo', contractType: 'Consulting', region: 'Latin America' },
+  2023→    { title: 'Power Grid Modernization Project', scope: 'Rehabilitation and upgrade of 220kV transmission lines, construction of 3 new substations, and deployment of smart grid automation systems across the national grid.', category: 'Energy', location: 'India', budget: 65000000, currency: 'USD', borrower: 'Power Grid Corporation', contractType: 'Works', region: 'South Asia' },
+  2024→    { title: 'School Construction Program', scope: 'Construction of 25 primary schools and 10 secondary schools with modern facilities including laboratories, libraries, computer rooms, and sports grounds. Total capacity: 15,000 students.', category: 'Construction', location: 'Nigeria', budget: 22000000, currency: 'USD', borrower: 'Universal Basic Education Commission', contractType: 'Works', region: 'Africa' },
+  2025→    { title: 'IT Security Infrastructure Enhancement', scope: 'Procurement and deployment of cybersecurity infrastructure including firewalls, intrusion detection systems, SIEM platform, and security operations center for government networks.', category: 'IT', location: 'United States', budget: 5000000, currency: 'USD', borrower: 'General Services Administration', contractType: 'Services', region: 'North America' },
+  2026→    { title: 'Agricultural Research Center Construction', scope: 'Construction of a modern agricultural research facility including laboratories, greenhouse complexes, field trial stations, and administrative buildings. Area: 5 hectares.', category: 'Agriculture', location: 'Mexico', budget: 8000000, currency: 'USD', borrower: 'SAGARPA', contractType: 'Works', region: 'Latin America' },
+  2027→    { title: 'Public Hospital Renovation Program', scope: 'Major renovation and modernization of 3 public hospitals including new surgical suites, diagnostic imaging departments, patient wards, and emergency departments. Total area: 45,000 sqm.', category: 'Healthcare', location: 'Argentina', budget: 35000000, currency: 'USD', borrower: 'Ministerio de Salud', contractType: 'Works', region: 'Latin America' },
+  2028→    { title: 'Supply of Vaccination Equipment', scope: 'Procurement of cold chain equipment, vaccination supplies, and mobile health units for nationwide immunization program. Includes 200 solar refrigerators and 50 mobile clinics.', category: 'Supply', location: 'Kenya', budget: 3500000, currency: 'USD', borrower: 'Ministry of Health Kenya', contractType: 'Goods', region: 'Africa' },
+  2029→  ];
+  2030→
+  2031→  const tenders: LiveTender[] = [];
+  2032→  const totalAvailable = 200; // Allow up to 200 sample tenders for pagination
+  2033→  const startIdx = offset % sampleData.length;
+  2034→  const cycleOffset = Math.floor(offset / sampleData.length);
+  2035→
+  2036→  for (let i = 0; i < rows && (offset + i) < totalAvailable; i++) {
+  2037→    const dataIdx = (startIdx + i) % sampleData.length;
+  2038→    const cycle = cycleOffset + Math.floor((startIdx + i) / sampleData.length);
+  2039→    const d = sampleData[dataIdx];
+  2040→    const source = sources[(offset + i) % sources.length];
+  2041→    const baseDeadline = new Date(Date.now() + (30 + i * 3 + cycle * 15) * 86400000);
+  2042→    const budgetVariance = 1 + (cycle * 0.15);
+  2043→    const minBudget = Math.round(d.budget * 0.6 * budgetVariance);
+  2044→    const maxBudget = Math.round(d.budget * budgetVariance);
+  2045→    const signingDate = new Date(Date.now() - (10 + i * 5) * 86400000);
+  2046→    const externalId = `${source}-${offset + i}-r${cycle}`;
+  2047→
+  2048→    // Build source-specific document URLs
+  2049→    const docUrls: Record<string, string> = {
+  2050→      worldbank: `https://projects.worldbank.org/en/projects-operations/project-detail/P${100000 + offset + i}`,
+  2051→      eu_ted: `https://ted.europa.eu/udl?uri=TED:NOTICE:${externalId}:TEXT:EN:HTML`,
+  2052→      ungm: `https://www.ungm.org/Public/Notice/${offset + i + 10000}`,
+  2053→      sam_gov: `https://sam.gov/opp/${externalId}/view`,
+  2054→      afdb: `https://www.afdb.org/en/projects-and-operations/procurement/${offset + i + 5000}`,
+  2055→      adb: `https://www.adb.org/business/opportunities/${offset + i + 2000}`,
+  2056→      uk_contracts: `https://www.contractsfinder.service.gov.uk/notice/${offset + i + 30000}`,
+  2057→      dgmarket: `https://www.dgmarket.com/tenders/${offset + i + 40000}`,
+  2058→      canada_buyandsell: `https://buyandsell.gc.ca/procurement-data/tender/${offset + i + 50000}`,
+  2059→      austender: `https://www.tenders.gov.au/tender/${offset + i + 60000}`,
+  2060→      india_cppp: `https://eprocure.gov.in/eprocure/app?tenderId=${offset + i + 70000}`,
+  2061→      south_africa: `https://www.etenders.gov.za/tender/${offset + i + 80000}`,
+  2062→      colombia_secop: `https://www.colombiacompra.gov.co/tender/${offset + i + 90000}`,
+  2063→      chile_mercado: `https://www.mercadopublico.cl/tender/${offset + i + 100000}`,
+  2064→      kenya_tenders: `https://tenders.go.ke/tender/${offset + i + 110000}`,
+  2065→      nigeria_nocopo: `https://nocopo.bpp.gov.ng/tender/${offset + i + 120000}`,
+  2066→      philgeps: `https://philgeps.gov.ph/tender/${offset + i + 130000}`,
+  2067→      portugal_base: `https://www.base.gov.pt/tender/${offset + i + 140000}`,
+  2068→    };
+  2069→
+  2070→    const titleSuffix = cycle > 0 ? ` — Phase ${cycle + 1}` : '';
+  2071→
+  2072→    tenders.push({
+  2073→      id: `sample-${externalId}`,
+  2074→      title: d.title + titleSuffix,
+  2075→      scope: d.scope,
+  2076→      budgetMin: minBudget,
+  2077→      budgetMax: maxBudget,
+  2078→      deadline: baseDeadline.toISOString(),
+  2079→      location: d.location,
+  2080→      categoryTags: d.category,
+  2081→      requiredDocs: docUrls[source] || '',
+  2082→      status: i % 7 === 0 ? 'awarded' : 'open',
+  2083→      createdBy: source,
+  2084→      createdAt: signingDate.toISOString(),
+  2085→      updatedAt: signingDate.toISOString(),
+  2086→      source,
+  2087→      externalId,
+  2088→      externalUrl: docUrls[source] || `https://example.com/tender/${externalId}`,
+  2089→      currency: d.currency,
+  2090→      borrower: d.borrower,
+  2091→      supplier: i % 7 === 0 ? `Contractor International ${String.fromCharCode(65 + (i % 26))}` : undefined,
+  2092→      contractType: d.contractType,
+  2093→      signingDate: i % 7 === 0 ? signingDate.toISOString() : undefined,
+  2094→      region: d.region,
+  2095→      documentUrl: docUrls[source] || undefined,
+  2096→    });
+  2097→  }
+  2098→
+  2099→  // Filter by search if provided
+  2100→  if (search) {
+  2101→    const q = search.toLowerCase();
+  2102→    return tenders.filter(
+  2103→      (t) =>
+  2104→        t.title.toLowerCase().includes(q) ||
+  2105→        t.scope.toLowerCase().includes(q) ||
+  2106→        t.location.toLowerCase().includes(q) ||
+  2107→        t.categoryTags.toLowerCase().includes(q),
+  2108→    );
+  2109→  }
+  2110→
+  2111→  return tenders;
+  2112→}
+  2113→
+  2114→export async function fetchLiveTenders(opts: {
+  2115→  source?: string;
+  2116→  search?: string;
+  2117→  rows?: number;
+  2118→  offset?: number;
+  2119→}): Promise<FetchLiveTendersResult> {
+  2120→  const cacheKey = `${opts.source || 'all'}::${opts.search || ''}::${opts.rows || 20}::${opts.offset || 0}`;
+  2121→  const hit = cache.get(cacheKey);
+  2122→  if (hit && hit.expiresAt > Date.now()) {
+  2123→    return { ...hit.result, meta: { ...hit.result.meta, cachedAt: Date.now() } };
+  2124→  }
+  2125→
+  2126→  const rows = opts.rows ?? 20;
+  2127→  const offset = opts.offset || 0;
+  2128→  const wantSource = opts.source || 'all';
+  2129→  const tasks: { id: string; name: string; live: boolean; p: Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> }[] = [];
+  2130→
+  2131→  if (wantSource === 'all' || wantSource === 'worldbank') {
+  2132→    tasks.push({
+  2133→      id: 'worldbank',
+  2134→      name: 'World Bank',
+  2135→      live: true,
+  2136→      p: fetchWorldBankTenders({ search: opts.search, rows, offset }),
+  2137→    });
+  2138→  }
+  2139→  if (wantSource === 'all' || wantSource === 'eu_ted') {
+  2140→    tasks.push({
+  2141→      id: 'eu_ted',
+  2142→      name: 'EU TED',
+  2143→      live: true,
+  2144→      p: fetchEuTedTenders({ search: opts.search, rows, offset }),
+  2145→    });
+  2146→  }
+  2147→  if (wantSource === 'all' || wantSource === 'ungm') {
+  2148→    tasks.push({
+  2149→      id: 'ungm',
+  2150→      name: 'UNGM',
+  2151→      live: true,
+  2152→      p: fetchUngmTenders({ search: opts.search, rows: Math.min(rows, 5), offset }),
+  2153→    });
+  2154→  }
+  2155→  if (wantSource === 'all' || wantSource === 'sam_gov') {
+  2156→    tasks.push({
+  2157→      id: 'sam_gov',
+  2158→      name: 'SAM.gov',
+  2159→      live: true,
+  2160→      p: fetchSamGovTenders({ search: opts.search, rows: Math.min(rows, 5), offset }),
+  2161→    });
+  2162→  }
+  2163→  if (wantSource === 'all' || wantSource === 'afdb') {
+  2164→    tasks.push({
+  2165→      id: 'afdb',
+  2166→      name: 'AfDB',
+  2167→      live: true,
+  2168→      p: fetchAfdbTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+  2169→    });
+  2170→  }
+  2171→  if (wantSource === 'all' || wantSource === 'eu_opentenders') {
+  2172→    tasks.push({
+  2173→      id: 'eu_opentenders',
+  2174→      name: 'OpenTenders EU',
+  2175→      live: true,
+  2176→      p: fetchEuOpenTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+  2177→    });
+  2178→  }
+  2179→  if (wantSource === 'all' || wantSource === 'jica') {
+  2180→    tasks.push({
+  2181→      id: 'jica',
+  2182→      name: 'JICA',
+  2183→      live: true,
+  2184→      p: fetchJicaTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+  2185→    });
+  2186→  }
+  2187→  if (wantSource === 'all' || wantSource === 'adb') {
+  2188→    tasks.push({
+  2189→      id: 'adb',
+  2190→      name: 'ADB',
+  2191→      live: true,
+  2192→      p: fetchAdbTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+  2193→    });
+  2194→  }
+  2195→  if (wantSource === 'all' || wantSource === 'uk_contracts') {
+  2196→    tasks.push({
+  2197→      id: 'uk_contracts',
+  2198→      name: 'UK Contracts Finder',
+  2199→      live: true,
+  2200→      p: fetchUkContractsTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+  2201→    });
+  2202→  }
+  2203→  if (wantSource === 'all' || wantSource === 'dgmarket') {
+  2204→    tasks.push({
+  2205→      id: 'dgmarket',
+  2206→      name: 'DgMarket',
+  2207→      live: true,
+  2208→      p: fetchDgMarketTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+  2209→    });
+  2210→  }
+  2211→  // ── Credential-gated sources (enabled when env vars are set) ──
+  2212→  if (wantSource === 'all' || wantSource === 'apify_global') {
+  2213→    tasks.push({
+  2214→      id: 'apify_global',
+  2215→      name: 'Apify Global Tenders',
+  2216→      live: !!process.env.APIFY_API_TOKEN,
+  2217→      p: fetchApifyGlobalTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2218→    });
+  2219→  }
+  2220→  if (wantSource === 'all' || wantSource === 'apify_procurement') {
+  2221→    tasks.push({
+  2222→      id: 'apify_procurement',
+  2223→      name: 'Apify Procurement Alerts',
+  2224→      live: !!process.env.APIFY_API_TOKEN,
+  2225→      p: fetchApifyProcurementTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2226→    });
+  2227→  }
+  2228→  if (wantSource === 'all' || wantSource === 'govrider') {
+  2229→    tasks.push({
+  2230→      id: 'govrider',
+  2231→      name: 'GovRider',
+  2232→      live: !!process.env.GOVRIDER_API_KEY,
+  2233→      p: fetchGovRiderTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2234→    });
+  2235→  }
+  2236→  if (wantSource === 'all' || wantSource === 'tenderwell') {
+  2237→    tasks.push({
+  2238→      id: 'tenderwell',
+  2239→      name: 'Tenderwell',
+  2240→      live: !!process.env.TENDERWELL_API_KEY,
+  2241→      p: fetchTenderwellTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2242→    });
+  2243→  }
+  2244→  if (wantSource === 'all' || wantSource === 'seegenebid') {
+  2245→    tasks.push({
+  2246→      id: 'seegenebid',
+  2247→      name: 'SeeGeneBid',
+  2248→      live: true, // Open source, no API key needed
+  2249→      p: fetchSeeGeneBidTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2250→    });
+  2251→  }
+  2252→  if (wantSource === 'all' || wantSource === 'canada_buyandsell') {
+  2253→    tasks.push({
+  2254→      id: 'canada_buyandsell',
+  2255→      name: 'Canada Buyandsell',
+  2256→      live: true,
+  2257→      p: fetchCanadaBuyandsellTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2258→    });
+  2259→  }
+  2260→  if (wantSource === 'all' || wantSource === 'austender') {
+  2261→    tasks.push({
+  2262→      id: 'austender',
+  2263→      name: 'AusTender',
+  2264→      live: true,
+  2265→      p: fetchAusTenderTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2266→    });
+  2267→  }
+  2268→  if (wantSource === 'all' || wantSource === 'portugal_base') {
+  2269→    tasks.push({
+  2270→      id: 'portugal_base',
+  2271→      name: 'Portugal BASE',
+  2272→      live: true,
+  2273→      p: fetchPortugalBaseTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2274→    });
+  2275→  }
+  2276→  if (wantSource === 'all' || wantSource === 'ontario_tenders') {
+  2277→    tasks.push({
+  2278→      id: 'ontario_tenders',
+  2279→      name: 'Ontario Tenders',
+  2280→      live: true,
+  2281→      p: fetchOntarioTendersTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2282→    });
+  2283→  }
+  2284→  if (wantSource === 'all' || wantSource === 'nigeria_nocopo') {
+  2285→    tasks.push({
+  2286→      id: 'nigeria_nocopo',
+  2287→      name: 'Nigeria NOCOPO',
+  2288→      live: true,
+  2289→      p: fetchNigeriaNocopoTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+  2290→    });
+  2291→  }
+  2292→  if (wantSource === 'all' || wantSource === 'kenya_tenders') {
+  2293→    tasks.push({
+  2294→      id: 'kenya_tenders',
+  2295→      name: 'Kenya Tenders',
+  2296→      live: true,
+  2297→      p: fetchKenyaTendersTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2298→    });
+  2299→  }
+  2300→  if (wantSource === 'all' || wantSource === 'india_cppp') {
+  2301→    tasks.push({
+  2302→      id: 'india_cppp',
+  2303→      name: 'India CPPP',
+  2304→      live: true,
+  2305→      p: fetchIndiaCpppTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2306→    });
+  2307→  }
+  2308→  if (wantSource === 'all' || wantSource === 'south_africa') {
+  2309→    tasks.push({
+  2310→      id: 'south_africa',
+  2311→      name: 'South Africa eTenders',
+  2312→      live: true,
+  2313→      p: fetchSouthAfricaTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2314→    });
+  2315→  }
+  2316→  if (wantSource === 'all' || wantSource === 'philgeps') {
+  2317→    tasks.push({
+  2318→      id: 'philgeps',
+  2319→      name: 'PhilGEPS',
+  2320→      live: true,
+  2321→      p: fetchPhilgepsTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2322→    });
+  2323→  }
+  2324→  // ── Latin American public procurement sources (free, with downloadable docs) ──
+  2325→  if (wantSource === 'all' || wantSource === 'colombia_secop') {
+  2326→    tasks.push({
+  2327→      id: 'colombia_secop',
+  2328→      name: 'Colombia SECOP',
+  2329→      live: true,
+  2330→      p: fetchColombiaSecopTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2331→    });
+  2332→  }
+  2333→  if (wantSource === 'all' || wantSource === 'mexico_compranet') {
+  2334→    tasks.push({
+  2335→      id: 'mexico_compranet',
+  2336→      name: 'Mexico CompraNet',
+  2337→      live: true,
+  2338→      p: fetchMexicoCompranetTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2339→    });
+  2340→  }
+  2341→  if (wantSource === 'all' || wantSource === 'chile_mercado') {
+  2342→    tasks.push({
+  2343→      id: 'chile_mercado',
+  2344→      name: 'Chile Mercado Público',
+  2345→      live: true,
+  2346→      p: fetchChileMercadoTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2347→    });
+  2348→  }
+  2349→  if (wantSource === 'all' || wantSource === 'argentina_comprar') {
+  2350→    tasks.push({
+  2351→      id: 'argentina_comprar',
+  2352→      name: 'Argentina COMPR.AR',
+  2353→      live: true,
+  2354→      p: fetchArgentinaComprarTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2355→    });
+  2356→  }
+  2357→  if (wantSource === 'all' || wantSource === 'uruguay_compras') {
+  2358→    tasks.push({
+  2359→      id: 'uruguay_compras',
+  2360→      name: 'Uruguay Compras Estatales',
+  2361→      live: true,
+  2362→      p: fetchUruguayComprasTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+  2363→    });
+  2364→  }
+  2365→
+  2366→  const settled = await Promise.all(tasks.map(async (t) => ({ ...t, res: await t.p })));
+  2367→
+  2368→  const sourcesMeta = settled.map((t) => ({
+  2369→    id: t.id,
+  2370→    name: t.name,
+  2371→    live: t.live,
+  2372→    ok: t.res.ok,
+  2373→    count: t.res.tenders.length,
+  2374→    error: t.res.error,
+  2375→  }));
+  2376→
+  2377→  const tenders = settled.flatMap((t) => t.res.tenders);
+  2378→  const totalLiveOk = settled.some((t) => t.res.ok && t.res.tenders.length > 0);
+  2379→  const fallback = !totalLiveOk;
+  2380→
+  2381→  // If all live sources failed (e.g. no internet in sandbox), generate realistic sample data
+  2382→  let allTenders = tenders;
+  2383→  if (fallback) {
+  2384→    allTenders = generateSampleTenders(opts.rows ?? 20, opts.offset || 0, opts.search);
+  2385→  }
+  2386→
+  2387→  // Client-side search filter on top of upstream results
+  2388→  let filteredTenders = allTenders;
+  2389→  if (opts.search && !fallback) {
+  2390→    const q = opts.search.toLowerCase();
+  2391→    filteredTenders = allTenders.filter(
+  2392→      (t) =>
+  2393→        t.title.toLowerCase().includes(q) ||
+  2394→        t.scope.toLowerCase().includes(q) ||
+  2395→        t.location.toLowerCase().includes(q) ||
+  2396→        t.categoryTags.toLowerCase().includes(q),
+  2397→    );
+  2398→  }
+  2399→
+  2400→  const result: FetchLiveTendersResult = {
+  2401→    tenders: filteredTenders,
+  2402→    meta: {
+  2403→      total: filteredTenders.length,
+  2404→      sources: sourcesMeta,
+  2405→      fallback,
+  2406→      cachedAt: Date.now(),
+  2407→    },
+  2408→  };
+  2409→
+  2410→  cache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+  2411→  return result;
+  2412→}
+
+[showing lines 1890-2412 of 2413; use offset=2413 with limit to continue reading]

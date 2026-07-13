@@ -587,6 +587,7 @@ export function TendersView() {
   const [externalLoading, setExternalLoading] = useState(false);
   const [externalLoadingMore, setExternalLoadingMore] = useState(false);
   const [externalHasMore, setExternalHasMore] = useState(true);
+  const [externalTotalAvailable, setExternalTotalAvailable] = useState(0);
   const [showExternal, setShowExternal] = useState(true);
 
   // Inline document fetching for external tenders
@@ -689,6 +690,7 @@ export function TendersView() {
       const newTenders = res.data as LiveTender[];
       setExternalTenders(append ? (prev: LiveTender[]) => [...prev, ...newTenders] : newTenders);
       setExternalHasMore(res.meta?.hasMore ?? false);
+      if (res.meta?.totalAvailable) setExternalTotalAvailable(res.meta.totalAvailable);
     }
     setExternalLoading(false);
     setExternalLoadingMore(false);
@@ -1453,12 +1455,25 @@ export function TendersView() {
       {/* See More / Load More — server-side pagination */}
       {!loading && tenders.length > 0 && (
         <div className="flex flex-col items-center gap-3 pt-6 pb-4">
+          {/* Progress bar */}
+          {totalTenders > 0 && (
+            <div className="w-full max-w-md">
+              <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((tenders.length / totalTenders) * 100))}%` }}
+                />
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <FileSearch className="h-3 w-3" />
-              {page >= totalPages
-                ? `All ${tenders.length} tenders loaded`
-                : `${tenders.length} of ${totalTenders} tenders loaded`}
+              {totalTenders > 0
+                ? `Showing ${tenders.length} of ${totalTenders} tenders`
+                : page >= totalPages
+                  ? `All ${tenders.length} tenders loaded`
+                  : `${tenders.length} tenders loaded`}
             </span>
             {page < totalPages && (
               <>
@@ -1480,7 +1495,11 @@ export function TendersView() {
               ) : (
                 <ChevronDown className="h-4 w-4" />
               )}
-              {loadingMore ? 'Loading More…' : `Load More (${totalTenders - tenders.length} remaining)`}
+              {loadingMore
+                ? 'Loading More…'
+                : totalTenders > 0
+                  ? `Load More (${Math.round((tenders.length / totalTenders) * 100)}% loaded)`
+                  : `Load More (${totalTenders - tenders.length} remaining)`}
             </Button>
           ) : (
             <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -1670,6 +1689,38 @@ export function TendersView() {
                         </div>
                       )}
 
+                      {/* Document Files list */}
+                      {t.documentFiles && t.documentFiles.length > 0 && (
+                        <div className="rounded-lg border border-violet-200/60 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20 p-2.5 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <FileText className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                            <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide">Requirement Files</span>
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-violet-200 dark:border-violet-700 text-violet-600 dark:text-violet-400">
+                              {t.documentFiles.length}
+                            </Badge>
+                          </div>
+                          <div className="space-y-1">
+                            {t.documentFiles.map((file, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-[10px]">
+                                <span className="shrink-0 px-1.5 py-0.5 rounded bg-white dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700 font-mono text-violet-700 dark:text-violet-300">
+                                  {file.type}
+                                </span>
+                                <a
+                                  href={file.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {file.name}
+                                </a>
+                                <span className="text-muted-foreground ml-auto shrink-0">{file.size}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Fetch document content inline if no explicit doc URL but has externalUrl */}
                       {!hasDocs && t.externalUrl && (
                         <Button
@@ -1830,10 +1881,23 @@ export function TendersView() {
           {/* External Load More */}
           {externalTenders.length > 0 && (
             <div className="flex flex-col items-center gap-3 pt-4 pb-2">
+              {/* Progress bar */}
+              {externalTotalAvailable > 0 && (
+                <div className="w-full max-w-md">
+                  <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.round((externalTenders.length / externalTotalAvailable) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Globe2 className="h-3 w-3" />
-                  {externalTenders.length} external tenders loaded
+                  {externalTotalAvailable > 0
+                    ? `Showing ${externalTenders.length} of ${externalTotalAvailable} external tenders`
+                    : `${externalTenders.length} external tenders loaded`}
                 </span>
                 {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length > 0 && (
                   <>
@@ -1864,12 +1928,16 @@ export function TendersView() {
                   ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
-                  {externalLoadingMore ? 'Loading More…' : 'Load More External Tenders'}
+                  {externalLoadingMore
+                    ? 'Loading More…'
+                    : externalTotalAvailable > 0
+                      ? `Load More (${Math.round((externalTenders.length / externalTotalAvailable) * 100)}% loaded)`
+                      : 'Load More External Tenders'}
                 </Button>
               ) : (
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                   <CheckCircle className="h-3 w-3" />
-                  All external tenders loaded
+                  {externalTotalAvailable > 0 ? `All ${externalTotalAvailable} external tenders loaded` : 'All external tenders loaded'}
                 </p>
               )}
             </div>
