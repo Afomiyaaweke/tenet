@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (error) return error;
 
     const body = await request.json();
-    const { tenderId, technicalProposal, financialProposal, timeline, attachments } = body;
+    const { tenderId, technicalProposal, financialProposal, timeline, attachments, status: requestedStatus } = body;
 
     if (!tenderId) {
       return NextResponse.json(
@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate requested status - only 'drafted' or 'pending_review' (default) allowed on creation
+    const bidStatus = (requestedStatus === 'drafted') ? 'drafted' : 'pending_review';
 
     // Check tender exists and is open
     const tender = await db.tender.findUnique({ where: { id: tenderId } });
@@ -71,6 +74,7 @@ export async function POST(request: NextRequest) {
         financialProposal: bidFinancialProposal,
         timeline: bidTimeline,
         attachments: attachments || '',
+        status: bidStatus,
       },
     });
 

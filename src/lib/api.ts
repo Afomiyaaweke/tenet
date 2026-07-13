@@ -265,7 +265,7 @@ export interface Bid {
   financialProposal: number;
   timeline: string;
   attachments: string;
-  status: 'pending_review' | 'shortlisted' | 'awarded' | 'rejected';
+  status: 'drafted' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected';
   rejectionNote?: string;
   createdAt: string;
   tender?: { id: string; title: string; status: string };

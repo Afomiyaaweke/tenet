@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 
 // Valid bid status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  pending_review: ['shortlisted', 'rejected'],
+  drafted: ['pending_review', 'rejected'],
+  pending_review: ['shortlisted', 'rejected', 'drafted'],
   shortlisted: ['awarded', 'rejected'],
   awarded: ['completed'],
 };
 
+// Transitions that regular users can perform on their own bids
+const USER_ALLOWED_TRANSITIONS: string[] = ['drafted', 'pending_review'];
+
 /**
  * PATCH /api/bids/[id]/status
- * Admin only: Update bid status
+ * - Admin (team_admin): Full status transition control
+ * - Regular users: Can transition between drafted and pending_review on their own bids
  * When status becomes "awarded": creates Project, Chat, updates tender status, creates notification
  */
 export async function PATCH(
@@ -19,7 +24,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, error } = await requireAdmin(request);
+    const { user, error } = await requireAuth(request);
     if (error) return error;
 
     const { id } = await params;
@@ -35,13 +40,8 @@ export async function PATCH(
       );
     }
 
-    // Company isolation: non-team_admin can only update bids on their own company's tenders
-    if (user!.role !== 'team_admin' && user!.companyId && bid.tender.companyId !== user!.companyId) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden: You can only update bids on your own company\'s tenders' },
-        { status: 403 }
-      );
-    }
+    const isAdmin = user!.role === 'team_admin';
+    const isOwnBid = bid.userId === user!.id;
 
     const body = await request.json();
     const { status, rejectionNote } = body;
@@ -59,6 +59,32 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: `Invalid transition from "${bid.status}" to "${status}". Allowed: ${allowed.join(', ') || 'none'}` },
         { status: 400 }
+      );
+    }
+
+    // Permission check: regular users can only transition between drafted/pending_review on their own bids
+    if (!isAdmin) {
+      if (!isOwnBid) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: You can only update your own bids' },
+          { status: 403 }
+        );
+      }
+      if (!USER_ALLOWED_TRANSITIONS.includes(status)) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: You can only save drafts or submit bids for review' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Admin company isolation: non-team_admin (but we already checked isAdmin above, so this is for team_admin)
+    // For admins, check company isolation
+    if (isAdmin && user!.companyId && bid.tender.companyId !== user!.companyId) {
+      // Allow if the admin's company created the tender, otherwise block
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only update bids on your own company\'s tenders' },
+        { status: 403 }
       );
     }
 
@@ -148,7 +174,7 @@ export async function PATCH(
       });
     }
 
-    // For other non-awarded status updates (e.g. shortlisted, completed)
+    // For other non-awarded status updates (e.g. shortlisted, completed, drafted, pending_review)
     const updatedBid = await db.bid.update({
       where: { id },
       data: updateData,
