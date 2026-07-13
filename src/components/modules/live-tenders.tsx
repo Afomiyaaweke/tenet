@@ -46,6 +46,12 @@ const SOURCE_LABELS: Record<string, string> = {
   govrider: 'GovRider',
   tenderwell: 'Tenderwell',
   seegenebid: 'SeeGeneBid',
+  canada_buyandsell: 'Canada Buyandsell',
+  austender: 'AusTender',
+  portugal_base: 'Portugal BASE',
+  ontario_tenders: 'Ontario Tenders',
+  nigeria_nocopo: 'Nigeria NOCOPO',
+  kenya_tenders: 'Kenya Tenders',
 };
 
 const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -160,6 +166,48 @@ const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; 
     ring: 'hover:border-rose-400/60',
     bg: 'from-rose-500/10 to-pink-500/5',
     icon: Globe2,
+  },
+  canada_buyandsell: {
+    dot: 'bg-red-500',
+    badge: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+    ring: 'hover:border-red-400/60',
+    bg: 'from-red-500/10 to-red-500/5',
+    icon: Flag,
+  },
+  austender: {
+    dot: 'bg-teal-500',
+    badge: 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300',
+    ring: 'hover:border-teal-400/60',
+    bg: 'from-teal-500/10 to-cyan-500/5',
+    icon: Globe2,
+  },
+  portugal_base: {
+    dot: 'bg-green-500',
+    badge: 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300',
+    ring: 'hover:border-green-400/60',
+    bg: 'from-green-500/10 to-emerald-500/5',
+    icon: FileSearch,
+  },
+  ontario_tenders: {
+    dot: 'bg-orange-500',
+    badge: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+    ring: 'hover:border-orange-400/60',
+    bg: 'from-orange-500/10 to-amber-500/5',
+    icon: Building2,
+  },
+  nigeria_nocopo: {
+    dot: 'bg-emerald-500',
+    badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+    ring: 'hover:border-emerald-400/60',
+    bg: 'from-emerald-500/10 to-green-500/5',
+    icon: Landmark,
+  },
+  kenya_tenders: {
+    dot: 'bg-amber-500',
+    badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+    ring: 'hover:border-amber-400/60',
+    bg: 'from-amber-500/10 to-yellow-500/5',
+    icon: Flag,
   },
   default: {
     dot: 'bg-muted-foreground',
@@ -1206,7 +1254,7 @@ function TenderCard({
 
                 {/* Load button — shown when doc not yet loaded and not loading */}
                 {!doc && !isLoadingDoc && !docErr && (
-                  <div className="py-2">
+                  <div className="py-2 space-y-3">
                     <Button
                       className="gap-2 w-full sm:w-auto"
                       onClick={(e) => { e.stopPropagation(); onLoadDocument(); }}
@@ -1217,6 +1265,20 @@ function TenderCard({
                     <p className="text-xs text-muted-foreground mt-2">
                       Fetch the full tender notice text, requirements, and specifications from the source site.
                     </p>
+                    {/* View Requirements link — when requiredDocs has a URL */}
+                    {tender.requiredDocs && tender.requiredDocs.startsWith('http') && (
+                      <a
+                        href={tender.requiredDocs}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        View Requirement Documents
+                        <ArrowUpRight className="h-3 w-3" />
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
