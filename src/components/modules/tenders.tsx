@@ -563,7 +563,7 @@ export function TendersView() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalTenders, setTotalTenders] = useState(0);
-  const LIMIT = 12;
+  const LIMIT = 20;
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -636,7 +636,7 @@ export function TendersView() {
     else setExternalLoading(true);
 
     const currentOffset = append ? externalTenders.length : 0;
-    const params: Record<string, string> = { rows: '10', offset: String(currentOffset) };
+    const params: Record<string, string> = { rows: '20', offset: String(currentOffset) };
     if (search) params.search = search;
     if (categoryFilter && categoryFilter !== 'all') params.source = categoryFilter.toLowerCase();
 
@@ -1484,14 +1484,17 @@ export function TendersView() {
             </div>
           ) : externalTenders.length > 0 ? (
             <div className="grid md:grid-cols-2 gap-3">
-              {externalTenders.slice(0, 10).map(t => {
+              {externalTenders.map(t => {
                 const days = daysUntil(t.deadline);
                 const sourceLabel = (t.source || 'external').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const hasDocs = !!(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')));
                 return (
                   <Card
                     key={t.id}
                     className="premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 hover:-translate-y-[2px] hover:ring-1 hover:ring-emerald-300/60"
-                    onClick={() => window.open(t.externalUrl, '_blank')}
+                    onClick={() => {
+                      if (t.externalUrl) window.open(t.externalUrl, '_blank');
+                    }}
                   >
                     <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
                     <CardContent className="p-4 space-y-2.5">
@@ -1526,16 +1529,53 @@ export function TendersView() {
                         </div>
                       </div>
 
+                      {/* Requirement Documents / Files Section */}
+                      {hasDocs && (
+                        <div className="rounded-lg border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/40 dark:bg-sky-950/20 p-2.5 space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <FileSearch className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                            <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wide">Requirement Documents</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {t.documentUrl && (
+                              <a
+                                href={t.documentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <FileText className="h-2.5 w-2.5" />
+                                View RFP / Specs
+                                <ExternalLink className="h-2 w-2" />
+                              </a>
+                            )}
+                            {t.requiredDocs && t.requiredDocs.startsWith('http') && t.requiredDocs !== t.documentUrl && (
+                              <a
+                                href={t.requiredDocs}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ClipboardList className="h-2.5 w-2.5" />
+                                Requirements
+                                <ExternalLink className="h-2 w-2" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)}`}>
                             <Timer className="h-2.5 w-2.5 mr-0.5" />
                             {days <= 0 ? 'Expired' : days === 1 ? '1 day' : `${days} days`}
                           </Badge>
-                          {(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))) && (
-                            <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
-                              <FileSearch className="h-2.5 w-2.5 mr-0.5" />
-                              Docs
+                          {t.borrower && (
+                            <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                              {t.borrower.length > 20 ? t.borrower.slice(0, 20) + '...' : t.borrower}
                             </Badge>
                           )}
                         </div>

@@ -249,6 +249,56 @@ export const DATA_SOURCES: DataSource[] = [
     live: true,
     accent: 'sky',
   },
+  {
+    id: 'colombia_secop',
+    name: 'Colombia — SECOP',
+    coverage:
+      'Colombian public procurement portal (Sistema Electrónico para la Contratación Pública). All government tenders with downloadable requirement documents, RFPs, and contract awards.',
+    access: 'Public API — no registration required (datos.gov.co)',
+    link: 'https://www.colombiacompra.gov.co',
+    live: true,
+    accent: 'yellow',
+  },
+  {
+    id: 'mexico_compranet',
+    name: 'Mexico — CompraNet',
+    coverage:
+      'Mexican government e-procurement platform. All federal tenders with downloadable bidding documents, terms of reference, and contract notices.',
+    access: 'Public API — no registration required',
+    link: 'https://www.gob.mx/compranet',
+    live: true,
+    accent: 'green',
+  },
+  {
+    id: 'chile_mercado',
+    name: 'Chile — Mercado Público',
+    coverage:
+      'Chilean public procurement platform. Tenders from all government agencies with downloadable requirement documents and technical specifications.',
+    access: 'Public API — no registration required (mercadopublico.cl)',
+    link: 'https://www.mercadopublico.cl',
+    live: true,
+    accent: 'red',
+  },
+  {
+    id: 'argentina_comprar',
+    name: 'Argentina — COMPR.AR',
+    coverage:
+      'Argentinian federal procurement portal. Public tenders with downloadable pliegos (bidding documents) and technical specifications.',
+    access: 'Public — no registration required',
+    link: 'https://www.comprar.gob.ar',
+    live: true,
+    accent: 'cyan',
+  },
+  {
+    id: 'uruguay_compras',
+    name: 'Uruguay — Compras Estatales',
+    coverage:
+      'Uruguayan public procurement portal. Government tenders with downloadable requirement documents and bidding terms.',
+    access: 'Public — no registration required (comprasestatales.gub.uy)',
+    link: 'https://www.comprasestatales.gub.uy',
+    live: true,
+    accent: 'blue',
+  },
 ];
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1518,6 +1568,370 @@ export async function fetchSeeGeneBidTenders(opts: {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+ * Colombia SECOP adapter (live, public API with downloadable docs)
+ * ───────────────────────────────────────────────────────────────────── */
+
+export async function fetchColombiaSecopTenders(opts: {
+  search?: string;
+  rows?: number;
+  offset?: number;
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const offset = opts.offset || 0;
+  const params = new URLSearchParams({
+    $limit: String(rows),
+    $offset: String(offset),
+    $order: 'fecha_de_publicacion DESC',
+  });
+  if (opts.search) params.set('$q', opts.search);
+
+  const url = `https://www.datos.gov.co/resource/jbjy-vk9h.json?${params.toString()}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `SECOP API returned ${res.status}` };
+
+    const json = (await res.json()) as Record<string, unknown>[];
+    if (!Array.isArray(json)) return { tenders: [], total: 0, ok: false };
+
+    const tenders: LiveTender[] = json.map((row, idx) => {
+      const id = String(row.id_registro || row.numero_de_proceso || `secop-${idx}`);
+      const title = String(row.nombre_del_procedimiento || row.objeto_a_contratar || `SECOP Procurement ${idx + 1}`);
+      const amount = Number(row.valor_total_adjudicacion || row.cuantia_proceso || row.presupuesto_general || 0) || 0;
+      const docUrl = row.urlproceso ? String(row.urlproceso) : row.url_documentos ? String(row.url_documentos) : undefined;
+      return {
+        id: `colombia_secop-${id}`,
+        title: truncate(title, 160),
+        scope: truncate(String(row.objeto_a_contratar || row.descripcion_del_proceso || title), 400),
+        budgetMin: amount,
+        budgetMax: amount,
+        deadline: String(row.fecha_de_publicacion || row.fecha_de_cierre || new Date(Date.now() + 30 * 86400000).toISOString()),
+        location: String(row.departamento || row.ciudad || 'Colombia'),
+        categoryTags: String(row.tipo_de_contrato || row.clase || 'Supply'),
+        requiredDocs: docUrl || '',
+        status: 'open' as const,
+        createdBy: 'colombia_secop',
+        createdAt: String(row.fecha_de_publicacion || new Date().toISOString()),
+        updatedAt: String(row.ultima_modificacion || new Date().toISOString()),
+        source: 'colombia_secop',
+        externalId: id,
+        externalUrl: docUrl || `https://www.colombiacompra.gov.co`,
+        currency: 'COP',
+        borrower: String(row.entidad || row.nombre_entidad || '') || undefined,
+        contractType: String(row.tipo_de_contrato || '') || undefined,
+        region: String(row.departamento || 'South America'),
+        documentUrl: docUrl,
+      } satisfies LiveTender;
+    });
+
+    return { tenders, total: json.length, ok: true };
+  } catch {
+    clearTimeout(timer);
+    return { tenders: [], total: 0, ok: false, error: 'SECOP API unreachable' };
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Mexico CompraNet adapter (live, public open data)
+ * ───────────────────────────────────────────────────────────────────── */
+
+export async function fetchMexicoCompranetTenders(opts: {
+  search?: string;
+  rows?: number;
+  offset?: number;
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const offset = opts.offset || 0;
+  const params = new URLSearchParams({
+    $limit: String(rows),
+    $offset: String(offset),
+    $order: 'fecha_publicacion DESC',
+  });
+  if (opts.search) params.set('$q', opts.search);
+
+  const url = `https://api.datos.gob.mx/v2/contratacionesabiertas?${params.toString()}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `CompraNet API returned ${res.status}` };
+
+    const json = (await res.json()) as { results?: Record<string, unknown>[]; pagination?: { total: number } };
+    const items = Array.isArray(json.results) ? json.results : [];
+    const total = json.pagination?.total ?? items.length;
+
+    const tenders: LiveTender[] = items.map((row, idx) => {
+      const compiled = (row.compiledRelease || row) as Record<string, unknown>;
+      const tender = (compiled.tender || {}) as Record<string, unknown>;
+      const id = String(tender.id || compiled.ocid || `mx-${idx}`);
+      const title = String(tender.title || tender.description || `Mexican Tender ${idx + 1}`);
+      const amount = Number(tender.value?.amount || tender.minValue?.amount || 0) || 0;
+      const currency = String(tender.value?.currency || 'MXN');
+      const docLinks = (tender.documents || []) as Array<Record<string, unknown>>;
+      const docUrl = docLinks.length > 0 && docLinks[0].url ? String(docLinks[0].url) : undefined;
+
+      return {
+        id: `mexico_compranet-${id}`,
+        title: truncate(title, 160),
+        scope: truncate(String(tender.description || title), 400),
+        budgetMin: amount,
+        budgetMax: amount,
+        deadline: String(tender.tenderPeriod?.endDate || tender.tenderPeriod?.startDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+        location: String(tender.deliveryLocation?.description || 'Mexico'),
+        categoryTags: String(tender.mainProcurementCategory || tender.additionalClassifications?.[0]?.description || 'Supply'),
+        requiredDocs: docUrl || '',
+        status: 'open' as const,
+        createdBy: 'mexico_compranet',
+        createdAt: String(tender.publishedDate || new Date().toISOString()),
+        updatedAt: String(tender.publishedDate || new Date().toISOString()),
+        source: 'mexico_compranet',
+        externalId: id,
+        externalUrl: `https://www.gob.mx/compranet`,
+        currency,
+        borrower: String((compiled.parties?.[0] as Record<string, unknown>)?.name || '') || undefined,
+        contractType: String(tender.procurementMethod || '') || undefined,
+        region: 'North America',
+        documentUrl: docUrl,
+      } satisfies LiveTender;
+    });
+
+    return { tenders, total, ok: true };
+  } catch {
+    clearTimeout(timer);
+    return { tenders: [], total: 0, ok: false, error: 'CompraNet API unreachable' };
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Chile Mercado Público adapter (live, public search)
+ * ───────────────────────────────────────────────────────────────────── */
+
+export async function fetchChileMercadoTenders(opts: {
+  search?: string;
+  rows?: number;
+  offset?: number;
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+
+  try {
+    // Chile Mercado Público provides a public search API
+    const params = new URLSearchParams({
+      fechaDesde: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+      fechaHasta: new Date().toISOString().split('T')[0],
+      page: '1',
+      pageSize: String(rows),
+    });
+    if (opts.search) params.set('texto', opts.search);
+
+    const url = `https://api.mercadopublico.cl/servicios/v2/publico/licitaciones.json?${params.toString()}`;
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Mercado Público returned ${res.status}` };
+
+    const json = (await res.json()) as { Listado?: Record<string, unknown>[]; Cantidad?: number };
+    const items = Array.isArray(json.Listado) ? json.Listado : [];
+    const total = json.Cantidad ?? items.length;
+
+    const tenders: LiveTender[] = items.map((row, idx) => {
+      const codigo = String(row.CodigoExterno || row.Codigo || `cl-${idx}`);
+      const nombre = String(row.Nombre || `Chilean Tender ${idx + 1}`);
+      const amount = Number(row.MontoEstimado || row.MontoTotal || 0) || 0;
+      const docUrl = row.UrlDocumento ? String(row.UrlDocumento) : row.UrlPublica ? String(row.UrlPublica) : undefined;
+
+      return {
+        id: `chile_mercado-${codigo}`,
+        title: truncate(nombre, 160),
+        scope: truncate(String(row.Descripcion || row.Nombre || ''), 400),
+        budgetMin: amount,
+        budgetMax: amount,
+        deadline: String(row.FechaCierre || row.FechaPublicacion || new Date(Date.now() + 30 * 86400000).toISOString()),
+        location: 'Chile',
+        categoryTags: String(row.Tipo || row.Rubro || 'Supply'),
+        requiredDocs: docUrl || '',
+        status: 'open' as const,
+        createdBy: 'chile_mercado',
+        createdAt: String(row.FechaPublicacion || new Date().toISOString()),
+        updatedAt: new Date().toISOString(),
+        source: 'chile_mercado',
+        externalId: codigo,
+        externalUrl: docUrl || `https://www.mercadopublico.cl`,
+        currency: 'CLP',
+        borrower: String(row.Organismo || row.NombreOrganismo || '') || undefined,
+        contractType: String(row.Tipo || '') || undefined,
+        region: 'South America',
+        documentUrl: docUrl,
+      } satisfies LiveTender;
+    });
+
+    return { tenders, total, ok: true };
+  } catch {
+    clearTimeout(timer);
+    return { tenders: [], total: 0, ok: false, error: 'Mercado Público API unreachable' };
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Argentina COMPR.AR adapter (live, public)
+ * ───────────────────────────────────────────────────────────────────── */
+
+export async function fetchArgentinaComprarTenders(opts: {
+  search?: string;
+  rows?: number;
+  offset?: number;
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+
+  try {
+    const params = new URLSearchParams({
+      limit: String(rows),
+      offset: String(opts.offset || 0),
+    });
+    if (opts.search) params.set('q', opts.search);
+
+    const url = `https://api.datos.gob.ar/v2/contratacionesabiertas/licitaciones?${params.toString()}`;
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `COMPR.AR returned ${res.status}` };
+
+    const json = (await res.json()) as { data?: Record<string, unknown>[]; meta?: { total: number } };
+    const items = Array.isArray(json.data) ? json.data : [];
+    const total = json.meta?.total ?? items.length;
+
+    const tenders: LiveTender[] = items.map((row, idx) => {
+      const tender = (row.tender || row) as Record<string, unknown>;
+      const id = String(tender.id || row.ocid || `ar-${idx}`);
+      const title = String(tender.title || tender.description || `Argentinian Tender ${idx + 1}`);
+      const amount = Number(tender.value?.amount || 0) || 0;
+      const docLinks = (tender.documents || []) as Array<Record<string, unknown>>;
+      const docUrl = docLinks.length > 0 && docLinks[0].url ? String(docLinks[0].url) : undefined;
+
+      return {
+        id: `argentina_comprar-${id}`,
+        title: truncate(title, 160),
+        scope: truncate(String(tender.description || title), 400),
+        budgetMin: amount,
+        budgetMax: amount,
+        deadline: String(tender.tenderPeriod?.endDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+        location: 'Argentina',
+        categoryTags: String(tender.mainProcurementCategory || 'Supply'),
+        requiredDocs: docUrl || '',
+        status: 'open' as const,
+        createdBy: 'argentina_comprar',
+        createdAt: String(tender.publishedDate || new Date().toISOString()),
+        updatedAt: new Date().toISOString(),
+        source: 'argentina_comprar',
+        externalId: id,
+        externalUrl: `https://www.comprar.gob.ar`,
+        currency: 'ARS',
+        contractType: String(tender.procurementMethod || '') || undefined,
+        region: 'South America',
+        documentUrl: docUrl,
+      } satisfies LiveTender;
+    });
+
+    return { tenders, total, ok: true };
+  } catch {
+    clearTimeout(timer);
+    return { tenders: [], total: 0, ok: false, error: 'COMPR.AR API unreachable' };
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Uruguay Compras Estatales adapter (live, public)
+ * ───────────────────────────────────────────────────────────────────── */
+
+export async function fetchUruguayComprasTenders(opts: {
+  search?: string;
+  rows?: number;
+  offset?: number;
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+
+  try {
+    const params = new URLSearchParams({
+      limit: String(rows),
+      offset: String(opts.offset || 0),
+    });
+    if (opts.search) params.set('q', opts.search);
+
+    const url = `https://www.comprasestatales.gub.uy/consultas/v2/licitaciones?${params.toString()}`;
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Compras Estatales returned ${res.status}` };
+
+    const json = (await res.json()) as { data?: Record<string, unknown>[] };
+    const items = Array.isArray(json.data) ? json.data : [];
+
+    const tenders: LiveTender[] = items.map((row, idx) => {
+      const id = String(row.id || row.numero || `uy-${idx}`);
+      const title = String(row.nombre || row.objeto || `Uruguayan Tender ${idx + 1}`);
+      const amount = Number(row.monto_estimado || row.monto || 0) || 0;
+      const docUrl = row.url_documento ? String(row.url_documento) : row.url_pliego ? String(row.url_pliego) : undefined;
+
+      return {
+        id: `uruguay_compras-${id}`,
+        title: truncate(title, 160),
+        scope: truncate(String(row.objeto || row.descripcion || title), 400),
+        budgetMin: amount,
+        budgetMax: amount,
+        deadline: String(row.fecha_cierre || row.fecha_limite || new Date(Date.now() + 30 * 86400000).toISOString()),
+        location: 'Uruguay',
+        categoryTags: String(row.tipo || row.rubro || 'Supply'),
+        requiredDocs: docUrl || '',
+        status: 'open' as const,
+        createdBy: 'uruguay_compras',
+        createdAt: String(row.fecha_publicacion || new Date().toISOString()),
+        updatedAt: new Date().toISOString(),
+        source: 'uruguay_compras',
+        externalId: id,
+        externalUrl: `https://www.comprasestatales.gub.uy`,
+        currency: 'UYU',
+        borrower: String(row.organismo || row.entidad || '') || undefined,
+        contractType: String(row.tipo || '') || undefined,
+        region: 'South America',
+        documentUrl: docUrl,
+      } satisfies LiveTender;
+    });
+
+    return { tenders, total: items.length, ok: true };
+  } catch {
+    clearTimeout(timer);
+    return { tenders: [], total: 0, ok: false, error: 'Compras Estatales API unreachable' };
+  }
+}
+
 export const SECTOR_IDS = [
   'medical', 'construction', 'retail', 'it', 'energy',
   'agriculture', 'education', 'transport', 'finance', 'telecom',
@@ -1785,6 +2199,47 @@ export async function fetchLiveTenders(opts: {
       name: 'PhilGEPS',
       live: true,
       p: fetchPhilgepsTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+    });
+  }
+  // ── Latin American public procurement sources (free, with downloadable docs) ──
+  if (wantSource === 'all' || wantSource === 'colombia_secop') {
+    tasks.push({
+      id: 'colombia_secop',
+      name: 'Colombia SECOP',
+      live: true,
+      p: fetchColombiaSecopTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+    });
+  }
+  if (wantSource === 'all' || wantSource === 'mexico_compranet') {
+    tasks.push({
+      id: 'mexico_compranet',
+      name: 'Mexico CompraNet',
+      live: true,
+      p: fetchMexicoCompranetTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+    });
+  }
+  if (wantSource === 'all' || wantSource === 'chile_mercado') {
+    tasks.push({
+      id: 'chile_mercado',
+      name: 'Chile Mercado Público',
+      live: true,
+      p: fetchChileMercadoTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+    });
+  }
+  if (wantSource === 'all' || wantSource === 'argentina_comprar') {
+    tasks.push({
+      id: 'argentina_comprar',
+      name: 'Argentina COMPR.AR',
+      live: true,
+      p: fetchArgentinaComprarTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+    });
+  }
+  if (wantSource === 'all' || wantSource === 'uruguay_compras') {
+    tasks.push({
+      id: 'uruguay_compras',
+      name: 'Uruguay Compras Estatales',
+      live: true,
+      p: fetchUruguayComprasTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
     });
   }
 

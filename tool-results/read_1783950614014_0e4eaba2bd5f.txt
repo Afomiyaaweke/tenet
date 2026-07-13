@@ -1,0 +1,983 @@
+  1800→export function LiveTendersView() {
+  1801→  const [tenders, setTenders] = useState<LiveTender[]>([]);
+  1802→  const [dataSources, setDataSources] = useState<DataSource[]>([]);
+  1803→  const [sourceMeta, setSourceMeta] = useState<
+  1804→    { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[]
+  1805→  >([]);
+  1806→  const [loading, setLoading] = useState(true);
+  1807→  const [refreshing, setRefreshing] = useState(false);
+  1808→  const [search, setSearch] = useState('');
+  1809→  const [sourceFilter, setSourceFilter] = useState('all');
+  1810→  const [sectorFilter, setSectorFilter] = useState('');
+  1811→  const [sectorCounts, setSectorCounts] = useState<{ id: string; label: string; count: number }[]>([]);
+  1812→
+  1813→  // Server-side pagination state
+  1814→  const [hasMore, setHasMore] = useState(true);
+  1815→  const [loadingMore, setLoadingMore] = useState(false);
+  1816→
+  1817→  // Inline document state
+  1818→  const [expandedId, setExpandedId] = useState<string | null>(null);
+  1819→  const [docLoading, setDocLoading] = useState<string | null>(null);
+  1820→  const [docData, setDocData] = useState<Record<string, InlineDocument>>({});
+  1821→  const [docError, setDocError] = useState<Record<string, string>>({});
+  1822→
+  1823→  // AI Review state
+  1824→  const [aiReviewData, setAiReviewData] = useState<Record<string, AIReview>>({});
+  1825→  const [aiReviewLoading, setAiReviewLoading] = useState<Record<string, boolean>>({});
+  1826→  const [aiReviewExpanded, setAiReviewExpanded] = useState<Record<string, boolean>>({});
+  1827→
+  1828→  // Saved/bookmark state
+  1829→  const [savedTenders, setSavedTenders] = useState<Record<string, boolean>>({});
+  1830→  const [savingTender, setSavingTender] = useState<Record<string, boolean>>({});
+  1831→
+  1832→  // Import state
+  1833→  const [importing, setImporting] = useState<string | null>(null);
+  1834→
+  1835→  // Credential dialog state
+  1836→  const [credDialogSource, setCredDialogSource] = useState<GatedSource | null>(null);
+  1837→  const [credDialogOpen, setCredDialogOpen] = useState(false);
+  1838→
+  1839→  // Detail view state (card click expands full info)
+  1840→  const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
+  1841→
+  1842→  // Dashboard stats state
+  1843→  const [dashTenders, setDashTenders] = useState<Tender[]>([]);
+  1844→  const [dashBids, setDashBids] = useState<Bid[]>([]);
+  1845→  const [dashProjects, setDashProjects] = useState<Project[]>([]);
+  1846→  const [dashStatsLoading, setDashStatsLoading] = useState(true);
+  1847→
+  1848→  const { setView } = useNavStore();
+  1849→
+  1850→  // Fetch dashboard summary data on mount
+  1851→  useEffect(() => {
+  1852→    const loadDashStats = async () => {
+  1853→      setDashStatsLoading(true);
+  1854→      const [tendersRes, bidsRes, projectsRes] = await Promise.all([
+  1855→        api.get('/tenders'),
+  1856→        api.get('/bids'),
+  1857→        api.get('/projects'),
+  1858→      ]);
+  1859→      if (tendersRes.success) setDashTenders(tendersRes.data);
+  1860→      if (bidsRes.success) setDashBids(bidsRes.data);
+  1861→      if (projectsRes.success) setDashProjects(projectsRes.data);
+  1862→      setDashStatsLoading(false);
+  1863→    };
+  1864→    loadDashStats();
+  1865→  }, []);
+  1866→
+  1867→  const dashStats = useMemo(() => {
+  1868→    const openTenders = dashTenders.filter(t => t.status === 'open').length;
+  1869→    const activeBids = dashBids.filter(b => b.status === 'pending_review' || b.status === 'shortlisted').length;
+  1870→    const activeProjects = dashProjects.filter(p => p.status === 'active').length;
+  1871→    const totalContractValue = dashProjects.reduce((sum, p) => sum + (p.contractValue || 0), 0);
+  1872→    return { openTenders, activeBids, activeProjects, totalContractValue };
+  1873→  }, [dashTenders, dashBids, dashProjects]);
+  1874→
+  1875→  const formatContractValue = (value: number): string => {
+  1876→    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  1877→    if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  1878→    if (value > 0) return `$${value.toLocaleString()}`;
+  1879→    return '$0';
+  1880→  };
+  1881→
+  1882→  const load = useCallback(
+  1883→    async (isRefresh = false, append = false) => {
+  1884→      if (isRefresh) setRefreshing(true);
+  1885→      else if (append) setLoadingMore(true);
+  1886→      else setLoading(true);
+  1887→
+  1888→      const currentOffset = append ? tenders.length : 0;
+  1889→      const params: Record<string, string> = { rows: '20', offset: String(currentOffset) };
+  1890→      if (search) params.search = search;
+  1891→      if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
+  1892→      if (sectorFilter) params.sector = sectorFilter;
+  1893→
+  1894→      const res = await api.get('/tenders/live', params);
+  1895→      if (res.success) {
+  1896→        const newTenders = res.data as LiveTender[];
+  1897→        setTenders(append ? (prev: LiveTender[]) => [...prev, ...newTenders] : newTenders);
+  1898→        setSourceMeta(res.meta?.sources || []);
+  1899→        if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
+  1900→        if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
+  1901→        setHasMore(res.meta?.hasMore ?? false);
+  1902→      } else {
+  1903→        toast.error(res.error || 'Failed to load live tenders');
+  1904→      }
+  1905→      setLoading(false);
+  1906→      setRefreshing(false);
+  1907→      setLoadingMore(false);
+  1908→    },
+  1909→    [search, sourceFilter, sectorFilter, tenders.length],
+  1910→  );
+  1911→
+  1912→  useEffect(() => {
+  1913→    const t = setTimeout(() => load(), 250);
+  1914→    return () => clearTimeout(t);
+  1915→  }, [load]);
+  1916→
+  1917→  // Check saved status for visible tenders
+  1918→  useEffect(() => {
+  1919→    const checkSaved = async () => {
+  1920→      const unchecked = tenders.filter(t => savedTenders[t.id] === undefined);
+  1921→      const batch = unchecked.slice(0, 20);
+  1922→      for (const t of batch) {
+  1923→        try {
+  1924→          const res = await api.get('/tenders/saved/check', {
+  1925→            tenderId: t.externalId || t.id,
+  1926→            source: t.source,
+  1927→          });
+  1928→          if (res.success) {
+  1929→            setSavedTenders((prev) => ({ ...prev, [t.id]: res.saved }));
+  1930→          }
+  1931→        } catch {
+  1932→          // Ignore errors for saved check
+  1933→        }
+  1934→      }
+  1935→    };
+  1936→    if (tenders.length > 0) checkSaved();
+  1937→  }, [tenders, savedTenders]);
+  1938→
+  1939→  const liveSourcesCount = useMemo(
+  1940→    () => sourceMeta.filter((s) => s.live && s.ok).length,
+  1941→    [sourceMeta],
+  1942→  );
+  1943→
+  1944→  const totalTenderValue = useMemo(() => {
+  1945→    return tenders.reduce((sum, t) => sum + (t.budgetMax || 0), 0);
+  1946→  }, [tenders]);
+  1947→
+  1948→  /* ────── Inline document loading ────── */
+  1949→
+  1950→  /** Fetch document content from external URL — does NOT toggle expandedId */
+  1951→  const fetchDocumentContent = useCallback(async (tender: LiveTender) => {
+  1952→    const id = tender.id;
+  1953→    // Already fetched or currently loading?
+  1954→    if (docData[id] || docLoading === id) return;
+  1955→
+  1956→    setDocLoading(id);
+  1957→    setDocError((prev) => { const n = { ...prev }; delete n[id]; return n; });
+  1958→
+  1959→    try {
+  1960→      const res = await api.get(`/tenders/${encodeURIComponent(id)}/documents`, { url: tender.externalUrl });
+  1961→      if (res.success && res.data) {
+  1962→        setDocData((prev) => ({ ...prev, [id]: res.data as InlineDocument }));
+  1963→      } else {
+  1964→        setDocError((prev) => ({ ...prev, [id]: res.error || 'Failed to load document' }));
+  1965→      }
+  1966→    } catch {
+  1967→      setDocError((prev) => ({ ...prev, [id]: 'Network error' }));
+  1968→    }
+  1969→    setDocLoading(null);
+  1970→  }, [docData, docLoading]);
+  1971→
+  1972→  /** Load document content and toggle the inline expanded view */
+  1973→  const loadDocument = useCallback(async (tender: LiveTender) => {
+  1974→    const id = tender.id;
+  1975→    if (expandedId === id) {
+  1976→      setExpandedId(null);
+  1977→      return;
+  1978→    }
+  1979→
+  1980→    // Already fetched?
+  1981→    if (docData[id]) {
+  1982→      setExpandedId(id);
+  1983→      return;
+  1984→    }
+  1985→
+  1986→    setExpandedId(id);
+  1987→    fetchDocumentContent(tender);
+  1988→  }, [expandedId, docData, fetchDocumentContent]);
+  1989→
+  1990→  /* ────── AI Review ────── */
+  1991→  const loadAIReview = useCallback(async (tender: LiveTender) => {
+  1992→    const id = tender.id;
+  1993→    // Toggle off if already expanded
+  1994→    if (aiReviewExpanded[id]) {
+  1995→      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+  1996→      return;
+  1997→    }
+  1998→    // Expand the panel
+  1999→    setAiReviewExpanded((prev) => ({ ...prev, [id]: true }));
+  2000→    // If already loaded, no need to fetch
+  2001→    if (aiReviewData[id]) return;
+  2002→
+  2003→    setAiReviewLoading((prev) => ({ ...prev, [id]: true }));
+  2004→    try {
+  2005→      const res = await api.post('/tenders/live/review', {
+  2006→        title: tender.title,
+  2007→        scope: tender.scope,
+  2008→        budgetMin: tender.budgetMin,
+  2009→        budgetMax: tender.budgetMax,
+  2010→        deadline: tender.deadline,
+  2011→        location: tender.location,
+  2012→        categoryTags: tender.categoryTags,
+  2013→        source: tender.source,
+  2014→        currency: tender.currency,
+  2015→        borrower: tender.borrower,
+  2016→        contractType: tender.contractType,
+  2017→        region: tender.region,
+  2018→        externalUrl: tender.externalUrl,
+  2019→      });
+  2020→      if (res.success && res.data) {
+  2021→        setAiReviewData((prev) => ({ ...prev, [id]: res.data as AIReview }));
+  2022→      } else {
+  2023→        toast.error(res.error || 'Failed to generate AI review');
+  2024→        setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+  2025→      }
+  2026→    } catch {
+  2027→      toast.error('Failed to generate AI review');
+  2028→      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+  2029→    }
+  2030→    setAiReviewLoading((prev) => ({ ...prev, [id]: false }));
+  2031→  }, [aiReviewExpanded, aiReviewData]);
+  2032→
+  2033→  /* ────── Save/Bookmark → Move to Bid ────── */
+  2034→  const toggleSave = useCallback(async (tender: LiveTender) => {
+  2035→    const id = tender.id;
+  2036→    const isCurrentlySaved = savedTenders[id];
+  2037→    setSavingTender((prev) => ({ ...prev, [id]: true }));
+  2038→
+  2039→    try {
+  2040→      if (isCurrentlySaved) {
+  2041→        // Remove from saved/bids
+  2042→        const checkRes = await api.get('/tenders/saved/check', {
+  2043→          tenderId: tender.externalId || tender.id,
+  2044→          source: tender.source,
+  2045→        });
+  2046→        if (checkRes.success && checkRes.data?.id) {
+  2047→          await api.delete(`/tenders/saved/${checkRes.data.id}`);
+  2048→        }
+  2049→        setSavedTenders((prev) => ({ ...prev, [id]: false }));
+  2050→        toast.success('Removed from Bids', { description: `"${tender.title}" removed from your bids list.` });
+  2051→      } else {
+  2052→        // Save the tender → move to bids
+  2053→        await api.post('/tenders/saved', {
+  2054→          tenderId: tender.externalId || tender.id,
+  2055→          source: tender.source,
+  2056→          title: tender.title,
+  2057→          scope: tender.scope,
+  2058→          budgetMin: tender.budgetMin,
+  2059→          budgetMax: tender.budgetMax,
+  2060→          deadline: tender.deadline,
+  2061→          location: tender.location,
+  2062→          categoryTags: tender.categoryTags,
+  2063→          externalUrl: tender.externalUrl,
+  2064→          currency: tender.currency,
+  2065→        });
+  2066→        setSavedTenders((prev) => ({ ...prev, [id]: true }));
+  2067→        toast.success('Moved to Bids', {
+  2068→          description: `"${tender.title}" is now in your bids list.`,
+  2069→          action: {
+  2070→            label: 'Go to Bids',
+  2071→            onClick: () => useNavStore.getState().setView('bids', { tenderId: tender.id }),
+  2072→          },
+  2073→        });
+  2074→      }
+  2075→    } catch {
+  2076→      toast.error(isCurrentlySaved ? 'Failed to remove from bids' : 'Failed to move to bids');
+  2077→    }
+  2078→    setSavingTender((prev) => ({ ...prev, [id]: false }));
+  2079→  }, [savedTenders]);
+  2080→
+  2081→  /* ────── Import to local tenders ────── */
+  2082→  const importTender = useCallback(async (tender: LiveTender) => {
+  2083→    setImporting(tender.id);
+  2084→    try {
+  2085→      const res = await api.post('/tenders', {
+  2086→        title: tender.title,
+  2087→        scope: tender.scope,
+  2088→        budgetMin: tender.budgetMin,
+  2089→        budgetMax: tender.budgetMax,
+  2090→        deadline: tender.deadline,
+  2091→        location: tender.location,
+  2092→        categoryTags: tender.categoryTags,
+  2093→        requiredDocs: `Source: ${SOURCE_LABELS[tender.source] || tender.source} | External ID: ${tender.externalId} | URL: ${tender.externalUrl}`,
+  2094→        status: 'open',
+  2095→        currency: tender.currency,
+  2096→      });
+  2097→      if (res.success) {
+  2098→        toast.success('Tender imported successfully', {
+  2099→          description: `"${tender.title}" is now in your tenders list.`,
+  2100→        });
+  2101→      } else {
+  2102→        toast.error(res.error || 'Failed to import tender');
+  2103→      }
+  2104→    } catch {
+  2105→      toast.error('Failed to import tender');
+  2106→    }
+  2107→    setImporting(null);
+  2108→  }, []);
+  2109→
+  2110→  /* ────── Open credential dialog ────── */
+  2111→  const openCredDialog = useCallback((sourceId: string) => {
+  2112→    const gated = GATED_SOURCES.find((s) => s.id === sourceId);
+  2113→    if (gated) {
+  2114→      setCredDialogSource(gated);
+  2115→      setCredDialogOpen(true);
+  2116→    }
+  2117→  }, []);
+  2118→
+  2119→  /* ────── Count saved tenders ────── */
+  2120→  const savedCount = useMemo(() => Object.values(savedTenders).filter(Boolean).length, [savedTenders]);
+  2121→
+  2122→  /* ────── Dynamic sector extraction from loaded tenders ────── */
+  2123→  const dynamicSectorCounts = useMemo(() => {
+  2124→    const sectorMap = new Map<string, number>();
+  2125→    tenders.forEach((t) => {
+  2126→      if (t.categoryTags) {
+  2127→        t.categoryTags.split(',').filter(Boolean).forEach((tag) => {
+  2128→          const normalized = tag.trim().toLowerCase();
+  2129→          if (normalized) {
+  2130→            sectorMap.set(normalized, (sectorMap.get(normalized) || 0) + 1);
+  2131→          }
+  2132→        });
+  2133→      }
+  2134→    });
+  2135→    // Build the result: always start with the SECTOR_PILLS that have matching data,
+  2136→    // then add any additional sectors found in data not covered by the static pills
+  2137→    const result: { id: string; label: string; count: number; icon?: string }[] = [];
+  2138→
+  2139→    // First add known sectors from SECTOR_PILLS
+  2140→    SECTOR_PILLS.forEach((sp) => {
+  2141→      const count = sectorMap.get(sp.id) || sectorMap.get(sp.label.toLowerCase()) || 0;
+  2142→      if (count > 0) {
+  2143→        result.push({ id: sp.id, label: sp.label, count, icon: sp.icon });
+  2144→      }
+  2145→    });
+  2146→
+  2147→    // Then add any unmatched sectors from actual data (top 10 by count)
+  2148→    const knownIds = new Set(SECTOR_PILLS.map((sp) => sp.id));
+  2149→    const knownLabels = new Set(SECTOR_PILLS.map((sp) => sp.label.toLowerCase()));
+  2150→    const additional: { id: string; label: string; count: number }[] = [];
+  2151→    sectorMap.forEach((count, key) => {
+  2152→      if (!knownIds.has(key) && !knownLabels.has(key) && count > 0) {
+  2153→        additional.push({ id: key, label: key.charAt(0).toUpperCase() + key.slice(1), count });
+  2154→      }
+  2155→    });
+  2156→    additional.sort((a, b) => b.count - a.count);
+  2157→    result.push(...additional.slice(0, 10));
+  2158→
+  2159→    return result;
+  2160→  }, [tenders]);
+  2161→
+  2162→  /* ────── Start Bid Application ────── */
+  2163→  const startBidApplication = useCallback(async (tender: LiveTender) => {
+  2164→    // If not saved yet, save first, then navigate to bids
+  2165→    if (!savedTenders[tender.id]) {
+  2166→      setSavingTender((prev) => ({ ...prev, [tender.id]: true }));
+  2167→      try {
+  2168→        await api.post('/tenders/saved', {
+  2169→          tenderId: tender.externalId || tender.id,
+  2170→          source: tender.source,
+  2171→          title: tender.title,
+  2172→          scope: tender.scope,
+  2173→          budgetMin: tender.budgetMin,
+  2174→          budgetMax: tender.budgetMax,
+  2175→          deadline: tender.deadline,
+  2176→          location: tender.location,
+  2177→          categoryTags: tender.categoryTags,
+  2178→          externalUrl: tender.externalUrl,
+  2179→          currency: tender.currency,
+  2180→        });
+  2181→        setSavedTenders((prev) => ({ ...prev, [tender.id]: true }));
+  2182→        toast.success('Moved to Bids', {
+  2183→          description: `"${tender.title}" is now in your bids list. Navigating to Bids…`,
+  2184→          action: {
+  2185→            label: 'Go to Bids',
+  2186→            onClick: () => useNavStore.getState().setView('bids', { tenderId: tender.id }),
+  2187→          },
+  2188→        });
+  2189→      } catch {
+  2190→        toast.error('Failed to save tender to bids');
+  2191→        setSavingTender((prev) => ({ ...prev, [tender.id]: false }));
+  2192→        return;
+  2193→      }
+  2194→      setSavingTender((prev) => ({ ...prev, [tender.id]: false }));
+  2195→    }
+  2196→    // Navigate to bids view
+  2197→    useNavStore.getState().setView('bids', { tenderId: tender.id });
+  2198→  }, [savedTenders]);
+  2199→
+  2200→  /* ────── Render ────── */
+  2201→  return (
+  2202→    <div className="view-enter">
+  2203→      {/* ───────────────── Notion-style Cover ───────────────── */}
+  2204→      <div className="relative h-32 md:h-40 bg-gradient-to-br from-emerald-600 via-teal-700 to-cyan-800 overflow-hidden">
+  2205→        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+PC9zdmc+')] opacity-60" />
+  2206→        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
+  2207→        <div className="absolute top-4 right-4 md:right-6 flex items-center gap-2">
+  2208→          {savedCount > 0 && (
+  2209→            <Button
+  2210→              variant="secondary"
+  2211→              size="sm"
+  2212→              className="gap-1.5 shadow-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
+  2213→              onClick={() => useNavStore.getState().setView('bids')}
+  2214→            >
+  2215→              <Gavel className="h-3.5 w-3.5 text-emerald-600" />
+  2216→              My Bids ({savedCount})
+  2217→            </Button>
+  2218→          )}
+  2219→          <Button
+  2220→            variant="secondary"
+  2221→            size="sm"
+  2222→            onClick={() => load(true)}
+  2223→            disabled={refreshing}
+  2224→            className="gap-1.5 shadow-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
+  2225→          >
+  2226→            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+  2227→            {refreshing ? 'Refreshing…' : 'Refresh'}
+  2228→          </Button>
+  2229→        </div>
+  2230→      </div>
+  2231→
+  2232→      <div className="px-4 md:px-6 max-w-5xl mx-auto -mt-8 relative z-10 space-y-6">
+  2233→        {/* ───────────────── Notion-style Icon + Title ───────────────── */}
+  2234→        <div className="flex items-end gap-4">
+  2235→          <div className="h-14 w-14 md:h-16 md:w-16 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 border-4 border-background shrink-0">
+  2236→            <Globe2 className="h-7 w-7 md:h-8 md:w-8 text-white" />
+  2237→          </div>
+  2238→          <div className="flex-1 min-w-0 pb-1">
+  2239→            <div className="flex items-center gap-2 flex-wrap">
+  2240→              <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">Live Tenders</h1>
+  2241→              <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-xs">
+  2242→                <span className="relative flex h-1.5 w-1.5">
+  2243→                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+  2244→                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+  2245→                </span>
+  2246→                LIVE
+  2247→              </Badge>
+  2248→            </div>
+  2249→            <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+  2250→              {tenders.length} tenders from {sourceMeta.length || 15} sources — click a card to view full details, &quot;AI Review&quot; to analyze, &quot;Bid&quot; to work on it later
+  2251→              {sectorFilter && <span className="ml-1 text-primary font-medium">· filtered by {SECTOR_PILLS.find(s => s.id === sectorFilter)?.label || sectorFilter}</span>}
+  2252→            </p>
+  2253→          </div>
+  2254→        </div>
+  2255→
+  2256→        {/* ───────────────── Breadcrumb ───────────────── */}
+  2257→        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-label="Breadcrumb">
+  2258→          <span className="hover:text-foreground cursor-default">Dashboard</span>
+  2259→          <span>/</span>
+  2260→          <span className="hover:text-foreground cursor-default">Tenders</span>
+  2261→          <span>/</span>
+  2262→          <span className="text-foreground font-medium">Live Feed</span>
+  2263→        </nav>
+  2264→
+  2265→        {/* ───────────────── Dashboard Summary Stats ───────────────── */}
+  2266→        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+  2267→          {dashStatsLoading ? (
+  2268→            <>
+  2269→              {[0, 1, 2, 3].map(i => (
+  2270→                <Card key={i} className="bg-card/80 backdrop-blur-sm border-0 shadow-sm">
+  2271→                  <CardContent className="p-3.5 flex items-center gap-3">
+  2272→                    <Skeleton className="h-9 w-9 rounded-lg" />
+  2273→                    <div className="flex-1 space-y-1.5">
+  2274→                      <Skeleton className="h-4 w-12" />
+  2275→                      <Skeleton className="h-5 w-8" />
+  2276→                    </div>
+  2277→                  </CardContent>
+  2278→                </Card>
+  2279→              ))}
+  2280→            </>
+  2281→          ) : (
+  2282→            <>
+  2283→              {/* Open Tenders */}
+  2284→              <Card
+  2285→                className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20 border-emerald-200/50 dark:border-emerald-800/30 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+  2286→                onClick={() => setView('tenders')}
+  2287→              >
+  2288→                <CardContent className="p-3.5 flex items-center gap-3">
+  2289→                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm shrink-0">
+  2290→                    <FileSearch className="h-4.5 w-4.5 text-white" />
+  2291→                  </div>
+  2292→                  <div className="min-w-0">
+  2293→                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate">Open Tenders</p>
+  2294→                    <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{dashStats.openTenders}</p>
+  2295→                  </div>
+  2296→                </CardContent>
+  2297→              </Card>
+  2298→
+  2299→              {/* Active Bids */}
+  2300→              <Card
+  2301→                className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/20 border-amber-200/50 dark:border-amber-800/30 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+  2302→                onClick={() => setView('bids')}
+  2303→              >
+  2304→                <CardContent className="p-3.5 flex items-center gap-3">
+  2305→                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-sm shrink-0">
+  2306→                    <Gavel className="h-4.5 w-4.5 text-white" />
+  2307→                  </div>
+  2308→                  <div className="min-w-0">
+  2309→                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300 truncate">Active Bids</p>
+  2310→                    <p className="text-xl font-bold text-amber-900 dark:text-amber-100">{dashStats.activeBids}</p>
+  2311→                  </div>
+  2312→                </CardContent>
+  2313→              </Card>
+  2314→
+  2315→              {/* Active Projects */}
+  2316→              <Card
+  2317→                className="bg-gradient-to-br from-teal-50 to-teal-100/50 dark:from-teal-950/40 dark:to-teal-900/20 border-teal-200/50 dark:border-teal-800/30 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+  2318→                onClick={() => setView('projects')}
+  2319→              >
+  2320→                <CardContent className="p-3.5 flex items-center gap-3">
+  2321→                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-sm shrink-0">
+  2322→                    <FolderKanban className="h-4.5 w-4.5 text-white" />
+  2323→                  </div>
+  2324→                  <div className="min-w-0">
+  2325→                    <p className="text-xs font-medium text-teal-700 dark:text-teal-300 truncate">Active Projects</p>
+  2326→                    <p className="text-xl font-bold text-teal-900 dark:text-teal-100">{dashStats.activeProjects}</p>
+  2327→                  </div>
+  2328→                </CardContent>
+  2329→              </Card>
+  2330→
+  2331→              {/* Contract Value */}
+  2332→              <Card
+  2333→                className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/40 dark:to-purple-900/20 border-purple-200/50 dark:border-purple-800/30 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+  2334→                onClick={() => setView('projects')}
+  2335→              >
+  2336→                <CardContent className="p-3.5 flex items-center gap-3">
+  2337→                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-sm shrink-0">
+  2338→                    <DollarSign className="h-4.5 w-4.5 text-white" />
+  2339→                  </div>
+  2340→                  <div className="min-w-0">
+  2341→                    <p className="text-xs font-medium text-purple-700 dark:text-purple-300 truncate">Contract Value</p>
+  2342→                    <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{formatContractValue(dashStats.totalContractValue)}</p>
+  2343→                  </div>
+  2344→                </CardContent>
+  2345→              </Card>
+  2346→            </>
+  2347→          )}
+  2348→        </div>
+  2349→
+  2350→        {/* ───────────────── Stats bar ───────────────── */}
+  2351→        <div className="grid grid-cols-4 gap-2 md:gap-3">
+  2352→          <Card className="bg-card border-border">
+  2353→            <CardContent className="p-3 md:p-4">
+  2354→              <div className="flex items-center justify-between">
+  2355→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Tenders</span>
+  2356→                <Database className="h-3.5 w-3.5 text-emerald-500" />
+  2357→              </div>
+  2358→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{tenders.length}</p>
+  2359→            </CardContent>
+  2360→          </Card>
+  2361→          <Card className="bg-card border-border">
+  2362→            <CardContent className="p-3 md:p-4">
+  2363→              <div className="flex items-center justify-between">
+  2364→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Online</span>
+  2365→                <Radio className="h-3.5 w-3.5 text-emerald-500" />
+  2366→              </div>
+  2367→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{liveSourcesCount}/{sourceMeta.length || 15}</p>
+  2368→            </CardContent>
+  2369→          </Card>
+  2370→          <Card className="bg-card border-border">
+  2371→            <CardContent className="p-3 md:p-4">
+  2372→              <div className="flex items-center justify-between">
+  2373→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">Value</span>
+  2374→                <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
+  2375→              </div>
+  2376→              <p className="text-sm md:text-base font-bold text-foreground mt-1">
+  2377→                {totalTenderValue > 0 ? fmtMoney(totalTenderValue, 'USD').replace('USD', '').trim() : '—'}
+  2378→              </p>
+  2379→            </CardContent>
+  2380→          </Card>
+  2381→          <Card className="bg-card border-border">
+  2382→            <CardContent className="p-3 md:p-4">
+  2383→              <div className="flex items-center justify-between">
+  2384→                <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wide">My Bids</span>
+  2385→                <Gavel className="h-3.5 w-3.5 text-emerald-500" />
+  2386→              </div>
+  2387→              <p className="text-lg md:text-2xl font-bold text-foreground mt-1">{savedCount}</p>
+  2388→            </CardContent>
+  2389→          </Card>
+  2390→        </div>
+  2391→
+  2392→        {/* ───────────────── Filters ───────────────── */}
+  2393→        <Card className="bg-card border-border">
+  2394→          <CardContent className="p-4">
+  2395→            <div className="flex flex-col md:flex-row gap-3">
+  2396→              <div className="relative flex-1">
+  2397→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  2398→                <Input
+  2399→                  placeholder="Search tenders — title, country, category…"
+  2400→                  value={search}
+  2401→                  onChange={(e) => setSearch(e.target.value)}
+  2402→                  className="pl-9 bg-muted/50 border-border"
+  2403→                />
+  2404→              </div>
+  2405→              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+  2406→                <SelectTrigger className="w-full md:w-56 bg-muted/50 border-border">
+  2407→                  <SelectValue placeholder="All sources" />
+  2408→                </SelectTrigger>
+  2409→                <SelectContent>
+  2410→                  <SelectItem value="all">All live sources</SelectItem>
+  2411→                  <SelectItem value="worldbank">🏦 World Bank</SelectItem>
+  2412→                  <SelectItem value="eu_ted">🇪🇺 EU TED</SelectItem>
+  2413→                  <SelectItem value="ungm">🇺🇳 UNGM</SelectItem>
+  2414→                  <SelectItem value="sam_gov">🇺🇸 SAM.gov</SelectItem>
+  2415→                  <SelectItem value="afdb">🌍 AfDB</SelectItem>
+  2416→                  <SelectItem value="eu_opentenders">🔎 OpenTenders EU</SelectItem>
+  2417→                  <SelectItem value="jica">🇯🇵 JICA</SelectItem>
+  2418→                  <SelectItem value="adb">🌏 ADB</SelectItem>
+  2419→                  <SelectItem value="uk_contracts">🇬🇧 UK Contracts Finder</SelectItem>
+  2420→                  <SelectItem value="dgmarket">🌐 DgMarket</SelectItem>
+  2421→                  <SelectItem value="apify_global">🤖 Apify Global</SelectItem>
+  2422→                  <SelectItem value="apify_procurement">📦 Apify Procurement</SelectItem>
+  2423→                  <SelectItem value="govrider">🛡️ GovRider</SelectItem>
+  2424→                  <SelectItem value="tenderwell">🔍 Tenderwell</SelectItem>
+  2425→                  <SelectItem value="seegenebid">🌐 SeeGeneBid</SelectItem>
+  2426→                </SelectContent>
+  2427→              </Select>
+  2428→            </div>
+  2429→
+  2430→            {/* Sector quick-filter pills — dynamically built from actual tenders + API sectors */}
+  2431→            <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border">
+  2432→              <span className="text-xs font-medium text-muted-foreground mr-1">Sectors:</span>
+  2433→              <button
+  2434→                onClick={() => setSectorFilter('')}
+  2435→                className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+  2436→                  !sectorFilter
+  2437→                    ? 'ring-2 ring-primary/50 bg-primary/10 text-primary font-medium'
+  2438→                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+  2439→                }`}
+  2440→              >
+  2441→                All
+  2442→                <span className="opacity-70">· {tenders.length}</span>
+  2443→              </button>
+  2444→              {dynamicSectorCounts.map((s) => {
+  2445→                const isActive = sectorFilter === s.id;
+  2446→                return (
+  2447→                  <button
+  2448→                    key={s.id}
+  2449→                    onClick={() => setSectorFilter(isActive ? '' : s.id)}
+  2450→                    className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+  2451→                      isActive
+  2452→                        ? 'ring-2 ring-primary/50 bg-primary/10 text-primary font-medium'
+  2453→                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+  2454→                    }`}
+  2455→                  >
+  2456→                    {s.icon && <span>{s.icon}</span>}
+  2457→                    {s.label}
+  2458→                    <span className="opacity-70">· {s.count}</span>
+  2459→                  </button>
+  2460→                );
+  2461→              })}
+  2462→            </div>
+  2463→
+  2464→            {/* Source status pills */}
+  2465→            {sourceMeta.length > 0 && (
+  2466→              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border">
+  2467→                <span className="text-xs font-medium text-muted-foreground mr-1">Feed status:</span>
+  2468→                {sourceMeta.map((s) => {
+  2469→                  const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
+  2470→                  const isComingSoon = !s.ok && s.error && (s.error.toLowerCase().includes('coming soon') || s.error.toLowerCase().includes('credentials'));
+  2471→                  return (
+  2472→                    <button
+  2473→                      key={s.id}
+  2474→                      onClick={() => setSourceFilter(s.id === sourceFilter ? 'all' : s.id)}
+  2475→                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
+  2476→                        sourceFilter === s.id
+  2477→                          ? 'ring-2 ring-primary/50 ' + accent.badge
+  2478→                          : accent.badge
+  2479→                      }`}
+  2480→                      title={s.ok ? 'Connected' : isComingSoon ? 'Coming Soon — requires API credentials' : 'Unavailable — using fallback'}
+  2481→                    >
+  2482→                      <span className={`h-1.5 w-1.5 rounded-full ${s.ok ? accent.dot : 'bg-muted-foreground/40'}`} />
+  2483→                      {s.name}
+  2484→                      {s.ok ? (
+  2485→                        <span className="opacity-70">· {s.count}</span>
+  2486→                      ) : isComingSoon ? (
+  2487→                        <Badge variant="outline" className="text-[9px] leading-none px-1.5 py-0 border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30">
+  2488→                          Coming Soon
+  2489→                        </Badge>
+  2490→                      ) : (
+  2491→                        <span className="opacity-50">· 0</span>
+  2492→                      )}
+  2493→                    </button>
+  2494→                  );
+  2495→                })}
+  2496→              </div>
+  2497→            )}
+  2498→          </CardContent>
+  2499→        </Card>
+  2500→
+  2501→        {/* ───────────────── Individual Tender Cards (NOT grouped by source) ───────────────── */}
+  2502→        {loading ? (
+  2503→          <div className="space-y-3">
+  2504→            {Array.from({ length: 4 }).map((_, i) => (
+  2505→              <Card key={i} className="bg-card border-border">
+  2506→                <CardContent className="p-5 space-y-3">
+  2507→                  <div className="flex items-center gap-3">
+  2508→                    <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+  2509→                    <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+  2510→                  </div>
+  2511→                  <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
+  2512→                  <div className="h-3 w-full bg-muted rounded animate-pulse" />
+  2513→                  <div className="h-3 w-2/3 bg-muted rounded animate-pulse" />
+  2514→                  <div className="flex gap-3 pt-1">
+  2515→                    <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+  2516→                    <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+  2517→                    <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+  2518→                  </div>
+  2519→                </CardContent>
+  2520→              </Card>
+  2521→            ))}
+  2522→          </div>
+  2523→        ) : tenders.length === 0 ? (
+  2524→          <Card className="bg-card border-border">
+  2525→            <CardContent className="p-12 text-center">
+  2526→              <Globe2 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+  2527→              <p className="text-foreground font-medium">No live tenders found</p>
+  2528→              <p className="text-sm text-muted-foreground mt-1">
+  2529→                Try adjusting your filters or check back later.
+  2530→              </p>
+  2531→            </CardContent>
+  2532→          </Card>
+  2533→        ) : (
+  2534→          <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+  2535→            {tenders.map((t) => {
+  2536→                const accent = SOURCE_ACCENT[t.source] || SOURCE_ACCENT.default;
+  2537→
+  2538→                return (
+  2539→                  <TenderCard
+  2540→                    key={t.id}
+  2541→                    tender={t}
+  2542→                    accent={accent}
+  2543→                    isSaved={savedTenders[t.id] || false}
+  2544→                    isSaving={savingTender[t.id] || false}
+  2545→                    isExpanded={expandedId === t.id}
+  2546→                    isLoadingDoc={docLoading === t.id}
+  2547→                    doc={docData[t.id]}
+  2548→                    docErr={docError[t.id]}
+  2549→                    showAiReview={aiReviewExpanded[t.id] || false}
+  2550→                    aiLoading={aiReviewLoading[t.id] || false}
+  2551→                    aiReview={aiReviewData[t.id] || null}
+  2552→                    isDetailOpen={detailOpenId === t.id}
+  2553→                    onToggleSave={() => toggleSave(t)}
+  2554→                    onLoadDocument={() => loadDocument(t)}
+  2555→                    onLoadAIReview={() => loadAIReview(t)}
+  2556→                    onImport={() => importTender(t)}
+  2557→                    onCardClick={() => {
+  2558→                      if (detailOpenId !== t.id) {
+  2559→                        // Opening detail view — also auto-fetch document content
+  2560→                        setDetailOpenId(t.id);
+  2561→                        fetchDocumentContent(t);
+  2562→                      } else {
+  2563→                        // Closing detail view
+  2564→                        setDetailOpenId(null);
+  2565→                      }
+  2566→                    }}
+  2567→                    onStartBidApplication={() => startBidApplication(t)}
+  2568→                  />
+  2569→                );
+  2570→              })}
+  2571→          </div>
+  2572→        )}
+  2573→
+  2574→        {/* Load More button — server-side pagination */}
+  2575→        {tenders.length > 0 && (
+  2576→          <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+  2577→            <p className="text-xs text-muted-foreground">
+  2578→              {hasMore
+  2579→                ? `${tenders.length} tenders loaded · More available`
+  2580→                : `All ${tenders.length} tenders loaded`
+  2581→              }
+  2582→            </p>
+  2583→            {hasMore ? (
+  2584→              <Button
+  2585→                variant="outline"
+  2586→                size="lg"
+  2587→                className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+  2588→                onClick={() => load(false, true)}
+  2589→                disabled={loadingMore}
+  2590→              >
+  2591→                {loadingMore ? (
+  2592→                  <Loader2 className="h-4 w-4 animate-spin" />
+  2593→                ) : (
+  2594→                  <ChevronDown className="h-4 w-4" />
+  2595→                )}
+  2596→                Load More Tenders
+  2597→              </Button>
+  2598→            ) : (
+  2599→              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+  2600→                <CheckCircle2 className="h-3 w-3" />
+  2601→                All loaded
+  2602→              </p>
+  2603→            )}
+  2604→          </div>
+  2605→        )}
+  2606→
+  2607→        {/* ───────────────── Data Sources panel ───────────────── */}
+  2608→        <div className="pt-4 pb-8">
+  2609→          <div className="flex items-center gap-2 mb-3">
+  2610→            <Database className="h-4 w-4 text-emerald-500" />
+  2611→            <h2 className="text-lg font-semibold text-foreground">Connected Data Sources</h2>
+  2612→            <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+  2613→              {dataSources.filter((s) => s.live).length} live · {dataSources.length + GATED_SOURCES.length} total
+  2614→            </Badge>
+  2615→          </div>
+  2616→          <p className="text-sm text-muted-foreground mb-4">
+  2617→            Aggregated procurement from international data feeds.
+  2618→            Sources marked <span className="font-medium text-emerald-600 dark:text-emerald-400">Live</span> are
+  2619→            fetched in real time; others require credentials.
+  2620→          </p>
+  2621→
+  2622→          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+  2623→            {/* Live data sources from API */}
+  2624→            {dataSources.map((s) => {
+  2625→              const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
+  2626→              const SourceIcon = accent.icon;
+  2627→              return (
+  2628→                <Card
+  2629→                  key={s.id}
+  2630→                  className={`bg-card border-border hover:border-primary/40 transition-colors ${s.live ? 'cursor-pointer' : 'opacity-70'}`}
+  2631→                  onClick={s.live ? () => setSourceFilter(s.id === sourceFilter ? 'all' : s.id) : undefined}
+  2632→                >
+  2633→                  <CardContent className="p-4">
+  2634→                    <div className="flex items-start justify-between gap-2">
+  2635→                      <div className="flex items-start gap-2.5 min-w-0">
+  2636→                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${s.live ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-muted'}`}>
+  2637→                          {s.live ? (
+  2638→                            <SourceIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+  2639→                          ) : (
+  2640→                            <Lock className="h-4 w-4 text-muted-foreground" />
+  2641→                          )}
+  2642→                        </div>
+  2643→                        <div className="min-w-0">
+  2644→                          <div className="flex items-center gap-1.5">
+  2645→                            <h4 className="font-semibold text-foreground text-sm truncate">{s.name}</h4>
+  2646→                            <span
+  2647→                              className={`h-2 w-2 rounded-full shrink-0 ${ACCENT_DOT[s.accent] || 'bg-muted-foreground'}`}
+  2648→                            />
+  2649→                          </div>
+  2650→                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.coverage}</p>
+  2651→                        </div>
+  2652→                      </div>
+  2653→                      {s.live ? (
+  2654→                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 shrink-0 text-[10px]">
+  2655→                          Live
+  2656→                        </Badge>
+  2657→                      ) : (
+  2658→                        <Badge variant="outline" className="border-border text-muted-foreground shrink-0 text-[10px]">
+  2659→                          Reference
+  2660→                        </Badge>
+  2661→                      )}
+  2662→                    </div>
+  2663→
+  2664→                    <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
+  2665→                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+  2666→                        <ShieldCheck className="h-3 w-3 shrink-0" />
+  2667→                        <span className="truncate">{s.access}</span>
+  2668→                      </div>
+  2669→                      <a
+  2670→                        href={s.link}
+  2671→                        target="_blank"
+  2672→                        rel="noopener noreferrer"
+  2673→                        className="inline-flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline shrink-0"
+  2674→                        onClick={(e) => e.stopPropagation()}
+  2675→                      >
+  2676→                        Open
+  2677→                        <ArrowUpRight className="h-2.5 w-2.5" />
+  2678→                      </a>
+  2679→                    </div>
+  2680→                  </CardContent>
+  2681→                </Card>
+  2682→              );
+  2683→            })}
+  2684→
+  2685→            {/* Credential-gated sources */}
+  2686→            {GATED_SOURCES.map((gs) => {
+  2687→              const accent = SOURCE_ACCENT[gs.id] || SOURCE_ACCENT.default;
+  2688→              const SourceIcon = accent.icon;
+  2689→              const isOpenSource = gs.credentialType === 'open_source';
+  2690→              return (
+  2691→                <Card
+  2692→                  key={gs.id}
+  2693→                  className="bg-card border-border hover:border-primary/40 transition-colors opacity-80"
+  2694→                >
+  2695→                  <CardContent className="p-4">
+  2696→                    <div className="flex items-start justify-between gap-2">
+  2697→                      <div className="flex items-start gap-2.5 min-w-0">
+  2698→                        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 dark:bg-amber-950/40">
+  2699→                          <SourceIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+  2700→                        </div>
+  2701→                        <div className="min-w-0">
+  2702→                          <div className="flex items-center gap-1.5">
+  2703→                            <h4 className="font-semibold text-foreground text-sm truncate">{gs.name}</h4>
+  2704→                            <span className={`h-2 w-2 rounded-full shrink-0 ${accent.dot}`} />
+  2705→                          </div>
+  2706→                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{gs.description}</p>
+  2707→                        </div>
+  2708→                      </div>
+  2709→                      {isOpenSource ? (
+  2710→                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 shrink-0 text-[10px]">
+  2711→                          Open Source
+  2712→                        </Badge>
+  2713→                      ) : (
+  2714→                        <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 shrink-0 text-[10px] gap-1">
+  2715→                          <Lock className="h-2.5 w-2.5" />
+  2716→                          API Key
+  2717→                        </Badge>
+  2718→                      )}
+  2719→                    </div>
+  2720→
+  2721→                    <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
+  2722→                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+  2723→                        {isOpenSource ? (
+  2724→                          <Globe2 className="h-3 w-3 shrink-0 text-emerald-500" />
+  2725→                        ) : (
+  2726→                          <Lock className="h-3 w-3 shrink-0 text-amber-500" />
+  2727→                        )}
+  2728→                        <span className="truncate">
+  2729→                          {isOpenSource ? 'No credentials required' : `Requires ${gs.envVar}`}
+  2730→                        </span>
+  2731→                      </div>
+  2732→                      <Button
+  2733→                        variant="outline"
+  2734→                        size="sm"
+  2735→                        className="h-6 text-[10px] gap-1 px-2 shrink-0"
+  2736→                        onClick={(e) => {
+  2737→                          e.stopPropagation();
+  2738→                          openCredDialog(gs.id);
+  2739→                        }}
+  2740→                      >
+  2741→                        {isOpenSource ? (
+  2742→                          <>
+  2743→                            <Globe2 className="h-2.5 w-2.5" />
+  2744→                            Enable
+  2745→                          </>
+  2746→                        ) : (
+  2747→                          <>
+  2748→                            <Lock className="h-2.5 w-2.5" />
+  2749→                            Enable
+  2750→                          </>
+  2751→                        )}
+  2752→                      </Button>
+  2753→                    </div>
+  2754→                  </CardContent>
+  2755→                </Card>
+  2756→              );
+  2757→            })}
+  2758→          </div>
+  2759→
+  2760→          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-start gap-3">
+  2761→            <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+  2762→            <p className="text-xs text-muted-foreground">
+  2763→              <span className="font-medium text-foreground">15 sources available</span>{' '}
+  2764→              Enable Apify, GovRider, Tenderwell, or SeeGeneBid by providing the required
+  2765→              API credentials. Each adapter follows the same{' '}
+  2766→              <code className="px-1 py-0.5 rounded bg-muted text-foreground">LiveTender</code> shape
+  2767→              and integrates directly into this feed.
+  2768→            </p>
+  2769→          </div>
+  2770→        </div>
+  2771→      </div>
+  2772→
+  2773→      {/* Credential Dialog */}
+  2774→      <CredentialDialog
+  2775→        source={credDialogSource}
+  2776→        open={credDialogOpen}
+  2777→        onOpenChange={setCredDialogOpen}
+  2778→      />
+  2779→    </div>
+  2780→  );
+  2781→}
+  2782→
