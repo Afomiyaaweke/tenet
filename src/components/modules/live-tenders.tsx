@@ -1929,7 +1929,7 @@ export function LiveTendersView() {
       else setLoading(true);
 
       const currentOffset = append ? tenders.length : 0;
-      const params: Record<string, string> = { rows: '40', offset: String(currentOffset) };
+      const params: Record<string, string> = { rows: '100', offset: String(currentOffset) };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
       if (sectorFilter) params.sector = sectorFilter;
@@ -2621,18 +2621,33 @@ export function LiveTendersView() {
 
         {/* Load More button — server-side pagination */}
         {tenders.length > 0 && (
-          <div className="flex flex-col items-center gap-2 pt-4 pb-2">
-            <p className="text-xs text-muted-foreground">
-              {hasMore
-                ? `${tenders.length} tenders loaded · More available`
-                : `All ${tenders.length} tenders loaded`
-              }
-            </p>
+          <div className="flex flex-col items-center gap-3 pt-6 pb-4">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                {tenders.length} tenders loaded
+              </span>
+              {tenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length > 0 && (
+                <>
+                  <span className="text-border">·</span>
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                    <FolderKanban className="h-3 w-3" />
+                    {tenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length} with requirement documents
+                  </span>
+                </>
+              )}
+              {hasMore && (
+                <>
+                  <span className="text-border">·</span>
+                  <span>More available</span>
+                </>
+              )}
+            </div>
             {hasMore ? (
               <Button
                 variant="outline"
                 size="lg"
-                className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[220px]"
                 onClick={() => load(false, true)}
                 disabled={loadingMore}
               >
@@ -2641,12 +2656,12 @@ export function LiveTendersView() {
                 ) : (
                   <ChevronDown className="h-4 w-4" />
                 )}
-                Load More Tenders
+                {loadingMore ? 'Loading More…' : 'Load More Tenders'}
               </Button>
             ) : (
               <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3" />
-                All loaded
+                All tenders loaded
               </p>
             )}
           </div>
