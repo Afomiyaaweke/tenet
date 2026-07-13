@@ -1226,9 +1226,23 @@ export function TendersView() {
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {reqDocs.slice(0, 3).map((doc, i) => (
-                              <span key={`${doc}-${i}`} className="inline-flex items-center text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5">
-                                {doc.trim()}
-                              </span>
+                              doc.trim().startsWith('http') ? (
+                                <a
+                                  key={`${doc}-${i}`}
+                                  href={doc.trim()}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors"
+                                >
+                                  <FileText className="h-2.5 w-2.5" />
+                                  View Docs
+                                  <ExternalLink className="h-2 w-2" />
+                                </a>
+                              ) : (
+                                <span key={`${doc}-${i}`} className="inline-flex items-center text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5">
+                                  {doc.trim()}
+                                </span>
+                              )
                             ))}
                             {reqDocs.length > 3 && (
                               <span className="text-[10px] text-teal-600/70 dark:text-teal-400/70 px-1.5 py-0.5">+{reqDocs.length - 3}</span>
