@@ -52,6 +52,9 @@ const SOURCE_LABELS: Record<string, string> = {
   ontario_tenders: 'Ontario Tenders',
   nigeria_nocopo: 'Nigeria NOCOPO',
   kenya_tenders: 'Kenya Tenders',
+  india_cppp: 'India CPPP',
+  south_africa: 'South Africa eTenders',
+  philgeps: 'PhilGEPS',
 };
 
 const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -208,6 +211,27 @@ const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; 
     ring: 'hover:border-amber-400/60',
     bg: 'from-amber-500/10 to-yellow-500/5',
     icon: Flag,
+  },
+  india_cppp: {
+    dot: 'bg-orange-500',
+    badge: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+    ring: 'hover:border-orange-400/60',
+    bg: 'from-orange-500/10 to-amber-500/5',
+    icon: Building2,
+  },
+  south_africa: {
+    dot: 'bg-amber-500',
+    badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+    ring: 'hover:border-amber-400/60',
+    bg: 'from-amber-500/10 to-yellow-500/5',
+    icon: Flag,
+  },
+  philgeps: {
+    dot: 'bg-sky-500',
+    badge: 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+    ring: 'hover:border-sky-400/60',
+    bg: 'from-sky-500/10 to-cyan-500/5',
+    icon: Globe2,
   },
   default: {
     dot: 'bg-muted-foreground',
@@ -915,6 +939,23 @@ function TenderCard({
             <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
               {tender.scope}
             </p>
+          )}
+
+          {/* Document/Requirement files indicator */}
+          {(tender.documentUrl || (tender.requiredDocs && tender.requiredDocs.startsWith('http'))) && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <FileSearch className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">Requirement Documents Available</span>
+              <a
+                href={tender.documentUrl || tender.requiredDocs}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline ml-auto flex items-center gap-0.5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                View <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            </div>
           )}
 
           {/* ── Rich meta grid ── */}
@@ -1769,9 +1810,9 @@ export function LiveTendersView() {
   const [sectorFilter, setSectorFilter] = useState('');
   const [sectorCounts, setSectorCounts] = useState<{ id: string; label: string; count: number }[]>([]);
 
-  // Pagination state
-  const [visibleCount, setVisibleCount] = useState(12);
-  const PAGE_SIZE = 12;
+  // Server-side pagination state
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Inline document state
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1839,26 +1880,33 @@ export function LiveTendersView() {
   };
 
   const load = useCallback(
-    async (isRefresh = false) => {
+    async (isRefresh = false, append = false) => {
       if (isRefresh) setRefreshing(true);
+      else if (append) setLoadingMore(true);
       else setLoading(true);
-      const params: Record<string, string> = { rows: '500' };
+
+      const currentOffset = append ? tenders.length : 0;
+      const params: Record<string, string> = { rows: '20', offset: String(currentOffset) };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
       if (sectorFilter) params.sector = sectorFilter;
+
       const res = await api.get('/tenders/live', params);
       if (res.success) {
-        setTenders(res.data as LiveTender[]);
+        const newTenders = res.data as LiveTender[];
+        setTenders(append ? (prev: LiveTender[]) => [...prev, ...newTenders] : newTenders);
         setSourceMeta(res.meta?.sources || []);
         if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
         if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
+        setHasMore(res.meta?.hasMore ?? false);
       } else {
         toast.error(res.error || 'Failed to load live tenders');
       }
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     },
-    [search, sourceFilter, sectorFilter],
+    [search, sourceFilter, sectorFilter, tenders.length],
   );
 
   useEffect(() => {
@@ -1869,9 +1917,9 @@ export function LiveTendersView() {
   // Check saved status for visible tenders
   useEffect(() => {
     const checkSaved = async () => {
-      const visibleTenders = tenders.slice(0, visibleCount);
-      for (const t of visibleTenders) {
-        if (savedTenders[t.id] !== undefined) continue;
+      const unchecked = tenders.filter(t => savedTenders[t.id] === undefined);
+      const batch = unchecked.slice(0, 20);
+      for (const t of batch) {
         try {
           const res = await api.get('/tenders/saved/check', {
             tenderId: t.externalId || t.id,
@@ -1886,7 +1934,7 @@ export function LiveTendersView() {
       }
     };
     if (tenders.length > 0) checkSaved();
-  }, [tenders, visibleCount, savedTenders]);
+  }, [tenders, savedTenders]);
 
   const liveSourcesCount = useMemo(
     () => sourceMeta.filter((s) => s.live && s.ok).length,
@@ -2484,7 +2532,7 @@ export function LiveTendersView() {
           </Card>
         ) : (
           <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
-            {tenders.slice(0, visibleCount).map((t) => {
+            {tenders.map((t) => {
                 const accent = SOURCE_ACCENT[t.source] || SOURCE_ACCENT.default;
 
                 return (
@@ -2523,24 +2571,29 @@ export function LiveTendersView() {
           </div>
         )}
 
-        {/* Load More button */}
+        {/* Load More button — server-side pagination */}
         {tenders.length > 0 && (
           <div className="flex flex-col items-center gap-2 pt-4 pb-2">
             <p className="text-xs text-muted-foreground">
-              {visibleCount >= tenders.length
-                ? `All ${tenders.length} tenders loaded`
-                : `${Math.min(visibleCount, tenders.length)} of ${tenders.length} tenders shown · ${tenders.length - visibleCount} remaining`
+              {hasMore
+                ? `${tenders.length} tenders loaded · More available`
+                : `All ${tenders.length} tenders loaded`
               }
             </p>
-            {visibleCount < tenders.length ? (
+            {hasMore ? (
               <Button
                 variant="outline"
                 size="lg"
                 className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                onClick={() => setVisibleCount(prev => Math.min(prev + PAGE_SIZE, tenders.length))}
+                onClick={() => load(false, true)}
+                disabled={loadingMore}
               >
-                <ChevronDown className="h-4 w-4" />
-                Load More ({tenders.length - visibleCount} remaining)
+                {loadingMore ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+                Load More Tenders
               </Button>
             ) : (
               <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">

@@ -219,6 +219,36 @@ export const DATA_SOURCES: DataSource[] = [
     live: true,
     accent: 'amber',
   },
+  {
+    id: 'india_cppp',
+    name: 'India — CPPP eProcure',
+    coverage:
+      'Central Public Procurement Portal of India. Tenders from all central and state government departments, PSUs, and autonomous bodies.',
+    access: 'Public — no registration required',
+    link: 'https://eprocure.gov.in/eprocure/app',
+    live: true,
+    accent: 'orange',
+  },
+  {
+    id: 'south_africa',
+    name: 'South Africa — eTenders',
+    coverage:
+      'South African government eTender portal with procurement notices, tender documents, and contract awards from all government entities.',
+    access: 'Public — no registration required',
+    link: 'https://www.etenders.gov.za',
+    live: true,
+    accent: 'amber',
+  },
+  {
+    id: 'philgeps',
+    name: 'Philippines — PhilGEPS',
+    coverage:
+      'Philippine Government Electronic Procurement System. All government procurement opportunities with downloadable bidding documents.',
+    access: 'Public — browse without registration',
+    link: 'https://philgeps.gov.ph',
+    live: true,
+    accent: 'sky',
+  },
 ];
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -290,8 +320,10 @@ function buildDeadline(signingDate?: string): string {
 export async function fetchWorldBankTenders(opts: {
   search?: string;
   rows?: number;
+  offset?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
   const rows = Math.min(Math.max(opts.rows ?? 20, 1), 500);
+  const offset = opts.offset || 0;
   const params = new URLSearchParams({
     format: 'json',
     rows: String(rows),
@@ -312,6 +344,7 @@ export async function fetchWorldBankTenders(opts: {
     ].join(','),
   });
   if (opts.search) params.set('q', opts.search);
+  if (offset > 0) params.set('osstart', String(offset + 1));
 
   const url = `https://search.worldbank.org/api/v2/procurement?${params.toString()}`;
   const ctrl = new AbortController();
@@ -365,6 +398,7 @@ export async function fetchWorldBankTenders(opts: {
           contractType: r.contract_type || undefined,
           signingDate: signingDate || undefined,
           region: r.region || undefined,
+          documentUrl: r.project_id ? `https://projects.worldbank.org/en/projects-operations/project-detail/${r.project_id}` : undefined,
         } satisfies LiveTender;
       });
 
@@ -382,15 +416,17 @@ export async function fetchWorldBankTenders(opts: {
 export async function fetchEuTedTenders(opts: {
   search?: string;
   rows?: number;
+  offset?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
   const rows = Math.min(Math.max(opts.rows ?? 20, 1), 500);
+  const offset = opts.offset || 0;
   const base = 'https://api.ted.europa.eu/v3/notices/search';
   const body = {
     query: opts.search ? `(${opts.search})` : '*',
     fields: ['ND', 'TI_DOC', 'DS_DATE_PUB', 'DEADLINE_DATE', 'PLACE_CONTRACT', 'VALUE_CONTRACT', 'CA_NAME', 'TITLE'],
     limit: rows,
-    offset: 0,
-    pagination: { pageNumber: 1, pageSize: rows },
+    offset,
+    pagination: { pageNumber: Math.floor(offset / rows) + 1, pageSize: rows },
     sort: { field: 'DS_DATE_PUB', order: 'DESC' },
   };
   const ctrl = new AbortController();
@@ -435,6 +471,7 @@ export async function fetchEuTedTenders(opts: {
         externalUrl: `https://ted.europa.eu/udl?uri=TED:NOTICE:${nd}:TEXT:EN:HTML`,
         currency: 'EUR',
         borrower: String(row.CA_NAME || '') || undefined,
+        documentUrl: `https://ted.europa.eu/udl?uri=TED:NOTICE:${nd}:TEXT:EN:HTML`,
       } satisfies LiveTender;
     });
 
@@ -452,6 +489,7 @@ export async function fetchEuTedTenders(opts: {
 export async function fetchUngmTenders(opts: {
   search?: string;
   rows?: number;
+  offset?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8000);
@@ -495,6 +533,7 @@ export async function fetchUngmTenders(opts: {
         externalUrl: rawLink,
         currency: 'USD',
         region: 'Global',
+        documentUrl: rawLink,
       } satisfies LiveTender;
     });
 
@@ -512,11 +551,12 @@ export async function fetchUngmTenders(opts: {
 export async function fetchSamGovTenders(opts: {
   search?: string;
   rows?: number;
+  offset?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
   const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
   const params = new URLSearchParams({
     limit: String(rows),
-    offset: '0',
+    offset: String(opts.offset || 0),
     postedFrom: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
     postedTo: new Date().toISOString().split('T')[0],
   });
@@ -564,6 +604,7 @@ export async function fetchSamGovTenders(opts: {
         externalUrl: opp.uiLink ? String(opp.uiLink) : 'https://sam.gov',
         currency: 'USD',
         region: 'North America',
+        documentUrl: opp.uiLink ? String(opp.uiLink) : undefined,
       } satisfies LiveTender;
     });
 
@@ -651,6 +692,7 @@ export async function fetchEuOpenTenders(opts: {
           externalUrl: String(item.url || `https://opentender.eu/tender/${item.id || idx}`),
           currency: 'EUR',
           region: 'Europe',
+          documentUrl: String(item.documents_url || item.url || '') || undefined,
         }));
         return { tenders, total: items.length, ok: true };
       }
@@ -721,6 +763,7 @@ export async function fetchAdbTenders(opts: {
           externalUrl: String(item.url || `https://www.adb.org/business/opportunities/${item.id || idx}`),
           currency: 'USD',
           region: 'Asia-Pacific',
+          documentUrl: String(item.documents_url || item.url || '') || undefined,
         }));
         return { tenders, total: items.length, ok: true };
       }
@@ -784,6 +827,7 @@ export async function fetchUkContractsTenders(opts: {
           externalUrl: String(item.url || `https://www.contractsfinder.service.gov.uk/notice/${item.id || idx}`),
           currency: 'GBP',
           region: 'Europe',
+          documentUrl: String(item.documents_url || item.url || '') || undefined,
         }));
         return { tenders, total: items.length, ok: true };
       }
@@ -1107,6 +1151,7 @@ export async function fetchCanadaBuyandsellTenders(opts: {
           externalUrl: String(item.url || `https://buyandsell.gc.ca/procurement-data/tender/${item.id || idx}`),
           currency: 'CAD',
           region: 'North America',
+          documentUrl: String(item.documents_url || item.url || '') || undefined,
         }));
         return { tenders, total: items.length, ok: true };
       }
@@ -1163,6 +1208,7 @@ export async function fetchAusTenderTenders(opts: {
           externalUrl: String(item.url || `https://www.tenders.gov.au/tender/${item.id || idx}`),
           currency: 'AUD',
           region: 'Oceania',
+          documentUrl: String(item.documents_url || item.url || '') || undefined,
         }));
         return { tenders, total: items.length, ok: true };
       }
@@ -1218,9 +1264,187 @@ export async function fetchNigeriaNocopoTenders(opts: {
 export async function fetchKenyaTendersTenders(opts: {
   search?: string;
   rows?: number;
+  offset?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
   void opts;
   return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * India CPPP (Central Public Procurement Portal) adapter
+ * ───────────────────────────────────────────────────────────────────── */
+
+export async function fetchIndiaCpppTenders(opts: {
+  search?: string;
+  rows?: number;
+  offset?: number;
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const offset = opts.offset || 0;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const params = new URLSearchParams({
+      limit: String(rows),
+      offset: String(offset),
+    });
+    if (opts.search) params.set('search', opts.search);
+    const res = await fetch(`https://eprocure.gov.in/eprocure/app?${params.toString()}`, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('json')) {
+      const json = await res.json();
+      const items = Array.isArray(json.data || json.tenders || json.results) ? (json.data || json.tenders || json.results) : [];
+      if (items.length > 0) {
+        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+          id: `india_cppp-${item.tenderId || item.id || idx}`,
+          title: truncate(String(item.title || item.tenderTitle || item.tender_name || 'India Government Tender'), 160),
+          scope: truncate(String(item.description || item.tenderDescription || item.scope || ''), 400),
+          budgetMin: Number(item.estimatedValue || item.budgetMin || item.tender_value || 0) || 0,
+          budgetMax: Number(item.estimatedValue || item.budgetMax || item.tender_value || 0) || 0,
+          deadline: String(item.deadline || item.closingDate || item.bid_end_date || new Date(Date.now() + 30 * 86400000).toISOString()),
+          location: String(item.location || item.state || 'India'),
+          categoryTags: String(item.category || item.department || 'General'),
+          requiredDocs: String(item.documents_url || item.tender_document_url || `https://eprocure.gov.in/eprocure/app`),
+          status: 'open' as const,
+          createdBy: 'india_cppp',
+          createdAt: String(item.publishedDate || item.published_date || new Date().toISOString()),
+          updatedAt: String(item.updated_at || new Date().toISOString()),
+          source: 'india_cppp',
+          externalId: String(item.tenderId || item.id || idx),
+          externalUrl: String(item.url || item.tender_url || `https://eprocure.gov.in/eprocure/app`),
+          currency: 'INR',
+          region: 'South Asia',
+          documentUrl: String(item.tender_document_url || item.document_url || '') || undefined,
+        }));
+        return { tenders, total: items.length, ok: true };
+      }
+    }
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  } catch {
+    clearTimeout(timer);
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * South Africa eTenders adapter
+ * ───────────────────────────────────────────────────────────────────── */
+
+export async function fetchSouthAfricaTenders(opts: {
+  search?: string;
+  rows?: number;
+  offset?: number;
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const offset = opts.offset || 0;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const params = new URLSearchParams({ limit: String(rows), offset: String(offset) });
+    if (opts.search) params.set('q', opts.search);
+    const res = await fetch(`https://www.etenders.gov.za/api/tenders?${params.toString()}`, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const json = await res.json();
+      const items = Array.isArray(json.data || json.tenders || json.results) ? (json.data || json.tenders || json.results) : [];
+      if (items.length > 0) {
+        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+          id: `south_africa-${item.id || idx}`,
+          title: truncate(String(item.title || item.tenderTitle || 'South Africa Government Tender'), 160),
+          scope: truncate(String(item.description || item.tenderDescription || ''), 400),
+          budgetMin: Number(item.estimatedValue || item.budgetMin || 0) || 0,
+          budgetMax: Number(item.estimatedValue || item.budgetMax || 0) || 0,
+          deadline: String(item.closingDate || item.deadline || new Date(Date.now() + 30 * 86400000).toISOString()),
+          location: String(item.province || item.location || 'South Africa'),
+          categoryTags: String(item.category || item.industry || 'General'),
+          requiredDocs: String(item.documents_url || item.url || `https://www.etenders.gov.za/tender/${item.id || idx}`),
+          status: 'open' as const,
+          createdBy: 'south_africa',
+          createdAt: String(item.publishedDate || item.created_at || new Date().toISOString()),
+          updatedAt: String(item.updated_at || new Date().toISOString()),
+          source: 'south_africa',
+          externalId: String(item.id || idx),
+          externalUrl: String(item.url || `https://www.etenders.gov.za/tender/${item.id || idx}`),
+          currency: 'ZAR',
+          region: 'Africa',
+          documentUrl: String(item.document_url || item.tender_document_url || '') || undefined,
+        }));
+        return { tenders, total: items.length, ok: true };
+      }
+    }
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  } catch {
+    clearTimeout(timer);
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Philippines PhilGEPS adapter
+ * ───────────────────────────────────────────────────────────────────── */
+
+export async function fetchPhilgepsTenders(opts: {
+  search?: string;
+  rows?: number;
+  offset?: number;
+}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const offset = opts.offset || 0;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const params = new URLSearchParams({ limit: String(rows), offset: String(offset) });
+    if (opts.search) params.set('search', opts.search);
+    const res = await fetch(`https://philgeps.gov.ph/api/tenders?${params.toString()}`, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const json = await res.json();
+      const items = Array.isArray(json.data || json.tenders || json.results) ? (json.data || json.tenders || json.results) : [];
+      if (items.length > 0) {
+        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+          id: `philgeps-${item.id || idx}`,
+          title: truncate(String(item.title || item.tenderTitle || 'Philippines Government Tender'), 160),
+          scope: truncate(String(item.description || item.tenderDescription || ''), 400),
+          budgetMin: Number(item.approvedBudget || item.estimatedValue || item.budgetMin || 0) || 0,
+          budgetMax: Number(item.approvedBudget || item.estimatedValue || item.budgetMax || 0) || 0,
+          deadline: String(item.closingDate || item.deadline || item.submission_deadline || new Date(Date.now() + 30 * 86400000).toISOString()),
+          location: String(item.region || item.location || 'Philippines'),
+          categoryTags: String(item.category || item.procurement_type || 'General'),
+          requiredDocs: String(item.documents_url || item.url || `https://philgeps.gov.ph/tender/${item.id || idx}`),
+          status: 'open' as const,
+          createdBy: 'philgeps',
+          createdAt: String(item.publishedDate || item.created_at || new Date().toISOString()),
+          updatedAt: String(item.updated_at || new Date().toISOString()),
+          source: 'philgeps',
+          externalId: String(item.id || idx),
+          externalUrl: String(item.url || `https://philgeps.gov.ph/tender/${item.id || idx}`),
+          currency: 'PHP',
+          region: 'Southeast Asia',
+          documentUrl: String(item.document_url || item.tender_document_url || '') || undefined,
+        }));
+        return { tenders, total: items.length, ok: true };
+      }
+    }
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  } catch {
+    clearTimeout(timer);
+    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1357,14 +1581,16 @@ export async function fetchLiveTenders(opts: {
   source?: string;
   search?: string;
   rows?: number;
+  offset?: number;
 }): Promise<FetchLiveTendersResult> {
-  const cacheKey = `${opts.source || 'all'}::${opts.search || ''}::${opts.rows || 20}`;
+  const cacheKey = `${opts.source || 'all'}::${opts.search || ''}::${opts.rows || 20}::${opts.offset || 0}`;
   const hit = cache.get(cacheKey);
   if (hit && hit.expiresAt > Date.now()) {
     return { ...hit.result, meta: { ...hit.result.meta, cachedAt: Date.now() } };
   }
 
   const rows = opts.rows ?? 20;
+  const offset = opts.offset || 0;
   const wantSource = opts.source || 'all';
   const tasks: { id: string; name: string; live: boolean; p: Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> }[] = [];
 
@@ -1373,7 +1599,7 @@ export async function fetchLiveTenders(opts: {
       id: 'worldbank',
       name: 'World Bank',
       live: true,
-      p: fetchWorldBankTenders({ search: opts.search, rows }),
+      p: fetchWorldBankTenders({ search: opts.search, rows, offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'eu_ted') {
@@ -1381,7 +1607,7 @@ export async function fetchLiveTenders(opts: {
       id: 'eu_ted',
       name: 'EU TED',
       live: true,
-      p: fetchEuTedTenders({ search: opts.search, rows }),
+      p: fetchEuTedTenders({ search: opts.search, rows, offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'ungm') {
@@ -1389,7 +1615,7 @@ export async function fetchLiveTenders(opts: {
       id: 'ungm',
       name: 'UNGM',
       live: true,
-      p: fetchUngmTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+      p: fetchUngmTenders({ search: opts.search, rows: Math.min(rows, 5), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'sam_gov') {
@@ -1397,7 +1623,7 @@ export async function fetchLiveTenders(opts: {
       id: 'sam_gov',
       name: 'SAM.gov',
       live: true,
-      p: fetchSamGovTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+      p: fetchSamGovTenders({ search: opts.search, rows: Math.min(rows, 5), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'afdb') {
@@ -1534,7 +1760,31 @@ export async function fetchLiveTenders(opts: {
       id: 'kenya_tenders',
       name: 'Kenya Tenders',
       live: true,
-      p: fetchKenyaTendersTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchKenyaTendersTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+    });
+  }
+  if (wantSource === 'all' || wantSource === 'india_cppp') {
+    tasks.push({
+      id: 'india_cppp',
+      name: 'India CPPP',
+      live: true,
+      p: fetchIndiaCpppTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+    });
+  }
+  if (wantSource === 'all' || wantSource === 'south_africa') {
+    tasks.push({
+      id: 'south_africa',
+      name: 'South Africa eTenders',
+      live: true,
+      p: fetchSouthAfricaTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+    });
+  }
+  if (wantSource === 'all' || wantSource === 'philgeps') {
+    tasks.push({
+      id: 'philgeps',
+      name: 'PhilGEPS',
+      live: true,
+      p: fetchPhilgepsTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
     });
   }
 

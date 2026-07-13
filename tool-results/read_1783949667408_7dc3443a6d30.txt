@@ -1493,3 +1493,84 @@
   1493→- Prisma schema updated with tenderId on Document model and documents relation on Tender model
   1494→- ESLint passes with 0 errors
   1495→
+  1496→---
+  1497→Task ID: 3-5
+  1498→Agent: UI Fixes Agent
+  1499→Task: Add Load More buttons and remove fallback banner
+  1500→
+  1501→Work Log:
+  1502→- Read live-tenders.tsx (~2740 lines) to understand current structure, fallback state, Load More section, and empty state
+  1503→- Read tenders.tsx (~1436 lines) to understand data loading pattern, pagination, and category grouping
+  1504→- Read /api/tenders route to confirm server-side pagination support (page, limit params, meta.total, meta.totalPages)
+  1505→- live-tenders.tsx: Removed `fallback` state variable and `setFallback(Boolean(res.meta?.fallback))` call
+  1506→- live-tenders.tsx: Removed the fallback banner section (ServerCrash icon + "Showing curated sample data" message)
+  1507→- live-tenders.tsx: Kept `refreshing` state since it's used by the Refresh button
+  1508→- live-tenders.tsx: Updated Load More section to show "All loaded" indicator with CheckCircle2 icon when all tenders displayed
+  1509→- live-tenders.tsx: Updated empty state to use Globe2 icon and message "Try adjusting your filters or check back later"
+  1510→- tenders.tsx: Replaced client-side `visibleCount`/`TENDER_PAGE_SIZE` pagination with server-side `page`/`totalPages`/`totalTenders` state
+  1511→- tenders.tsx: Added `loadingMore` state for Load More spinner
+  1512→- tenders.tsx: Updated `loadTenders` to accept `pageNum` and `append` params, sends page/limit to API, appends results on subsequent pages
+  1513→- tenders.tsx: Added `handleLoadMore` that increments page state
+  1514→- tenders.tsx: Added filterKey-based useEffect to reset to page 1 when search/category/status filters change
+  1515→- tenders.tsx: Added second useEffect for page > 1 to fetch additional pages
+  1516→- tenders.tsx: Updated Load More button with emerald styling, Loader2 spinner, "Load More (X remaining)" text
+  1517→- tenders.tsx: Added "All tenders loaded" indicator with CheckCircle icon
+  1518→- tenders.tsx: Updated empty state to use Globe2 icon with updated message
+  1519→- tenders.tsx: Updated stats.total to use totalTenders from server meta
+  1520→- tenders.tsx: Updated "All (X)" category button to use totalTenders
+  1521→- tenders.tsx: Removed unused `filteredTenders` memo and `visibleCount`/`TENDER_PAGE_SIZE` state
+  1522→- tenders.tsx: Removed `.slice(0, visibleCount)` from CategorySection tenders prop
+  1523→- Fixed lint errors: used `/* eslint-disable react-hooks/set-state-in-effect */` block comments for data-fetching effects
+  1524→- All lint checks pass cleanly
+  1525→
+  1526→Stage Summary:
+  1527→- live-tenders.tsx: Fallback banner removed, Load More has "All loaded" indicator, empty state uses Globe2 icon
+  1528→- tenders.tsx: Server-side pagination implemented with Load More button, filter resets, loading spinner, "All tenders loaded" indicator, updated empty state
+  1529→- Lint: 0 errors, 0 warnings
+  1530→
+  1531→---
+  1532→Task ID: 2
+  1533→Agent: Backend Agent
+  1534→Task: Enhance Live Tenders backend with offset-based pagination and new free data sources
+  1535→
+  1536→Work Log:
+  1537→- Added `offset` parameter to `fetchWorldBankTenders` — uses `osstart` param (1-based) for World Bank API pagination
+  1538→- Added `offset` parameter to `fetchEuTedTenders` — computes `pageNumber` from offset/rows and passes offset in request body
+  1539→- Added `offset` parameter to `fetchSamGovTenders` — passes offset as string to SAM.gov API `offset` param
+  1540→- Added `offset` parameter to `fetchUngmTenders` and `fetchKenyaTendersTenders` signatures
+  1541→- Added `documentUrl` field to existing adapters:
+  1542→  - World Bank: links to project detail page
+  1543→  - EU TED: links to TED notice HTML page
+  1544→  - SAM.gov: uses uiLink field
+  1545→  - UNGM: uses rawLink from RSS feed
+  1546→  - UK Contracts Finder: uses documents_url or url
+  1547→  - OpenTenders EU: uses documents_url or url
+  1548→  - ADB: uses documents_url or url
+  1549→  - Canada Buyandsell: uses documents_url or url
+  1550→  - AusTender: uses documents_url or url
+  1551→- Added 3 new data source entries to DATA_SOURCES array:
+  1552→  - India CPPP (india_cppp) — orange accent
+  1553→  - South Africa eTenders (south_africa) — amber accent
+  1554→  - Philippines PhilGEPS (philgeps) — sky accent
+  1555→- Added 3 new adapter functions:
+  1556→  - `fetchIndiaCpppTenders` — Central Public Procurement Portal, INR, South Asia
+  1557→  - `fetchSouthAfricaTenders` — eTenders portal, ZAR, Africa
+  1558→  - `fetchPhilgepsTenders` — PhilGEPS, PHP, Southeast Asia
+  1559→  - All include offset support, documentUrl field, and graceful error handling
+  1560→- Updated `fetchLiveTenders` function:
+  1561→  - Added `offset` optional param to signature
+  1562→  - Cache key now includes offset
+  1563→  - Passes offset to all adapters that support it
+  1564→  - Registered 3 new source adapters (india_cppp, south_africa, philgeps)
+  1565→- Updated `/api/tenders/live` route:
+  1566→  - Added `offset` query param parsing (default 0, must be >= 0)
+  1567→  - Added 3 new source IDs to `allowedSources` array
+  1568→  - Passes offset to `fetchLiveTenders`
+  1569→  - Response meta now includes `offset` and `hasMore` pagination fields
+  1570→  - Updated JSDoc with new source IDs and offset param
+  1571→
+  1572→Stage Summary:
+  1573→- external-tenders.ts: 3 new adapters, offset support on 5+ adapters, documentUrl on 9 adapters
+  1574→- route.ts: offset param, pagination metadata (offset, hasMore), 3 new allowed sources
+  1575→- Lint: 0 errors, 0 warnings
+  1576→
