@@ -1,0 +1,1061 @@
+     1→'use client';
+     2→
+     3→import { useState, useRef, useCallback, useEffect } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api, Document, Company } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Textarea } from '@/components/ui/textarea';
+    11→import { Label } from '@/components/ui/label';
+    12→import {
+    13→  Select,
+    14→  SelectContent,
+    15→  SelectItem,
+    16→  SelectTrigger,
+    17→  SelectValue,
+    18→} from '@/components/ui/select';
+    19→import { toast } from 'sonner';
+    20→import {
+    21→  User, Mail, Phone, MapPin, Building, Shield, Edit2, Save, X,
+    22→  CheckCircle, Briefcase, FileText, Upload, Clock, XCircle,
+    23→  Award, Receipt, FolderOpen, File, Camera, Users, UserCircle,
+    24→  Globe, MapPinned, Hash, ExternalLink, Plus, ChevronRight,
+    25→  Lock, Eye, PenTool, Settings, FileCheck, ClipboardList,
+    26→} from 'lucide-react';
+    27→import { StampSignatureManager } from '@/components/stamp-signature';
+    28→// ==========================================
+    29→// Constants
+    30→// ==========================================
+    31→
+    32→const SKILL_OPTIONS = [
+    33→  'Construction', 'IT', 'Supply', 'Consulting', 'Engineering',
+    34→  'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Landscaping',
+    35→  'Interior Design', 'Project Management', 'Logistics', 'Manufacturing',
+    36→  'Healthcare', 'Education', 'Finance', 'Legal', 'Agriculture', 'Telecommunications'
+    37→];
+    38→
+    39→const SKILL_COLORS: Record<string, string> = {
+    40→  'Construction': 'bg-amber-50 text-amber-700 border-amber-200/60',
+    41→  'IT': 'bg-blue-50 text-blue-700 border-blue-200/60',
+    42→  'Supply': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    43→  'Consulting': 'bg-purple-50 text-purple-700 border-purple-200/60',
+    44→  'Engineering': 'bg-teal-50 text-teal-700 border-teal-200/60',
+    45→  'Architecture': 'bg-rose-50 text-rose-700 border-rose-200/60',
+    46→  'Electrical': 'bg-yellow-50 text-yellow-700 border-yellow-200/60',
+    47→  'Plumbing': 'bg-cyan-50 text-cyan-700 border-cyan-200/60',
+    48→  'HVAC': 'bg-orange-50 text-orange-700 border-orange-200/60',
+    49→  'Landscaping': 'bg-lime-50 text-lime-700 border-lime-200/60',
+    50→  'Interior Design': 'bg-pink-50 text-pink-700 border-pink-200/60',
+    51→  'Project Management': 'bg-indigo-50 text-indigo-700 border-indigo-200/60',
+    52→  'Logistics': 'bg-sky-50 text-sky-700 border-sky-200/60',
+    53→  'Manufacturing': 'bg-stone-50 text-stone-700 border-stone-200/60',
+    54→  'Healthcare': 'bg-red-50 text-red-700 border-red-200/60',
+    55→  'Education': 'bg-violet-50 text-violet-700 border-violet-200/60',
+    56→  'Finance': 'bg-green-50 text-green-700 border-green-200/60',
+    57→  'Legal': 'bg-slate-50 text-slate-700 border-slate-200/60',
+    58→  'Agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    59→  'Telecommunications': 'bg-blue-50 text-blue-700 border-blue-200/60',
+    60→};
+    61→
+    62→// Role configuration
+    63→type UserRole = 'team_admin' | 'user';
+    64→
+    65→interface RoleConfig {
+    66→  label: string;
+    67→  description: string;
+    68→  icon: typeof Shield;
+    69→  badgeClass: string;
+    70→  permissions: { label: string; icon: typeof Eye }[];
+    71→}
+    72→
+    73→const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
+    74→  team_admin: {
+    75→    label: 'Team Admin',
+    76→    description: 'Company management',
+    77→    icon: Users,
+    78→    badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    79→    permissions: [
+    80→      { label: 'Create tenders', icon: ClipboardList },
+    81→      { label: 'Review bids', icon: FileCheck },
+    82→      { label: 'Manage team members', icon: Users },
+    83→      { label: 'Company settings', icon: Settings },
+    84→      { label: 'Submit bids', icon: PenTool },
+    85→      { label: 'View tenders', icon: Eye },
+    86→      { label: 'Manage own profile & documents', icon: User },
+    87→    ],
+    88→  },
+    89→  user: {
+    90→    label: 'User',
+    91→    description: 'Standard access',
+    92→    icon: UserCircle,
+    93→    badgeClass: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    94→    permissions: [
+    95→      { label: 'Submit bids', icon: PenTool },
+    96→      { label: 'View tenders', icon: Eye },
+    97→      { label: 'Manage own profile', icon: User },
+    98→      { label: 'Upload documents', icon: FileText },
+    99→    ],
+   100→  },
+   101→};
+   102→
+   103→// Document helpers
+   104→const docTypeConfig = (type: string) => {
+   105→  switch (type) {
+   106→    case 'business_license': return { icon: Briefcase, bg: 'bg-emerald-50', color: 'text-emerald-600', label: 'Business License' };
+   107→    case 'tax_clearance': return { icon: Receipt, bg: 'bg-amber-50', color: 'text-amber-600', label: 'Tax Clearance' };
+   108→    case 'portfolio': return { icon: FolderOpen, bg: 'bg-teal-50', color: 'text-teal-600', label: 'Portfolio' };
+   109→    case 'certificate': return { icon: Award, bg: 'bg-purple-50', color: 'text-purple-600', label: 'Certificate' };
+   110→    default: return { icon: File, bg: 'bg-muted/50', color: 'text-muted-foreground', label: type.replace('_', ' ') };
+   111→  }
+   112→};
+   113→
+   114→const docStatusBadge = (status: string) => {
+   115→  switch (status) {
+   116→    case 'approved': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   117→    case 'rejected': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   118→    default: return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
+   119→  }
+   120→};
+   121→
+   122→const docStatusDot = (status: string) => {
+   123→  switch (status) {
+   124→    case 'approved': return 'bg-emerald-500';
+   125→    case 'rejected': return 'bg-rose-500';
+   126→    default: return 'bg-amber-500';
+   127→  }
+   128→};
+   129→
+   130→function getProfileCompleteness(profile: Record<string, unknown> | undefined | null): { pct: number; missing: string[] } {
+   131→  if (!profile) return { pct: 0, missing: ['Full Name', 'Phone', 'Location', 'Skills', 'Bio'] };
+   132→  const checks: [string, boolean][] = [
+   133→    ['Full Name', !!(profile.fullName as string)],
+   134→    ['Phone', !!(profile.phone as string)],
+   135→    ['Location', !!(profile.location as string)],
+   136→    ['Skills', !!(profile.skillTags as string)],
+   137→    ['Bio', !!(profile.bio as string)],
+   138→  ];
+   139→  const completed = checks.filter(([, v]) => v).length;
+   140→  const missing = checks.filter(([, v]) => !v).map(([label]) => label);
+   141→  return { pct: Math.round((completed / checks.length) * 100), missing };
+   142→}
+   143→
+   144→const sectionVariants = {
+   145→  hidden: { opacity: 0, y: 20 },
+   146→  visible: (i: number) => ({
+   147→    opacity: 1,
+   148→    y: 0,
+   149→    transition: { delay: i * 0.08, duration: 0.35, ease: 'easeOut' },
+   150→  }),
+   151→};
+   152→
+   153→// Team member type for the role management section
+   154→interface TeamMember {
+   155→  id: string;
+   156→  email: string;
+   157→  role: UserRole;
+   158→  status: string;
+   159→  createdAt: string;
+   160→  profile?: { fullName: string; jobTitle?: string };
+   161→}
+   162→
+   163→// ==========================================
+   164→// Main Component
+   165→// ==========================================
+   166→
+   167→export function ProfileView() {
+   168→  const { user, setUser, company } = useAuthStore();
+   169→  const { setView } = useNavStore();
+   170→  const [editing, setEditing] = useState(false);
+   171→  const [form, setForm] = useState(() => ({
+   172→    fullName: user?.profile?.fullName || '',
+   173→    jobTitle: user?.profile?.jobTitle || '',
+   174→    phone: user?.profile?.phone || '',
+   175→    location: user?.profile?.location || '',
+   176→    address: user?.profile?.address || '',
+   177→    bio: user?.profile?.bio || '',
+   178→    skillTags: user?.profile?.skillTags || '',
+   179→  }));
+   180→  const [selectedSkills, setSelectedSkills] = useState<string[]>(
+   181→    () => (user?.profile?.skillTags || '').split(',').map(s => s.trim()).filter(Boolean)
+   182→  );
+   183→  const [documents, setDocuments] = useState<Document[]>([]);
+   184→  const [docType, setDocType] = useState('business_license');
+   185→  const [docsLoading, setDocsLoading] = useState(false);
+   186→  const [companyData, setCompanyData] = useState<Company | null>(company || null);
+   187→  const [companyLoading, setCompanyLoading] = useState(false);
+   188→  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+   189→  const [teamLoading, setTeamLoading] = useState(false);
+   190→  const [changingRole, setChangingRole] = useState<string | null>(null);
+   191→  const fileRef = useRef<HTMLInputElement>(null);
+   192→
+   193→  const profile = user?.profile;
+   194→  const isVerified = profile?.verified ?? false;
+   195→  const userRole = (user?.role || 'user') as UserRole;
+   196→  const roleConfig = ROLE_CONFIG[userRole];
+   197→  const isTeamAdmin = userRole === 'team_admin';
+   198→  const hasCompany = !!(user?.companyId || companyData);
+   199→  const completeness = getProfileCompleteness(profile as Record<string, unknown> | undefined | null);
+   200→  const approvedDocs = documents.filter(d => d.status === 'approved').length;
+   201→  const pendingDocs = documents.filter(d => d.status === 'pending').length;
+   202→
+   203→  // Load documents
+   204→  const loadDocs = useCallback(async () => {
+   205→    setDocsLoading(true);
+   206→    const res = await api.get('/documents');
+   207→    if (res.success) setDocuments(res.data);
+   208→    setDocsLoading(false);
+   209→  }, []);
+   210→
+   211→  // Load company details
+   212→  const loadCompany = async () => {
+   213→    if (!user?.companyId) return;
+   214→    setCompanyLoading(true);
+   215→    const res = await api.get(`/companies/${user.companyId}`);
+   216→    if (res.success) {
+   217→      setCompanyData(res.data);
+   218→    }
+   219→    setCompanyLoading(false);
+   220→  };
+   221→
+   222→  // Load team members (for team_admin)
+   223→  const loadTeamMembers = async () => {
+   224→    if (!isTeamAdmin) return;
+   225→    setTeamLoading(true);
+   226→    try {
+   227→      if (user?.companyId) {
+   228→        const res = await api.get(`/companies/${user.companyId}`);
+   229→        if (res.success && res.data.users) {
+   230→          setTeamMembers(res.data.users);
+   231→        }
+   232→      } else if (isTeamAdmin) {
+   233→        // Team admin without company can see all users via profiles
+   234→        const res = await api.get('/profiles');
+   235→        if (res.success) {
+   236→          const members: TeamMember[] = res.data.map((p: { user: { id: string; email: string; role: UserRole; status: string; createdAt: string }; fullName: string; jobTitle?: string }) => ({
+   237→            id: p.user.id,
+   238→            email: p.user.email,
+   239→            role: p.user.role,
+   240→            status: p.user.status,
+   241→            createdAt: p.user.createdAt,
+   242→            profile: { fullName: p.fullName, jobTitle: p.jobTitle },
+   243→          }));
+   244→          setTeamMembers(members);
+   245→        }
+   246→      }
+   247→    } catch {
+   248→      // Silently fail
+   249→    }
+   250→    setTeamLoading(false);
+   251→  };
+   252→
+   253→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   254→  useEffect(() => { loadDocs(); }, [loadDocs]);
+   255→
+   256→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   257→  useEffect(() => { if (user?.companyId && !companyData) loadCompany(); }, [user?.companyId, companyData]);
+   258→
+   259→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   260→  useEffect(() => { loadTeamMembers(); }, [isTeamAdmin, user?.companyId]);
+   261→
+   262→  const handleSave = async () => {
+   263→    const profileId = user?.profile?.id;
+   264→    if (!profileId) return;
+   265→    const res = await api.put(`/profiles/${profileId}`, {
+   266→      ...form,
+   267→      skillTags: selectedSkills.join(','),
+   268→    });
+   269→    if (res.success) {
+   270→      toast.success('Profile updated!');
+   271→      setEditing(false);
+   272→      // Refresh user data
+   273→      const meRes = await api.get('/auth/me');
+   274→      if (meRes.success) setUser(meRes.data);
+   275→    } else toast.error(res.error || 'Failed to update profile');
+   276→  };
+   277→
+   278→  const toggleSkill = (skill: string) => {
+   279→    setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+   280→  };
+   281→
+   282→  const handleDocUpload = async () => {
+   283→    const file = fileRef.current?.files?.[0];
+   284→    if (!file) return;
+   285→    const formData = new FormData();
+   286→    formData.append('file', file);
+   287→    formData.append('docType', docType);
+   288→    formData.append('userId', user?.id || '');
+   289→    const res = await api.upload('/documents', formData);
+   290→    if (res.success) {
+   291→      toast.success('Document uploaded for verification');
+   292→      loadDocs();
+   293→    } else toast.error(res.error || 'Upload failed');
+   294→  };
+   295→
+   296→  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+   297→    if (!isTeamAdmin) return;
+   298→    setChangingRole(userId);
+   299→    const res = await api.patch(`/users/${userId}/role`, { role: newRole });
+   300→    if (res.success) {
+   301→      toast.success('Role updated successfully');
+   302→      loadTeamMembers();
+   303→    } else {
+   304→      toast.error(res.error || 'Failed to update role');
+   305→    }
+   306→    setChangingRole(null);
+   307→  };
+   308→
+   309→  return (
+   310→    <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto view-enter">
+   311→      {/* Header */}
+   312→      <div
+   313→ className="flex items-center justify-between animate-[fadeIn_0.3s_ease-out]">
+   314→        <div className="flex items-center gap-4">
+   315→          <div className="p-3 rounded-2xl gradient-emerald flex-shrink-0 shadow-md shadow-emerald-200/50">
+   316→            <User className="h-6 w-6 text-white" />
+   317→          </div>
+   318→          <div>
+   319→            <h2 className="text-2xl font-bold tracking-tight">
+   320→              <span className="text-gradient-emerald">My Profile</span>
+   321→            </h2>
+   322→            <p className="text-muted-foreground text-sm mt-0.5">Manage your profile, company info, and access level</p>
+   323→          </div>
+   324→        </div>
+   325→        {!editing ? (
+   326→          <Button
+   327→            variant="outline"
+   328→            onClick={() => setEditing(true)}
+   329→            className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-primary/10 hover:text-emerald-800 transition-colors"
+   330→          >
+   331→            <Edit2 className="h-4 w-4 mr-2" /> Edit Profile
+   332→          </Button>
+   333→        ) : (
+   334→          <div className="flex gap-2">
+   335→            <Button
+   336→              variant="outline"
+   337→              onClick={() => setEditing(false)}
+   338→              className="rounded-xl"
+   339→            >
+   340→              <X className="h-4 w-4 mr-1" /> Cancel
+   341→            </Button>
+   342→            <Button
+   343→              className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+   344→              onClick={handleSave}
+   345→            >
+   346→              <Save className="h-4 w-4 mr-1" /> Save
+   347→            </Button>
+   348→          </div>
+   349→        )}
+   350→      </div>
+   351→
+   352→      {/* ==========================================
+   353→          COMPANY SECTION (top of profile)
+   354→          ========================================== */}
+   355→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   356→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   357→          <CardHeader className="pb-3">
+   358→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   359→              <div className="p-1.5 rounded-lg bg-teal-500/10">
+   360→                <Building className="h-3.5 w-3.5 text-teal-600" />
+   361→              </div>
+   362→              Company
+   363→              {companyData?.verified && (
+   364→                <Badge className="text-[10px] px-1.5 py-0 border-0 bg-emerald-50 text-emerald-700 ml-1">
+   365→                  <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> Verified
+   366→                </Badge>
+   367→              )}
+   368→            </CardTitle>
+   369→          </CardHeader>
+   370→          <CardContent>
+   371→            {companyLoading ? (
+   372→              <div className="space-y-3">
+   373→                <div className="h-10 bg-muted/50 rounded-lg animate-pulse" />
+   374→                <div className="h-10 bg-muted/50 rounded-lg animate-pulse w-2/3" />
+   375→              </div>
+   376→            ) : hasCompany && companyData ? (
+   377→              <div className="space-y-4">
+   378→                {/* Company header */}
+   379→                <div className="flex items-start gap-4">
+   380→                  <div className="w-12 h-12 rounded-xl bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+   381→                    <Building className="h-5 w-5 text-teal-600" />
+   382→                  </div>
+   383→                  <div className="flex-1 min-w-0">
+   384→                    <div className="flex items-center gap-2 flex-wrap">
+   385→                      <h4 className="text-sm font-bold text-foreground">{companyData.name}</h4>
+   386→                      {companyData.verified && (
+   387→                        <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+   388→                      )}
+   389→                    </div>
+   390→                    <p className="text-xs text-muted-foreground mt-0.5">{companyData.industry}</p>
+   391→                  </div>
+   392→                  <Button
+   393→                    variant="ghost"
+   394→                    size="sm"
+   395→                    className="rounded-lg text-xs text-muted-foreground hover:text-foreground"
+   396→                    onClick={() => setView('admin', { tab: 'companies' })}
+   397→                  >
+   398→                    View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+   399→                  </Button>
+   400→                </div>
+   401→
+   402→                {/* Company details grid */}
+   403→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   404→                  {companyData.city && (
+   405→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   406→                      <MapPinned className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   407→                      <div>
+   408→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
+   409→                        <p className="text-xs font-medium">{companyData.city}{companyData.country ? `, ${companyData.country}` : ''}</p>
+   410→                      </div>
+   411→                    </div>
+   412→                  )}
+   413→                  {companyData.tinNumber && (
+   414→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   415→                      <Hash className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   416→                      <div>
+   417→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">TIN Number</p>
+   418→                        <p className="text-xs font-medium">{companyData.tinNumber}</p>
+   419→                      </div>
+   420→                    </div>
+   421→                  )}
+   422→                  {companyData.registrationNo && (
+   423→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   424→                      <FileText className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   425→                      <div>
+   426→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Registration No.</p>
+   427→                        <p className="text-xs font-medium">{companyData.registrationNo}</p>
+   428→                      </div>
+   429→                    </div>
+   430→                  )}
+   431→                  {companyData.industry && (
+   432→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   433→                      <Briefcase className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   434→                      <div>
+   435→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Industry</p>
+   436→                        <p className="text-xs font-medium">{companyData.industry}</p>
+   437→                      </div>
+   438→                    </div>
+   439→                  )}
+   440→                  {companyData.phone && (
+   441→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   442→                      <Phone className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   443→                      <div>
+   444→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Phone</p>
+   445→                        <p className="text-xs font-medium">{companyData.phone}</p>
+   446→                      </div>
+   447→                    </div>
+   448→                  )}
+   449→                  {companyData.website && (
+   450→                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+   451→                      <Globe className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+   452→                      <div>
+   453→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
+   454→                        <p className="text-xs font-medium truncate max-w-[200px]">{companyData.website}</p>
+   455→                      </div>
+   456→                    </div>
+   457→                  )}
+   458→                </div>
+   459→              </div>
+   460→            ) : (
+   461→              <div className="flex flex-col items-center justify-center py-8 text-center">
+   462→                <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+   463→                  <Building className="h-6 w-6 text-muted-foreground" />
+   464→                </div>
+   465→                <p className="text-sm font-medium text-foreground">No company associated</p>
+   466→                <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
+   467→                  Set up your company to access team management, create tenders, and more.
+   468→                </p>
+   469→                <Button
+   470→                  variant="outline"
+   471→                  className="mt-4 rounded-xl border-dashed"
+   472→                  onClick={() => setView('admin', { tab: 'companies' })}
+   473→                >
+   474→                  <Plus className="h-4 w-4 mr-1.5" /> Set Up Your Company
+   475→                </Button>
+   476→              </div>
+   477→            )}
+   478→          </CardContent>
+   479→        </Card>
+   480→      </div>
+   481→
+   482→      {/* ==========================================
+   483→          ROLE & ACCESS SECTION
+   484→          ========================================== */}
+   485→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   486→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   487→          <CardHeader className="pb-3">
+   488→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   489→              <div className="p-1.5 rounded-lg bg-orange-500/10">
+   490→                <Shield className="h-3.5 w-3.5 text-orange-600" />
+   491→              </div>
+   492→              Role & Access Level
+   493→            </CardTitle>
+   494→          </CardHeader>
+   495→          <CardContent className="space-y-4">
+   496→            {/* Role Badge */}
+   497→            <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-xl">
+   498→              <div className={`p-2.5 rounded-xl ${roleConfig.badgeClass}`}>
+   499→                <roleConfig.icon className="h-5 w-5" />
+   500→              </div>
+   501→              <div className="flex-1">
+   502→                <div className="flex items-center gap-2">
+   503→                  <span className="text-sm font-bold">{roleConfig.label}</span>
+   504→                  <Badge className={`text-[10px] px-2 py-0 border-0 font-semibold ${roleConfig.badgeClass}`}>
+   505→                    {roleConfig.description}
+   506→                  </Badge>
+   507→                </div>
+   508→                <p className="text-xs text-muted-foreground mt-0.5">
+   509→                  {user?.email}
+   510→                </p>
+   511→              </div>
+   512→            </div>
+   513→
+   514→            {/* Permissions Checklist */}
+   515→            <div>
+   516→              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Permissions</p>
+   517→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   518→                {roleConfig.permissions.map((perm) => {
+   519→                  const PermIcon = perm.icon;
+   520→                  return (
+   521→                    <div key={perm.label} className="flex items-center gap-2 px-3 py-2 bg-muted/20 rounded-lg">
+   522→                      <PermIcon className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+   523→                      <span className="text-xs font-medium text-foreground">{perm.label}</span>
+   524→                    </div>
+   525→                  );
+   526→                })}
+   527→              </div>
+   528→            </div>
+   529→          </CardContent>
+   530→        </Card>
+   531→      </div>
+   532→
+   533→      {/* ==========================================
+   534→          PROFILE HEADER CARD
+   535→          ========================================== */}
+   536→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   537→        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
+   538→          <CardContent className="p-6">
+   539→            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+   540→              {/* Avatar */}
+   541→              <div className="relative flex-shrink-0 group">
+   542→                <div className="w-20 h-20 rounded-2xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-200/40">
+   543→                  <span className="text-white font-bold text-3xl">
+   544→                    {(profile?.fullName || 'U')[0].toUpperCase()}
+   545→                  </span>
+   546→                </div>
+   547→                {isVerified && (
+   548→                  <span className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-xl border-3 border-white flex items-center justify-center shadow-md shadow-emerald-200">
+   549→                    <CheckCircle className="w-4 h-4 text-white" strokeWidth={2.5} />
+   550→                  </span>
+   551→                )}
+   552→                {editing && (
+   553→                  <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+   554→                    <Camera className="h-5 w-5 text-white" />
+   555→                  </div>
+   556→                )}
+   557→              </div>
+   558→
+   559→              {/* Info */}
+   560→              <div className="flex-1 text-center sm:text-left">
+   561→                <h3 className="text-xl font-bold text-foreground">{profile?.fullName || 'Complete your profile'}</h3>
+   562→                <p className="text-sm text-muted-foreground mt-0.5">
+   563→                  {profile?.jobTitle || (hasCompany ? 'Team Member' : 'Individual Professional')}
+   564→                  {companyData ? ` at ${companyData.name}` : ''}
+   565→                </p>
+   566→                <div className="flex flex-wrap items-center gap-2 mt-3 justify-center sm:justify-start">
+   567→                  <Badge className={`text-xs px-3 py-1 border-0 font-semibold ${
+   568→                    isVerified
+   569→                      ? 'bg-emerald-100 text-emerald-700'
+   570→                      : 'bg-amber-100 text-amber-700'
+   571→                  }`}>
+   572→                    <Shield className="h-3 w-3 mr-1.5" />
+   573→                    {isVerified ? 'Verified' : 'Pending Verification'}
+   574→                  </Badge>
+   575→                  <Badge className={`text-xs px-3 py-1 border-0 font-semibold ${roleConfig.badgeClass}`}>
+   576→                    <roleConfig.icon className="h-3 w-3 mr-1.5" />
+   577→                    {roleConfig.label}
+   578→                  </Badge>
+   579→                  {hasCompany && (
+   580→                    <Badge className="text-xs px-3 py-1 border-0 font-semibold bg-teal-50 text-teal-700">
+   581→                      <Building className="h-3 w-3 mr-1.5" />
+   582→                      {companyData?.name}
+   583→                    </Badge>
+   584→                  )}
+   585→                </div>
+   586→              </div>
+   587→
+   588→              {/* Verification Status & Completeness */}
+   589→              <div className="hidden sm:flex flex-col items-end gap-3">
+   590→                <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl ${
+   591→                  isVerified ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'
+   592→                }`}>
+   593→                  <div className={`w-3 h-3 rounded-full ${isVerified ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+   594→                  <span className={`text-xs font-semibold ${isVerified ? 'text-emerald-700' : 'text-amber-700'}`}>
+   595→                    {isVerified ? 'Identity Verified' : 'Verification Pending'}
+   596→                  </span>
+   597→                </div>
+   598→                {/* Profile Completeness */}
+   599→                <div className="w-40">
+   600→                  <div className="flex items-center justify-between mb-1">
+   601→                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Profile</span>
+   602→                    <span className={`text-xs font-bold ${completeness.pct >= 80 ? 'text-emerald-600' : completeness.pct >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>
+   603→                      {completeness.pct}%
+   604→                    </span>
+   605→                  </div>
+   606→                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+   607→                    <div
+   608→ className={`h-full rounded-full ${
+   609→ completeness.pct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
+   610→ completeness.pct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
+   611→ 'bg-gradient-to-r from-rose-400 to-rose-600'
+   612→ } transition-[width] duration-700`} style={{ width: `${completeness.pct}%` }}
+   613→ />
+   614→                  </div>
+   615→                  {completeness.missing.length > 0 && !editing && (
+   616→                    <p className="text-[10px] text-muted-foreground mt-1">
+   617→                      Add: {completeness.missing.slice(0, 2).join(', ')}{completeness.missing.length > 2 ? '...' : ''}
+   618→                    </p>
+   619→                  )}
+   620→                </div>
+   621→              </div>
+   622→            </div>
+   623→          </CardContent>
+   624→        </Card>
+   625→      </div>
+   626→
+   627→      {/* ==========================================
+   628→          PERSONAL INFORMATION
+   629→          ========================================== */}
+   630→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   631→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   632→          <CardHeader className="pb-3">
+   633→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   634→              <div className="p-1.5 rounded-lg gradient-emerald">
+   635→                <User className="h-3.5 w-3.5 text-white" />
+   636→              </div>
+   637→              Personal Information
+   638→            </CardTitle>
+   639→          </CardHeader>
+   640→          <CardContent className="space-y-4">
+   641→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   642→              <div className="space-y-2">
+   643→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   644→                  <User className="h-3 w-3 text-emerald-500" /> Full Name
+   645→                </Label>
+   646→                {editing ? (
+   647→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.fullName} onChange={e => setForm(d => ({ ...d, fullName: e.target.value }))} />
+   648→                ) : (
+   649→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.fullName || '-'}</p>
+   650→                )}
+   651→              </div>
+   652→              <div className="space-y-2">
+   653→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   654→                  <Mail className="h-3 w-3 text-emerald-500" /> Email
+   655→                </Label>
+   656→                <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{user?.email}</p>
+   657→              </div>
+   658→            </div>
+   659→
+   660→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   661→              <div className="space-y-2">
+   662→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   663→                  <Briefcase className="h-3 w-3 text-emerald-500" /> Job Title
+   664→                </Label>
+   665→                {editing ? (
+   666→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.jobTitle} onChange={e => setForm(d => ({ ...d, jobTitle: e.target.value }))} placeholder="e.g. Senior Engineer, Project Manager" />
+   667→                ) : (
+   668→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.jobTitle || '-'}</p>
+   669→                )}
+   670→              </div>
+   671→              <div className="space-y-2">
+   672→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   673→                  <Phone className="h-3 w-3 text-emerald-500" /> Phone
+   674→                </Label>
+   675→                {editing ? (
+   676→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.phone} onChange={e => setForm(d => ({ ...d, phone: e.target.value }))} />
+   677→                ) : (
+   678→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.phone || '-'}</p>
+   679→                )}
+   680→              </div>
+   681→            </div>
+   682→
+   683→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   684→              <div className="space-y-2">
+   685→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   686→                  <MapPin className="h-3 w-3 text-emerald-500" /> Location
+   687→                </Label>
+   688→                {editing ? (
+   689→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.location} onChange={e => setForm(d => ({ ...d, location: e.target.value }))} />
+   690→                ) : (
+   691→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.location || '-'}</p>
+   692→                )}
+   693→              </div>
+   694→              <div className="space-y-2">
+   695→                <Label className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+   696→                  <MapPin className="h-3 w-3 text-emerald-500" /> Address
+   697→                </Label>
+   698→                {editing ? (
+   699→                  <Input className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50" value={form.address} onChange={e => setForm(d => ({ ...d, address: e.target.value }))} />
+   700→                ) : (
+   701→                  <p className="text-sm p-2.5 bg-muted/50 rounded-lg font-medium">{profile?.address || '-'}</p>
+   702→                )}
+   703→              </div>
+   704→            </div>
+   705→          </CardContent>
+   706→        </Card>
+   707→      </div>
+   708→
+   709→      {/* ==========================================
+   710→          SKILLS SECTION
+   711→          ========================================== */}
+   712→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   713→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   714→          <CardHeader className="pb-3">
+   715→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   716→              <div className="p-1.5 rounded-lg gradient-amber">
+   717→                <Briefcase className="h-3.5 w-3.5 text-white" />
+   718→              </div>
+   719→              Skills & Expertise
+   720→              {selectedSkills.length > 0 && (
+   721→                <Badge className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-0 font-medium ml-1">
+   722→                  {selectedSkills.length}
+   723→                </Badge>
+   724→              )}
+   725→            </CardTitle>
+   726→          </CardHeader>
+   727→          <CardContent>
+   728→            {editing ? (
+   729→              <div className="flex flex-wrap gap-2">
+   730→                {SKILL_OPTIONS.map(skill => {
+   731→                  const isSelected = selectedSkills.includes(skill);
+   732→                  return (
+   733→                    <button
+   734→ key={skill}
+   735→ onClick={() => toggleSkill(skill)}
+   736→ className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+   737→ isSelected
+   738→ ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50 hover:bg-emerald-600'
+   739→ : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-emerald-700 border border-border/60'
+   740→ } active:scale-95 transition-transform`}
+   741→ >
+   742→                      {skill}
+   743→                    </button>
+   744→                  );
+   745→                })}
+   746→              </div>
+   747→            ) : (
+   748→              <div className="flex flex-wrap gap-2">
+   749→                {profile?.skillTags?.split(',').filter(Boolean).length ? (
+   750→                  profile.skillTags.split(',').filter(Boolean).map(tag => (
+   751→                    <span
+   752→                      key={tag}
+   753→                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border ${SKILL_COLORS[tag.trim()] || 'bg-emerald-50 text-emerald-700 border-emerald-200/60'}`}
+   754→                    >
+   755→                      {tag.trim()}
+   756→                    </span>
+   757→                  ))
+   758→                ) : (
+   759→                  <p className="text-sm text-muted-foreground">No skills listed</p>
+   760→                )}
+   761→              </div>
+   762→            )}
+   763→          </CardContent>
+   764→        </Card>
+   765→      </div>
+   766→
+   767→      {/* ==========================================
+   768→          BIO SECTION
+   769→          ========================================== */}
+   770→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   771→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   772→          <CardHeader className="pb-3">
+   773→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   774→              <div className="p-1.5 rounded-lg gradient-rose">
+   775→                <FileText className="h-3.5 w-3.5 text-white" />
+   776→              </div>
+   777→              Bio & Portfolio
+   778→            </CardTitle>
+   779→          </CardHeader>
+   780→          <CardContent>
+   781→            {editing ? (
+   782→              <Textarea
+   783→                className="rounded-lg focus:ring-primary focus:border-primary bg-muted/50 min-h-[120px]"
+   784→                value={form.bio}
+   785→                onChange={e => setForm(d => ({ ...d, bio: e.target.value }))}
+   786→                rows={4}
+   787→                placeholder="Write a brief description about yourself or your company..."
+   788→              />
+   789→            ) : (
+   790→              <p className="text-sm p-3 bg-muted/50 rounded-lg whitespace-pre-wrap leading-relaxed">
+   791→                {profile?.bio || 'No bio provided'}
+   792→              </p>
+   793→            )}
+   794→          </CardContent>
+   795→        </Card>
+   796→      </div>
+   797→
+   798→      {/* ==========================================
+   799→          VERIFICATION DOCUMENTS
+   800→          ========================================== */}
+   801→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   802→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   803→          <CardHeader className="pb-3">
+   804→            <CardTitle className="text-base font-bold flex items-center gap-2">
+   805→              <div className="p-1.5 rounded-lg gradient-teal">
+   806→                <Shield className="h-3.5 w-3.5 text-white" />
+   807→              </div>
+   808→              Verification Documents
+   809→              {!docsLoading && documents.length > 0 && (
+   810→                <Badge className="text-[10px] px-1.5 py-0 bg-teal-50 text-teal-700 border-0 font-medium ml-1">
+   811→                  {documents.length}
+   812→                </Badge>
+   813→              )}
+   814→            </CardTitle>
+   815→          </CardHeader>
+   816→          <CardContent className="space-y-5">
+   817→            {/* Verification Progress */}
+   818→            {!isVerified && (
+   819→              <div className="bg-amber-50/60 border border-amber-200/60 rounded-xl p-4">
+   820→                <div className="flex items-center gap-2 mb-3">
+   821→                  <div className="p-1 rounded-md bg-amber-100">
+   822→                    <Clock className="h-3.5 w-3.5 text-amber-600" />
+   823→                  </div>
+   824→                  <p className="text-sm font-semibold text-amber-800">Verification Progress</p>
+   825→                </div>
+   826→                <div className="flex items-center gap-4">
+   827→                  <div className="flex items-center gap-2">
+   828→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   829→                      profile?.fullName ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   830→                    }`}>
+   831→                      {profile?.fullName ? <CheckCircle className="h-3 w-3" /> : '1'}
+   832→                    </div>
+   833→                    <span className="text-xs text-muted-foreground">Profile</span>
+   834→                  </div>
+   835→                  <div className="flex-1 h-px bg-border/60" />
+   836→                  <div className="flex items-center gap-2">
+   837→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   838→                      documents.length > 0 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   839→                    }`}>
+   840→                      {documents.length > 0 ? <CheckCircle className="h-3 w-3" /> : '2'}
+   841→                    </div>
+   842→                    <span className="text-xs text-muted-foreground">Documents</span>
+   843→                  </div>
+   844→                  <div className="flex-1 h-px bg-border/60" />
+   845→                  <div className="flex items-center gap-2">
+   846→                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   847→                      approvedDocs > 0 ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+   848→                    }`}>
+   849→                      {approvedDocs > 0 ? <CheckCircle className="h-3 w-3" /> : '3'}
+   850→                    </div>
+   851→                    <span className="text-xs text-muted-foreground">Approval</span>
+   852→                  </div>
+   853→                </div>
+   854→                {pendingDocs > 0 && (
+   855→                  <p className="text-xs text-amber-700 mt-3">
+   856→                    {pendingDocs} document{pendingDocs > 1 ? 's' : ''} pending review. Admin will verify your documents shortly.
+   857→                  </p>
+   858→                )}
+   859→              </div>
+   860→            )}
+   861→
+   862→            {/* Upload area */}
+   863→            <div className="border-2 border-dashed border-emerald-200/60 rounded-xl p-5 hover:border-emerald-300 transition-colors bg-emerald-50/20">
+   864→              <div className="flex flex-col sm:flex-row gap-3 items-end">
+   865→                <div className="flex-1 space-y-2">
+   866→                  <Label className="text-sm font-medium">Document Type</Label>
+   867→                  <select
+   868→                    className="w-full h-9 rounded-xl border border-border/60 bg-card px-3 text-sm focus:ring-primary/20 focus:outline-none"
+   869→                    value={docType}
+   870→                    onChange={e => setDocType(e.target.value)}
+   871→                  >
+   872→                    <option value="business_license">Business License</option>
+   873→                    <option value="tax_clearance">Tax Clearance</option>
+   874→                    <option value="portfolio">Portfolio</option>
+   875→                    <option value="certificate">Certificate</option>
+   876→                    <option value="other">Other</option>
+   877→                  </select>
+   878→                </div>
+   879→                <div className="flex-1 space-y-2">
+   880→                  <Label className="text-sm font-medium">Select File</Label>
+   881→                  <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png"
+   882→                    className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 file:cursor-pointer file:transition-colors" />
+   883→                </div>
+   884→                <Button
+   885→                  className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 whitespace-nowrap"
+   886→                  onClick={handleDocUpload}
+   887→                >
+   888→                  <Upload className="h-4 w-4 mr-1.5" /> Upload
+   889→                </Button>
+   890→              </div>
+   891→              <p className="text-[10px] text-muted-foreground/60 mt-2">Accepted formats: PDF, JPEG, PNG &middot; Max size: 10MB</p>
+   892→            </div>
+   893→
+   894→            {/* Documents list */}
+   895→            {docsLoading ? (
+   896→              <div className="space-y-2">
+   897→                {[1, 2].map(i => (
+   898→                  <div key={i} className="h-14 bg-muted/50 rounded-xl animate-pulse" />
+   899→                ))}
+   900→              </div>
+   901→            ) : documents.length > 0 ? (
+   902→              <div className="space-y-2">
+   903→                {documents.map(doc => {
+   904→                    const dtConfig = docTypeConfig(doc.docType);
+   905→                    const DtIcon = dtConfig.icon;
+   906→                    return (
+   907→                      <div
+   908→ key={doc.id}
+   909→ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors animate-[fadeIn_0.3s_ease-out]"
+   910→ >
+   911→                        <div className="flex items-center gap-3">
+   912→                          <div className={`p-2 rounded-lg ${dtConfig.bg} flex-shrink-0`}>
+   913→                            <DtIcon className={`h-4 w-4 ${dtConfig.color}`} />
+   914→                          </div>
+   915→                          <div>
+   916→                            <div className="flex items-center gap-1.5">
+   917→                              <span className={`h-1.5 w-1.5 rounded-full ${docStatusDot(doc.status)}`} />
+   918→                              <p className="text-sm font-medium">{dtConfig.label}</p>
+   919→                            </div>
+   920→                            <p className="text-xs text-muted-foreground">{doc.fileName} &middot; {new Date(doc.createdAt).toLocaleDateString()}</p>
+   921→                            {doc.reviewNotes && <p className="text-xs text-amber-600 mt-0.5">{doc.reviewNotes}</p>}
+   922→                          </div>
+   923→                        </div>
+   924→                        <Badge className={`text-[10px] px-2 py-0 border-0 rounded-lg ${docStatusBadge(doc.status)}`}>
+   925→                          {doc.status === 'approved' && <CheckCircle className="h-2.5 w-2.5 mr-0.5" />}
+   926→                          {doc.status === 'rejected' && <XCircle className="h-2.5 w-2.5 mr-0.5" />}
+   927→                          {doc.status === 'pending' && <Clock className="h-2.5 w-2.5 mr-0.5" />}
+   928→                          {doc.status}
+   929→                        </Badge>
+   930→                      </div>
+   931→                    );
+   932→                  })}
+   933→</div>
+   934→            ) : (
+   935→              <p className="text-sm text-muted-foreground text-center py-3">No documents uploaded yet</p>
+   936→            )}
+   937→          </CardContent>
+   938→        </Card>
+   939→      </div>
+   940→
+   941→      {/* ==========================================
+   942→          TEAM MANAGEMENT (team_admin)
+   943→          ========================================== */}
+   944→      {isTeamAdmin && (
+   945→        <div className="animate-[fadeIn_0.3s_ease-out]">
+   946→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   947→            <CardHeader className="pb-3">
+   948→              <CardTitle className="text-base font-bold flex items-center gap-2">
+   949→                <div className="p-1.5 rounded-lg bg-slate-500/10">
+   950→                  <Users className="h-3.5 w-3.5 text-slate-600" />
+   951→                </div>
+   952→                Team Members
+   953→                {!teamLoading && teamMembers.length > 0 && (
+   954→                  <Badge className="text-[10px] px-1.5 py-0 bg-slate-50 text-slate-700 border-0 font-medium ml-1">
+   955→                    {teamMembers.length}
+   956→                  </Badge>
+   957→                )}
+   958→              </CardTitle>
+   959→            </CardHeader>
+   960→            <CardContent>
+   961→              {teamLoading ? (
+   962→                <div className="space-y-2">
+   963→                  {[1, 2, 3].map(i => (
+   964→                    <div key={i} className="h-16 bg-muted/50 rounded-xl animate-pulse" />
+   965→                  ))}
+   966→                </div>
+   967→              ) : teamMembers.length > 0 ? (
+   968→                <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+   969→                  {teamMembers.map((member) => {
+   970→                      const memberRole = member.role as UserRole;
+   971→                      const memberConfig = ROLE_CONFIG[memberRole];
+   972→                      const MemberIcon = memberConfig.icon;
+   973→                      const isChanging = changingRole === member.id;
+   974→
+   975→                      return (
+   976→                        <div
+   977→ key={member.id}
+   978→ className="flex items-center justify-between p-3.5 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors gap-3 animate-[fadeIn_0.3s_ease-out]"
+   979→ >
+   980→                          <div className="flex items-center gap-3 min-w-0 flex-1">
+   981→                            <div className={`p-2 rounded-lg ${memberConfig.badgeClass} flex-shrink-0`}>
+   982→                              <MemberIcon className="h-4 w-4" />
+   983→                            </div>
+   984→                            <div className="min-w-0">
+   985→                              <p className="text-sm font-medium truncate">
+   986→                                {member.profile?.fullName || member.email}
+   987→                              </p>
+   988→                              <p className="text-xs text-muted-foreground truncate">
+   989→                                {member.profile?.jobTitle && `${member.profile.jobTitle} · `}{member.email}
+   990→                              </p>
+   991→                            </div>
+   992→                          </div>
+   993→
+   994→                          <div className="flex items-center gap-2 flex-shrink-0">
+   995→                            {/* Role badge (editable for team_admin) */}
+   996→                            {isTeamAdmin && member.id !== user?.id ? (
+   997→                              <div className="flex items-center gap-2">
+   998→                                <Select
+   999→                                  value={memberRole}
+  1000→                                  onValueChange={(value) => handleRoleChange(member.id, value as UserRole)}
+  1001→                                  disabled={isChanging}
+  1002→                                >
+  1003→                                  <SelectTrigger className="h-8 w-[130px] rounded-lg text-xs">
+  1004→                                    <SelectValue />
+  1005→                                  </SelectTrigger>
+  1006→                                  <SelectContent>
+  1007→                                    <SelectItem value="team_admin">
+  1008→                                      <span className="flex items-center gap-1.5">
+  1009→                                        <Users className="h-3 w-3 text-slate-500" /> Team Admin
+  1010→                                      </span>
+  1011→                                    </SelectItem>
+  1012→                                    <SelectItem value="user">
+  1013→                                      <span className="flex items-center gap-1.5">
+  1014→                                        <UserCircle className="h-3 w-3 text-gray-500" /> User
+  1015→                                      </span>
+  1016→                                    </SelectItem>
+  1017→                                  </SelectContent>
+  1018→                                </Select>
+  1019→                                {isChanging && (
+  1020→                                  <div className="h-4 w-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+  1021→                                )}
+  1022→                              </div>
+  1023→                            ) : (
+  1024→                              <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg font-semibold ${memberConfig.badgeClass}`}>
+  1025→                                <MemberIcon className="h-2.5 w-2.5 mr-0.5" />
+  1026→                                {memberConfig.label}
+  1027→                              </Badge>
+  1028→                            )}
+  1029→                          </div>
+  1030→                        </div>
+  1031→                      );
+  1032→                    })}
+  1033→</div>
+  1034→              ) : (
+  1035→                <div className="flex flex-col items-center justify-center py-6 text-center">
+  1036→                  <Users className="h-8 w-8 text-muted-foreground/40 mb-2" />
+  1037→                  <p className="text-sm text-muted-foreground">
+  1038→                    {hasCompany ? 'No team members found' : 'Set up a company to manage team members'}
+  1039→                  </p>
+  1040→                </div>
+  1041→              )}
+  1042→            </CardContent>
+  1043→          </Card>
+  1044→        </div>
+  1045→      )}
+  1046→
+  1047→      {/* ==========================================
+  1048→          SIGNATURE & STAMP SECTION
+  1049→          ========================================== */}
+  1050→      <div className="animate-[fadeIn_0.3s_ease-out]">
+  1051→        <StampSignatureManager
+  1052→          showDraw={true}
+  1053→          showUpload={true}
+  1054→          showStampTemplates={true}
+  1055→          showGallery={true}
+  1056→        />
+  1057→      </div>
+  1058→    </div>
+  1059→  );
+  1060→}
+  1061→

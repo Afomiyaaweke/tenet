@@ -1400,3 +1400,32 @@ Stage Summary:
 - **Bids Drafted Section**: Added `drafted` as a proper database status for bids. Users can now save bids as drafts (status=`drafted`) and later submit them (transition to `pending_review`). The Drafted tab in the Bids view works with both the new database status and backward-compatible heuristic. "Save as Draft" and "Submit Bid" buttons added to bid cards.
 - **AI Doc Studio**: AI Extract already had its own dedicated PDF uploader. Added export buttons (Copy, TXT, PDF) to the AI Review Result Display component using a `formatReviewAsText()` helper that converts structured review data to formatted plain text.
 - Key files modified: `live-tenders.tsx`, `bids.tsx`, `ai-doc-studio.tsx`, `prisma/schema.prisma`, `api/bids/route.ts`, `api/bids/[id]/status/route.ts`, `lib/api.ts`
+---
+Task ID: 1
+Agent: Main Agent
+Task: Build LinkedIn-style Social Circle feature for the Tenet platform
+
+Work Log:
+- Added 5 new Prisma models (SocialPost, SocialPostReaction, SocialPostComment, Connection, Endorsement) with proper relations on User model
+- Pushed schema to SQLite database and regenerated Prisma client
+- Created 7 API route files under /api/social/:
+  - posts/route.ts (GET feed, POST create)
+  - posts/[id]/route.ts (GET single, DELETE own, PATCH toggle reaction)
+  - posts/[id]/comments/route.ts (GET comments, POST add comment)
+  - connections/route.ts (GET connections, POST send request)
+  - connections/[id]/route.ts (PATCH accept/decline, DELETE remove)
+  - endorsements/route.ts (GET grouped by skill, POST endorse)
+  - discover/route.ts (GET discover users with connection status)
+- Built 1894-line SocialCircleView component at src/components/modules/social-circle.tsx
+- Updated store/index.ts to add 'social-circle' to View type
+- Updated app-shell.tsx with dynamic import, nav item, and renderView case
+- Tested all API endpoints via curl - all return 200 with correct data
+- Verified browser rendering via Agent Browser - Social Circle page renders correctly with Feed/Discover/My Network tabs
+
+Stage Summary:
+- Social Circle feature is fully functional with LinkedIn-style layout
+- 3-column layout on desktop: profile sidebar + main content + right sidebar
+- Features: post creation, reactions, comments, user discovery, connection requests, skill endorsements
+- All API routes working (verified via curl with auth token)
+- Browser rendering confirmed (Agent Browser verified navigation and UI rendering)
+- ESLint passes with 0 errors

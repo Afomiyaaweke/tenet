@@ -40,6 +40,7 @@ const AgentView = dynamic(() => import('@/components/modules/agent').then(m => (
 const StaffView = dynamic(() => import('@/components/modules/staff').then(m => ({ default: m.StaffView })), { ssr: false });
 const ContactUsView = dynamic(() => import('@/components/modules/contact-us').then(m => ({ default: m.ContactUsView })), { ssr: false });
 const PrivacyPolicyView = dynamic(() => import('@/components/modules/privacy-policy').then(m => ({ default: m.PrivacyPolicyView })), { ssr: false });
+const SocialCircleView = dynamic(() => import('@/components/modules/social-circle').then(m => ({ default: m.SocialCircleView })), { ssr: false });
 
 /* ──────────────────────────── Loading spinner ──────────────────────────── */
 
@@ -108,6 +109,7 @@ function getNavItemsForRole(role: string): NavSection[] {
       { id: 'projects', label: 'Projects', icon: FolderKanban },
       { id: 'chat', label: 'Messages', icon: MessageSquare },
       { id: 'events', label: 'Workshops', icon: GraduationCap },
+      { id: 'social-circle', label: 'Social Circle', icon: Users },
     ],
   };
 
@@ -145,7 +147,7 @@ function getNavItemsForRole(role: string): NavSection[] {
   }
 
   // Regular user
-  return [main, tools, support];
+  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support];
 }
 
 /* ──────────────────── Role badge config ──────────────────── */
@@ -161,7 +163,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'social-circle';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -528,6 +530,8 @@ export function AppShell() {
         return <ContactUsView />;
       case 'privacy-policy':
         return <PrivacyPolicyView />;
+      case 'social-circle':
+        return <SocialCircleView />;
       default:
         return <DashboardView />;
     }

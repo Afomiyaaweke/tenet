@@ -63,6 +63,13 @@ model User {
   messageReactions MessageReaction[]
   assignedTasks Task[]
   savedTenders SavedTender[]
+  socialPosts SocialPost[]
+  socialPostReactions SocialPostReaction[]
+  socialPostComments SocialPostComment[]
+  connectionsSent Connection[] @relation("UserSentConnections")
+  connectionsReceived Connection[] @relation("UserReceivedConnections")
+  endorsementsGiven Endorsement[] @relation("UserGivenEndorsements")
+  endorsementsReceived Endorsement[] @relation("UserReceivedEndorsements")
 }
 
 // ==========================================
@@ -518,4 +525,86 @@ model AuditLog {
   @@index([userId])
   @@index([companyId])
   @@index([createdAt])
+}
+
+// ==========================================
+// SOCIAL CIRCLE (LinkedIn-style networking)
+// ==========================================
+
+model SocialPost {
+  id          String   @id @default(cuid())
+  userId      String
+  content     String
+  imageUrls   String   @default("[]") // JSON array of image URLs
+  likes       Int      @default(0)
+  comments    Int      @default(0)
+  tags        String   @default("") // comma-separated tags
+  visibility  String   @default("public") // public, connections, private
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reactions  SocialPostReaction[]
+  postComments SocialPostComment[]
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model SocialPostReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  emoji     String   @default("👍") // like, love, celebrate, insightful, etc.
+  createdAt DateTime @default(now())
+
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, emoji])
+  @@index([postId])
+}
+
+model SocialPostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model Connection {
+  id          String   @id @default(cuid())
+  requesterId String   // user who sent the request
+  receiverId  String   // user who received the request
+  status      String   @default("pending") // pending, accepted, declined, blocked
+  message     String?  // optional connection request message
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester User @relation("UserSentConnections", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiver  User @relation("UserReceivedConnections", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, receiverId])
+  @@index([requesterId, status])
+  @@index([receiverId, status])
+}
+
+model Endorsement {
+  id          String   @id @default(cuid())
+  fromUserId  String   // who endorsed
+  toUserId    String   // who was endorsed
+  skill       String   // skill being endorsed
+  createdAt   DateTime @default(now())
+
+  fromUser User @relation("UserGivenEndorsements", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("UserReceivedEndorsements", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId, skill])
+  @@index([toUserId, skill])
 }
