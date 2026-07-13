@@ -4,14 +4,15 @@ import { requireAuth } from '@/lib/auth';
 
 // Valid bid status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  drafted: ['pending_review', 'rejected'],
-  pending_review: ['shortlisted', 'rejected', 'drafted'],
+  drafted: ['pending_review', 'rejected', 'withdrawn'],
+  pending_review: ['shortlisted', 'rejected', 'drafted', 'withdrawn'],
   shortlisted: ['awarded', 'rejected'],
   awarded: ['completed'],
+  withdrawn: [],
 };
 
 // Transitions that regular users can perform on their own bids
-const USER_ALLOWED_TRANSITIONS: string[] = ['drafted', 'pending_review'];
+const USER_ALLOWED_TRANSITIONS: string[] = ['drafted', 'pending_review', 'withdrawn'];
 
 /**
  * PATCH /api/bids/[id]/status
@@ -171,6 +172,29 @@ export async function PATCH(
       return NextResponse.json({
         success: true,
         data: result,
+      });
+    }
+
+    // For withdrawn bids - delete the bid and its documents
+    if (status === 'withdrawn') {
+      const result = await db.$transaction(async (tx) => {
+        // Delete associated documents first
+        await tx.document.deleteMany({
+          where: { bidId: id },
+        });
+
+        // Delete the bid
+        const deletedBid = await tx.bid.delete({
+          where: { id },
+        });
+
+        return deletedBid;
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: result,
+        message: 'Bid withdrawn successfully',
       });
     }
 
