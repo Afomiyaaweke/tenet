@@ -15,6 +15,28 @@ function getSecret(): string {
   return secret;
 }
 
+// ── Lightweight auth cache ────────────────────────────────────────────────
+// Avoids a 3-table JOIN on every authenticated request.
+// In production, replace with Redis. This in-process cache works for single-instance.
+const AUTH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+interface CachedAuthUser {
+  user: NonNullable<Awaited<ReturnType<typeof db.user.findUnique>>>;
+  cachedAt: number;
+}
+const authCache = new Map<string, CachedAuthUser>();
+
+// Periodic cleanup of expired entries
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of authCache.entries()) {
+      if (now - entry.cachedAt > AUTH_CACHE_TTL_MS) {
+        authCache.delete(key);
+      }
+    }
+  }, 60 * 1000);
+}
+
 export interface JwtPayload {
   userId: string;
   email: string;
@@ -54,6 +76,8 @@ export function extractBearerToken(request: NextRequest): string | null {
 /**
  * Get the current authenticated user from the request.
  * Returns the user with profile and company, or null if not authenticated.
+ * Uses an in-process cache (5-min TTL) to avoid DB queries on every request.
+ * For multi-instance deployments, replace with Redis-backed cache.
  */
 export async function getAuthUser(request: NextRequest) {
   const token = extractBearerToken(request);
@@ -62,12 +86,23 @@ export async function getAuthUser(request: NextRequest) {
   const payload = verifyToken(token);
   if (!payload) return null;
 
+  // Check cache first
+  const cacheKey = payload.userId;
+  const cached = authCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < AUTH_CACHE_TTL_MS) {
+    return cached.user;
+  }
+
+  // Cache miss — query DB
   const user = await db.user.findUnique({
     where: { id: payload.userId },
     include: { profile: true, company: true },
   });
 
   if (!user) return null;
+
+  // Update cache
+  authCache.set(cacheKey, { user, cachedAt: Date.now() });
 
   return user;
 }
