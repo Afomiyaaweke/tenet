@@ -74,14 +74,14 @@ const CONTACT_INFO = [
 
 const FAQ_ITEMS = [
   {
-    question: 'How do I register my company on Tenet?',
+    question: 'How do I register my company on Tenets?',
     answer:
       'During sign-up, you will create your company workspace along with your account. Each company operates as an isolated environment — your projects, tenders, and data are never shared with other organizations on the platform.',
   },
   {
     question: 'What are the different user roles?',
     answer:
-      'Tenet has three access tiers: Super Admin has platform-wide control including site audit and engagement analytics; Team Admin manages company-level operations, staff, and tenders; User is a standard member who can browse tenders, submit bids, and collaborate on projects.',
+      'Tenets has three access tiers: Super Admin has platform-wide control including site audit and engagement analytics; Team Admin manages company-level operations, staff, and tenders; User is a standard member who can browse tenders, submit bids, and collaborate on projects.',
   },
   {
     question: 'How does AI bid analysis work?',
@@ -96,12 +96,12 @@ const FAQ_ITEMS = [
   {
     question: 'What types of tenders can I publish?',
     answer:
-      'Tenet supports tenders across multiple sectors including Construction, IT & Technology, Supply & Logistics, Consulting, Healthcare, and more. You can set budgets, deadlines, required documents, and category tags to attract the right bidders.',
+      'Tenets supports tenders across multiple sectors including Construction, IT & Technology, Supply & Logistics, Consulting, Healthcare, and more. You can set budgets, deadlines, required documents, and category tags to attract the right bidders.',
   },
   {
     question: 'How do I track project progress after awarding a tender?',
     answer:
-      'Once a bid is awarded, Tenet automatically creates a project workspace with Kanban task boards, milestones, payment tracking, and a built-in messaging channel. Team Admins can assign tasks, set due dates, and monitor progress in real-time.',
+      'Once a bid is awarded, Tenets automatically creates a project workspace with Kanban task boards, milestones, payment tracking, and a built-in messaging channel. Team Admins can assign tasks, set due dates, and monitor progress in real-time.',
   },
 ];
 

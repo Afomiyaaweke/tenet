@@ -1429,3 +1429,27 @@ Stage Summary:
 - All API routes working (verified via curl with auth token)
 - Browser rendering confirmed (Agent Browser verified navigation and UI rendering)
 - ESLint passes with 0 errors
+---
+Task ID: 2
+Agent: Main Agent
+Task: Set Tenets logo as favicon and update branding
+
+Work Log:
+- Copied uploaded image (photo_2024-06-13_23-46-35.jpg) to public/tenets-logo.jpg
+- Used sharp to generate favicon-32x32.png, favicon-16x16.png, apple-touch-icon.png from the uploaded image
+- Updated layout.tsx: title "Tenets - Tender Ecosystem", icons pointing to new PNG favicons
+- Updated logo.tsx: replaced SVG icon with Image component using tenets-logo.jpg, text shows "Ten" + "ets" (accent color)
+- Updated auth-gate.tsx: logo image, heading "Tenets", welcome message, anti-phishing notice, footer
+- Updated contact-us.tsx: FAQ references from "Tenet" to "Tenets"
+- Updated privacy-policy.tsx: platform name reference
+- Updated doc-builder.tsx: ecosystem and document footer references
+- Updated tender-detail.tsx: AI-powered feature references
+- Updated ai-doc-studio.tsx: document header reference
+- Updated comment-section.tsx: placeholder and description text
+- Verified via Agent Browser: title shows "Tenets - Tender Ecosystem", favicon links correct, logo image renders in sidebar
+
+Stage Summary:
+- All branding updated from "Tenet" to "Tenets" across the entire app
+- Favicon set to the user's uploaded image (32x32, 16x16, apple-touch-icon)
+- Logo component now uses the actual uploaded image instead of SVG
+- ESLint passes with 0 errors

@@ -15,11 +15,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tenet - Tender Ecosystem",
+  title: "Tenets - Tender Ecosystem",
   description: "Transforming procurement through technology. Connect with verified contractors, discover tenders, and manage projects — all in one platform.",
-  keywords: ["Tenet", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
+  keywords: ["Tenets", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
 };
 

@@ -268,7 +268,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     try {
       const ok = await register(regData);
       if (!ok) toast.error('Registration failed. Email may already exist.');
-      else toast.success('Welcome to Tenet!');
+      else toast.success('Welcome to Tenets!');
     } catch {
       toast.error('Registration failed. Please check your connection and try again.');
     }
@@ -289,9 +289,9 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
-              <img src="/logo.png" alt="Tenet" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
+              <img src="/tenets-logo.jpg" alt="Tenets" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
               <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Tenet</h1>
+                <h1 className="text-2xl font-bold text-white tracking-tight">Tenets</h1>
                 <p className="text-orange-300/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
               </div>
             </div>
@@ -719,7 +719,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                   <div className="mt-5 flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
                     <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <p className="text-xs text-amber-800 dark:text-amber-200/80 leading-relaxed">
-                      <span className="font-semibold">Anti-Phishing Notice:</span> Tenet will never ask for your password or security code by email or phone. Always verify the URL before signing in.
+                      <span className="font-semibold">Anti-Phishing Notice:</span> Tenets will never ask for your password or security code by email or phone. Always verify the URL before signing in.
                     </p>
                   </div>
                 </div>
@@ -730,7 +730,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                 <div className="animate-[viewEnter_0.3s_ease-out]">
                   <div className="mb-4">
                     <h2 className="text-2xl font-bold text-foreground">Create Account</h2>
-                    <p className="text-muted-foreground text-sm mt-1">Join the Tenet Tender Ecosystem</p>
+                    <p className="text-muted-foreground text-sm mt-1">Join the Tenets Tender Ecosystem</p>
                   </div>
 
                   {/* Step indicator */}
@@ -1232,7 +1232,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           {/* Footer inside right panel on desktop, or below on mobile */}
           <footer className="px-6 py-4 text-center border-t border-border lg:border-t lg:py-5">
             <p className="text-xs text-muted-foreground">
-              © 2025 Tenet · Transforming Procurement Through Technology
+              © 2025 Tenets · Transforming Procurement Through Technology
             </p>
           </footer>
         </div>

@@ -344,7 +344,7 @@ function ReviewForm({
           Your Review <span className="text-red-500">*</span>
         </label>
         <Textarea
-          placeholder="Share your experience with Tenet... (min 10 characters)"
+          placeholder="Share your experience with Tenets... (min 10 characters)"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           required
@@ -421,7 +421,7 @@ export function CommentSection() {
             💬 What Our Community Says
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Hear from users and team admins who are transforming their procurement workflow with Tenet.
+            Hear from users and team admins who are transforming their procurement workflow with Tenets.
           </p>
         </div>
 
