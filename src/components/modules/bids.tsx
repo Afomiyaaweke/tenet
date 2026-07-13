@@ -134,6 +134,25 @@ export function BidsView() {
     }
   };
 
+  const [withdrawingBidId, setWithdrawingBidId] = useState<string | null>(null);
+
+  const handleWithdrawBid = async (bidId: string) => {
+    setWithdrawingBidId(bidId);
+    try {
+      const res = await api.patch(`/bids/${bidId}/status`, { status: 'withdrawn' });
+      if (res.success) {
+        toast.success('Bid withdrawn successfully');
+        loadBids();
+      } else {
+        toast.error(res.error || 'Failed to withdraw bid');
+      }
+    } catch {
+      toast.error('Failed to withdraw bid');
+    } finally {
+      setWithdrawingBidId(null);
+    }
+  };
+
   // ── Document Upload (with auto-OCR + auto-AI Review) ──
   const handleDocUpload = useCallback(async (bidId: string, docType?: string, fileInputRef?: React.RefObject<HTMLInputElement | null>) => {
     const ref = fileInputRef || docFileRef;
@@ -753,15 +772,31 @@ export function BidsView() {
                                 {bidIsDrafted ? 'Drafted' : bid.status.replace('_', ' ')}
                               </Badge>
                             </div>
-                            {/* Continue button for drafted bids */}
+                            {/* Continue & Withdraw buttons for drafted bids */}
                             {bidIsDrafted && (
-                              <Button
-                                size="sm"
-                                className="h-7 text-[10px] gradient-sky text-white rounded-lg hover:opacity-90 px-3"
-                                onClick={(e) => { e.stopPropagation(); setExpandedId(bid.id); }}
-                              >
-                                <PenLine className="h-3 w-3 mr-1" /> Continue
-                              </Button>
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-[10px] gradient-sky text-white rounded-lg hover:opacity-90 px-3"
+                                  onClick={(e) => { e.stopPropagation(); setExpandedId(bid.id); }}
+                                >
+                                  <PenLine className="h-3 w-3 mr-1" /> Continue
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-[10px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg px-3"
+                                  disabled={withdrawingBidId === bid.id}
+                                  onClick={(e) => { e.stopPropagation(); handleWithdrawBid(bid.id); }}
+                                >
+                                  {withdrawingBidId === bid.id ? (
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                  )}
+                                  Withdraw
+                                </Button>
+                              </div>
                             )}
                             <div className="text-muted-foreground ml-1">
                               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -1524,12 +1559,27 @@ export function BidsView() {
 
                                 {/* Submit Draft - for drafted bids (proper database status) */}
                                 {bid.status === 'drafted' && (
-                                  <Button
-                                    size="sm"
-                                    className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
-                                    onClick={(e) => { e.stopPropagation(); handleSubmitDraft(bid.id); }}>
-                                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Submit Bid
-                                  </Button>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="gradient-emerald text-white rounded-xl hover:opacity-90 premium-shadow transition-all hover:-translate-y-0.5"
+                                      onClick={(e) => { e.stopPropagation(); handleSubmitDraft(bid.id); }}>
+                                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Submit Bid
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 transition-all"
+                                      disabled={withdrawingBidId === bid.id}
+                                      onClick={(e) => { e.stopPropagation(); handleWithdrawBid(bid.id); }}>
+                                      {withdrawingBidId === bid.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                                      )}
+                                      Withdraw Bid
+                                    </Button>
+                                  </div>
                                 )}
 
                               {/* Applied Signature Preview */}
