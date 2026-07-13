@@ -1452,4 +1452,43 @@ Stage Summary:
 - All branding updated from "Tenet" to "Tenets" across the entire app
 - Favicon set to the user's uploaded image (32x32, 16x16, apple-touch-icon)
 - Logo component now uses the actual uploaded image instead of SVG
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Add document upload to Create Tender dialog (like Submit Bid)
+
+Work Log:
+- Read bids.tsx to understand the document upload flow for bid submission (3 upload slots + external doc drag/drop area)
+- Read tenders.tsx to understand current Create Tender dialog structure (no document upload)
+- Read Prisma schema - Document model had bidId but no tenderId
+- Added `tenderId` field to Document model in prisma/schema.prisma
+- Added `documents Document[]` relation to Tender model
+- Added `tender Tender?` relation on Document model (via tenderId)
+- Added `tender_document` to valid docTypes
+- Ran `bun run db:push` to sync schema changes
+- Created new API route `/api/tenders/documents/route.ts` with POST (upload), GET (list), DELETE (remove)
+- POST route supports: file upload, docType, tenderId (optional), autoOcr, autoReview
+- Updated POST /api/tenders route to accept `documentIds` and link pre-uploaded docs to newly created tender
+- Updated /api/documents route to include `tender_document` in valid docTypes
+- Added `TenderDocument` interface and `documents` field to `Tender` interface in api.ts
+- Updated tenders.tsx with:
+  - New imports: TenderDocument, Upload, CloudUpload, FileUp, ScanSearch, Brain, Trash2, Loader2
+  - New state: createDocs, createDocUploading, createDocType, createFileInputRef, createDropRef
+  - handleCreateDocUpload: file input upload with auto-OCR and auto-AI Review
+  - handleCreateDocDrop: drag & drop upload handler
+  - handleRemoveCreateDoc: delete uploaded doc from create form
+  - Document upload UI section in Create Tender dialog with drag & drop area, file input, doc type selector, upload button, OCR/AI indicators
+  - Uploaded documents list showing file name, type badge, OCR/AI status, and remove button
+  - Updated handleCreate to include documentIds in POST request
+  - Dialog reset clears createDocs and createDocType on close
+- Lint passes clean, dev server running fine
+- Browser verification confirms all document upload UI elements render correctly in Create Tender dialog
+
+Stage Summary:
+- Create Tender dialog now includes full document upload functionality matching the Submit Bid flow
+- Documents are uploaded to /api/tenders/documents with auto OCR + AI Review
+- Pre-uploaded documents are linked to the tender when it's created via documentIds
+- TenderDocument interface added to api.ts for type safety
+- Prisma schema updated with tenderId on Document model and documents relation on Tender model
 - ESLint passes with 0 errors
