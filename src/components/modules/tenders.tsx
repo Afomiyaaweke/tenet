@@ -697,7 +697,13 @@ export function TendersView() {
         return updated;
       } : newTenders);
       if (!append) externalTendersLengthRef.current = newTenders.length;
-      setExternalHasMore(res.meta?.hasMore ?? false);
+      // If appending and got 0 new tenders, there's nothing more to load
+      const apiHasMore = res.meta?.hasMore ?? false;
+      if (append && newTenders.length === 0) {
+        setExternalHasMore(false);
+      } else {
+        setExternalHasMore(apiHasMore);
+      }
       if (res.meta?.totalAvailable) setExternalTotalAvailable(res.meta.totalAvailable);
     }
     setExternalLoading(false);

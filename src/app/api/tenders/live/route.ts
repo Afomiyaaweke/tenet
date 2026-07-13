@@ -58,6 +58,9 @@ export async function GET(request: NextRequest) {
           sector,
           search: search || '',
           rows,
+          offset,
+          hasMore: false,
+          totalAvailable: sectorResult.tenders.length,
           sectors,
           sources: [{ id: 'sector_feed', name: 'Sector Feed', live: true, ok: sectorResult.ok, count: sectorResult.tenders.length, error: sectorResult.error }],
           dataSources: DATA_SOURCES,
@@ -72,10 +75,14 @@ export async function GET(request: NextRequest) {
     const sectors = getSectorCounts();
 
     const isFallback = result.meta.fallback;
-    const totalAvailable = isFallback ? 500 : undefined;
+    const SAMPLE_TOTAL = 2000;
+    // For live data: hasMore is true if any source that returned data could have more pages
+    // (i.e. it returned results and we haven't exhausted all sources yet)
+    const anyLiveSourceHasData = result.meta.sources.some((s) => s.ok && s.count > 0);
+    const totalAvailable = isFallback ? SAMPLE_TOTAL : undefined;
     const hasMore = isFallback
-      ? (offset + tenders.length) < (totalAvailable || 500)
-      : tenders.length >= rows;
+      ? (offset + tenders.length) < SAMPLE_TOTAL
+      : anyLiveSourceHasData && tenders.length > 0;
     const docsCount = tenders.filter((t) => t.documentUrl || t.documentFiles?.length).length;
 
     return NextResponse.json({
