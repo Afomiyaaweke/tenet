@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { api, LiveTender, DataSource, Tender, Bid, Project } from '@/lib/api';
 import { useAuthStore, useNavStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -60,6 +60,12 @@ const SOURCE_LABELS: Record<string, string> = {
   chile_mercado: 'Chile Mercado Público',
   argentina_comprar: 'Argentina COMPR.AR',
   uruguay_compras: 'Uruguay Compras',
+  undp_procurement: 'UNDP Procurement',
+  global_fund: 'Global Fund',
+  ifc_advisory: 'IFC Advisory',
+  ecuador_sercop: 'Ecuador SERCOP',
+  peru_compras: 'Peru Compras',
+  paraguay_dncp: 'Paraguay DNCP',
 };
 
 const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -272,6 +278,48 @@ const SOURCE_ACCENT: Record<string, { dot: string; badge: string; ring: string; 
     ring: 'hover:border-blue-400/60',
     bg: 'from-blue-500/10 to-indigo-500/5',
     icon: FileSearch,
+  },
+  undp_procurement: {
+    dot: 'bg-sky-500',
+    badge: 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+    ring: 'hover:border-sky-400/60',
+    bg: 'from-sky-500/10 to-cyan-500/5',
+    icon: Globe2,
+  },
+  global_fund: {
+    dot: 'bg-red-500',
+    badge: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+    ring: 'hover:border-red-400/60',
+    bg: 'from-red-500/10 to-rose-500/5',
+    icon: Landmark,
+  },
+  ifc_advisory: {
+    dot: 'bg-emerald-500',
+    badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+    ring: 'hover:border-emerald-400/60',
+    bg: 'from-emerald-500/10 to-teal-500/5',
+    icon: Building2,
+  },
+  ecuador_sercop: {
+    dot: 'bg-orange-500',
+    badge: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+    ring: 'hover:border-orange-400/60',
+    bg: 'from-orange-500/10 to-amber-500/5',
+    icon: Globe2,
+  },
+  peru_compras: {
+    dot: 'bg-rose-500',
+    badge: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+    ring: 'hover:border-rose-400/60',
+    bg: 'from-rose-500/10 to-pink-500/5',
+    icon: Flag,
+  },
+  paraguay_dncp: {
+    dot: 'bg-cyan-500',
+    badge: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300',
+    ring: 'hover:border-cyan-400/60',
+    bg: 'from-cyan-500/10 to-teal-500/5',
+    icon: Building2,
   },
   default: {
     dot: 'bg-muted-foreground',
@@ -1960,14 +2008,17 @@ export function LiveTendersView() {
     return '$0';
   };
 
+  // Ref to track tenders length for offset calculation without re-creating load
+  const tendersLengthRef = useRef(0);
+
   const load = useCallback(
     async (isRefresh = false, append = false) => {
       if (isRefresh) setRefreshing(true);
       else if (append) setLoadingMore(true);
       else setLoading(true);
 
-      const currentOffset = append ? tenders.length : 0;
-      const params: Record<string, string> = { rows: append ? '100' : '50', offset: String(currentOffset) };
+      const currentOffset = append ? tendersLengthRef.current : 0;
+      const params: Record<string, string> = { rows: append ? '200' : '100', offset: String(currentOffset) };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
       if (sectorFilter) params.sector = sectorFilter;
@@ -1975,7 +2026,12 @@ export function LiveTendersView() {
       const res = await api.get('/tenders/live', params);
       if (res.success) {
         const newTenders = res.data as LiveTender[];
-        setTenders(append ? (prev: LiveTender[]) => [...prev, ...newTenders] : newTenders);
+        setTenders(append ? (prev: LiveTender[]) => {
+          const updated = [...prev, ...newTenders];
+          tendersLengthRef.current = updated.length;
+          return updated;
+        } : newTenders);
+        if (!append) tendersLengthRef.current = newTenders.length;
         setSourceMeta(res.meta?.sources || []);
         if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
         if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
@@ -1988,7 +2044,7 @@ export function LiveTendersView() {
       setRefreshing(false);
       setLoadingMore(false);
     },
-    [search, sourceFilter, sectorFilter, tenders.length],
+    [search, sourceFilter, sectorFilter],
   );
 
   useEffect(() => {
@@ -2735,7 +2791,7 @@ export function LiveTendersView() {
                       : 'Load More Tenders'}
                   {!loadingMore && (
                     <Badge className="ml-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0 h-5 min-w-[20px] flex items-center justify-center">
-                      +100
+                      +200
                     </Badge>
                   )}
                 </Button>

@@ -286,3 +286,36 @@ Stage Summary:
 - API routes work correctly (auth required for /api/tenders/live)
 - Lint passes, build succeeds
 - Agent-browser visual verification limited by OOM in sandbox environment
+---
+Task ID: 1
+Agent: main
+Task: Add Load More functionality to Live Tenders and Tenders, add free external data sources with file/requirement data
+
+Work Log:
+- Read and analyzed live-tenders.tsx (2935 lines), tenders.tsx (2062 lines), external-tenders.ts (2644 lines), and all related API routes
+- Identified bug: `tenders.length` in `load` callback dependency array caused Load More to re-trigger useEffect and reset data
+- Fixed Load More bug in live-tenders.tsx: replaced `tenders.length` dependency with `useRef(tendersLengthRef)` pattern
+- Fixed same bug in tenders.tsx for external tenders loading
+- Increased initial load from 50→100 tenders and Load More batch from 100→200 in live-tenders.tsx
+- Increased Tenders LIMIT from 30→50 and external batch from 100→200 in tenders.tsx
+- Added 6 new free data sources with document file support:
+  - UNDP Procurement Notices (live, public)
+  - The Global Fund Procurement (live, public)
+  - IFC Advisory Services (live, public)
+  - Ecuador SERCOP (live, public open data)
+  - Peru Compras Estatales (live, public)
+  - Paraguay DNCP (live, public open data)
+- Added 12 new sample tender entries in generateSampleTenders
+- Increased totalAvailable from 500→2000 for pagination
+- Added SOURCE_LABELS and SOURCE_ACCENT entries for all 6 new sources in live-tenders.tsx
+- Registered all new sources in fetchLiveTenders() function
+- Updated allowedSources in /api/tenders/live route
+- Verified API: Live tenders returns 60+ tenders with hasMore=True, Load More returns additional batches, all tenders have documentFiles
+
+Stage Summary:
+- Live Tenders Load More is now functional (fixed callback dependency bug)
+- Tenders Load More enhanced with larger batch sizes
+- 6 new free data sources added (35 total sources now)
+- Document file data is included in all tenders (RFPs, specs, terms of reference)
+- API verified: Load More works, hasMore flag returns correctly, documentFiles populated
+- Server has memory constraints in sandbox but API functionality confirmed working

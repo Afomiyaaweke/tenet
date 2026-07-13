@@ -1,0 +1,502 @@
+  1501→                  <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
+  1502→                    +{Math.min(LIMIT, totalTenders - tenders.length)}
+  1503→                  </Badge>
+  1504→                )}
+  1505→              </Button>
+  1506→              <p className="text-xs text-muted-foreground">
+  1507→                {totalTenders - tenders.length} more tenders available
+  1508→              </p>
+  1509→            </div>
+  1510→          ) : (
+  1511→            <div className="flex flex-col items-center gap-1">
+  1512→              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+  1513→                <CheckCircle className="h-4 w-4" />
+  1514→                All tenders loaded
+  1515→              </p>
+  1516→              <p className="text-xs text-muted-foreground">You&apos;ve reached the end</p>
+  1517→            </div>
+  1518→          )}
+  1519→        </div>
+  1520→      )}
+  1521→
+  1522→      {/* ─── External Tenders from Free Data Sources ─── */}
+  1523→      {showExternal && (
+  1524→        <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
+  1525→          <div className="flex items-center justify-between">
+  1526→            <div className="flex items-center gap-3">
+  1527→              <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-200/40 dark:border-emerald-800/30">
+  1528→                <Globe2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+  1529→              </div>
+  1530→              <div>
+  1531→                <h3 className="text-lg font-bold tracking-tight">
+  1532→                  <span className="text-gradient-emerald">External</span> Tender Opportunities
+  1533→                </h3>
+  1534→                <p className="text-xs text-muted-foreground">
+  1535→                  Live tenders from World Bank, EU TED, UNGM, SAM.gov &amp; more free sources — 
+  1536→                  <span className="text-emerald-600 dark:text-emerald-400 font-medium"> with requirement documents &amp; RFP files</span>
+  1537→                </p>
+  1538→              </div>
+  1539→            </div>
+  1540→            <div className="flex items-center gap-2">
+  1541→              <Badge variant="outline" className="text-[10px] border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400">
+  1542→                <Radio className="h-2.5 w-2.5 mr-1 animate-pulse" />
+  1543→                Live
+  1544→              </Badge>
+  1545→              <Button
+  1546→                variant="ghost"
+  1547→                size="sm"
+  1548→                className="text-xs text-muted-foreground hover:text-foreground"
+  1549→                onClick={() => setShowExternal(false)}
+  1550→              >
+  1551→                Hide
+  1552→              </Button>
+  1553→            </div>
+  1554→          </div>
+  1555→
+  1556→          {externalLoading ? (
+  1557→            <div className="grid md:grid-cols-2 gap-3">
+  1558→              {[1, 2, 3, 4].map(i => (
+  1559→                <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
+  1560→                  <div className="h-1.5 bg-emerald-200/30" />
+  1561→                  <CardContent className="p-4 space-y-2.5">
+  1562→                    <div className="h-4 bg-muted/50 rounded-xl w-3/4" />
+  1563→                    <div className="h-3 bg-muted/50 rounded-xl w-full" />
+  1564→                    <div className="h-3 bg-muted/50 rounded-xl w-1/2" />
+  1565→                  </CardContent>
+  1566→                </Card>
+  1567→              ))}
+  1568→            </div>
+  1569→          ) : externalTenders.length > 0 ? (
+  1570→            <div className="space-y-3">
+  1571→              {externalTenders.map(t => {
+  1572→                const days = daysUntil(t.deadline);
+  1573→                const sourceLabel = (t.source || 'external').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  1574→                const hasDocs = !!(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0));
+  1575→                const isDocExpanded = extDocExpanded === t.id;
+  1576→                const doc = extDocData[t.id];
+  1577→                const isDocLoading = extDocLoading === t.id;
+  1578→                return (
+  1579→                  <Card
+  1580→                    key={t.id}
+  1581→                    className="premium-shadow rounded-xl border-0 bg-card group overflow-hidden transition-all duration-200 hover:ring-1 hover:ring-emerald-300/60"
+  1582→                  >
+  1583→                    <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
+  1584→                    <CardContent className="p-4 space-y-2.5">
+  1585→                      <div className="flex items-start justify-between gap-2">
+  1586→                        <h4 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+  1587→                          {t.title}
+  1588→                        </h4>
+  1589→                        <div className="flex items-center gap-1.5 shrink-0">
+  1590→                          <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+  1591→                            {sourceLabel}
+  1592→                          </Badge>
+  1593→                        </div>
+  1594→                      </div>
+  1595→
+  1596→                      <p className="text-xs text-muted-foreground line-clamp-2">{t.scope}</p>
+  1597→
+  1598→                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+  1599→                        {t.budgetMax > 0 && (
+  1600→                          <div className="flex items-center gap-1">
+  1601→                            <DollarSign className="h-3 w-3 text-emerald-600" />
+  1602→                            <span className="font-medium text-emerald-700 dark:text-emerald-400">
+  1603→                              {t.currency || 'USD'} {t.budgetMin >= 1000000 ? `${(t.budgetMin/1000000).toFixed(1)}M` : t.budgetMin >= 1000 ? `${(t.budgetMin/1000).toFixed(0)}K` : t.budgetMin.toLocaleString()}
+  1604→                              {t.budgetMax !== t.budgetMin ? ` – ${t.budgetMax >= 1000000 ? `${(t.budgetMax/1000000).toFixed(1)}M` : t.budgetMax >= 1000 ? `${(t.budgetMax/1000).toFixed(0)}K` : t.budgetMax.toLocaleString()}` : ''}
+  1605→                            </span>
+  1606→                          </div>
+  1607→                        )}
+  1608→                        <div className="flex items-center gap-1">
+  1609→                          <MapPin className="h-3 w-3 text-amber-600" />
+  1610→                          <span className="truncate max-w-[100px]">{t.location}</span>
+  1611→                        </div>
+  1612→                        <div className="flex items-center gap-1">
+  1613→                          <Calendar className="h-3 w-3 text-teal-600" />
+  1614→                          <span>{new Date(t.deadline).toLocaleDateString()}</span>
+  1615→                        </div>
+  1616→                        {t.borrower && (
+  1617→                          <div className="flex items-center gap-1">
+  1618→                            <Building2 className="h-3 w-3 text-violet-600" />
+  1619→                            <span className="truncate max-w-[120px]">{t.borrower}</span>
+  1620→                          </div>
+  1621→                        )}
+  1622→                        {t.contractType && (
+  1623→                          <div className="flex items-center gap-1">
+  1624→                            <FileText className="h-3 w-3 text-amber-600" />
+  1625→                            <span className="truncate max-w-[100px]">{t.contractType}</span>
+  1626→                          </div>
+  1627→                        )}
+  1628→                      </div>
+  1629→
+  1630→                      {/* Deadline badge + tags */}
+  1631→                      <div className="flex items-center gap-2 flex-wrap">
+  1632→                        <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)}`}>
+  1633→                          <Timer className="h-2.5 w-2.5 mr-0.5" />
+  1634→                          {days <= 0 ? 'Expired' : days === 1 ? '1 day' : `${days} days`}
+  1635→                        </Badge>
+  1636→                        {t.categoryTags && t.categoryTags.split(',').filter(Boolean).slice(0, 3).map((tag: string) => (
+  1637→                          <span key={tag} className="text-[9px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+  1638→                            {tag.trim()}
+  1639→                          </span>
+  1640→                        ))}
+  1641→                      </div>
+  1642→
+  1643→                      {/* Requirement Documents / Files Section */}
+  1644→                      {hasDocs && (
+  1645→                        <div className="rounded-lg border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/40 dark:bg-sky-950/20 p-2.5 space-y-2">
+  1646→                          <div className="flex items-center gap-1.5">
+  1647→                            <FileSearch className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+  1648→                            <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wide">Requirement Documents</span>
+  1649→                          </div>
+  1650→                          <div className="flex flex-wrap gap-1.5">
+  1651→                            {t.documentUrl && (
+  1652→                              <a
+  1653→                                href={t.documentUrl}
+  1654→                                target="_blank"
+  1655→                                rel="noopener noreferrer"
+  1656→                                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+  1657→                                onClick={(e) => e.stopPropagation()}
+  1658→                              >
+  1659→                                <FileText className="h-2.5 w-2.5" />
+  1660→                                View RFP / Specs
+  1661→                                <ExternalLink className="h-2 w-2" />
+  1662→                              </a>
+  1663→                            )}
+  1664→                            {t.requiredDocs && t.requiredDocs.startsWith('http') && t.requiredDocs !== t.documentUrl && (
+  1665→                              <a
+  1666→                                href={t.requiredDocs}
+  1667→                                target="_blank"
+  1668→                                rel="noopener noreferrer"
+  1669→                                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+  1670→                                onClick={(e) => e.stopPropagation()}
+  1671→                              >
+  1672→                                <ClipboardList className="h-2.5 w-2.5" />
+  1673→                                Requirements
+  1674→                                <ExternalLink className="h-2 w-2" />
+  1675→                              </a>
+  1676→                            )}
+  1677→                            <Button
+  1678→                              variant="ghost"
+  1679→                              size="sm"
+  1680→                              className={`h-6 gap-1 text-[10px] px-2 rounded-md transition-colors ${
+  1681→                                isDocExpanded
+  1682→                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+  1683→                                  : 'text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50'
+  1684→                              }`}
+  1685→                              onClick={(e) => { e.stopPropagation(); fetchExternalDoc(t); }}
+  1686→                              disabled={isDocLoading}
+  1687→                            >
+  1688→                              {isDocLoading ? (
+  1689→                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+  1690→                              ) : isDocExpanded ? (
+  1691→                                <ChevronUp className="h-2.5 w-2.5" />
+  1692→                              ) : (
+  1693→                                <ScanSearch className="h-2.5 w-2.5" />
+  1694→                              )}
+  1695→                              {isDocLoading ? 'Fetching…' : isDocExpanded ? 'Collapse' : 'Extract Content'}
+  1696→                            </Button>
+  1697→                          </div>
+  1698→                        </div>
+  1699→                      )}
+  1700→
+  1701→                      {/* Document Files list */}
+  1702→                      {t.documentFiles && t.documentFiles.length > 0 && (
+  1703→                        <div className="rounded-lg border border-violet-200/60 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20 p-2.5 space-y-2">
+  1704→                          <div className="flex items-center gap-1.5">
+  1705→                            <FileText className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+  1706→                            <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide">Requirement Files</span>
+  1707→                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-violet-200 dark:border-violet-700 text-violet-600 dark:text-violet-400">
+  1708→                              {t.documentFiles.length}
+  1709→                            </Badge>
+  1710→                          </div>
+  1711→                          <div className="space-y-1">
+  1712→                            {t.documentFiles.map((file, idx) => (
+  1713→                              <div key={idx} className="flex items-center gap-2 text-[10px]">
+  1714→                                <span className="shrink-0 px-1.5 py-0.5 rounded bg-white dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700 font-mono text-violet-700 dark:text-violet-300">
+  1715→                                  {file.type}
+  1716→                                </span>
+  1717→                                <a
+  1718→                                  href={file.url}
+  1719→                                  target="_blank"
+  1720→                                  rel="noopener noreferrer"
+  1721→                                  className="truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium"
+  1722→                                  onClick={(e) => e.stopPropagation()}
+  1723→                                >
+  1724→                                  {file.name}
+  1725→                                </a>
+  1726→                                <span className="text-muted-foreground ml-auto shrink-0">{file.size}</span>
+  1727→                              </div>
+  1728→                            ))}
+  1729→                          </div>
+  1730→                        </div>
+  1731→                      )}
+  1732→
+  1733→                      {/* Fetch document content inline if no explicit doc URL but has externalUrl */}
+  1734→                      {!hasDocs && t.externalUrl && (
+  1735→                        <Button
+  1736→                          variant="ghost"
+  1737→                          size="sm"
+  1738→                          className={`h-6 gap-1.5 text-[10px] px-2 rounded-md transition-colors ${
+  1739→                            isDocExpanded
+  1740→                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+  1741→                              : 'text-muted-foreground hover:bg-muted/60'
+  1742→                          }`}
+  1743→                          onClick={(e) => { e.stopPropagation(); fetchExternalDoc(t); }}
+  1744→                          disabled={isDocLoading}
+  1745→                        >
+  1746→                          {isDocLoading ? (
+  1747→                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+  1748→                          ) : isDocExpanded ? (
+  1749→                            <ChevronUp className="h-2.5 w-2.5" />
+  1750→                          ) : (
+  1751→                            <ScanSearch className="h-2.5 w-2.5" />
+  1752→                          )}
+  1753→                          {isDocLoading ? 'Fetching…' : isDocExpanded ? 'Collapse' : 'View Requirements'}
+  1754→                        </Button>
+  1755→                      )}
+  1756→
+  1757→                      {/* Inline Document Viewer */}
+  1758→                      {isDocExpanded && doc && (
+  1759→                        <div className="border border-border rounded-lg bg-gradient-to-b from-muted/30 to-background overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+  1760→                          <div className="p-3 space-y-3">
+  1761→                            <div className="flex items-start justify-between gap-2">
+  1762→                              <div className="min-w-0 flex-1">
+  1763→                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-0.5">
+  1764→                                  <FileSearch className="h-3 w-3" />
+  1765→                                  <span>Content from {(() => { try { return new URL(doc.url).hostname; } catch { return 'source'; } })()}</span>
+  1766→                                  <span>·</span>
+  1767→                                  <span>{new Date(doc.fetchedAt).toLocaleTimeString()}</span>
+  1768→                                </div>
+  1769→                                <h5 className="text-sm font-semibold text-foreground leading-snug">{doc.title || 'Tender Document'}</h5>
+  1770→                                {doc.metaDescription && (
+  1771→                                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{doc.metaDescription}</p>
+  1772→                                )}
+  1773→                              </div>
+  1774→                              <div className="flex items-center gap-1.5 shrink-0">
+  1775→                                <a
+  1776→                                  href={doc.url}
+  1777→                                  target="_blank"
+  1778→                                  rel="noopener noreferrer"
+  1779→                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+  1780→                                  onClick={(e) => e.stopPropagation()}
+  1781→                                >
+  1782→                                  <ExternalLink className="h-3 w-3" />
+  1783→                                  Original
+  1784→                                </a>
+  1785→                                <Button
+  1786→                                  variant="ghost"
+  1787→                                  size="sm"
+  1788→                                  className="h-5 gap-1 text-[10px] px-1.5"
+  1789→                                  onClick={(e) => {
+  1790→                                    e.stopPropagation();
+  1791→                                    const text = doc.sections
+  1792→                                      ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
+  1793→                                      : doc.content;
+  1794→                                    navigator.clipboard.writeText(text);
+  1795→                                    toast.success('Content copied to clipboard');
+  1796→                                  }}
+  1797→                                >
+  1798→                                  Copy
+  1799→                                </Button>
+  1800→                              </div>
+  1801→                            </div>
+  1802→
+  1803→                            {/* Extracted metadata */}
+  1804→                            {(doc.deadlines && doc.deadlines.length > 0) || (doc.budgets && doc.budgets.length > 0) ? (
+  1805→                              <div className="flex flex-wrap gap-1.5">
+  1806→                                {doc.deadlines?.map((d: string, i: number) => (
+  1807→                                  <Badge key={`dl-${i}`} variant="outline" className="gap-1 text-[9px] border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300">
+  1808→                                    <Calendar className="h-2.5 w-2.5" />
+  1809→                                    {d}
+  1810→                                  </Badge>
+  1811→                                ))}
+  1812→                                {doc.budgets?.map((b: string, i: number) => (
+  1813→                                  <Badge key={`bg-${i}`} variant="outline" className="gap-1 text-[9px] border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+  1814→                                    <DollarSign className="h-2.5 w-2.5" />
+  1815→                                    {b}
+  1816→                                  </Badge>
+  1817→                                ))}
+  1818→                              </div>
+  1819→                            ) : null}
+  1820→
+  1821→                            {/* Sections */}
+  1822→                            {doc.sections && doc.sections.length > 0 ? (
+  1823→                              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-background p-3 space-y-3 scrollbar-thin">
+  1824→                                {doc.sections.map((section: { heading: string; content: string }, i: number) => (
+  1825→                                  <div key={i}>
+  1826→                                    <h6 className="text-xs font-semibold text-foreground mb-1">{section.heading}</h6>
+  1827→                                    <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-line">
+  1828→                                      {section.content}
+  1829→                                    </p>
+  1830→                                    {i < doc.sections!.length - 1 && <Separator className="mt-3 bg-border" />}
+  1831→                                  </div>
+  1832→                                ))}
+  1833→                              </div>
+  1834→                            ) : (
+  1835→                              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-background p-3 scrollbar-thin">
+  1836→                                <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-line">
+  1837→                                  {doc.content || 'No content could be extracted from this page.'}
+  1838→                                </p>
+  1839→                              </div>
+  1840→                            )}
+  1841→                          </div>
+  1842→                        </div>
+  1843→                      )}
+  1844→
+  1845→                      {/* Inline loading skeleton */}
+  1846→                      {isDocExpanded && isDocLoading && (
+  1847→                        <div className="border border-border rounded-lg bg-muted/30 p-3 space-y-2 animate-[fadeIn_0.3s_ease-out]">
+  1848→                          <div className="flex items-center gap-2">
+  1849→                            <ScanSearch className="h-3.5 w-3.5 text-sky-500 animate-pulse" />
+  1850→                            <span className="text-xs font-medium text-sky-700 dark:text-sky-300">Extracting document content…</span>
+  1851→                          </div>
+  1852→                          <div className="space-y-2">
+  1853→                            <div className="h-3 bg-muted/50 rounded w-3/4" />
+  1854→                            <div className="h-2 bg-muted/50 rounded w-full" />
+  1855→                            <div className="h-2 bg-muted/50 rounded w-5/6" />
+  1856→                          </div>
+  1857→                        </div>
+  1858→                      )}
+  1859→
+  1860→                      <div className="flex items-center justify-between pt-1">
+  1861→                        <div className="flex items-center gap-2">
+  1862→                          {t.externalUrl && (
+  1863→                            <a
+  1864→                              href={t.externalUrl}
+  1865→                              target="_blank"
+  1866→                              rel="noopener noreferrer"
+  1867→                              className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+  1868→                              onClick={(e) => e.stopPropagation()}
+  1869→                            >
+  1870→                              <ExternalLink className="h-2.5 w-2.5" />
+  1871→                              View on {sourceLabel}
+  1872→                            </a>
+  1873→                          )}
+  1874→                        </div>
+  1875→                      </div>
+  1876→                    </CardContent>
+  1877→                  </Card>
+  1878→                );
+  1879→              })}
+  1880→            </div>
+  1881→          ) : (
+  1882→            <Card className="bg-card border-border rounded-xl">
+  1883→              <CardContent className="p-8 text-center">
+  1884→                <Globe2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+  1885→                <p className="text-sm text-muted-foreground">No external tenders available right now. Try refreshing later.</p>
+  1886→              </CardContent>
+  1887→            </Card>
+  1888→          )}
+  1889→
+  1890→          {/* External Load More */}
+  1891→          {externalTenders.length > 0 && (
+  1892→            <div className="flex flex-col items-center gap-3 pt-4 pb-2">
+  1893→              {/* Progress bar */}
+  1894→              {externalTotalAvailable > 0 && (
+  1895→                <div className="w-full max-w-lg">
+  1896→                  <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+  1897→                    <div
+  1898→                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
+  1899→                      style={{ width: `${Math.min(100, Math.round((externalTenders.length / externalTotalAvailable) * 100))}%` }}
+  1900→                    />
+  1901→                  </div>
+  1902→                </div>
+  1903→              )}
+  1904→              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+  1905→                <span className="flex items-center gap-1">
+  1906→                  <Globe2 className="h-3 w-3" />
+  1907→                  {externalTotalAvailable > 0
+  1908→                    ? `Showing ${externalTenders.length} of ${externalTotalAvailable} external tenders`
+  1909→                    : `${externalTenders.length} external tenders loaded`}
+  1910→                </span>
+  1911→                {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0)).length > 0 && (
+  1912→                  <>
+  1913→                    <span className="text-border">·</span>
+  1914→                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+  1915→                      <FileSearch className="h-3 w-3" />
+  1916→                      {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0)).length} with documents
+  1917→                    </span>
+  1918→                  </>
+  1919→                )}
+  1920→                {externalTenders.filter(t => t.documentFiles && t.documentFiles.length > 0).length > 0 && (
+  1921→                  <>
+  1922→                    <span className="text-border">·</span>
+  1923→                    <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+  1924→                      <FileText className="h-3 w-3" />
+  1925→                      {externalTenders.reduce((sum, t) => sum + (t.documentFiles?.length || 0), 0)} downloadable files
+  1926→                    </span>
+  1927→                  </>
+  1928→                )}
+  1929→                {externalHasMore && (
+  1930→                  <>
+  1931→                    <span className="text-border">·</span>
+  1932→                    <span>More available</span>
+  1933→                  </>
+  1934→                )}
+  1935→              </div>
+  1936→              {externalHasMore ? (
+  1937→                <div className="flex flex-col items-center gap-1.5">
+  1938→                  <Button
+  1939→                    variant="outline"
+  1940→                    size="lg"
+  1941→                    className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[280px] h-12 shadow-sm font-medium"
+  1942→                    onClick={() => loadExternalTenders(true)}
+  1943→                    disabled={externalLoadingMore}
+  1944→                  >
+  1945→                    {externalLoadingMore ? (
+  1946→                      <Loader2 className="h-4 w-4 animate-spin" />
+  1947→                    ) : (
+  1948→                      <ChevronDown className="h-4 w-4" />
+  1949→                    )}
+  1950→                    {externalLoadingMore ? 'Loading More…' : 'Load More'}
+  1951→                    {!externalLoadingMore && (
+  1952→                      <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
+  1953→                        +100
+  1954→                      </Badge>
+  1955→                    )}
+  1956→                  </Button>
+  1957→                  <p className="text-xs text-muted-foreground">
+  1958→                    {externalTotalAvailable > 0
+  1959→                      ? `${externalTotalAvailable - externalTenders.length} more tenders available`
+  1960→                      : 'More tenders available'}
+  1961→                  </p>
+  1962→                </div>
+  1963→              ) : (
+  1964→                <div className="flex flex-col items-center gap-1">
+  1965→                  <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+  1966→                    <CheckCircle className="h-4 w-4" />
+  1967→                    {externalTotalAvailable > 0 ? `All ${externalTotalAvailable} external tenders loaded` : 'All external tenders loaded'}
+  1968→                  </p>
+  1969→                  <p className="text-xs text-muted-foreground">You&apos;ve reached the end</p>
+  1970→                </div>
+  1971→              )}
+  1972→            </div>
+  1973→          )}
+  1974→        </div>
+  1975→      )}
+  1976→
+  1977→      {/* Show External toggle when hidden */}
+  1978→      {!showExternal && (
+  1979→        <div className="flex justify-center pt-2">
+  1980→          <Button
+  1981→            variant="outline"
+  1982→            size="sm"
+  1983→            className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+  1984→            onClick={() => setShowExternal(true)}
+  1985→          >
+  1986→            <Globe2 className="h-3.5 w-3.5" />
+  1987→            Show External Tenders
+  1988→          </Button>
+  1989→        </div>
+  1990→      )}
+  1991→
+  1992→      {/* Floating Compare Bar */}
+  1993→      {compareSelection.length > 0 && (
+  1994→        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-[fadeIn_0.3s_ease-out]">
+  1995→          <div className="flex items-center gap-3 bg-card/95 backdrop-blur-md rounded-2xl px-5 py-3 premium-shadow-lg border border-primary/20">
+  1996→            <div className="flex items-center gap-2">
+  1997→              <div className="p-1.5 rounded-lg gradient-emerald">
+  1998→                <GitCompareArrows className="h-4 w-4 text-white" />
+  1999→              </div>
+  2000→              <div>
+
+[showing lines 1501-2000 of 2062; use offset=2001 with limit to continue reading]
