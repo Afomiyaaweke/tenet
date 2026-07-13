@@ -183,7 +183,7 @@ export const DATA_SOURCES: DataSource[] = [
     id: 'portugal_base',
     name: 'Portugal — BASE',
     coverage:
-      'Portuguese public procurement portal with tender notices, contract awards, and downloadable requirement documents.',
+      'Portuguese public procurement portal with tender notices, contract awards, and downloadable contract documents and technical specifications.',
     access: 'Public portal — no registration required',
     link: 'https://www.base.gov.pt',
     live: true,
@@ -253,7 +253,7 @@ export const DATA_SOURCES: DataSource[] = [
     id: 'colombia_secop',
     name: 'Colombia — SECOP',
     coverage:
-      'Colombian public procurement portal (Sistema Electrónico para la Contratación Pública). All government tenders with downloadable requirement documents, RFPs, and contract awards.',
+      'Colombian public procurement portal (Sistema Electrónico para la Contratación Pública). All government tenders with downloadable requirement documents and RFP files, including process documents and contract awards.',
     access: 'Public API — no registration required (datos.gov.co)',
     link: 'https://www.colombiacompra.gov.co',
     live: true,
@@ -263,7 +263,7 @@ export const DATA_SOURCES: DataSource[] = [
     id: 'mexico_compranet',
     name: 'Mexico — CompraNet',
     coverage:
-      'Mexican government e-procurement platform. All federal tenders with downloadable bidding documents, terms of reference, and contract notices.',
+      'Mexican government e-procurement platform. All federal tenders with downloadable requirement documents and RFP files, including bidding documents, terms of reference, and technical specifications.',
     access: 'Public API — no registration required',
     link: 'https://www.gob.mx/compranet',
     live: true,
@@ -273,7 +273,7 @@ export const DATA_SOURCES: DataSource[] = [
     id: 'chile_mercado',
     name: 'Chile — Mercado Público',
     coverage:
-      'Chilean public procurement platform. Tenders from all government agencies with downloadable requirement documents and technical specifications.',
+      'Chilean public procurement platform. Tenders from all government agencies with downloadable requirement documents and RFP files, including tender documents and public notices.',
     access: 'Public API — no registration required (mercadopublico.cl)',
     link: 'https://www.mercadopublico.cl',
     live: true,
@@ -283,7 +283,7 @@ export const DATA_SOURCES: DataSource[] = [
     id: 'argentina_comprar',
     name: 'Argentina — COMPR.AR',
     coverage:
-      'Argentinian federal procurement portal. Public tenders with downloadable pliegos (bidding documents) and technical specifications.',
+      'Argentinian federal procurement portal. Public tenders with downloadable requirement documents and RFP files, including pliegos (bidding documents) and technical specifications.',
     access: 'Public — no registration required',
     link: 'https://www.comprar.gob.ar',
     live: true,
@@ -293,7 +293,7 @@ export const DATA_SOURCES: DataSource[] = [
     id: 'uruguay_compras',
     name: 'Uruguay — Compras Estatales',
     coverage:
-      'Uruguayan public procurement portal. Government tenders with downloadable requirement documents and bidding terms.',
+      'Uruguayan public procurement portal. Government tenders with downloadable requirement documents and RFP files, including bidding documents and pliegos (tender terms).',
     access: 'Public — no registration required (comprasestatales.gub.uy)',
     link: 'https://www.comprasestatales.gub.uy',
     live: true,
@@ -1278,9 +1278,74 @@ export async function fetchAusTenderTenders(opts: {
 export async function fetchPortugalBaseTenders(opts: {
   search?: string;
   rows?: number;
+  offset?: number;
 }): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  void opts;
-  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  const offset = opts.offset || 0;
+
+  try {
+    // Portugal BASE public API for contract notices
+    const params = new URLSearchParams({
+      page: String(Math.floor(offset / rows) + 1),
+      size: String(rows),
+      sort: 'dataPublicacao,DESC',
+    });
+    if (opts.search) params.set('q', opts.search);
+
+    const url = `https://www.base.gov.pt/api/Contratos?${params.toString()}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `BASE API returned ${res.status}` };
+
+    const json = (await res.json()) as { data?: Record<string, unknown>[]; total?: number };
+    const items = Array.isArray(json.data) ? json.data : [];
+    const total = json.total ?? items.length;
+
+    const tenders: LiveTender[] = items.map((row, idx) => {
+      const id = String(row.id || row.referencia || `pt-${idx}`);
+      const title = String(row.objecto || row.descricao || `Portuguese Tender ${idx + 1}`);
+      const amount = Number(row.precoTotal || row.valor || 0) || 0;
+      const docUrl = row.urlDocumento ? String(row.urlDocumento) : `https://www.base.gov.pt`;
+
+      return {
+        id: `portugal_base-${id}`,
+        title: truncate(title, 160),
+        scope: truncate(String(row.descricao || row.objecto || title), 400),
+        budgetMin: amount,
+        budgetMax: amount,
+        deadline: String(row.dataFim || row.dataPublicacao || new Date(Date.now() + 30 * 86400000).toISOString()),
+        location: String(row.localidade || 'Portugal'),
+        categoryTags: String(row.tipo || row.cpvDescricao || 'Supply'),
+        requiredDocs: docUrl,
+        status: 'open' as const,
+        createdBy: 'portugal_base',
+        createdAt: String(row.dataPublicacao || new Date().toISOString()),
+        updatedAt: new Date().toISOString(),
+        source: 'portugal_base',
+        externalId: id,
+        externalUrl: `https://www.base.gov.pt`,
+        currency: 'EUR',
+        borrower: String(row.entidade || row.entidadeAdjudicante || '') || undefined,
+        contractType: String(row.tipoProcedimento || '') || undefined,
+        region: 'Europe',
+        documentUrl: docUrl !== 'https://www.base.gov.pt' ? docUrl : undefined,
+        documentFiles: [
+          { name: 'Contract Documents', type: 'PDF', size: '-', url: docUrl },
+        ].filter(f => f.url !== 'https://www.base.gov.pt'),
+      } satisfies LiveTender;
+    });
+
+    return { tenders, total, ok: true };
+  } catch {
+    return { tenders: [], total: 0, ok: false, error: 'BASE API unreachable' };
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1607,6 +1672,10 @@ export async function fetchColombiaSecopTenders(opts: {
       const title = String(row.nombre_del_procedimiento || row.objeto_a_contratar || `SECOP Procurement ${idx + 1}`);
       const amount = Number(row.valor_total_adjudicacion || row.cuantia_proceso || row.presupuesto_general || 0) || 0;
       const docUrl = row.urlproceso ? String(row.urlproceso) : row.url_documentos ? String(row.url_documentos) : undefined;
+      const documentFiles = [
+        { name: 'Process Documents', type: 'HTML', size: '-', url: row.urlproceso as string },
+        { name: 'Contract Documents', type: 'HTML', size: '-', url: row.url_documentos as string },
+      ].filter(f => f.url);
       return {
         id: `colombia_secop-${id}`,
         title: truncate(title, 160),
@@ -1628,7 +1697,8 @@ export async function fetchColombiaSecopTenders(opts: {
         borrower: String(row.entidad || row.nombre_entidad || '') || undefined,
         contractType: String(row.tipo_de_contrato || '') || undefined,
         region: String(row.departamento || 'South America'),
-        documentUrl: docUrl,
+        documentUrl: docUrl || (documentFiles.length > 0 ? documentFiles[0].url : undefined),
+        documentFiles,
       } satisfies LiveTender;
     });
 
@@ -1679,10 +1749,18 @@ export async function fetchMexicoCompranetTenders(opts: {
       const tender = (compiled.tender || {}) as Record<string, unknown>;
       const id = String(tender.id || compiled.ocid || `mx-${idx}`);
       const title = String(tender.title || tender.description || `Mexican Tender ${idx + 1}`);
-      const amount = Number(tender.value?.amount || tender.minValue?.amount || 0) || 0;
-      const currency = String(tender.value?.currency || 'MXN');
+      const valueObj = (tender.value || {}) as Record<string, unknown>;
+      const minValueObj = (tender.minValue || {}) as Record<string, unknown>;
+      const amount = Number(valueObj.amount || minValueObj.amount || 0) || 0;
+      const currency = String(valueObj.currency || 'MXN');
       const docLinks = (tender.documents || []) as Array<Record<string, unknown>>;
       const docUrl = docLinks.length > 0 && docLinks[0].url ? String(docLinks[0].url) : undefined;
+      const documentFiles = docLinks.map((d: Record<string, unknown>) => ({
+        name: String(d.title || d.description || 'Document'),
+        type: String(d.format || 'PDF').toUpperCase(),
+        size: '-',
+        url: String(d.url || ''),
+      })).filter((f: { name: string; type: string; size: string; url: string }) => f.url);
 
       return {
         id: `mexico_compranet-${id}`,
@@ -1690,9 +1768,9 @@ export async function fetchMexicoCompranetTenders(opts: {
         scope: truncate(String(tender.description || title), 400),
         budgetMin: amount,
         budgetMax: amount,
-        deadline: String(tender.tenderPeriod?.endDate || tender.tenderPeriod?.startDate || new Date(Date.now() + 30 * 86400000).toISOString()),
-        location: String(tender.deliveryLocation?.description || 'Mexico'),
-        categoryTags: String(tender.mainProcurementCategory || tender.additionalClassifications?.[0]?.description || 'Supply'),
+        deadline: String(((tender.tenderPeriod || {}) as Record<string, unknown>).endDate || ((tender.tenderPeriod || {}) as Record<string, unknown>).startDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+        location: String(((tender.deliveryLocation || {}) as Record<string, unknown>).description || 'Mexico'),
+        categoryTags: String(tender.mainProcurementCategory || (((tender.additionalClassifications || []) as Array<Record<string, unknown>>)[0] || {}).description || 'Supply'),
         requiredDocs: docUrl || '',
         status: 'open' as const,
         createdBy: 'mexico_compranet',
@@ -1702,10 +1780,11 @@ export async function fetchMexicoCompranetTenders(opts: {
         externalId: id,
         externalUrl: `https://www.gob.mx/compranet`,
         currency,
-        borrower: String((compiled.parties?.[0] as Record<string, unknown>)?.name || '') || undefined,
+        borrower: String(((compiled.parties || []) as Array<Record<string, unknown>>)[0]?.name || '') || undefined,
         contractType: String(tender.procurementMethod || '') || undefined,
         region: 'North America',
-        documentUrl: docUrl,
+        documentUrl: docUrl || (documentFiles.length > 0 ? documentFiles[0].url : undefined),
+        documentFiles,
       } satisfies LiveTender;
     });
 
@@ -1757,6 +1836,10 @@ export async function fetchChileMercadoTenders(opts: {
       const nombre = String(row.Nombre || `Chilean Tender ${idx + 1}`);
       const amount = Number(row.MontoEstimado || row.MontoTotal || 0) || 0;
       const docUrl = row.UrlDocumento ? String(row.UrlDocumento) : row.UrlPublica ? String(row.UrlPublica) : undefined;
+      const documentFiles = [
+        { name: 'Tender Documents', type: 'PDF', size: '-', url: row.UrlDocumento as string },
+        { name: 'Public Page', type: 'HTML', size: '-', url: row.UrlPublica as string },
+      ].filter(f => f.url);
 
       return {
         id: `chile_mercado-${codigo}`,
@@ -1779,7 +1862,8 @@ export async function fetchChileMercadoTenders(opts: {
         borrower: String(row.Organismo || row.NombreOrganismo || '') || undefined,
         contractType: String(row.Tipo || '') || undefined,
         region: 'South America',
-        documentUrl: docUrl,
+        documentUrl: docUrl || (documentFiles.length > 0 ? documentFiles[0].url : undefined),
+        documentFiles,
       } satisfies LiveTender;
     });
 
@@ -1827,9 +1911,16 @@ export async function fetchArgentinaComprarTenders(opts: {
       const tender = (row.tender || row) as Record<string, unknown>;
       const id = String(tender.id || row.ocid || `ar-${idx}`);
       const title = String(tender.title || tender.description || `Argentinian Tender ${idx + 1}`);
-      const amount = Number(tender.value?.amount || 0) || 0;
+      const valueObj = (tender.value || {}) as Record<string, unknown>;
+      const amount = Number(valueObj.amount || 0) || 0;
       const docLinks = (tender.documents || []) as Array<Record<string, unknown>>;
       const docUrl = docLinks.length > 0 && docLinks[0].url ? String(docLinks[0].url) : undefined;
+      const documentFiles = docLinks.map((d: Record<string, unknown>) => ({
+        name: String(d.title || d.description || 'Document'),
+        type: String(d.format || 'PDF').toUpperCase(),
+        size: '-',
+        url: String(d.url || ''),
+      })).filter((f: { name: string; type: string; size: string; url: string }) => f.url);
 
       return {
         id: `argentina_comprar-${id}`,
@@ -1837,7 +1928,7 @@ export async function fetchArgentinaComprarTenders(opts: {
         scope: truncate(String(tender.description || title), 400),
         budgetMin: amount,
         budgetMax: amount,
-        deadline: String(tender.tenderPeriod?.endDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+        deadline: String(((tender.tenderPeriod || {}) as Record<string, unknown>).endDate || new Date(Date.now() + 30 * 86400000).toISOString()),
         location: 'Argentina',
         categoryTags: String(tender.mainProcurementCategory || 'Supply'),
         requiredDocs: docUrl || '',
@@ -1851,7 +1942,8 @@ export async function fetchArgentinaComprarTenders(opts: {
         currency: 'ARS',
         contractType: String(tender.procurementMethod || '') || undefined,
         region: 'South America',
-        documentUrl: docUrl,
+        documentUrl: docUrl || (documentFiles.length > 0 ? documentFiles[0].url : undefined),
+        documentFiles,
       } satisfies LiveTender;
     });
 
@@ -1899,6 +1991,10 @@ export async function fetchUruguayComprasTenders(opts: {
       const title = String(row.nombre || row.objeto || `Uruguayan Tender ${idx + 1}`);
       const amount = Number(row.monto_estimado || row.monto || 0) || 0;
       const docUrl = row.url_documento ? String(row.url_documento) : row.url_pliego ? String(row.url_pliego) : undefined;
+      const documentFiles = [
+        { name: 'Bidding Documents', type: 'PDF', size: '-', url: row.url_documento as string },
+        { name: 'Tender Terms (Pliego)', type: 'PDF', size: '-', url: row.url_pliego as string },
+      ].filter(f => f.url);
 
       return {
         id: `uruguay_compras-${id}`,
@@ -1921,7 +2017,8 @@ export async function fetchUruguayComprasTenders(opts: {
         borrower: String(row.organismo || row.entidad || '') || undefined,
         contractType: String(row.tipo || '') || undefined,
         region: 'South America',
-        documentUrl: docUrl,
+        documentUrl: docUrl || (documentFiles.length > 0 ? documentFiles[0].url : undefined),
+        documentFiles,
       } satisfies LiveTender;
     });
 
@@ -2001,7 +2098,8 @@ function generateSampleTenders(rows: number, offset: number, search?: string): L
   const sources = [
     'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'adb',
     'uk_contracts', 'dgmarket', 'canada_buyandsell', 'austender',
-    'india_cppp', 'south_africa', 'colombia_secop', 'chile_mercado',
+    'india_cppp', 'south_africa', 'colombia_secop', 'mexico_compranet',
+    'chile_mercado', 'argentina_comprar', 'uruguay_compras',
     'kenya_tenders', 'nigeria_nocopo', 'philgeps', 'portugal_base',
   ];
 
@@ -2070,7 +2168,10 @@ function generateSampleTenders(rows: number, offset: number, search?: string): L
       india_cppp: `https://eprocure.gov.in/eprocure/app?tenderId=${offset + i + 70000}`,
       south_africa: `https://www.etenders.gov.za/tender/${offset + i + 80000}`,
       colombia_secop: `https://www.colombiacompra.gov.co/tender/${offset + i + 90000}`,
+      mexico_compranet: `https://www.gob.mx/compranet/tender/${offset + i + 91000}`,
       chile_mercado: `https://www.mercadopublico.cl/tender/${offset + i + 100000}`,
+      argentina_comprar: `https://www.comprar.gob.ar/tender/${offset + i + 101000}`,
+      uruguay_compras: `https://www.comprasestatales.gub.uy/tender/${offset + i + 102000}`,
       kenya_tenders: `https://tenders.go.ke/tender/${offset + i + 110000}`,
       nigeria_nocopo: `https://nocopo.bpp.gov.ng/tender/${offset + i + 120000}`,
       philgeps: `https://philgeps.gov.ph/tender/${offset + i + 130000}`,
@@ -2279,7 +2380,7 @@ export async function fetchLiveTenders(opts: {
       id: 'ungm',
       name: 'UNGM',
       live: true,
-      p: fetchUngmTenders({ search: opts.search, rows: Math.min(rows, 5), offset }),
+      p: fetchUngmTenders({ search: opts.search, rows: Math.min(rows, 15), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'sam_gov') {
@@ -2287,7 +2388,7 @@ export async function fetchLiveTenders(opts: {
       id: 'sam_gov',
       name: 'SAM.gov',
       live: true,
-      p: fetchSamGovTenders({ search: opts.search, rows: Math.min(rows, 5), offset }),
+      p: fetchSamGovTenders({ search: opts.search, rows: Math.min(rows, 15), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'afdb') {
@@ -2295,7 +2396,7 @@ export async function fetchLiveTenders(opts: {
       id: 'afdb',
       name: 'AfDB',
       live: true,
-      p: fetchAfdbTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+      p: fetchAfdbTenders({ search: opts.search, rows: Math.min(rows, 15) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'eu_opentenders') {
@@ -2303,7 +2404,7 @@ export async function fetchLiveTenders(opts: {
       id: 'eu_opentenders',
       name: 'OpenTenders EU',
       live: true,
-      p: fetchEuOpenTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+      p: fetchEuOpenTenders({ search: opts.search, rows: Math.min(rows, 15) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'jica') {
@@ -2311,7 +2412,7 @@ export async function fetchLiveTenders(opts: {
       id: 'jica',
       name: 'JICA',
       live: true,
-      p: fetchJicaTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+      p: fetchJicaTenders({ search: opts.search, rows: Math.min(rows, 15) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'adb') {
@@ -2319,7 +2420,7 @@ export async function fetchLiveTenders(opts: {
       id: 'adb',
       name: 'ADB',
       live: true,
-      p: fetchAdbTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+      p: fetchAdbTenders({ search: opts.search, rows: Math.min(rows, 15) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'uk_contracts') {
@@ -2327,7 +2428,7 @@ export async function fetchLiveTenders(opts: {
       id: 'uk_contracts',
       name: 'UK Contracts Finder',
       live: true,
-      p: fetchUkContractsTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+      p: fetchUkContractsTenders({ search: opts.search, rows: Math.min(rows, 15) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'dgmarket') {
@@ -2335,7 +2436,7 @@ export async function fetchLiveTenders(opts: {
       id: 'dgmarket',
       name: 'DgMarket',
       live: true,
-      p: fetchDgMarketTenders({ search: opts.search, rows: Math.min(rows, 5) }),
+      p: fetchDgMarketTenders({ search: opts.search, rows: Math.min(rows, 15) }),
     });
   }
   // ── Credential-gated sources (enabled when env vars are set) ──
@@ -2344,7 +2445,7 @@ export async function fetchLiveTenders(opts: {
       id: 'apify_global',
       name: 'Apify Global Tenders',
       live: !!process.env.APIFY_API_TOKEN,
-      p: fetchApifyGlobalTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchApifyGlobalTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'apify_procurement') {
@@ -2352,7 +2453,7 @@ export async function fetchLiveTenders(opts: {
       id: 'apify_procurement',
       name: 'Apify Procurement Alerts',
       live: !!process.env.APIFY_API_TOKEN,
-      p: fetchApifyProcurementTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchApifyProcurementTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'govrider') {
@@ -2360,7 +2461,7 @@ export async function fetchLiveTenders(opts: {
       id: 'govrider',
       name: 'GovRider',
       live: !!process.env.GOVRIDER_API_KEY,
-      p: fetchGovRiderTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchGovRiderTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'tenderwell') {
@@ -2368,7 +2469,7 @@ export async function fetchLiveTenders(opts: {
       id: 'tenderwell',
       name: 'Tenderwell',
       live: !!process.env.TENDERWELL_API_KEY,
-      p: fetchTenderwellTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchTenderwellTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'seegenebid') {
@@ -2376,7 +2477,7 @@ export async function fetchLiveTenders(opts: {
       id: 'seegenebid',
       name: 'SeeGeneBid',
       live: true, // Open source, no API key needed
-      p: fetchSeeGeneBidTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchSeeGeneBidTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'canada_buyandsell') {
@@ -2384,7 +2485,7 @@ export async function fetchLiveTenders(opts: {
       id: 'canada_buyandsell',
       name: 'Canada Buyandsell',
       live: true,
-      p: fetchCanadaBuyandsellTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchCanadaBuyandsellTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'austender') {
@@ -2392,7 +2493,7 @@ export async function fetchLiveTenders(opts: {
       id: 'austender',
       name: 'AusTender',
       live: true,
-      p: fetchAusTenderTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchAusTenderTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'portugal_base') {
@@ -2400,7 +2501,7 @@ export async function fetchLiveTenders(opts: {
       id: 'portugal_base',
       name: 'Portugal BASE',
       live: true,
-      p: fetchPortugalBaseTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchPortugalBaseTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'ontario_tenders') {
@@ -2408,7 +2509,7 @@ export async function fetchLiveTenders(opts: {
       id: 'ontario_tenders',
       name: 'Ontario Tenders',
       live: true,
-      p: fetchOntarioTendersTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchOntarioTendersTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'nigeria_nocopo') {
@@ -2416,7 +2517,7 @@ export async function fetchLiveTenders(opts: {
       id: 'nigeria_nocopo',
       name: 'Nigeria NOCOPO',
       live: true,
-      p: fetchNigeriaNocopoTenders({ search: opts.search, rows: Math.min(rows, 20) }),
+      p: fetchNigeriaNocopoTenders({ search: opts.search, rows: Math.min(rows, 50) }),
     });
   }
   if (wantSource === 'all' || wantSource === 'kenya_tenders') {
@@ -2424,7 +2525,7 @@ export async function fetchLiveTenders(opts: {
       id: 'kenya_tenders',
       name: 'Kenya Tenders',
       live: true,
-      p: fetchKenyaTendersTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchKenyaTendersTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'india_cppp') {
@@ -2432,7 +2533,7 @@ export async function fetchLiveTenders(opts: {
       id: 'india_cppp',
       name: 'India CPPP',
       live: true,
-      p: fetchIndiaCpppTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchIndiaCpppTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'south_africa') {
@@ -2440,7 +2541,7 @@ export async function fetchLiveTenders(opts: {
       id: 'south_africa',
       name: 'South Africa eTenders',
       live: true,
-      p: fetchSouthAfricaTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchSouthAfricaTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'philgeps') {
@@ -2448,7 +2549,7 @@ export async function fetchLiveTenders(opts: {
       id: 'philgeps',
       name: 'PhilGEPS',
       live: true,
-      p: fetchPhilgepsTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchPhilgepsTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   // ── Latin American public procurement sources (free, with downloadable docs) ──
@@ -2457,7 +2558,7 @@ export async function fetchLiveTenders(opts: {
       id: 'colombia_secop',
       name: 'Colombia SECOP',
       live: true,
-      p: fetchColombiaSecopTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchColombiaSecopTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'mexico_compranet') {
@@ -2465,7 +2566,7 @@ export async function fetchLiveTenders(opts: {
       id: 'mexico_compranet',
       name: 'Mexico CompraNet',
       live: true,
-      p: fetchMexicoCompranetTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchMexicoCompranetTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'chile_mercado') {
@@ -2473,7 +2574,7 @@ export async function fetchLiveTenders(opts: {
       id: 'chile_mercado',
       name: 'Chile Mercado Público',
       live: true,
-      p: fetchChileMercadoTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchChileMercadoTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'argentina_comprar') {
@@ -2481,7 +2582,7 @@ export async function fetchLiveTenders(opts: {
       id: 'argentina_comprar',
       name: 'Argentina COMPR.AR',
       live: true,
-      p: fetchArgentinaComprarTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchArgentinaComprarTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
   if (wantSource === 'all' || wantSource === 'uruguay_compras') {
@@ -2489,7 +2590,7 @@ export async function fetchLiveTenders(opts: {
       id: 'uruguay_compras',
       name: 'Uruguay Compras Estatales',
       live: true,
-      p: fetchUruguayComprasTenders({ search: opts.search, rows: Math.min(rows, 20), offset }),
+      p: fetchUruguayComprasTenders({ search: opts.search, rows: Math.min(rows, 50), offset }),
     });
   }
 

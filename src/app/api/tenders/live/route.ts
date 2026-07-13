@@ -12,7 +12,7 @@ import type { LiveTender, DataSource } from '@/lib/api';
  *  - source: 'all' | 'worldbank' | 'eu_ted' | 'ungm' | 'sam_gov' | 'afdb' | 'eu_opentenders' | 'jica' | 'adb' | 'uk_contracts' | 'dgmarket' | 'apify_global' | 'apify_procurement' | 'govrider' | 'tenderwell' | 'seegenebid' | 'canada_buyandsell' | 'austender' | 'portugal_base' | 'ontario_tenders' | 'nigeria_nocopo' | 'kenya_tenders' | 'india_cppp' | 'south_africa' | 'philgeps'
  *  - sector: 'all' | 'medical' | 'construction' | 'retail' | 'it' | 'energy' | 'agriculture' | 'education' | 'transport' | 'finance' | 'telecom'
  *  - search: free-text search term
- *  - rows:   number of records per source (default 20, max 500)
+ *  - rows:   number of records per source (default 50, max 1000)
  *  - offset: number of records to skip (default 0)
  */
 export async function GET(request: NextRequest) {
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const sector = (searchParams.get('sector') || '').toLowerCase();
     const search = searchParams.get('search') || undefined;
     const rowsRaw = Number(searchParams.get('rows'));
-    const rows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.min(rowsRaw, 500) : 20;
+    const rows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.min(rowsRaw, 1000) : 50;
     const offsetRaw = Number(searchParams.get('offset'));
     const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 

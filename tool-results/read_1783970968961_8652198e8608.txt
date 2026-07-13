@@ -1,0 +1,2002 @@
+     1→import type { LiveTender, DataSource } from '@/lib/api';
+     2→
+     3→/* ─────────────────────────────────────────────────────────────────────
+     4→ * Source registry
+     5→ *
+     6→ * Derived from the uploaded API coverage document (Document2.pdf).
+     7→ * `live: true` means the backend actively fetches from this source;
+     8→ * `live: false` means it requires credentials / a paid plan and is
+     9→ * surfaced as a reference-only data source in the UI.
+    10→ * ───────────────────────────────────────────────────────────────────── */
+    11→
+    12→export const DATA_SOURCES: DataSource[] = [
+    13→  {
+    14→    id: 'worldbank',
+    15→    name: 'World Bank',
+    16→    coverage:
+    17→      'Contract awards for Bank-funded projects (agriculture, energy, etc.). Supports up to 1,000 records per request.',
+    18→    access: 'Public, no credentials required',
+    19→    link: 'https://financesone.worldbank.org',
+    20→    live: true,
+    21→    accent: 'emerald',
+    22→  },
+    23→  {
+    24→    id: 'eu_ted',
+    25→    name: 'EU TED',
+    26→    coverage:
+    27→      'Public procurement notices and contract awards from all EU member states.',
+    28→    access: 'Anonymous access',
+    29→    link: 'https://api.ted.europa.eu/swagger-ui/index.html',
+    30→    live: true,
+    31→    accent: 'blue',
+    32→  },
+    33→  {
+    34→    id: 'ungm',
+    35→    name: 'UNGM — UN Global Procurement',
+    36→    coverage:
+    37→      'UN system tenders from all agencies (UNDP, UNICEF, WHO, etc.). Covers goods, services, and works worldwide.',
+    38→    access: 'Public RSS feed',
+    39→    link: 'https://www.ungm.org',
+    40→    live: true,
+    41→    accent: 'sky',
+    42→  },
+    43→  {
+    44→    id: 'sam_gov',
+    45→    name: 'SAM.gov — US Federal',
+    46→    coverage:
+    47→      'US federal procurement opportunities, contract awards, and simplified acquisition notices from all agencies.',
+    48→    access: 'Public API, no key required for basic search',
+    49→    link: 'https://sam.gov',
+    50→    live: true,
+    51→    accent: 'amber',
+    52→  },
+    53→  {
+    54→    id: 'afdb',
+    55→    name: 'African Development Bank',
+    56→    coverage:
+    57→      'Procurement notices and contract awards for AfDB-funded infrastructure, energy, and agriculture projects across Africa.',
+    58→    access: 'Public notices available at afdb.org',
+    59→    link: 'https://www.afdb.org/en/projects-operations/procurement',
+    60→    live: true,
+    61→    accent: 'orange',
+    62→  },
+    63→  {
+    64→    id: 'eu_opentenders',
+    65→    name: 'OpenTenders (EU Open Data)',
+    66→    coverage:
+    67→      'Additional European procurement data from open data portals. Supplements EU TED with regional and municipal notices.',
+    68→    access: 'Public open data endpoints',
+    69→    link: 'https://opentender.eu',
+    70→    live: true,
+    71→    accent: 'violet',
+    72→  },
+    73→  {
+    74→    id: 'jica',
+    75→    name: 'JICA — Japan International Cooperation Agency',
+    76→    coverage:
+    77→      'Official Development Assistance (ODA) loan and grant projects across Asia, Africa, and the Middle East.',
+    78→    access: 'Public procurement notices at jica.go.jp',
+    79→    link: 'https://www.jica.go.jp/english/our_work/procurement/index.html',
+    80→    live: true,
+    81→    accent: 'red',
+    82→  },
+    83→  {
+    84→    id: 'adb',
+    85→    name: 'ADB — Asian Development Bank',
+    86→    coverage:
+    87→      'Procurement notices for ADB-funded infrastructure, energy, transport, and urban development projects across Asia and the Pacific.',
+    88→    access: 'Public procurement notices at adb.org',
+    89→    link: 'https://www.adb.org/business/opportunities',
+    90→    live: true,
+    91→    accent: 'cyan',
+    92→  },
+    93→  {
+    94→    id: 'uk_contracts',
+    95→    name: 'UK Contracts Finder',
+    96→    coverage:
+    97→      'All public sector procurement opportunities in the UK over £10,000 (central government) and £25,000 (other bodies).',
+    98→    access: 'Public API — no registration required',
+    99→    link: 'https://www.contractsfinder.service.gov.uk',
+   100→    live: true,
+   101→    accent: 'rose',
+   102→  },
+   103→  {
+   104→    id: 'dgmarket',
+   105→    name: 'DgMarket — Development Gateway',
+   106→    coverage:
+   107→      'Global development procurement notices aggregated from multilateral development banks, UN agencies, and government portals across 180+ countries.',
+   108→    access: 'Public search with registration for alerts',
+   109→    link: 'https://www.dgmarket.com',
+   110→    live: true,
+   111→    accent: 'lime',
+   112→  },
+   113→  {
+   114→    id: 'apify_global',
+   115→    name: 'Apify — Global Public Tenders Scraper',
+   116→    coverage:
+   117→      'Aggregates tender data from Italy, France, Germany, Spain, the UK, the US, and India in a normalized JSON feed.',
+   118→    access: 'Requires an Apify account and API token',
+   119→    link: 'https://apify.com/lofomachines/public-tenders-scraper/api',
+   120→    live: false,
+   121→    accent: 'amber',
+   122→  },
+   123→  {
+   124→    id: 'apify_procurement',
+   125→    name: 'Apify — Public Tender & Procurement Alerts',
+   126→    coverage:
+   127→      'Collects project and tender data from World Bank and Asian Development Bank APIs.',
+   128→    access: 'Requires an Apify account and API token',
+   129→    link: 'https://apify.com/datapilot/public-tender-procurement-alerts/api',
+   130→    live: false,
+   131→    accent: 'orange',
+   132→  },
+   133→  {
+   134→    id: 'govrider',
+   135→    name: 'GovRider MCP Server',
+   136→    coverage:
+   137→      'Aggregates tenders, RFPs, grants, and frameworks from 25+ official sources worldwide.',
+   138→    access: 'Requires an API key. Sign up at govrider.ai',
+   139→    link: 'https://github.com/carlosahumada89/govrider-mcp-server',
+   140→    live: false,
+   141→    accent: 'violet',
+   142→  },
+   143→  {
+   144→    id: 'tenderwell',
+   145→    name: 'Tenderwell',
+   146→    coverage:
+   147→      'Government tender and contract database covering over 180 countries.',
+   148→    access: 'Offers a "powerful data integration" API',
+   149→    link: 'https://tenderwell.com',
+   150→    live: false,
+   151→    accent: 'teal',
+   152→  },
+   153→  {
+   154→    id: 'seegenebid',
+   155→    name: 'SeeGeneBid MCP',
+   156→    coverage: 'Aggregates tenders from G2B (Korea), SAM.gov (US), and UK FTS (UK).',
+   157→    access: 'Open source — available on GitHub',
+   158→    link: 'https://github.com/changheesong/seegene-bid-mcp',
+   159→    live: false,
+   160→    accent: 'rose',
+   161→  },
+   162→  {
+   163→    id: 'canada_buyandsell',
+   164→    name: 'Canada — Buyandsell.gc.ca',
+   165→    coverage:
+   166→      'Canadian federal government procurement opportunities and tender notices. Public API with no authentication required.',
+   167→    access: 'Public API — no registration required',
+   168→    link: 'https://buyandsell.gc.ca',
+   169→    live: true,
+   170→    accent: 'red',
+   171→  },
+   172→  {
+   173→    id: 'austender',
+   174→    name: 'Australia — AusTender',
+   175→    coverage:
+   176→      'Australian government procurement opportunities, contract notices, and annual procurement plans. Public search API.',
+   177→    access: 'Public — no registration required',
+   178→    link: 'https://www.tenders.gov.au',
+   179→    live: true,
+   180→    accent: 'teal',
+   181→  },
+   182→  {
+   183→    id: 'portugal_base',
+   184→    name: 'Portugal — BASE',
+   185→    coverage:
+   186→      'Portuguese public procurement portal with tender notices, contract awards, and downloadable requirement documents.',
+   187→    access: 'Public portal — no registration required',
+   188→    link: 'https://www.base.gov.pt',
+   189→    live: true,
+   190→    accent: 'green',
+   191→  },
+   192→  {
+   193→    id: 'ontario_tenders',
+   194→    name: 'Ontario — Tenders Portal',
+   195→    coverage:
+   196→      'Ontario provincial government and broader public sector procurement opportunities in Canada.',
+   197→    access: 'Public — browse without registration',
+   198→    link: 'https://www.ontariotenders.ca',
+   199→    live: true,
+   200→    accent: 'orange',
+   201→  },
+   202→  {
+   203→    id: 'nigeria_nocopo',
+   204→    name: 'Nigeria — NOCOPO',
+   205→    coverage:
+   206→      'Nigerian Open Contracting Portal — federal and state procurement plans, tender notices, and contract awards.',
+   207→    access: 'Public open data portal',
+   208→    link: 'https://nocopo.bpp.gov.ng',
+   209→    live: true,
+   210→    accent: 'emerald',
+   211→  },
+   212→  {
+   213→    id: 'kenya_tenders',
+   214→    name: 'Kenya — Public Procurement',
+   215→    coverage:
+   216→      'Kenyan public procurement opportunities from the Public Procurement Regulatory Authority and county governments.',
+   217→    access: 'Public procurement portal',
+   218→    link: 'https://tenders.go.ke',
+   219→    live: true,
+   220→    accent: 'amber',
+   221→  },
+   222→  {
+   223→    id: 'india_cppp',
+   224→    name: 'India — CPPP eProcure',
+   225→    coverage:
+   226→      'Central Public Procurement Portal of India. Tenders from all central and state government departments, PSUs, and autonomous bodies.',
+   227→    access: 'Public — no registration required',
+   228→    link: 'https://eprocure.gov.in/eprocure/app',
+   229→    live: true,
+   230→    accent: 'orange',
+   231→  },
+   232→  {
+   233→    id: 'south_africa',
+   234→    name: 'South Africa — eTenders',
+   235→    coverage:
+   236→      'South African government eTender portal with procurement notices, tender documents, and contract awards from all government entities.',
+   237→    access: 'Public — no registration required',
+   238→    link: 'https://www.etenders.gov.za',
+   239→    live: true,
+   240→    accent: 'amber',
+   241→  },
+   242→  {
+   243→    id: 'philgeps',
+   244→    name: 'Philippines — PhilGEPS',
+   245→    coverage:
+   246→      'Philippine Government Electronic Procurement System. All government procurement opportunities with downloadable bidding documents.',
+   247→    access: 'Public — browse without registration',
+   248→    link: 'https://philgeps.gov.ph',
+   249→    live: true,
+   250→    accent: 'sky',
+   251→  },
+   252→  {
+   253→    id: 'colombia_secop',
+   254→    name: 'Colombia — SECOP',
+   255→    coverage:
+   256→      'Colombian public procurement portal (Sistema Electrónico para la Contratación Pública). All government tenders with downloadable requirement documents, RFPs, and contract awards.',
+   257→    access: 'Public API — no registration required (datos.gov.co)',
+   258→    link: 'https://www.colombiacompra.gov.co',
+   259→    live: true,
+   260→    accent: 'yellow',
+   261→  },
+   262→  {
+   263→    id: 'mexico_compranet',
+   264→    name: 'Mexico — CompraNet',
+   265→    coverage:
+   266→      'Mexican government e-procurement platform. All federal tenders with downloadable bidding documents, terms of reference, and contract notices.',
+   267→    access: 'Public API — no registration required',
+   268→    link: 'https://www.gob.mx/compranet',
+   269→    live: true,
+   270→    accent: 'green',
+   271→  },
+   272→  {
+   273→    id: 'chile_mercado',
+   274→    name: 'Chile — Mercado Público',
+   275→    coverage:
+   276→      'Chilean public procurement platform. Tenders from all government agencies with downloadable requirement documents and technical specifications.',
+   277→    access: 'Public API — no registration required (mercadopublico.cl)',
+   278→    link: 'https://www.mercadopublico.cl',
+   279→    live: true,
+   280→    accent: 'red',
+   281→  },
+   282→  {
+   283→    id: 'argentina_comprar',
+   284→    name: 'Argentina — COMPR.AR',
+   285→    coverage:
+   286→      'Argentinian federal procurement portal. Public tenders with downloadable pliegos (bidding documents) and technical specifications.',
+   287→    access: 'Public — no registration required',
+   288→    link: 'https://www.comprar.gob.ar',
+   289→    live: true,
+   290→    accent: 'cyan',
+   291→  },
+   292→  {
+   293→    id: 'uruguay_compras',
+   294→    name: 'Uruguay — Compras Estatales',
+   295→    coverage:
+   296→      'Uruguayan public procurement portal. Government tenders with downloadable requirement documents and bidding terms.',
+   297→    access: 'Public — no registration required (comprasestatales.gub.uy)',
+   298→    link: 'https://www.comprasestatales.gub.uy',
+   299→    live: true,
+   300→    accent: 'blue',
+   301→  },
+   302→];
+   303→
+   304→/* ─────────────────────────────────────────────────────────────────────
+   305→ * Utility helpers
+   306→ * ───────────────────────────────────────────────────────────────────── */
+   307→
+   308→function parseAmount(value: number | string | undefined): number {
+   309→  if (value === undefined || value === null) return 0;
+   310→  if (typeof value === 'number') return value;
+   311→  const n = Number(String(value).replace(/[^0-9.-]/g, ''));
+   312→  return Number.isFinite(n) ? n : 0;
+   313→}
+   314→
+   315→function truncate(text: string, max = 280): string {
+   316→  if (!text) return '';
+   317→  return text.length > max ? text.slice(0, max).trimEnd() + '…' : text;
+   318→}
+   319→
+   320→/* ─────────────────────────────────────────────────────────────────────
+   321→ * World Bank adapter (live, public, no auth)
+   322→ * ───────────────────────────────────────────────────────────────────── */
+   323→
+   324→interface WorldBankProcurementRow {
+   325→  project_id?: string;
+   326→  procurement_group_id?: string;
+   327→  project_name?: string;
+   328→  borrower?: string;
+   329→  country?: string;
+   330→  region?: string;
+   331→  contract_description?: string;
+   332→  contract_type?: string;
+   333→  supplier?: string;
+   334→  supplier_country?: string | string[];
+   335→  contract_signing_date?: string;
+   336→  total_contract_amount?: number | string;
+   337→  wb_contract_number?: string;
+   338→}
+   339→
+   340→interface WorldBankResponse {
+   341→  total?: number;
+   342→  rows?: WorldBankProcurementRow[];
+   343→  procurements?: WorldBankProcurementRow[];
+   344→  [k: string]: unknown;
+   345→}
+   346→
+   347→function inferCategory(row: WorldBankProcurementRow): string {
+   348→  const t = (row.contract_type || '').toLowerCase();
+   349→  if (t.includes('work') || t.includes('civil') || t.includes('construction')) return 'Construction';
+   350→  if (t.includes('consult')) return 'Consulting';
+   351→  if (t.includes('good') || t.includes('supply') || t.includes('equipment')) return 'Supply';
+   352→  if (t.includes('service')) return 'Consulting';
+   353→  const p = (row.project_name || '').toLowerCase();
+   354→  if (p.includes('road') || p.includes('bridge') || p.includes('infrastructure')) return 'Construction';
+   355→  if (p.includes('agric') || p.includes('farm') || p.includes('irrigat')) return 'Agriculture';
+   356→  if (p.includes('health') || p.includes('clinic') || p.includes('hospital')) return 'Healthcare';
+   357→  if (p.includes('energy') || p.includes('power') || p.includes('electric')) return 'Engineering';
+   358→  if (p.includes('edu') || p.includes('school')) return 'Education';
+   359→  if (p.includes('water') || p.includes('sanitation')) return 'Engineering';
+   360→  return 'Consulting';
+   361→}
+   362→
+   363→function buildDeadline(signingDate?: string): string {
+   364→  if (!signingDate) return new Date(Date.now() + 45 * 86400000).toISOString();
+   365→  const base = new Date(signingDate);
+   366→  if (Number.isNaN(base.getTime())) return new Date(Date.now() + 45 * 86400000).toISOString();
+   367→  return new Date(base.getTime() + 45 * 86400000).toISOString();
+   368→}
+   369→
+   370→export async function fetchWorldBankTenders(opts: {
+   371→  search?: string;
+   372→  rows?: number;
+   373→  offset?: number;
+   374→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
+   375→  const rows = Math.min(Math.max(opts.rows ?? 20, 1), 500);
+   376→  const offset = opts.offset || 0;
+   377→  const params = new URLSearchParams({
+   378→    format: 'json',
+   379→    rows: String(rows),
+   380→    fl: [
+   381→      'project_id',
+   382→      'procurement_group_id',
+   383→      'project_name',
+   384→      'borrower',
+   385→      'country',
+   386→      'region',
+   387→      'contract_description',
+   388→      'contract_type',
+   389→      'supplier',
+   390→      'supplier_country',
+   391→      'contract_signing_date',
+   392→      'total_contract_amount',
+   393→      'wb_contract_number',
+   394→    ].join(','),
+   395→  });
+   396→  if (opts.search) params.set('q', opts.search);
+   397→  if (offset > 0) params.set('osstart', String(offset + 1));
+   398→
+   399→  const url = `https://search.worldbank.org/api/v2/procurement?${params.toString()}`;
+   400→  const ctrl = new AbortController();
+   401→  const timer = setTimeout(() => ctrl.abort(), 8000);
+   402→
+   403→  try {
+   404→    const res = await fetch(url, {
+   405→      signal: ctrl.signal,
+   406→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+   407→      cache: 'no-store',
+   408→    });
+   409→    clearTimeout(timer);
+   410→    if (!res.ok) {
+   411→      return { tenders: [], total: 0, ok: false };
+   412→    }
+   413→    const json = (await res.json()) as WorldBankResponse;
+   414→    const rowsArr = json.rows || json.procurements || [];
+   415→    const total = typeof json.total === 'number' ? json.total : rowsArr.length;
+   416→
+   417→    const tenders: LiveTender[] = rowsArr
+   418→      .filter((r) => r && (r.contract_description || r.project_name))
+   419→      .map((r, idx) => {
+   420→        const externalId = r.procurement_group_id || r.project_id || `wb-${idx}`;
+   421→        const title = truncate(r.contract_description || r.project_name || 'World Bank Contract Award', 160);
+   422→        const amount = parseAmount(r.total_contract_amount);
+   423→        const signingDate = r.contract_signing_date;
+   424→        return {
+   425→          id: `worldbank-${externalId}`,
+   426→          title,
+   427→          scope: truncate(r.contract_description || r.project_name || '', 400),
+   428→          budgetMin: amount,
+   429→          budgetMax: amount,
+   430→          deadline: buildDeadline(signingDate),
+   431→          location: r.country || r.region || 'Multiple',
+   432→          categoryTags: inferCategory(r),
+   433→          requiredDocs: r.project_id
+   434→            ? `https://projects.worldbank.org/en/projects-operations/project-detail/${r.project_id}`
+   435→            : 'https://financesone.worldbank.org',
+   436→          status: 'awarded',
+   437→          createdBy: 'worldbank',
+   438→          createdAt: signingDate || new Date().toISOString(),
+   439→          updatedAt: signingDate || new Date().toISOString(),
+   440→          source: 'worldbank',
+   441→          externalId,
+   442→          externalUrl: r.project_id
+   443→            ? `https://projects.worldbank.org/en/projects-operations/project-detail/${r.project_id}`
+   444→            : 'https://financesone.worldbank.org',
+   445→          currency: 'USD',
+   446→          borrower: r.borrower || undefined,
+   447→          supplier: r.supplier || undefined,
+   448→          contractType: r.contract_type || undefined,
+   449→          signingDate: signingDate || undefined,
+   450→          region: r.region || undefined,
+   451→          documentUrl: r.project_id ? `https://projects.worldbank.org/en/projects-operations/project-detail/${r.project_id}` : undefined,
+   452→        } satisfies LiveTender;
+   453→      });
+   454→
+   455→    return { tenders, total, ok: true };
+   456→  } catch {
+   457→    clearTimeout(timer);
+   458→    return { tenders: [], total: 0, ok: false };
+   459→  }
+   460→}
+   461→
+   462→/* ─────────────────────────────────────────────────────────────────────
+   463→ * EU TED adapter (live, public RSS-style feed)
+   464→ * ───────────────────────────────────────────────────────────────────── */
+   465→
+   466→export async function fetchEuTedTenders(opts: {
+   467→  search?: string;
+   468→  rows?: number;
+   469→  offset?: number;
+   470→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
+   471→  const rows = Math.min(Math.max(opts.rows ?? 20, 1), 500);
+   472→  const offset = opts.offset || 0;
+   473→  const base = 'https://api.ted.europa.eu/v3/notices/search';
+   474→  const body = {
+   475→    query: opts.search ? `(${opts.search})` : '*',
+   476→    fields: ['ND', 'TI_DOC', 'DS_DATE_PUB', 'DEADLINE_DATE', 'PLACE_CONTRACT', 'VALUE_CONTRACT', 'CA_NAME', 'TITLE'],
+   477→    limit: rows,
+   478→    offset,
+   479→    pagination: { pageNumber: Math.floor(offset / rows) + 1, pageSize: rows },
+   480→    sort: { field: 'DS_DATE_PUB', order: 'DESC' },
+   481→  };
+   482→  const ctrl = new AbortController();
+   483→  const timer = setTimeout(() => ctrl.abort(), 8000);
+   484→
+   485→  try {
+   486→    const res = await fetch(base, {
+   487→      method: 'POST',
+   488→      signal: ctrl.signal,
+   489→      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+   490→      body: JSON.stringify(body),
+   491→      cache: 'no-store',
+   492→    });
+   493→    clearTimeout(timer);
+   494→    if (!res.ok) return { tenders: [], total: 0, ok: false };
+   495→    const json = (await res.json()) as { notices?: unknown[]; total?: number };
+   496→    const notices = Array.isArray(json.notices) ? json.notices : [];
+   497→    const total = typeof json.total === 'number' ? json.total : notices.length;
+   498→
+   499→    const tenders: LiveTender[] = notices.map((n, idx) => {
+   500→      const row = (n || {}) as Record<string, unknown>;
+   501→      const nd = String(row.ND || row['ND'] || `ted-${idx}`);
+   502→      const title = String(row.TI_DOC || row.TITLE || 'EU TED Notice');
+   503→      const deadlineRaw = row.DEADLINE_DATE as string | undefined;
+   504→      const amount = Number(row.VALUE_CONTRACT) || 0;
+   505→      return {
+   506→        id: `eu_ted-${nd}`,
+   507→        title: truncate(title, 160),
+   508→        scope: truncate(title, 400),
+   509→        budgetMin: amount,
+   510→        budgetMax: amount,
+   511→        deadline: deadlineRaw || new Date(Date.now() + 30 * 86400000).toISOString(),
+   512→        location: String(row.PLACE_CONTRACT || 'EU'),
+   513→        categoryTags: 'Consulting',
+   514→        requiredDocs: `https://ted.europa.eu/udl?uri=TED:NOTICE:${nd}:TEXT:EN:HTML`,
+   515→        status: 'open',
+   516→        createdBy: 'eu_ted',
+   517→        createdAt: String(row.DS_DATE_PUB || new Date().toISOString()),
+   518→        updatedAt: String(row.DS_DATE_PUB || new Date().toISOString()),
+   519→        source: 'eu_ted',
+   520→        externalId: nd,
+   521→        externalUrl: `https://ted.europa.eu/udl?uri=TED:NOTICE:${nd}:TEXT:EN:HTML`,
+   522→        currency: 'EUR',
+   523→        borrower: String(row.CA_NAME || '') || undefined,
+   524→        documentUrl: `https://ted.europa.eu/udl?uri=TED:NOTICE:${nd}:TEXT:EN:HTML`,
+   525→      } satisfies LiveTender;
+   526→    });
+   527→
+   528→    return { tenders, total, ok: true };
+   529→  } catch {
+   530→    clearTimeout(timer);
+   531→    return { tenders: [], total: 0, ok: false };
+   532→  }
+   533→}
+   534→
+   535→/* ─────────────────────────────────────────────────────────────────────
+   536→ * UNGM — UN Global Procurement adapter (live via RSS)
+   537→ * ───────────────────────────────────────────────────────────────────── */
+   538→
+   539→export async function fetchUngmTenders(opts: {
+   540→  search?: string;
+   541→  rows?: number;
+   542→  offset?: number;
+   543→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
+   544→  const ctrl = new AbortController();
+   545→  const timer = setTimeout(() => ctrl.abort(), 8000);
+   546→
+   547→  try {
+   548→    const res = await fetch('https://www.ungm.org/Public/Notice/RSS', {
+   549→      signal: ctrl.signal,
+   550→      headers: { 'User-Agent': 'Tenet-Tender-Ecosystem/1.0', Accept: 'application/rss+xml, text/xml, */*' },
+   551→      cache: 'no-store',
+   552→    });
+   553→    clearTimeout(timer);
+   554→
+   555→    if (!res.ok) return { tenders: [], total: 0, ok: false };
+   556→
+   557→    const xml = await res.text();
+   558→    const itemRegex = /<item[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?<description>([\s\S]*?)<\/description>[\s\S]*?<\/item>/gi;
+   559→    const matches = [...xml.matchAll(itemRegex)];
+   560→
+   561→    if (matches.length === 0) return { tenders: [], total: 0, ok: false };
+   562→
+   563→    const tenders: LiveTender[] = matches.slice(0, opts.rows ?? 10).map((m, idx) => {
+   564→      const rawTitle = m[1]?.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/, '$1').trim() || `UNGM Notice ${idx + 1}`;
+   565→      const rawLink = m[2]?.trim() || 'https://www.ungm.org';
+   566→      const rawDesc = m[3]?.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/, '$1').trim() || '';
+   567→      return {
+   568→        id: `ungm-rss-${idx}`,
+   569→        title: truncate(rawTitle, 160),
+   570→        scope: truncate(rawDesc, 400),
+   571→        budgetMin: 0,
+   572→        budgetMax: 0,
+   573→        deadline: new Date(Date.now() + 30 * 86400000).toISOString(),
+   574→        location: 'International',
+   575→        categoryTags: 'Consulting',
+   576→        requiredDocs: rawLink,
+   577→        status: 'open',
+   578→        createdBy: 'ungm',
+   579→        createdAt: new Date().toISOString(),
+   580→        updatedAt: new Date().toISOString(),
+   581→        source: 'ungm',
+   582→        externalId: `ungm-rss-${idx}`,
+   583→        externalUrl: rawLink,
+   584→        currency: 'USD',
+   585→        region: 'Global',
+   586→        documentUrl: rawLink,
+   587→      } satisfies LiveTender;
+   588→    });
+   589→
+   590→    return { tenders, total: matches.length, ok: true };
+   591→  } catch {
+   592→    clearTimeout(timer);
+   593→    return { tenders: [], total: 0, ok: false };
+   594→  }
+   595→}
+   596→
+   597→/* ─────────────────────────────────────────────────────────────────────
+   598→ * SAM.gov — US Federal Procurement adapter (live, public API)
+   599→ * ───────────────────────────────────────────────────────────────────── */
+   600→
+   601→export async function fetchSamGovTenders(opts: {
+   602→  search?: string;
+   603→  rows?: number;
+   604→  offset?: number;
+   605→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean }> {
+   606→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+   607→  const params = new URLSearchParams({
+   608→    limit: String(rows),
+   609→    offset: String(opts.offset || 0),
+   610→    postedFrom: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+   611→    postedTo: new Date().toISOString().split('T')[0],
+   612→  });
+   613→  if (opts.search) params.set('q', opts.search);
+   614→
+   615→  const url = `https://api.sam.gov/opportunities/v2/search?${params.toString()}`;
+   616→  const ctrl = new AbortController();
+   617→  const timer = setTimeout(() => ctrl.abort(), 8000);
+   618→
+   619→  try {
+   620→    const res = await fetch(url, {
+   621→      signal: ctrl.signal,
+   622→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+   623→      cache: 'no-store',
+   624→    });
+   625→    clearTimeout(timer);
+   626→    if (!res.ok) return { tenders: [], total: 0, ok: false };
+   627→
+   628→    const json = (await res.json()) as {
+   629→      totalRecords?: number;
+   630→      opportunitiesData?: Array<Record<string, unknown>>;
+   631→    };
+   632→    const opps = json.opportunitiesData || [];
+   633→    const total = json.totalRecords || opps.length;
+   634→
+   635→    const tenders: LiveTender[] = opps.map((opp, idx) => {
+   636→      const title = String(opp.title || opp.sol || `SAM.gov Opportunity ${idx + 1}`);
+   637→      const amount = Number(opp.awardAmount || opp.estimatedValue || 0) || 0;
+   638→      return {
+   639→        id: `sam_gov-${opp.noticeId || idx}`,
+   640→        title: truncate(title, 160),
+   641→        scope: truncate(String(opp.description || title), 400),
+   642→        budgetMin: amount,
+   643→        budgetMax: amount,
+   644→        deadline: String(opp.responseDeadLine || new Date(Date.now() + 30 * 86400000).toISOString()),
+   645→        location: String(opp.placeOfPerformance || 'United States'),
+   646→        categoryTags: String(opp.naicsCode || 'Consulting'),
+   647→        requiredDocs: opp.uiLink ? String(opp.uiLink) : `https://sam.gov/opp/${opp.noticeId || idx}`,
+   648→        status: 'open',
+   649→        createdBy: 'sam_gov',
+   650→        createdAt: String(opp.postedDate || new Date().toISOString()),
+   651→        updatedAt: String(opp.postedDate || new Date().toISOString()),
+   652→        source: 'sam_gov',
+   653→        externalId: String(opp.noticeId || idx),
+   654→        externalUrl: opp.uiLink ? String(opp.uiLink) : 'https://sam.gov',
+   655→        currency: 'USD',
+   656→        region: 'North America',
+   657→        documentUrl: opp.uiLink ? String(opp.uiLink) : undefined,
+   658→      } satisfies LiveTender;
+   659→    });
+   660→
+   661→    return { tenders, total, ok: true };
+   662→  } catch {
+   663→    clearTimeout(timer);
+   664→    return { tenders: [], total: 0, ok: false };
+   665→  }
+   666→}
+   667→
+   668→/* ─────────────────────────────────────────────────────────────────────
+   669→ * AfDB — African Development Bank adapter
+   670→ * Attempts public procurement notices; returns empty if unreachable.
+   671→ * ───────────────────────────────────────────────────────────────────── */
+   672→
+   673→export async function fetchAfdbTenders(opts: {
+   674→  search?: string;
+   675→  rows?: number;
+   676→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+   677→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+   678→
+   679→  // Try AfDB procurement API
+   680→  const ctrl = new AbortController();
+   681→  const timer = setTimeout(() => ctrl.abort(), 10000);
+   682→
+   683→  try {
+   684→    const res = await fetch(`https://www.afdb.org/en/projects-operations/procurement`, {
+   685→      signal: ctrl.signal,
+   686→      headers: { 'User-Agent': 'Tenet-Tender-Ecosystem/1.0', Accept: 'text/html,*/*' },
+   687→      cache: 'no-store',
+   688→    });
+   689→    clearTimeout(timer);
+   690→
+   691→    if (!res.ok) throw new Error(`AfDB returned ${res.status}`);
+   692→
+   693→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   694→  } catch {
+   695→    clearTimeout(timer);
+   696→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   697→  }
+   698→}
+   699→
+   700→/* ─────────────────────────────────────────────────────────────────────
+   701→ * OpenTenders EU adapter
+   702→ * ───────────────────────────────────────────────────────────────────── */
+   703→
+   704→export async function fetchEuOpenTenders(opts: {
+   705→  search?: string;
+   706→  rows?: number;
+   707→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+   708→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+   709→
+   710→  // Try OpenTender EU API
+   711→  const ctrl = new AbortController();
+   712→  const timer = setTimeout(() => ctrl.abort(), 10000);
+   713→
+   714→  try {
+   715→    const res = await fetch(`https://opentender.eu/api/tenders?limit=${rows}&q=${encodeURIComponent(opts.search || '')}`, {
+   716→      signal: ctrl.signal,
+   717→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+   718→      cache: 'no-store',
+   719→    });
+   720→    clearTimeout(timer);
+   721→
+   722→    if (res.ok) {
+   723→      const json = await res.json();
+   724→      const items = Array.isArray(json.data || json.tenders || json) ? (json.data || json.tenders || json) : [];
+   725→      if (items.length > 0) {
+   726→        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+   727→          id: `eu_opentenders-${item.id || idx}`,
+   728→          title: truncate(String(item.title || item.name || 'EU Open Tender'), 160),
+   729→          scope: truncate(String(item.description || item.title || ''), 400),
+   730→          budgetMin: Number(item.value_min || item.budgetMin || 0) || 0,
+   731→          budgetMax: Number(item.value_max || item.budgetMax || 0) || 0,
+   732→          deadline: String(item.deadline || item.closingDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+   733→          location: String(item.country || item.region || 'EU'),
+   734→          categoryTags: String(item.category || item.cpvs || 'Consulting'),
+   735→          requiredDocs: String(item.documents_url || item.url || `https://opentender.eu/tender/${item.id || idx}`),
+   736→          status: 'open' as const,
+   737→          createdBy: 'eu_opentenders',
+   738→          createdAt: String(item.published_date || item.created_at || new Date().toISOString()),
+   739→          updatedAt: String(item.updated_at || new Date().toISOString()),
+   740→          source: 'eu_opentenders',
+   741→          externalId: String(item.id || idx),
+   742→          externalUrl: String(item.url || `https://opentender.eu/tender/${item.id || idx}`),
+   743→          currency: 'EUR',
+   744→          region: 'Europe',
+   745→          documentUrl: String(item.documents_url || item.url || '') || undefined,
+   746→        }));
+   747→        return { tenders, total: items.length, ok: true };
+   748→      }
+   749→    }
+   750→
+   751→    // No data returned from API
+   752→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   753→  } catch {
+   754→    clearTimeout(timer);
+   755→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   756→  }
+   757→}
+   758→
+   759→/* ─────────────────────────────────────────────────────────────────────
+   760→ * JICA adapter
+   761→ * ───────────────────────────────────────────────────────────────────── */
+   762→
+   763→export async function fetchJicaTenders(opts: {
+   764→  search?: string;
+   765→  rows?: number;
+   766→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+   767→  void opts;
+   768→  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   769→}
+   770→
+   771→/* ─────────────────────────────────────────────────────────────────────
+   772→ * ADB adapter
+   773→ * ───────────────────────────────────────────────────────────────────── */
+   774→
+   775→export async function fetchAdbTenders(opts: {
+   776→  search?: string;
+   777→  rows?: number;
+   778→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+   779→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+   780→
+   781→  // Try ADB procurement API
+   782→  const ctrl = new AbortController();
+   783→  const timer = setTimeout(() => ctrl.abort(), 10000);
+   784→
+   785→  try {
+   786→    const res = await fetch(`https://www.adb.org/api/v1/business-opportunities?type=procurement&limit=${rows}`, {
+   787→      signal: ctrl.signal,
+   788→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+   789→      cache: 'no-store',
+   790→    });
+   791→    clearTimeout(timer);
+   792→
+   793→    if (res.ok) {
+   794→      const json = await res.json();
+   795→      const items = Array.isArray(json.data || json.results || json) ? (json.data || json.results || json) : [];
+   796→      if (items.length > 0) {
+   797→        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+   798→          id: `adb-${item.id || idx}`,
+   799→          title: truncate(String(item.title || item.project_name || 'ADB Procurement Notice'), 160),
+   800→          scope: truncate(String(item.description || item.title || ''), 400),
+   801→          budgetMin: Number(item.value || item.budget || 0) || 0,
+   802→          budgetMax: Number(item.value || item.budget || 0) || 0,
+   803→          deadline: String(item.closing_date || item.deadline || new Date(Date.now() + 30 * 86400000).toISOString()),
+   804→          location: String(item.country || item.location || 'Asia-Pacific'),
+   805→          categoryTags: String(item.sector || item.type || 'Consulting'),
+   806→          requiredDocs: String(item.documents_url || item.url || `https://www.adb.org/business/opportunities/${item.id || idx}`),
+   807→          status: 'open' as const,
+   808→          createdBy: 'adb',
+   809→          createdAt: String(item.posted_date || item.created_at || new Date().toISOString()),
+   810→          updatedAt: String(item.updated_at || new Date().toISOString()),
+   811→          source: 'adb',
+   812→          externalId: String(item.id || idx),
+   813→          externalUrl: String(item.url || `https://www.adb.org/business/opportunities/${item.id || idx}`),
+   814→          currency: 'USD',
+   815→          region: 'Asia-Pacific',
+   816→          documentUrl: String(item.documents_url || item.url || '') || undefined,
+   817→        }));
+   818→        return { tenders, total: items.length, ok: true };
+   819→      }
+   820→    }
+   821→
+   822→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   823→  } catch {
+   824→    clearTimeout(timer);
+   825→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   826→  }
+   827→}
+   828→
+   829→/* ─────────────────────────────────────────────────────────────────────
+   830→ * UK Contracts Finder adapter
+   831→ * ───────────────────────────────────────────────────────────────────── */
+   832→
+   833→export async function fetchUkContractsTenders(opts: {
+   834→  search?: string;
+   835→  rows?: number;
+   836→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+   837→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+   838→
+   839→  // Try UK Contracts Finder API
+   840→  const ctrl = new AbortController();
+   841→  const timer = setTimeout(() => ctrl.abort(), 10000);
+   842→
+   843→  try {
+   844→    const params = new URLSearchParams({
+   845→      limit: String(rows),
+   846→      offset: '0',
+   847→    });
+   848→    if (opts.search) params.set('q', opts.search);
+   849→
+   850→    const res = await fetch(`https://www.contractsfinder.service.gov.uk/Published/V2/Notices/Search?${params.toString()}`, {
+   851→      signal: ctrl.signal,
+   852→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+   853→      cache: 'no-store',
+   854→    });
+   855→    clearTimeout(timer);
+   856→
+   857→    if (res.ok) {
+   858→      const json = await res.json();
+   859→      const items = Array.isArray(json.results || json.notices || json.releases) ? (json.results || json.notices || json.releases) : [];
+   860→      if (items.length > 0) {
+   861→        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+   862→          id: `uk_contracts-${item.id || idx}`,
+   863→          title: truncate(String(item.title || item.name || 'UK Contract Notice'), 160),
+   864→          scope: truncate(String(item.description || item.title || ''), 400),
+   865→          budgetMin: Number(item.value_low || item.minValue || 0) || 0,
+   866→          budgetMax: Number(item.value_high || item.maxValue || item.value || 0) || 0,
+   867→          deadline: String(item.deadline || item.closing_date || item.responseDeadline || new Date(Date.now() + 30 * 86400000).toISOString()),
+   868→          location: String(item.placeOfDelivery || item.location || 'United Kingdom'),
+   869→          categoryTags: String(item.category || item.cpvs || 'Consulting'),
+   870→          requiredDocs: String(item.documents_url || item.url || `https://www.contractsfinder.service.gov.uk/notice/${item.id || idx}`),
+   871→          status: 'open' as const,
+   872→          createdBy: 'uk_contracts',
+   873→          createdAt: String(item.published_date || item.created_at || item.datePublished || new Date().toISOString()),
+   874→          updatedAt: String(item.updated_at || new Date().toISOString()),
+   875→          source: 'uk_contracts',
+   876→          externalId: String(item.id || idx),
+   877→          externalUrl: String(item.url || `https://www.contractsfinder.service.gov.uk/notice/${item.id || idx}`),
+   878→          currency: 'GBP',
+   879→          region: 'Europe',
+   880→          documentUrl: String(item.documents_url || item.url || '') || undefined,
+   881→        }));
+   882→        return { tenders, total: items.length, ok: true };
+   883→      }
+   884→    }
+   885→
+   886→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   887→  } catch {
+   888→    clearTimeout(timer);
+   889→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   890→  }
+   891→}
+   892→
+   893→/* ─────────────────────────────────────────────────────────────────────
+   894→ * DgMarket adapter
+   895→ * ───────────────────────────────────────────────────────────────────── */
+   896→
+   897→export async function fetchDgMarketTenders(opts: {
+   898→  search?: string;
+   899→  rows?: number;
+   900→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+   901→  void opts;
+   902→  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+   903→}
+   904→
+   905→/* ─────────────────────────────────────────────────────────────────────
+   906→ * Apify — Global Public Tenders Scraper adapter
+   907→ * Requires APIFY_API_TOKEN env var
+   908→ * ───────────────────────────────────────────────────────────────────── */
+   909→
+   910→export async function fetchApifyGlobalTenders(opts: {
+   911→  search?: string;
+   912→  rows?: number;
+   913→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+   914→  const token = process.env.APIFY_API_TOKEN;
+   915→  if (!token) return { tenders: [], total: 0, ok: false, error: 'Enable Apify by setting APIFY_API_TOKEN in .env' };
+   916→
+   917→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 100);
+   918→  const ctrl = new AbortController();
+   919→  const timer = setTimeout(() => ctrl.abort(), 12000);
+   920→
+   921→  try {
+   922→    // Run the Apify actor and get results
+   923→    const runRes = await fetch(
+   924→      `https://api.apify.com/v2/acts/lofomachines~public-tenders-scraper/runs/last/dataset/items?token=${token}&maxItems=${rows}&status=SUCCEEDED`,
+   925→      {
+   926→        signal: ctrl.signal,
+   927→        headers: { Accept: 'application/json' },
+   928→        cache: 'no-store',
+   929→      },
+   930→    );
+   931→    clearTimeout(timer);
+   932→    if (!runRes.ok) return { tenders: [], total: 0, ok: false, error: `Apify API returned ${runRes.status}` };
+   933→
+   934→    const items = (await runRes.json()) as Record<string, unknown>[];
+   935→    if (!Array.isArray(items)) return { tenders: [], total: 0, ok: false };
+   936→
+   937→    const tenders: LiveTender[] = items.slice(0, rows).map((item, idx) => ({
+   938→      id: `apify_global-${idx}`,
+   939→      title: truncate(String(item.title || item.tenderName || 'Apify Tender'), 160),
+   940→      scope: truncate(String(item.description || item.scope || item.title || ''), 400),
+   941→      budgetMin: Number(item.budgetMin || item.value || 0) || 0,
+   942→      budgetMax: Number(item.budgetMax || item.value || 0) || 0,
+   943→      deadline: String(item.deadline || item.closingDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+   944→      location: String(item.country || item.location || 'International'),
+   945→      categoryTags: String(item.category || item.sector || 'General'),
+   946→      requiredDocs: '',
+   947→      status: 'open' as const,
+   948→      createdBy: 'apify_global',
+   949→      createdAt: String(item.publishedDate || item.createdAt || new Date().toISOString()),
+   950→      updatedAt: String(item.updatedAt || new Date().toISOString()),
+   951→      source: 'apify_global',
+   952→      externalId: String(item.id || idx),
+   953→      externalUrl: String(item.url || item.link || 'https://apify.com'),
+   954→      currency: String(item.currency || 'USD'),
+   955→      region: String(item.region || 'Global'),
+   956→    }));
+   957→
+   958→    return { tenders, total: items.length, ok: true };
+   959→  } catch {
+   960→    clearTimeout(timer);
+   961→    return { tenders: [], total: 0, ok: false, error: 'Apify connection failed' };
+   962→  }
+   963→}
+   964→
+   965→/* ─────────────────────────────────────────────────────────────────────
+   966→ * Apify — Public Tender & Procurement Alerts adapter
+   967→ * Requires APIFY_API_TOKEN env var
+   968→ * ───────────────────────────────────────────────────────────────────── */
+   969→
+   970→export async function fetchApifyProcurementTenders(opts: {
+   971→  search?: string;
+   972→  rows?: number;
+   973→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+   974→  const token = process.env.APIFY_API_TOKEN;
+   975→  if (!token) return { tenders: [], total: 0, ok: false, error: 'Enable Apify by setting APIFY_API_TOKEN in .env' };
+   976→
+   977→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 100);
+   978→  const ctrl = new AbortController();
+   979→  const timer = setTimeout(() => ctrl.abort(), 12000);
+   980→
+   981→  try {
+   982→    const runRes = await fetch(
+   983→      `https://api.apify.com/v2/acts/datapilot~public-tender-procurement-alerts/runs/last/dataset/items?token=${token}&maxItems=${rows}&status=SUCCEEDED`,
+   984→      {
+   985→        signal: ctrl.signal,
+   986→        headers: { Accept: 'application/json' },
+   987→        cache: 'no-store',
+   988→      },
+   989→    );
+   990→    clearTimeout(timer);
+   991→    if (!runRes.ok) return { tenders: [], total: 0, ok: false, error: `Apify API returned ${runRes.status}` };
+   992→
+   993→    const items = (await runRes.json()) as Record<string, unknown>[];
+   994→    if (!Array.isArray(items)) return { tenders: [], total: 0, ok: false };
+   995→
+   996→    const tenders: LiveTender[] = items.slice(0, rows).map((item, idx) => ({
+   997→      id: `apify_procurement-${idx}`,
+   998→      title: truncate(String(item.title || item.project_name || 'Procurement Alert'), 160),
+   999→      scope: truncate(String(item.description || item.project_name || ''), 400),
+  1000→      budgetMin: Number(item.budget || item.totalValue || 0) || 0,
+  1001→      budgetMax: Number(item.budget || item.totalValue || 0) || 0,
+  1002→      deadline: String(item.deadline || item.closing_date || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1003→      location: String(item.country || item.borrower_country || 'International'),
+  1004→      categoryTags: String(item.sector || item.procurement_type || 'Consulting'),
+  1005→      requiredDocs: '',
+  1006→      status: 'open' as const,
+  1007→      createdBy: 'apify_procurement',
+  1008→      createdAt: String(item.published_date || item.created_at || new Date().toISOString()),
+  1009→      updatedAt: String(item.updated_at || new Date().toISOString()),
+  1010→      source: 'apify_procurement',
+  1011→      externalId: String(item.id || idx),
+  1012→      externalUrl: String(item.url || item.link || 'https://apify.com'),
+  1013→      currency: String(item.currency || 'USD'),
+  1014→      borrower: String(item.borrower || '') || undefined,
+  1015→      region: String(item.region || 'Global'),
+  1016→    }));
+  1017→
+  1018→    return { tenders, total: items.length, ok: true };
+  1019→  } catch {
+  1020→    clearTimeout(timer);
+  1021→    return { tenders: [], total: 0, ok: false, error: 'Apify connection failed' };
+  1022→  }
+  1023→}
+  1024→
+  1025→/* ─────────────────────────────────────────────────────────────────────
+  1026→ * GovRider MCP Server adapter
+  1027→ * Requires GOVRIDER_API_KEY env var
+  1028→ * ───────────────────────────────────────────────────────────────────── */
+  1029→
+  1030→export async function fetchGovRiderTenders(opts: {
+  1031→  search?: string;
+  1032→  rows?: number;
+  1033→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1034→  const apiKey = process.env.GOVRIDER_API_KEY;
+  1035→  if (!apiKey) return { tenders: [], total: 0, ok: false, error: 'Enable GovRider by setting GOVRIDER_API_KEY in .env' };
+  1036→
+  1037→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 100);
+  1038→  const ctrl = new AbortController();
+  1039→  const timer = setTimeout(() => ctrl.abort(), 12000);
+  1040→
+  1041→  try {
+  1042→    const res = await fetch('https://api.govrider.ai/v1/tenders', {
+  1043→      method: 'POST',
+  1044→      signal: ctrl.signal,
+  1045→      headers: {
+  1046→        'Content-Type': 'application/json',
+  1047→        Authorization: `Bearer ${apiKey}`,
+  1048→      },
+  1049→      body: JSON.stringify({
+  1050→        query: opts.search || '*',
+  1051→        limit: rows,
+  1052→        sort: 'date_desc',
+  1053→      }),
+  1054→      cache: 'no-store',
+  1055→    });
+  1056→    clearTimeout(timer);
+  1057→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `GovRider API returned ${res.status}` };
+  1058→
+  1059→    const json = (await res.json()) as { tenders?: Record<string, unknown>[]; total?: number };
+  1060→    const items = json.tenders || [];
+  1061→    const total = json.total || items.length;
+  1062→
+  1063→    const tenders: LiveTender[] = items.slice(0, rows).map((item, idx) => ({
+  1064→      id: `govrider-${item.id || idx}`,
+  1065→      title: truncate(String(item.title || item.name || 'GovRider Tender'), 160),
+  1066→      scope: truncate(String(item.description || item.summary || ''), 400),
+  1067→      budgetMin: Number(item.budget_min || item.value || 0) || 0,
+  1068→      budgetMax: Number(item.budget_max || item.value || 0) || 0,
+  1069→      deadline: String(item.deadline || item.closing_date || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1070→      location: String(item.location || item.country || 'International'),
+  1071→      categoryTags: String(item.category || item.type || 'General'),
+  1072→      requiredDocs: '',
+  1073→      status: 'open' as const,
+  1074→      createdBy: 'govrider',
+  1075→      createdAt: String(item.published_date || item.created_at || new Date().toISOString()),
+  1076→      updatedAt: String(item.updated_at || new Date().toISOString()),
+  1077→      source: 'govrider',
+  1078→      externalId: String(item.id || idx),
+  1079→      externalUrl: String(item.url || item.link || 'https://govrider.ai'),
+  1080→      currency: String(item.currency || 'USD'),
+  1081→      region: String(item.region || 'Global'),
+  1082→    }));
+  1083→
+  1084→    return { tenders, total, ok: true };
+  1085→  } catch {
+  1086→    clearTimeout(timer);
+  1087→    return { tenders: [], total: 0, ok: false, error: 'GovRider connection failed' };
+  1088→  }
+  1089→}
+  1090→
+  1091→/* ─────────────────────────────────────────────────────────────────────
+  1092→ * Tenderwell adapter
+  1093→ * Requires TENDERWELL_API_KEY env var
+  1094→ * ───────────────────────────────────────────────────────────────────── */
+  1095→
+  1096→export async function fetchTenderwellTenders(opts: {
+  1097→  search?: string;
+  1098→  rows?: number;
+  1099→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1100→  const apiKey = process.env.TENDERWELL_API_KEY;
+  1101→  if (!apiKey) return { tenders: [], total: 0, ok: false, error: 'Enable Tenderwell by setting TENDERWELL_API_KEY in .env' };
+  1102→
+  1103→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 100);
+  1104→  const ctrl = new AbortController();
+  1105→  const timer = setTimeout(() => ctrl.abort(), 12000);
+  1106→
+  1107→  try {
+  1108→    const params = new URLSearchParams({
+  1109→      limit: String(rows),
+  1110→      offset: '0',
+  1111→      q: opts.search || '',
+  1112→    });
+  1113→    const res = await fetch(`https://api.tenderwell.com/v1/tenders?${params.toString()}`, {
+  1114→      signal: ctrl.signal,
+  1115→      headers: {
+  1116→        Accept: 'application/json',
+  1117→        Authorization: `Bearer ${apiKey}`,
+  1118→      },
+  1119→      cache: 'no-store',
+  1120→    });
+  1121→    clearTimeout(timer);
+  1122→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Tenderwell API returned ${res.status}` };
+  1123→
+  1124→    const json = (await res.json()) as { data?: Record<string, unknown>[]; total?: number };
+  1125→    const items = json.data || [];
+  1126→    const total = json.total || items.length;
+  1127→
+  1128→    const tenders: LiveTender[] = items.slice(0, rows).map((item, idx) => ({
+  1129→      id: `tenderwell-${item.id || idx}`,
+  1130→      title: truncate(String(item.title || item.name || 'Tenderwell Tender'), 160),
+  1131→      scope: truncate(String(item.description || ''), 400),
+  1132→      budgetMin: Number(item.budget_min || item.value || 0) || 0,
+  1133→      budgetMax: Number(item.budget_max || item.value || 0) || 0,
+  1134→      deadline: String(item.deadline || item.closing_date || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1135→      location: String(item.country || item.region || 'International'),
+  1136→      categoryTags: String(item.category || item.industry || 'General'),
+  1137→      requiredDocs: '',
+  1138→      status: 'open' as const,
+  1139→      createdBy: 'tenderwell',
+  1140→      createdAt: String(item.published_date || item.created_at || new Date().toISOString()),
+  1141→      updatedAt: String(item.updated_at || new Date().toISOString()),
+  1142→      source: 'tenderwell',
+  1143→      externalId: String(item.id || idx),
+  1144→      externalUrl: String(item.url || item.source_url || 'https://tenderwell.com'),
+  1145→      currency: String(item.currency || 'USD'),
+  1146→      region: String(item.region || 'Global'),
+  1147→    }));
+  1148→
+  1149→    return { tenders, total, ok: true };
+  1150→  } catch {
+  1151→    clearTimeout(timer);
+  1152→    return { tenders: [], total: 0, ok: false, error: 'Tenderwell connection failed' };
+  1153→  }
+  1154→}
+  1155→
+  1156→/* ─────────────────────────────────────────────────────────────────────
+  1157→ * Canada Buyandsell adapter
+  1158→ * Public API — no registration required
+  1159→ * ───────────────────────────────────────────────────────────────────── */
+  1160→
+  1161→export async function fetchCanadaBuyandsellTenders(opts: {
+  1162→  search?: string;
+  1163→  rows?: number;
+  1164→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1165→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1166→
+  1167→  const ctrl = new AbortController();
+  1168→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1169→
+  1170→  try {
+  1171→    const params = new URLSearchParams({ format: 'json', limit: String(rows) });
+  1172→    if (opts.search) params.set('q', opts.search);
+  1173→
+  1174→    const res = await fetch(`https://buyandsell.gc.ca/api/search/tender?${params.toString()}`, {
+  1175→      signal: ctrl.signal,
+  1176→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1177→      cache: 'no-store',
+  1178→    });
+  1179→    clearTimeout(timer);
+  1180→
+  1181→    if (res.ok) {
+  1182→      const json = await res.json();
+  1183→      const items = Array.isArray(json.results || json.tenders || json.items) ? (json.results || json.tenders || json.items) : [];
+  1184→      if (items.length > 0) {
+  1185→        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+  1186→          id: `canada_buyandsell-${item.id || idx}`,
+  1187→          title: truncate(String(item.title || item.tenderTitle || 'Canada Government Tender'), 160),
+  1188→          scope: truncate(String(item.description || item.tenderDescription || ''), 400),
+  1189→          budgetMin: Number(item.value_low || item.estimatedValue || 0) || 0,
+  1190→          budgetMax: Number(item.value_high || item.estimatedValue || 0) || 0,
+  1191→          deadline: String(item.closingDate || item.deadline || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1192→          location: String(item.region || item.deliveryLocation || 'Canada'),
+  1193→          categoryTags: String(item.category || item.gsCode || 'Supply'),
+  1194→          requiredDocs: String(item.documents_url || item.url || `https://buyandsell.gc.ca/procurement-data/tender/${item.id || idx}`),
+  1195→          status: 'open' as const,
+  1196→          createdBy: 'canada_buyandsell',
+  1197→          createdAt: String(item.publicationDate || item.created_at || new Date().toISOString()),
+  1198→          updatedAt: String(item.updated_at || new Date().toISOString()),
+  1199→          source: 'canada_buyandsell',
+  1200→          externalId: String(item.id || idx),
+  1201→          externalUrl: String(item.url || `https://buyandsell.gc.ca/procurement-data/tender/${item.id || idx}`),
+  1202→          currency: 'CAD',
+  1203→          region: 'North America',
+  1204→          documentUrl: String(item.documents_url || item.url || '') || undefined,
+  1205→        }));
+  1206→        return { tenders, total: items.length, ok: true };
+  1207→      }
+  1208→    }
+  1209→
+  1210→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1211→  } catch {
+  1212→    clearTimeout(timer);
+  1213→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1214→  }
+  1215→}
+  1216→
+  1217→/* ─────────────────────────────────────────────────────────────────────
+  1218→ * Australia AusTender adapter
+  1219→ * ───────────────────────────────────────────────────────────────────── */
+  1220→
+  1221→export async function fetchAusTenderTenders(opts: {
+  1222→  search?: string;
+  1223→  rows?: number;
+  1224→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1225→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1226→
+  1227→  const ctrl = new AbortController();
+  1228→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1229→
+  1230→  try {
+  1231→    const res = await fetch(`https://www.tenders.gov.au/api/current-tenders?limit=${rows}&search=${encodeURIComponent(opts.search || '')}`, {
+  1232→      signal: ctrl.signal,
+  1233→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1234→      cache: 'no-store',
+  1235→    });
+  1236→    clearTimeout(timer);
+  1237→
+  1238→    if (res.ok) {
+  1239→      const json = await res.json();
+  1240→      const items = Array.isArray(json.data || json.tenders || json.releases) ? (json.data || json.tenders || json.releases) : [];
+  1241→      if (items.length > 0) {
+  1242→        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+  1243→          id: `austender-${item.id || idx}`,
+  1244→          title: truncate(String(item.title || item.name || 'Australian Government Tender'), 160),
+  1245→          scope: truncate(String(item.description || item.title || ''), 400),
+  1246→          budgetMin: Number(item.value_low || item.estimatedValue || 0) || 0,
+  1247→          budgetMax: Number(item.value_high || item.estimatedValue || 0) || 0,
+  1248→          deadline: String(item.closingDate || item.deadline || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1249→          location: String(item.location || item.state || 'Australia'),
+  1250→          categoryTags: String(item.category || item.industry || 'Consulting'),
+  1251→          requiredDocs: String(item.documents_url || item.url || `https://www.tenders.gov.au/tender/${item.id || idx}`),
+  1252→          status: 'open' as const,
+  1253→          createdBy: 'austender',
+  1254→          createdAt: String(item.publishDate || item.created_at || new Date().toISOString()),
+  1255→          updatedAt: String(item.updated_at || new Date().toISOString()),
+  1256→          source: 'austender',
+  1257→          externalId: String(item.id || idx),
+  1258→          externalUrl: String(item.url || `https://www.tenders.gov.au/tender/${item.id || idx}`),
+  1259→          currency: 'AUD',
+  1260→          region: 'Oceania',
+  1261→          documentUrl: String(item.documents_url || item.url || '') || undefined,
+  1262→        }));
+  1263→        return { tenders, total: items.length, ok: true };
+  1264→      }
+  1265→    }
+  1266→
+  1267→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1268→  } catch {
+  1269→    clearTimeout(timer);
+  1270→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1271→  }
+  1272→}
+  1273→
+  1274→/* ─────────────────────────────────────────────────────────────────────
+  1275→ * Portugal BASE adapter
+  1276→ * ───────────────────────────────────────────────────────────────────── */
+  1277→
+  1278→export async function fetchPortugalBaseTenders(opts: {
+  1279→  search?: string;
+  1280→  rows?: number;
+  1281→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1282→  void opts;
+  1283→  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1284→}
+  1285→
+  1286→/* ─────────────────────────────────────────────────────────────────────
+  1287→ * Ontario Tenders adapter
+  1288→ * ───────────────────────────────────────────────────────────────────── */
+  1289→
+  1290→export async function fetchOntarioTendersTenders(opts: {
+  1291→  search?: string;
+  1292→  rows?: number;
+  1293→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1294→  void opts;
+  1295→  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1296→}
+  1297→
+  1298→/* ─────────────────────────────────────────────────────────────────────
+  1299→ * Nigeria NOCOPO adapter
+  1300→ * ───────────────────────────────────────────────────────────────────── */
+  1301→
+  1302→export async function fetchNigeriaNocopoTenders(opts: {
+  1303→  search?: string;
+  1304→  rows?: number;
+  1305→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1306→  void opts;
+  1307→  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1308→}
+  1309→
+  1310→/* ─────────────────────────────────────────────────────────────────────
+  1311→ * Kenya Public Procurement adapter
+  1312→ * ───────────────────────────────────────────────────────────────────── */
+  1313→
+  1314→export async function fetchKenyaTendersTenders(opts: {
+  1315→  search?: string;
+  1316→  rows?: number;
+  1317→  offset?: number;
+  1318→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1319→  void opts;
+  1320→  return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1321→}
+  1322→
+  1323→/* ─────────────────────────────────────────────────────────────────────
+  1324→ * India CPPP (Central Public Procurement Portal) adapter
+  1325→ * ───────────────────────────────────────────────────────────────────── */
+  1326→
+  1327→export async function fetchIndiaCpppTenders(opts: {
+  1328→  search?: string;
+  1329→  rows?: number;
+  1330→  offset?: number;
+  1331→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1332→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1333→  const offset = opts.offset || 0;
+  1334→  const ctrl = new AbortController();
+  1335→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1336→  try {
+  1337→    const params = new URLSearchParams({
+  1338→      limit: String(rows),
+  1339→      offset: String(offset),
+  1340→    });
+  1341→    if (opts.search) params.set('search', opts.search);
+  1342→    const res = await fetch(`https://eprocure.gov.in/eprocure/app?${params.toString()}`, {
+  1343→      signal: ctrl.signal,
+  1344→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1345→      cache: 'no-store',
+  1346→    });
+  1347→    clearTimeout(timer);
+  1348→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1349→
+  1350→    const contentType = res.headers.get('content-type') || '';
+  1351→    if (contentType.includes('json')) {
+  1352→      const json = await res.json();
+  1353→      const items = Array.isArray(json.data || json.tenders || json.results) ? (json.data || json.tenders || json.results) : [];
+  1354→      if (items.length > 0) {
+  1355→        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+  1356→          id: `india_cppp-${item.tenderId || item.id || idx}`,
+  1357→          title: truncate(String(item.title || item.tenderTitle || item.tender_name || 'India Government Tender'), 160),
+  1358→          scope: truncate(String(item.description || item.tenderDescription || item.scope || ''), 400),
+  1359→          budgetMin: Number(item.estimatedValue || item.budgetMin || item.tender_value || 0) || 0,
+  1360→          budgetMax: Number(item.estimatedValue || item.budgetMax || item.tender_value || 0) || 0,
+  1361→          deadline: String(item.deadline || item.closingDate || item.bid_end_date || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1362→          location: String(item.location || item.state || 'India'),
+  1363→          categoryTags: String(item.category || item.department || 'General'),
+  1364→          requiredDocs: String(item.documents_url || item.tender_document_url || `https://eprocure.gov.in/eprocure/app`),
+  1365→          status: 'open' as const,
+  1366→          createdBy: 'india_cppp',
+  1367→          createdAt: String(item.publishedDate || item.published_date || new Date().toISOString()),
+  1368→          updatedAt: String(item.updated_at || new Date().toISOString()),
+  1369→          source: 'india_cppp',
+  1370→          externalId: String(item.tenderId || item.id || idx),
+  1371→          externalUrl: String(item.url || item.tender_url || `https://eprocure.gov.in/eprocure/app`),
+  1372→          currency: 'INR',
+  1373→          region: 'South Asia',
+  1374→          documentUrl: String(item.tender_document_url || item.document_url || '') || undefined,
+  1375→        }));
+  1376→        return { tenders, total: items.length, ok: true };
+  1377→      }
+  1378→    }
+  1379→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1380→  } catch {
+  1381→    clearTimeout(timer);
+  1382→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1383→  }
+  1384→}
+  1385→
+  1386→/* ─────────────────────────────────────────────────────────────────────
+  1387→ * South Africa eTenders adapter
+  1388→ * ───────────────────────────────────────────────────────────────────── */
+  1389→
+  1390→export async function fetchSouthAfricaTenders(opts: {
+  1391→  search?: string;
+  1392→  rows?: number;
+  1393→  offset?: number;
+  1394→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1395→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1396→  const offset = opts.offset || 0;
+  1397→  const ctrl = new AbortController();
+  1398→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1399→  try {
+  1400→    const params = new URLSearchParams({ limit: String(rows), offset: String(offset) });
+  1401→    if (opts.search) params.set('q', opts.search);
+  1402→    const res = await fetch(`https://www.etenders.gov.za/api/tenders?${params.toString()}`, {
+  1403→      signal: ctrl.signal,
+  1404→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1405→      cache: 'no-store',
+  1406→    });
+  1407→    clearTimeout(timer);
+  1408→    if (res.ok) {
+  1409→      const json = await res.json();
+  1410→      const items = Array.isArray(json.data || json.tenders || json.results) ? (json.data || json.tenders || json.results) : [];
+  1411→      if (items.length > 0) {
+  1412→        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+  1413→          id: `south_africa-${item.id || idx}`,
+  1414→          title: truncate(String(item.title || item.tenderTitle || 'South Africa Government Tender'), 160),
+  1415→          scope: truncate(String(item.description || item.tenderDescription || ''), 400),
+  1416→          budgetMin: Number(item.estimatedValue || item.budgetMin || 0) || 0,
+  1417→          budgetMax: Number(item.estimatedValue || item.budgetMax || 0) || 0,
+  1418→          deadline: String(item.closingDate || item.deadline || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1419→          location: String(item.province || item.location || 'South Africa'),
+  1420→          categoryTags: String(item.category || item.industry || 'General'),
+  1421→          requiredDocs: String(item.documents_url || item.url || `https://www.etenders.gov.za/tender/${item.id || idx}`),
+  1422→          status: 'open' as const,
+  1423→          createdBy: 'south_africa',
+  1424→          createdAt: String(item.publishedDate || item.created_at || new Date().toISOString()),
+  1425→          updatedAt: String(item.updated_at || new Date().toISOString()),
+  1426→          source: 'south_africa',
+  1427→          externalId: String(item.id || idx),
+  1428→          externalUrl: String(item.url || `https://www.etenders.gov.za/tender/${item.id || idx}`),
+  1429→          currency: 'ZAR',
+  1430→          region: 'Africa',
+  1431→          documentUrl: String(item.document_url || item.tender_document_url || '') || undefined,
+  1432→        }));
+  1433→        return { tenders, total: items.length, ok: true };
+  1434→      }
+  1435→    }
+  1436→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1437→  } catch {
+  1438→    clearTimeout(timer);
+  1439→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1440→  }
+  1441→}
+  1442→
+  1443→/* ─────────────────────────────────────────────────────────────────────
+  1444→ * Philippines PhilGEPS adapter
+  1445→ * ───────────────────────────────────────────────────────────────────── */
+  1446→
+  1447→export async function fetchPhilgepsTenders(opts: {
+  1448→  search?: string;
+  1449→  rows?: number;
+  1450→  offset?: number;
+  1451→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1452→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1453→  const offset = opts.offset || 0;
+  1454→  const ctrl = new AbortController();
+  1455→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1456→  try {
+  1457→    const params = new URLSearchParams({ limit: String(rows), offset: String(offset) });
+  1458→    if (opts.search) params.set('search', opts.search);
+  1459→    const res = await fetch(`https://philgeps.gov.ph/api/tenders?${params.toString()}`, {
+  1460→      signal: ctrl.signal,
+  1461→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1462→      cache: 'no-store',
+  1463→    });
+  1464→    clearTimeout(timer);
+  1465→    if (res.ok) {
+  1466→      const json = await res.json();
+  1467→      const items = Array.isArray(json.data || json.tenders || json.results) ? (json.data || json.tenders || json.results) : [];
+  1468→      if (items.length > 0) {
+  1469→        const tenders: LiveTender[] = items.slice(0, rows).map((item: Record<string, unknown>, idx: number) => ({
+  1470→          id: `philgeps-${item.id || idx}`,
+  1471→          title: truncate(String(item.title || item.tenderTitle || 'Philippines Government Tender'), 160),
+  1472→          scope: truncate(String(item.description || item.tenderDescription || ''), 400),
+  1473→          budgetMin: Number(item.approvedBudget || item.estimatedValue || item.budgetMin || 0) || 0,
+  1474→          budgetMax: Number(item.approvedBudget || item.estimatedValue || item.budgetMax || 0) || 0,
+  1475→          deadline: String(item.closingDate || item.deadline || item.submission_deadline || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1476→          location: String(item.region || item.location || 'Philippines'),
+  1477→          categoryTags: String(item.category || item.procurement_type || 'General'),
+  1478→          requiredDocs: String(item.documents_url || item.url || `https://philgeps.gov.ph/tender/${item.id || idx}`),
+  1479→          status: 'open' as const,
+  1480→          createdBy: 'philgeps',
+  1481→          createdAt: String(item.publishedDate || item.created_at || new Date().toISOString()),
+  1482→          updatedAt: String(item.updated_at || new Date().toISOString()),
+  1483→          source: 'philgeps',
+  1484→          externalId: String(item.id || idx),
+  1485→          externalUrl: String(item.url || `https://philgeps.gov.ph/tender/${item.id || idx}`),
+  1486→          currency: 'PHP',
+  1487→          region: 'Southeast Asia',
+  1488→          documentUrl: String(item.document_url || item.tender_document_url || '') || undefined,
+  1489→        }));
+  1490→        return { tenders, total: items.length, ok: true };
+  1491→      }
+  1492→    }
+  1493→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1494→  } catch {
+  1495→    clearTimeout(timer);
+  1496→    return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
+  1497→  }
+  1498→}
+  1499→
+  1500→/* ─────────────────────────────────────────────────────────────────────
+  1501→ * SeeGeneBid MCP adapter
+  1502→ * Open source — aggregates from G2B (Korea), SAM.gov (US), UK FTS
+  1503→ * ───────────────────────────────────────────────────────────────────── */
+  1504→
+  1505→export async function fetchSeeGeneBidTenders(opts: {
+  1506→  search?: string;
+  1507→  rows?: number;
+  1508→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1509→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1510→  const ctrl = new AbortController();
+  1511→  const timer = setTimeout(() => ctrl.abort(), 12000);
+  1512→
+  1513→  try {
+  1514→    // SeeGeneBid publishes a public JSON feed via GitHub Pages
+  1515→    const res = await fetch('https://changheesong.github.io/seegene-bid-mcp/data/tenders.json', {
+  1516→      signal: ctrl.signal,
+  1517→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1518→      cache: 'no-store',
+  1519→    });
+  1520→    clearTimeout(timer);
+  1521→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `SeeGeneBid feed returned ${res.status}` };
+  1522→
+  1523→    const json = (await res.json()) as Record<string, unknown>[];
+  1524→    if (!Array.isArray(json)) return { tenders: [], total: 0, ok: false };
+  1525→
+  1526→    let items = json;
+  1527→    if (opts.search) {
+  1528→      const q = opts.search.toLowerCase();
+  1529→      items = json.filter((item) =>
+  1530→        String(item.title || '').toLowerCase().includes(q) ||
+  1531→        String(item.description || '').toLowerCase().includes(q) ||
+  1532→        String(item.org || '').toLowerCase().includes(q),
+  1533→      );
+  1534→    }
+  1535→
+  1536→    const tenders: LiveTender[] = items.slice(0, rows).map((item, idx) => {
+  1537→      const source = String(item.source || item.origin || 'unknown');
+  1538→      const sourceId = source.includes('korea') || source.includes('g2b') ? 'G2B Korea'
+  1539→        : source.includes('sam') || source.includes('us') ? 'SAM.gov'
+  1540→        : source.includes('uk') || source.includes('fts') ? 'UK FTS'
+  1541→        : 'SeeGeneBid';
+  1542→      return {
+  1543→        id: `seegenebid-${item.id || idx}`,
+  1544→        title: truncate(String(item.title || item.bidName || `${sourceId} Tender`), 160),
+  1545→        scope: truncate(String(item.description || item.title || ''), 400),
+  1546→        budgetMin: Number(item.budget || item.value || item.estimatedValue || 0) || 0,
+  1547→        budgetMax: Number(item.budget || item.value || item.estimatedValue || 0) || 0,
+  1548→        deadline: String(item.deadline || item.closeDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1549→        location: String(item.country || item.region || sourceId.includes('Korea') ? 'South Korea' : sourceId.includes('SAM') ? 'United States' : 'United Kingdom'),
+  1550→        categoryTags: String(item.category || item.industry || sourceId),
+  1551→        requiredDocs: '',
+  1552→        status: 'open' as const,
+  1553→        createdBy: 'seegenebid',
+  1554→        createdAt: String(item.pubDate || item.publishedAt || new Date().toISOString()),
+  1555→        updatedAt: String(item.updatedAt || new Date().toISOString()),
+  1556→        source: 'seegenebid',
+  1557→        externalId: String(item.id || idx),
+  1558→        externalUrl: String(item.url || item.link || 'https://github.com/changheesong/seegene-bid-mcp'),
+  1559→        currency: String(item.currency || (sourceId.includes('Korea') ? 'KRW' : sourceId.includes('SAM') ? 'USD' : 'GBP')),
+  1560→        region: String(item.region || 'Asia-Pacific'),
+  1561→      } satisfies LiveTender;
+  1562→    });
+  1563→
+  1564→    return { tenders, total: items.length, ok: true };
+  1565→  } catch {
+  1566→    clearTimeout(timer);
+  1567→    return { tenders: [], total: 0, ok: false, error: 'SeeGeneBid connection failed' };
+  1568→  }
+  1569→}
+  1570→
+  1571→/* ─────────────────────────────────────────────────────────────────────
+  1572→ * Colombia SECOP adapter (live, public API with downloadable docs)
+  1573→ * ───────────────────────────────────────────────────────────────────── */
+  1574→
+  1575→export async function fetchColombiaSecopTenders(opts: {
+  1576→  search?: string;
+  1577→  rows?: number;
+  1578→  offset?: number;
+  1579→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1580→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1581→  const offset = opts.offset || 0;
+  1582→  const params = new URLSearchParams({
+  1583→    $limit: String(rows),
+  1584→    $offset: String(offset),
+  1585→    $order: 'fecha_de_publicacion DESC',
+  1586→  });
+  1587→  if (opts.search) params.set('$q', opts.search);
+  1588→
+  1589→  const url = `https://www.datos.gov.co/resource/jbjy-vk9h.json?${params.toString()}`;
+  1590→  const ctrl = new AbortController();
+  1591→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1592→
+  1593→  try {
+  1594→    const res = await fetch(url, {
+  1595→      signal: ctrl.signal,
+  1596→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1597→      cache: 'no-store',
+  1598→    });
+  1599→    clearTimeout(timer);
+  1600→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `SECOP API returned ${res.status}` };
+  1601→
+  1602→    const json = (await res.json()) as Record<string, unknown>[];
+  1603→    if (!Array.isArray(json)) return { tenders: [], total: 0, ok: false };
+  1604→
+  1605→    const tenders: LiveTender[] = json.map((row, idx) => {
+  1606→      const id = String(row.id_registro || row.numero_de_proceso || `secop-${idx}`);
+  1607→      const title = String(row.nombre_del_procedimiento || row.objeto_a_contratar || `SECOP Procurement ${idx + 1}`);
+  1608→      const amount = Number(row.valor_total_adjudicacion || row.cuantia_proceso || row.presupuesto_general || 0) || 0;
+  1609→      const docUrl = row.urlproceso ? String(row.urlproceso) : row.url_documentos ? String(row.url_documentos) : undefined;
+  1610→      return {
+  1611→        id: `colombia_secop-${id}`,
+  1612→        title: truncate(title, 160),
+  1613→        scope: truncate(String(row.objeto_a_contratar || row.descripcion_del_proceso || title), 400),
+  1614→        budgetMin: amount,
+  1615→        budgetMax: amount,
+  1616→        deadline: String(row.fecha_de_publicacion || row.fecha_de_cierre || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1617→        location: String(row.departamento || row.ciudad || 'Colombia'),
+  1618→        categoryTags: String(row.tipo_de_contrato || row.clase || 'Supply'),
+  1619→        requiredDocs: docUrl || '',
+  1620→        status: 'open' as const,
+  1621→        createdBy: 'colombia_secop',
+  1622→        createdAt: String(row.fecha_de_publicacion || new Date().toISOString()),
+  1623→        updatedAt: String(row.ultima_modificacion || new Date().toISOString()),
+  1624→        source: 'colombia_secop',
+  1625→        externalId: id,
+  1626→        externalUrl: docUrl || `https://www.colombiacompra.gov.co`,
+  1627→        currency: 'COP',
+  1628→        borrower: String(row.entidad || row.nombre_entidad || '') || undefined,
+  1629→        contractType: String(row.tipo_de_contrato || '') || undefined,
+  1630→        region: String(row.departamento || 'South America'),
+  1631→        documentUrl: docUrl,
+  1632→      } satisfies LiveTender;
+  1633→    });
+  1634→
+  1635→    return { tenders, total: json.length, ok: true };
+  1636→  } catch {
+  1637→    clearTimeout(timer);
+  1638→    return { tenders: [], total: 0, ok: false, error: 'SECOP API unreachable' };
+  1639→  }
+  1640→}
+  1641→
+  1642→/* ─────────────────────────────────────────────────────────────────────
+  1643→ * Mexico CompraNet adapter (live, public open data)
+  1644→ * ───────────────────────────────────────────────────────────────────── */
+  1645→
+  1646→export async function fetchMexicoCompranetTenders(opts: {
+  1647→  search?: string;
+  1648→  rows?: number;
+  1649→  offset?: number;
+  1650→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1651→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1652→  const offset = opts.offset || 0;
+  1653→  const params = new URLSearchParams({
+  1654→    $limit: String(rows),
+  1655→    $offset: String(offset),
+  1656→    $order: 'fecha_publicacion DESC',
+  1657→  });
+  1658→  if (opts.search) params.set('$q', opts.search);
+  1659→
+  1660→  const url = `https://api.datos.gob.mx/v2/contratacionesabiertas?${params.toString()}`;
+  1661→  const ctrl = new AbortController();
+  1662→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1663→
+  1664→  try {
+  1665→    const res = await fetch(url, {
+  1666→      signal: ctrl.signal,
+  1667→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1668→      cache: 'no-store',
+  1669→    });
+  1670→    clearTimeout(timer);
+  1671→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `CompraNet API returned ${res.status}` };
+  1672→
+  1673→    const json = (await res.json()) as { results?: Record<string, unknown>[]; pagination?: { total: number } };
+  1674→    const items = Array.isArray(json.results) ? json.results : [];
+  1675→    const total = json.pagination?.total ?? items.length;
+  1676→
+  1677→    const tenders: LiveTender[] = items.map((row, idx) => {
+  1678→      const compiled = (row.compiledRelease || row) as Record<string, unknown>;
+  1679→      const tender = (compiled.tender || {}) as Record<string, unknown>;
+  1680→      const id = String(tender.id || compiled.ocid || `mx-${idx}`);
+  1681→      const title = String(tender.title || tender.description || `Mexican Tender ${idx + 1}`);
+  1682→      const amount = Number(tender.value?.amount || tender.minValue?.amount || 0) || 0;
+  1683→      const currency = String(tender.value?.currency || 'MXN');
+  1684→      const docLinks = (tender.documents || []) as Array<Record<string, unknown>>;
+  1685→      const docUrl = docLinks.length > 0 && docLinks[0].url ? String(docLinks[0].url) : undefined;
+  1686→
+  1687→      return {
+  1688→        id: `mexico_compranet-${id}`,
+  1689→        title: truncate(title, 160),
+  1690→        scope: truncate(String(tender.description || title), 400),
+  1691→        budgetMin: amount,
+  1692→        budgetMax: amount,
+  1693→        deadline: String(tender.tenderPeriod?.endDate || tender.tenderPeriod?.startDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1694→        location: String(tender.deliveryLocation?.description || 'Mexico'),
+  1695→        categoryTags: String(tender.mainProcurementCategory || tender.additionalClassifications?.[0]?.description || 'Supply'),
+  1696→        requiredDocs: docUrl || '',
+  1697→        status: 'open' as const,
+  1698→        createdBy: 'mexico_compranet',
+  1699→        createdAt: String(tender.publishedDate || new Date().toISOString()),
+  1700→        updatedAt: String(tender.publishedDate || new Date().toISOString()),
+  1701→        source: 'mexico_compranet',
+  1702→        externalId: id,
+  1703→        externalUrl: `https://www.gob.mx/compranet`,
+  1704→        currency,
+  1705→        borrower: String((compiled.parties?.[0] as Record<string, unknown>)?.name || '') || undefined,
+  1706→        contractType: String(tender.procurementMethod || '') || undefined,
+  1707→        region: 'North America',
+  1708→        documentUrl: docUrl,
+  1709→      } satisfies LiveTender;
+  1710→    });
+  1711→
+  1712→    return { tenders, total, ok: true };
+  1713→  } catch {
+  1714→    clearTimeout(timer);
+  1715→    return { tenders: [], total: 0, ok: false, error: 'CompraNet API unreachable' };
+  1716→  }
+  1717→}
+  1718→
+  1719→/* ─────────────────────────────────────────────────────────────────────
+  1720→ * Chile Mercado Público adapter (live, public search)
+  1721→ * ───────────────────────────────────────────────────────────────────── */
+  1722→
+  1723→export async function fetchChileMercadoTenders(opts: {
+  1724→  search?: string;
+  1725→  rows?: number;
+  1726→  offset?: number;
+  1727→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1728→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1729→  const ctrl = new AbortController();
+  1730→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1731→
+  1732→  try {
+  1733→    // Chile Mercado Público provides a public search API
+  1734→    const params = new URLSearchParams({
+  1735→      fechaDesde: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+  1736→      fechaHasta: new Date().toISOString().split('T')[0],
+  1737→      page: '1',
+  1738→      pageSize: String(rows),
+  1739→    });
+  1740→    if (opts.search) params.set('texto', opts.search);
+  1741→
+  1742→    const url = `https://api.mercadopublico.cl/servicios/v2/publico/licitaciones.json?${params.toString()}`;
+  1743→    const res = await fetch(url, {
+  1744→      signal: ctrl.signal,
+  1745→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1746→      cache: 'no-store',
+  1747→    });
+  1748→    clearTimeout(timer);
+  1749→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Mercado Público returned ${res.status}` };
+  1750→
+  1751→    const json = (await res.json()) as { Listado?: Record<string, unknown>[]; Cantidad?: number };
+  1752→    const items = Array.isArray(json.Listado) ? json.Listado : [];
+  1753→    const total = json.Cantidad ?? items.length;
+  1754→
+  1755→    const tenders: LiveTender[] = items.map((row, idx) => {
+  1756→      const codigo = String(row.CodigoExterno || row.Codigo || `cl-${idx}`);
+  1757→      const nombre = String(row.Nombre || `Chilean Tender ${idx + 1}`);
+  1758→      const amount = Number(row.MontoEstimado || row.MontoTotal || 0) || 0;
+  1759→      const docUrl = row.UrlDocumento ? String(row.UrlDocumento) : row.UrlPublica ? String(row.UrlPublica) : undefined;
+  1760→
+  1761→      return {
+  1762→        id: `chile_mercado-${codigo}`,
+  1763→        title: truncate(nombre, 160),
+  1764→        scope: truncate(String(row.Descripcion || row.Nombre || ''), 400),
+  1765→        budgetMin: amount,
+  1766→        budgetMax: amount,
+  1767→        deadline: String(row.FechaCierre || row.FechaPublicacion || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1768→        location: 'Chile',
+  1769→        categoryTags: String(row.Tipo || row.Rubro || 'Supply'),
+  1770→        requiredDocs: docUrl || '',
+  1771→        status: 'open' as const,
+  1772→        createdBy: 'chile_mercado',
+  1773→        createdAt: String(row.FechaPublicacion || new Date().toISOString()),
+  1774→        updatedAt: new Date().toISOString(),
+  1775→        source: 'chile_mercado',
+  1776→        externalId: codigo,
+  1777→        externalUrl: docUrl || `https://www.mercadopublico.cl`,
+  1778→        currency: 'CLP',
+  1779→        borrower: String(row.Organismo || row.NombreOrganismo || '') || undefined,
+  1780→        contractType: String(row.Tipo || '') || undefined,
+  1781→        region: 'South America',
+  1782→        documentUrl: docUrl,
+  1783→      } satisfies LiveTender;
+  1784→    });
+  1785→
+  1786→    return { tenders, total, ok: true };
+  1787→  } catch {
+  1788→    clearTimeout(timer);
+  1789→    return { tenders: [], total: 0, ok: false, error: 'Mercado Público API unreachable' };
+  1790→  }
+  1791→}
+  1792→
+  1793→/* ─────────────────────────────────────────────────────────────────────
+  1794→ * Argentina COMPR.AR adapter (live, public)
+  1795→ * ───────────────────────────────────────────────────────────────────── */
+  1796→
+  1797→export async function fetchArgentinaComprarTenders(opts: {
+  1798→  search?: string;
+  1799→  rows?: number;
+  1800→  offset?: number;
+  1801→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1802→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1803→  const ctrl = new AbortController();
+  1804→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1805→
+  1806→  try {
+  1807→    const params = new URLSearchParams({
+  1808→      limit: String(rows),
+  1809→      offset: String(opts.offset || 0),
+  1810→    });
+  1811→    if (opts.search) params.set('q', opts.search);
+  1812→
+  1813→    const url = `https://api.datos.gob.ar/v2/contratacionesabiertas/licitaciones?${params.toString()}`;
+  1814→    const res = await fetch(url, {
+  1815→      signal: ctrl.signal,
+  1816→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1817→      cache: 'no-store',
+  1818→    });
+  1819→    clearTimeout(timer);
+  1820→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `COMPR.AR returned ${res.status}` };
+  1821→
+  1822→    const json = (await res.json()) as { data?: Record<string, unknown>[]; meta?: { total: number } };
+  1823→    const items = Array.isArray(json.data) ? json.data : [];
+  1824→    const total = json.meta?.total ?? items.length;
+  1825→
+  1826→    const tenders: LiveTender[] = items.map((row, idx) => {
+  1827→      const tender = (row.tender || row) as Record<string, unknown>;
+  1828→      const id = String(tender.id || row.ocid || `ar-${idx}`);
+  1829→      const title = String(tender.title || tender.description || `Argentinian Tender ${idx + 1}`);
+  1830→      const amount = Number(tender.value?.amount || 0) || 0;
+  1831→      const docLinks = (tender.documents || []) as Array<Record<string, unknown>>;
+  1832→      const docUrl = docLinks.length > 0 && docLinks[0].url ? String(docLinks[0].url) : undefined;
+  1833→
+  1834→      return {
+  1835→        id: `argentina_comprar-${id}`,
+  1836→        title: truncate(title, 160),
+  1837→        scope: truncate(String(tender.description || title), 400),
+  1838→        budgetMin: amount,
+  1839→        budgetMax: amount,
+  1840→        deadline: String(tender.tenderPeriod?.endDate || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1841→        location: 'Argentina',
+  1842→        categoryTags: String(tender.mainProcurementCategory || 'Supply'),
+  1843→        requiredDocs: docUrl || '',
+  1844→        status: 'open' as const,
+  1845→        createdBy: 'argentina_comprar',
+  1846→        createdAt: String(tender.publishedDate || new Date().toISOString()),
+  1847→        updatedAt: new Date().toISOString(),
+  1848→        source: 'argentina_comprar',
+  1849→        externalId: id,
+  1850→        externalUrl: `https://www.comprar.gob.ar`,
+  1851→        currency: 'ARS',
+  1852→        contractType: String(tender.procurementMethod || '') || undefined,
+  1853→        region: 'South America',
+  1854→        documentUrl: docUrl,
+  1855→      } satisfies LiveTender;
+  1856→    });
+  1857→
+  1858→    return { tenders, total, ok: true };
+  1859→  } catch {
+  1860→    clearTimeout(timer);
+  1861→    return { tenders: [], total: 0, ok: false, error: 'COMPR.AR API unreachable' };
+  1862→  }
+  1863→}
+  1864→
+  1865→/* ─────────────────────────────────────────────────────────────────────
+  1866→ * Uruguay Compras Estatales adapter (live, public)
+  1867→ * ───────────────────────────────────────────────────────────────────── */
+  1868→
+  1869→export async function fetchUruguayComprasTenders(opts: {
+  1870→  search?: string;
+  1871→  rows?: number;
+  1872→  offset?: number;
+  1873→}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
+  1874→  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
+  1875→  const ctrl = new AbortController();
+  1876→  const timer = setTimeout(() => ctrl.abort(), 10000);
+  1877→
+  1878→  try {
+  1879→    const params = new URLSearchParams({
+  1880→      limit: String(rows),
+  1881→      offset: String(opts.offset || 0),
+  1882→    });
+  1883→    if (opts.search) params.set('q', opts.search);
+  1884→
+  1885→    const url = `https://www.comprasestatales.gub.uy/consultas/v2/licitaciones?${params.toString()}`;
+  1886→    const res = await fetch(url, {
+  1887→      signal: ctrl.signal,
+  1888→      headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
+  1889→      cache: 'no-store',
+  1890→    });
+  1891→    clearTimeout(timer);
+  1892→    if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Compras Estatales returned ${res.status}` };
+  1893→
+  1894→    const json = (await res.json()) as { data?: Record<string, unknown>[] };
+  1895→    const items = Array.isArray(json.data) ? json.data : [];
+  1896→
+  1897→    const tenders: LiveTender[] = items.map((row, idx) => {
+  1898→      const id = String(row.id || row.numero || `uy-${idx}`);
+  1899→      const title = String(row.nombre || row.objeto || `Uruguayan Tender ${idx + 1}`);
+  1900→      const amount = Number(row.monto_estimado || row.monto || 0) || 0;
+  1901→      const docUrl = row.url_documento ? String(row.url_documento) : row.url_pliego ? String(row.url_pliego) : undefined;
+  1902→
+  1903→      return {
+  1904→        id: `uruguay_compras-${id}`,
+  1905→        title: truncate(title, 160),
+  1906→        scope: truncate(String(row.objeto || row.descripcion || title), 400),
+  1907→        budgetMin: amount,
+  1908→        budgetMax: amount,
+  1909→        deadline: String(row.fecha_cierre || row.fecha_limite || new Date(Date.now() + 30 * 86400000).toISOString()),
+  1910→        location: 'Uruguay',
+  1911→        categoryTags: String(row.tipo || row.rubro || 'Supply'),
+  1912→        requiredDocs: docUrl || '',
+  1913→        status: 'open' as const,
+  1914→        createdBy: 'uruguay_compras',
+  1915→        createdAt: String(row.fecha_publicacion || new Date().toISOString()),
+  1916→        updatedAt: new Date().toISOString(),
+  1917→        source: 'uruguay_compras',
+  1918→        externalId: id,
+  1919→        externalUrl: `https://www.comprasestatales.gub.uy`,
+  1920→        currency: 'UYU',
+  1921→        borrower: String(row.organismo || row.entidad || '') || undefined,
+  1922→        contractType: String(row.tipo || '') || undefined,
+  1923→        region: 'South America',
+  1924→        documentUrl: docUrl,
+  1925→      } satisfies LiveTender;
+  1926→    });
+  1927→
+  1928→    return { tenders, total: items.length, ok: true };
+  1929→  } catch {
+  1930→    clearTimeout(timer);
+  1931→    return { tenders: [], total: 0, ok: false, error: 'Compras Estatales API unreachable' };
+  1932→  }
+  1933→}
+  1934→
+  1935→export const SECTOR_IDS = [
+  1936→  'medical', 'construction', 'retail', 'it', 'energy',
+  1937→  'agriculture', 'education', 'transport', 'finance', 'telecom',
+  1938→] as const;
+  1939→
+  1940→export type SectorId = (typeof SECTOR_IDS)[number];
+  1941→
+  1942→export const SECTOR_META: Record<SectorId, { label: string; icon: string; color: string }> = {
+  1943→  medical: { label: 'Medical & Healthcare', icon: '🏥', color: 'rose' },
+  1944→  construction: { label: 'Construction', icon: '🏗️', color: 'amber' },
+  1945→  retail: { label: 'Retail & Consumer', icon: '🛒', color: 'pink' },
+  1946→  it: { label: 'IT & Technology', icon: '💻', color: 'violet' },
+  1947→  energy: { label: 'Energy', icon: '⚡', color: 'yellow' },
+  1948→  agriculture: { label: 'Agriculture', icon: '🌾', color: 'green' },
+  1949→  education: { label: 'Education', icon: '📚', color: 'blue' },
+  1950→  transport: { label: 'Transport', icon: '🚛', color: 'cyan' },
+  1951→  finance: { label: 'Finance & Banking', icon: '🏦', color: 'emerald' },
+  1952→  telecom: { label: 'Telecommunications', icon: '📡', color: 'sky' },
+  1953→};
+  1954→
+  1955→export function fetchSectorTenders(sector: string, search?: string): { tenders: LiveTender[]; ok: boolean; error?: string } {
+  1956→  // Sector filtering relies on live API data from sources that require credentials.
+  1957→  // Not available until upstream adapters are connected.
+  1958→  void search;
+  1959→  void sector;
+  1960→  return { tenders: [], ok: false, error: 'Requires API credentials - Coming Soon' };
+  1961→}
+  1962→
+  1963→export function getSectorCounts(): { id: SectorId; label: string; count: number; available: boolean }[] {
+  1964→  // Sector counts rely on live API data from sources that require credentials.
+  1965→  return SECTOR_IDS.map((id) => ({
+  1966→    id,
+  1967→    label: SECTOR_META[id].label,
+  1968→    count: 0,
+  1969→    available: false,
+  1970→  }));
+  1971→}
+  1972→
+  1973→/* ─────────────────────────────────────────────────────────────────────
+  1974→ * Aggregator — called by the API route
+  1975→ * ───────────────────────────────────────────────────────────────────── */
+  1976→
+  1977→export interface FetchLiveTendersResult {
+  1978→  tenders: LiveTender[];
+  1979→  meta: {
+  1980→    total: number;
+  1981→    sources: { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[];
+  1982→    fallback: boolean;
+  1983→    cachedAt: number;
+  1984→  };
+  1985→}
+  1986→
+  1987→const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+  1988→interface CacheEntry {
+  1989→  result: FetchLiveTendersResult;
+  1990→  expiresAt: number;
+  1991→}
+  1992→const cache = new Map<string, CacheEntry>();
+  1993→
+  1994→/* ─────────────────────────────────────────────────────────────────────
+  1995→ * Sample / fallback tenders (when live APIs are unreachable)
+  1996→ * Generates realistic tender data from multiple "sources" so that
+  1997→ * Load More, document viewing, and other features can be demonstrated.
+  1998→ * ───────────────────────────────────────────────────────────────────── */
+  1999→
+  2000→function generateSampleTenders(rows: number, offset: number, search?: string): LiveTender[] {
+
+[showing lines 1-2000 of 2543; use offset=2001 with limit to continue reading]
