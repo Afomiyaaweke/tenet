@@ -589,6 +589,50 @@ export function TendersView() {
   const [externalHasMore, setExternalHasMore] = useState(true);
   const [showExternal, setShowExternal] = useState(true);
 
+  // Inline document fetching for external tenders
+  const [extDocLoading, setExtDocLoading] = useState<string | null>(null);
+  const [extDocData, setExtDocData] = useState<Record<string, {
+    title: string; metaDescription?: string; content: string;
+    sections?: { heading: string; content: string }[];
+    deadlines?: string[]; budgets?: string[];
+    url: string; fetchedAt: string;
+  }>>({});
+  const [extDocExpanded, setExtDocExpanded] = useState<string | null>(null);
+
+  const fetchExternalDoc = useCallback(async (tender: LiveTender) => {
+    const id = tender.id;
+    if (extDocExpanded === id) {
+      setExtDocExpanded(null);
+      return;
+    }
+    if (extDocData[id]) {
+      setExtDocExpanded(id);
+      return;
+    }
+    setExtDocExpanded(id);
+    setExtDocLoading(id);
+    try {
+      const docUrl = tender.documentUrl || (tender.requiredDocs && tender.requiredDocs.startsWith('http') ? tender.requiredDocs : null) || tender.externalUrl;
+      if (!docUrl) {
+        toast.error('No document URL available for this tender');
+        setExtDocExpanded(null);
+        setExtDocLoading(null);
+        return;
+      }
+      const res = await api.post('/tenders/fetch-doc', { url: docUrl });
+      if (res.success && res.data) {
+        setExtDocData(prev => ({ ...prev, [id]: res.data }));
+      } else {
+        toast.error(res.error || 'Failed to fetch document content');
+        setExtDocExpanded(null);
+      }
+    } catch {
+      toast.error('Failed to fetch document content');
+      setExtDocExpanded(null);
+    }
+    setExtDocLoading(null);
+  }, [extDocExpanded, extDocData]);
+
   const loadTenders = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     if (append) setLoadingMore(true);
     else setLoading(true);
@@ -636,7 +680,7 @@ export function TendersView() {
     else setExternalLoading(true);
 
     const currentOffset = append ? externalTenders.length : 0;
-    const params: Record<string, string> = { rows: '20', offset: String(currentOffset) };
+    const params: Record<string, string> = { rows: '50', offset: String(currentOffset) };
     if (search) params.search = search;
     if (categoryFilter && categoryFilter !== 'all') params.source = categoryFilter.toLowerCase();
 
@@ -1408,17 +1452,26 @@ export function TendersView() {
 
       {/* See More / Load More — server-side pagination */}
       {!loading && tenders.length > 0 && (
-        <div className="flex flex-col items-center gap-2 pt-4 pb-2">
-          <p className="text-xs text-muted-foreground">
-            {page >= totalPages
-              ? `All ${tenders.length} tenders loaded${totalTenders > tenders.length ? ` (${totalTenders} total)` : ''}`
-              : `${tenders.length} of ${totalTenders} tenders loaded · ${totalTenders - tenders.length} remaining`}
-          </p>
+        <div className="flex flex-col items-center gap-3 pt-6 pb-4">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <FileSearch className="h-3 w-3" />
+              {page >= totalPages
+                ? `All ${tenders.length} tenders loaded`
+                : `${tenders.length} of ${totalTenders} tenders loaded`}
+            </span>
+            {page < totalPages && (
+              <>
+                <span className="text-border">·</span>
+                <span>{totalTenders - tenders.length} remaining</span>
+              </>
+            )}
+          </div>
           {page < totalPages ? (
             <Button
               variant="outline"
               size="lg"
-              className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[240px]"
               onClick={handleLoadMore}
               disabled={loadingMore}
             >
@@ -1427,7 +1480,7 @@ export function TendersView() {
               ) : (
                 <ChevronDown className="h-4 w-4" />
               )}
-              Load More ({totalTenders - tenders.length} remaining)
+              {loadingMore ? 'Loading More…' : `Load More (${totalTenders - tenders.length} remaining)`}
             </Button>
           ) : (
             <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -1450,7 +1503,10 @@ export function TendersView() {
                 <h3 className="text-lg font-bold tracking-tight">
                   <span className="text-gradient-emerald">External</span> Tender Opportunities
                 </h3>
-                <p className="text-xs text-muted-foreground">Live tenders from World Bank, EU TED, UNGM, SAM.gov &amp; more free sources</p>
+                <p className="text-xs text-muted-foreground">
+                  Live tenders from World Bank, EU TED, UNGM, SAM.gov &amp; more free sources — 
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium"> with requirement documents &amp; RFP files</span>
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1483,18 +1539,18 @@ export function TendersView() {
               ))}
             </div>
           ) : externalTenders.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-3">
               {externalTenders.map(t => {
                 const days = daysUntil(t.deadline);
                 const sourceLabel = (t.source || 'external').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                 const hasDocs = !!(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')));
+                const isDocExpanded = extDocExpanded === t.id;
+                const doc = extDocData[t.id];
+                const isDocLoading = extDocLoading === t.id;
                 return (
                   <Card
                     key={t.id}
-                    className="premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 hover:-translate-y-[2px] hover:ring-1 hover:ring-emerald-300/60"
-                    onClick={() => {
-                      if (t.externalUrl) window.open(t.externalUrl, '_blank');
-                    }}
+                    className="premium-shadow rounded-xl border-0 bg-card group overflow-hidden transition-all duration-200 hover:ring-1 hover:ring-emerald-300/60"
                   >
                     <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
                     <CardContent className="p-4 space-y-2.5">
@@ -1502,9 +1558,11 @@ export function TendersView() {
                         <h4 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
                           {t.title}
                         </h4>
-                        <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 shrink-0">
-                          {sourceLabel}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            {sourceLabel}
+                          </Badge>
+                        </div>
                       </div>
 
                       <p className="text-xs text-muted-foreground line-clamp-2">{t.scope}</p>
@@ -1527,11 +1585,36 @@ export function TendersView() {
                           <Calendar className="h-3 w-3 text-teal-600" />
                           <span>{new Date(t.deadline).toLocaleDateString()}</span>
                         </div>
+                        {t.borrower && (
+                          <div className="flex items-center gap-1">
+                            <Building2 className="h-3 w-3 text-violet-600" />
+                            <span className="truncate max-w-[120px]">{t.borrower}</span>
+                          </div>
+                        )}
+                        {t.contractType && (
+                          <div className="flex items-center gap-1">
+                            <FileText className="h-3 w-3 text-amber-600" />
+                            <span className="truncate max-w-[100px]">{t.contractType}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Deadline badge + tags */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)}`}>
+                          <Timer className="h-2.5 w-2.5 mr-0.5" />
+                          {days <= 0 ? 'Expired' : days === 1 ? '1 day' : `${days} days`}
+                        </Badge>
+                        {t.categoryTags && t.categoryTags.split(',').filter(Boolean).slice(0, 3).map((tag: string) => (
+                          <span key={tag} className="text-[9px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            {tag.trim()}
+                          </span>
+                        ))}
                       </div>
 
                       {/* Requirement Documents / Files Section */}
                       {hasDocs && (
-                        <div className="rounded-lg border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/40 dark:bg-sky-950/20 p-2.5 space-y-1.5">
+                        <div className="rounded-lg border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/40 dark:bg-sky-950/20 p-2.5 space-y-2">
                           <div className="flex items-center gap-1.5">
                             <FileSearch className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
                             <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wide">Requirement Documents</span>
@@ -1563,31 +1646,172 @@ export function TendersView() {
                                 <ExternalLink className="h-2 w-2" />
                               </a>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-6 gap-1 text-[10px] px-2 rounded-md transition-colors ${
+                                isDocExpanded
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                  : 'text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50'
+                              }`}
+                              onClick={(e) => { e.stopPropagation(); fetchExternalDoc(t); }}
+                              disabled={isDocLoading}
+                            >
+                              {isDocLoading ? (
+                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                              ) : isDocExpanded ? (
+                                <ChevronUp className="h-2.5 w-2.5" />
+                              ) : (
+                                <ScanSearch className="h-2.5 w-2.5" />
+                              )}
+                              {isDocLoading ? 'Fetching…' : isDocExpanded ? 'Collapse' : 'Extract Content'}
+                            </Button>
                           </div>
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between">
+                      {/* Fetch document content inline if no explicit doc URL but has externalUrl */}
+                      {!hasDocs && t.externalUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`h-6 gap-1.5 text-[10px] px-2 rounded-md transition-colors ${
+                            isDocExpanded
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              : 'text-muted-foreground hover:bg-muted/60'
+                          }`}
+                          onClick={(e) => { e.stopPropagation(); fetchExternalDoc(t); }}
+                          disabled={isDocLoading}
+                        >
+                          {isDocLoading ? (
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                          ) : isDocExpanded ? (
+                            <ChevronUp className="h-2.5 w-2.5" />
+                          ) : (
+                            <ScanSearch className="h-2.5 w-2.5" />
+                          )}
+                          {isDocLoading ? 'Fetching…' : isDocExpanded ? 'Collapse' : 'View Requirements'}
+                        </Button>
+                      )}
+
+                      {/* Inline Document Viewer */}
+                      {isDocExpanded && doc && (
+                        <div className="border border-border rounded-lg bg-gradient-to-b from-muted/30 to-background overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+                          <div className="p-3 space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-0.5">
+                                  <FileSearch className="h-3 w-3" />
+                                  <span>Content from {(() => { try { return new URL(doc.url).hostname; } catch { return 'source'; } })()}</span>
+                                  <span>·</span>
+                                  <span>{new Date(doc.fetchedAt).toLocaleTimeString()}</span>
+                                </div>
+                                <h5 className="text-sm font-semibold text-foreground leading-snug">{doc.title || 'Tender Document'}</h5>
+                                {doc.metaDescription && (
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{doc.metaDescription}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <a
+                                  href={doc.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  Original
+                                </a>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 gap-1 text-[10px] px-1.5"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const text = doc.sections
+                                      ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
+                                      : doc.content;
+                                    navigator.clipboard.writeText(text);
+                                    toast.success('Content copied to clipboard');
+                                  }}
+                                >
+                                  Copy
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Extracted metadata */}
+                            {(doc.deadlines && doc.deadlines.length > 0) || (doc.budgets && doc.budgets.length > 0) ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {doc.deadlines?.map((d: string, i: number) => (
+                                  <Badge key={`dl-${i}`} variant="outline" className="gap-1 text-[9px] border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300">
+                                    <Calendar className="h-2.5 w-2.5" />
+                                    {d}
+                                  </Badge>
+                                ))}
+                                {doc.budgets?.map((b: string, i: number) => (
+                                  <Badge key={`bg-${i}`} variant="outline" className="gap-1 text-[9px] border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+                                    <DollarSign className="h-2.5 w-2.5" />
+                                    {b}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : null}
+
+                            {/* Sections */}
+                            {doc.sections && doc.sections.length > 0 ? (
+                              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-background p-3 space-y-3 scrollbar-thin">
+                                {doc.sections.map((section: { heading: string; content: string }, i: number) => (
+                                  <div key={i}>
+                                    <h6 className="text-xs font-semibold text-foreground mb-1">{section.heading}</h6>
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-line">
+                                      {section.content}
+                                    </p>
+                                    {i < doc.sections!.length - 1 && <Separator className="mt-3 bg-border" />}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-background p-3 scrollbar-thin">
+                                <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-line">
+                                  {doc.content || 'No content could be extracted from this page.'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Inline loading skeleton */}
+                      {isDocExpanded && isDocLoading && (
+                        <div className="border border-border rounded-lg bg-muted/30 p-3 space-y-2 animate-[fadeIn_0.3s_ease-out]">
+                          <div className="flex items-center gap-2">
+                            <ScanSearch className="h-3.5 w-3.5 text-sky-500 animate-pulse" />
+                            <span className="text-xs font-medium text-sky-700 dark:text-sky-300">Extracting document content…</span>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="h-3 bg-muted/50 rounded w-3/4" />
+                            <div className="h-2 bg-muted/50 rounded w-full" />
+                            <div className="h-2 bg-muted/50 rounded w-5/6" />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-1">
                         <div className="flex items-center gap-2">
-                          <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)}`}>
-                            <Timer className="h-2.5 w-2.5 mr-0.5" />
-                            {days <= 0 ? 'Expired' : days === 1 ? '1 day' : `${days} days`}
-                          </Badge>
-                          {t.borrower && (
-                            <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
-                              {t.borrower.length > 20 ? t.borrower.slice(0, 20) + '...' : t.borrower}
-                            </Badge>
+                          {t.externalUrl && (
+                            <a
+                              href={t.externalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-2.5 w-2.5" />
+                              View on {sourceLabel}
+                            </a>
                           )}
                         </div>
-                        <a
-                          href={t.externalUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          View <ExternalLink className="h-2.5 w-2.5" />
-                        </a>
                       </div>
                     </CardContent>
                   </Card>
@@ -1605,21 +1829,42 @@ export function TendersView() {
 
           {/* External Load More */}
           {externalTenders.length > 0 && (
-            <div className="flex flex-col items-center gap-2 pt-2 pb-2">
+            <div className="flex flex-col items-center gap-3 pt-4 pb-2">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Globe2 className="h-3 w-3" />
+                  {externalTenders.length} external tenders loaded
+                </span>
+                {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length > 0 && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                      <FileSearch className="h-3 w-3" />
+                      {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))).length} with documents
+                    </span>
+                  </>
+                )}
+                {externalHasMore && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span>More available</span>
+                  </>
+                )}
+              </div>
               {externalHasMore ? (
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  size="lg"
+                  className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[260px]"
                   onClick={() => loadExternalTenders(true)}
                   disabled={externalLoadingMore}
                 >
                   {externalLoadingMore ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    <ChevronDown className="h-4 w-4" />
                   )}
-                  Load More External Tenders
+                  {externalLoadingMore ? 'Loading More…' : 'Load More External Tenders'}
                 </Button>
               ) : (
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">

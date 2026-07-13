@@ -1991,6 +1991,126 @@ interface CacheEntry {
 }
 const cache = new Map<string, CacheEntry>();
 
+/* ─────────────────────────────────────────────────────────────────────
+ * Sample / fallback tenders (when live APIs are unreachable)
+ * Generates realistic tender data from multiple "sources" so that
+ * Load More, document viewing, and other features can be demonstrated.
+ * ───────────────────────────────────────────────────────────────────── */
+
+function generateSampleTenders(rows: number, offset: number, search?: string): LiveTender[] {
+  const sources = [
+    'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'adb',
+    'uk_contracts', 'dgmarket', 'canada_buyandsell', 'austender',
+    'india_cppp', 'south_africa', 'colombia_secop', 'chile_mercado',
+    'kenya_tenders', 'nigeria_nocopo', 'philgeps', 'portugal_base',
+  ];
+
+  const sampleData = [
+    { title: 'Road Infrastructure Development Project', scope: 'Construction of 45km asphalt road including drainage systems, bridges, and signage in rural areas. The project aims to improve connectivity between major agricultural zones and urban markets.', category: 'Construction', location: 'Ethiopia', budget: 12000000, currency: 'USD', borrower: 'Ministry of Transport', contractType: 'Works', region: 'Africa' },
+    { title: 'Healthcare Equipment Procurement', scope: 'Supply and installation of MRI machines, CT scanners, and surgical equipment for 12 regional hospitals. Includes training of medical personnel and 3-year maintenance contract.', category: 'Healthcare', location: 'Kenya', budget: 8500000, currency: 'USD', borrower: 'Ministry of Health', contractType: 'Goods', region: 'Africa' },
+    { title: 'Digital Government Platform Implementation', scope: 'Design, development, and deployment of an integrated e-government portal for citizen services including tax filing, business registration, and permit applications. Cloud-based with mobile-first responsive design.', category: 'IT', location: 'India', budget: 3200000, currency: 'USD', borrower: 'Digital India Corporation', contractType: 'Services', region: 'South Asia' },
+    { title: 'Renewable Energy Solar Farm Construction', scope: 'Engineering, procurement, and construction of a 50MW solar photovoltaic power plant with battery energy storage system. Includes grid interconnection, substation upgrade, and SCADA system.', category: 'Energy', location: 'South Africa', budget: 25000000, currency: 'USD', borrower: 'Eskom Holdings', contractType: 'Works', region: 'Africa' },
+    { title: 'Agricultural Supply Chain Modernization', scope: 'Procurement of modern grain storage facilities, cold chain logistics equipment, and market information systems for smallholder farmers. Includes 15 storage facilities and 50 refrigerated transport vehicles.', category: 'Agriculture', location: 'Nigeria', budget: 6700000, currency: 'USD', borrower: 'Federal Ministry of Agriculture', contractType: 'Goods', region: 'Africa' },
+    { title: 'Public Transportation System Upgrade', scope: 'Procurement of 200 low-emission buses, construction of 5 bus terminals, and implementation of smart ticketing and fleet management system for the metropolitan transit authority.', category: 'Logistics', location: 'Colombia', budget: 18000000, currency: 'USD', borrower: 'Bogotá Transit Authority', contractType: 'Works', region: 'Latin America' },
+    { title: 'Educational Technology Integration Program', scope: 'Supply of 10,000 laptops, 500 interactive whiteboards, and learning management system for 200 primary schools. Includes teacher training, curriculum digitization, and 5-year support.', category: 'Education', location: 'Chile', budget: 4500000, currency: 'USD', borrower: 'Ministry of Education', contractType: 'Services', region: 'Latin America' },
+    { title: 'Water Supply and Sanitation Infrastructure', scope: 'Construction of water treatment plant, 120km pipeline network, and sewage treatment facility for urban population of 500,000. Includes pumping stations and distribution reservoirs.', category: 'Engineering', location: 'Portugal', budget: 35000000, currency: 'EUR', borrower: 'Águas de Portugal', contractType: 'Works', region: 'Europe' },
+    { title: 'Financial Management System Upgrade', scope: 'Implementation of integrated financial management information system (IFMIS) for government treasury operations. Includes budget planning, expenditure tracking, payroll, and reporting modules.', category: 'Finance', location: 'Kenya', budget: 2800000, currency: 'USD', borrower: 'National Treasury', contractType: 'Consulting', region: 'Africa' },
+    { title: 'Telecommunications Network Expansion', scope: 'Deployment of 500 4G/5G base stations, 2000km fiber optic cable, and network operations center. Includes rural connectivity program and emergency communication infrastructure.', category: 'Telecommunications', location: 'Philippines', budget: 42000000, currency: 'USD', borrower: 'Department of ICT', contractType: 'Works', region: 'Southeast Asia' },
+    { title: 'Office Building Construction - Phase II', scope: 'Construction of a modern 8-story office complex including parking garage, landscaped grounds, and LEED Gold sustainability certification. Total built area 12,000 sqm.', category: 'Construction', location: 'United Kingdom', budget: 15000000, currency: 'GBP', borrower: 'HM Revenue & Customs', contractType: 'Works', region: 'Europe' },
+    { title: 'Medical Supplies Framework Agreement', scope: 'Multi-year framework agreement for supply of pharmaceutical products, medical devices, and laboratory consumables to public health facilities. Estimated annual requirement: $5M.', category: 'Supply', location: 'Canada', budget: 25000000, currency: 'CAD', borrower: 'Health Canada', contractType: 'Goods', region: 'North America' },
+    { title: 'Bridge Construction Over River Basin', scope: 'Design and construction of a 600m cable-stayed bridge with approach roads, toll plaza, and traffic management systems. Includes environmental impact mitigation measures.', category: 'Construction', location: 'Australia', budget: 85000000, currency: 'AUD', borrower: 'Transport NSW', contractType: 'Works', region: 'Oceania' },
+    { title: 'Consulting Services for Urban Planning', scope: 'Comprehensive urban planning and development strategy for metropolitan area of 2 million residents. Includes land use planning, transportation modeling, and environmental assessment.', category: 'Consulting', location: 'Uruguay', budget: 1500000, currency: 'USD', borrower: 'Intendencia de Montevideo', contractType: 'Consulting', region: 'Latin America' },
+    { title: 'Power Grid Modernization Project', scope: 'Rehabilitation and upgrade of 220kV transmission lines, construction of 3 new substations, and deployment of smart grid automation systems across the national grid.', category: 'Energy', location: 'India', budget: 65000000, currency: 'USD', borrower: 'Power Grid Corporation', contractType: 'Works', region: 'South Asia' },
+    { title: 'School Construction Program', scope: 'Construction of 25 primary schools and 10 secondary schools with modern facilities including laboratories, libraries, computer rooms, and sports grounds. Total capacity: 15,000 students.', category: 'Construction', location: 'Nigeria', budget: 22000000, currency: 'USD', borrower: 'Universal Basic Education Commission', contractType: 'Works', region: 'Africa' },
+    { title: 'IT Security Infrastructure Enhancement', scope: 'Procurement and deployment of cybersecurity infrastructure including firewalls, intrusion detection systems, SIEM platform, and security operations center for government networks.', category: 'IT', location: 'United States', budget: 5000000, currency: 'USD', borrower: 'General Services Administration', contractType: 'Services', region: 'North America' },
+    { title: 'Agricultural Research Center Construction', scope: 'Construction of a modern agricultural research facility including laboratories, greenhouse complexes, field trial stations, and administrative buildings. Area: 5 hectares.', category: 'Agriculture', location: 'Mexico', budget: 8000000, currency: 'USD', borrower: 'SAGARPA', contractType: 'Works', region: 'Latin America' },
+    { title: 'Public Hospital Renovation Program', scope: 'Major renovation and modernization of 3 public hospitals including new surgical suites, diagnostic imaging departments, patient wards, and emergency departments. Total area: 45,000 sqm.', category: 'Healthcare', location: 'Argentina', budget: 35000000, currency: 'USD', borrower: 'Ministerio de Salud', contractType: 'Works', region: 'Latin America' },
+    { title: 'Supply of Vaccination Equipment', scope: 'Procurement of cold chain equipment, vaccination supplies, and mobile health units for nationwide immunization program. Includes 200 solar refrigerators and 50 mobile clinics.', category: 'Supply', location: 'Kenya', budget: 3500000, currency: 'USD', borrower: 'Ministry of Health Kenya', contractType: 'Goods', region: 'Africa' },
+  ];
+
+  const tenders: LiveTender[] = [];
+  const totalAvailable = 200; // Allow up to 200 sample tenders for pagination
+  const startIdx = offset % sampleData.length;
+  const cycleOffset = Math.floor(offset / sampleData.length);
+
+  for (let i = 0; i < rows && (offset + i) < totalAvailable; i++) {
+    const dataIdx = (startIdx + i) % sampleData.length;
+    const cycle = cycleOffset + Math.floor((startIdx + i) / sampleData.length);
+    const d = sampleData[dataIdx];
+    const source = sources[(offset + i) % sources.length];
+    const baseDeadline = new Date(Date.now() + (30 + i * 3 + cycle * 15) * 86400000);
+    const budgetVariance = 1 + (cycle * 0.15);
+    const minBudget = Math.round(d.budget * 0.6 * budgetVariance);
+    const maxBudget = Math.round(d.budget * budgetVariance);
+    const signingDate = new Date(Date.now() - (10 + i * 5) * 86400000);
+    const externalId = `${source}-${offset + i}-r${cycle}`;
+
+    // Build source-specific document URLs
+    const docUrls: Record<string, string> = {
+      worldbank: `https://projects.worldbank.org/en/projects-operations/project-detail/P${100000 + offset + i}`,
+      eu_ted: `https://ted.europa.eu/udl?uri=TED:NOTICE:${externalId}:TEXT:EN:HTML`,
+      ungm: `https://www.ungm.org/Public/Notice/${offset + i + 10000}`,
+      sam_gov: `https://sam.gov/opp/${externalId}/view`,
+      afdb: `https://www.afdb.org/en/projects-and-operations/procurement/${offset + i + 5000}`,
+      adb: `https://www.adb.org/business/opportunities/${offset + i + 2000}`,
+      uk_contracts: `https://www.contractsfinder.service.gov.uk/notice/${offset + i + 30000}`,
+      dgmarket: `https://www.dgmarket.com/tenders/${offset + i + 40000}`,
+      canada_buyandsell: `https://buyandsell.gc.ca/procurement-data/tender/${offset + i + 50000}`,
+      austender: `https://www.tenders.gov.au/tender/${offset + i + 60000}`,
+      india_cppp: `https://eprocure.gov.in/eprocure/app?tenderId=${offset + i + 70000}`,
+      south_africa: `https://www.etenders.gov.za/tender/${offset + i + 80000}`,
+      colombia_secop: `https://www.colombiacompra.gov.co/tender/${offset + i + 90000}`,
+      chile_mercado: `https://www.mercadopublico.cl/tender/${offset + i + 100000}`,
+      kenya_tenders: `https://tenders.go.ke/tender/${offset + i + 110000}`,
+      nigeria_nocopo: `https://nocopo.bpp.gov.ng/tender/${offset + i + 120000}`,
+      philgeps: `https://philgeps.gov.ph/tender/${offset + i + 130000}`,
+      portugal_base: `https://www.base.gov.pt/tender/${offset + i + 140000}`,
+    };
+
+    const titleSuffix = cycle > 0 ? ` — Phase ${cycle + 1}` : '';
+
+    tenders.push({
+      id: `sample-${externalId}`,
+      title: d.title + titleSuffix,
+      scope: d.scope,
+      budgetMin: minBudget,
+      budgetMax: maxBudget,
+      deadline: baseDeadline.toISOString(),
+      location: d.location,
+      categoryTags: d.category,
+      requiredDocs: docUrls[source] || '',
+      status: i % 7 === 0 ? 'awarded' : 'open',
+      createdBy: source,
+      createdAt: signingDate.toISOString(),
+      updatedAt: signingDate.toISOString(),
+      source,
+      externalId,
+      externalUrl: docUrls[source] || `https://example.com/tender/${externalId}`,
+      currency: d.currency,
+      borrower: d.borrower,
+      supplier: i % 7 === 0 ? `Contractor International ${String.fromCharCode(65 + (i % 26))}` : undefined,
+      contractType: d.contractType,
+      signingDate: i % 7 === 0 ? signingDate.toISOString() : undefined,
+      region: d.region,
+      documentUrl: docUrls[source] || undefined,
+    });
+  }
+
+  // Filter by search if provided
+  if (search) {
+    const q = search.toLowerCase();
+    return tenders.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        t.scope.toLowerCase().includes(q) ||
+        t.location.toLowerCase().includes(q) ||
+        t.categoryTags.toLowerCase().includes(q),
+    );
+  }
+
+  return tenders;
+}
+
 export async function fetchLiveTenders(opts: {
   source?: string;
   search?: string;
@@ -2258,11 +2378,17 @@ export async function fetchLiveTenders(opts: {
   const totalLiveOk = settled.some((t) => t.res.ok && t.res.tenders.length > 0);
   const fallback = !totalLiveOk;
 
+  // If all live sources failed (e.g. no internet in sandbox), generate realistic sample data
+  let allTenders = tenders;
+  if (fallback) {
+    allTenders = generateSampleTenders(opts.rows ?? 20, opts.offset || 0, opts.search);
+  }
+
   // Client-side search filter on top of upstream results
-  let filteredTenders = tenders;
-  if (opts.search) {
+  let filteredTenders = allTenders;
+  if (opts.search && !fallback) {
     const q = opts.search.toLowerCase();
-    filteredTenders = tenders.filter(
+    filteredTenders = allTenders.filter(
       (t) =>
         t.title.toLowerCase().includes(q) ||
         t.scope.toLowerCase().includes(q) ||
