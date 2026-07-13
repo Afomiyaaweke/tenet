@@ -47,3 +47,25 @@ Stage Summary:
 - Docker Compose now includes PostgreSQL + Redis for production-grade infrastructure
 - Current scalability ceiling: ~50 concurrent users (SQLite + single-instance)
 - Target with PostgreSQL + Redis + multi-instance: ~10,000+ concurrent users
+
+---
+Task ID: 3
+Agent: main
+Task: Fix preview not working
+
+Work Log:
+- Diagnosed: TypeScript build error in auth.ts — auth cache type `NonNullable<Awaited<ReturnType<typeof db.user.findUnique>>>` didn't include `profile` and `company` relations
+- This caused `user!.profile` to fail type checking in agent/route.ts, tender-prep/route.ts, documents/generate/route.ts
+- Fixed: Created explicit `AuthUser` type with all profile/company fields, exported from auth.ts
+- Fixed: Added explicit return types to `getAuthUser()` and `requireAuth()` 
+- Verified: `npx tsc --noEmit` passes with zero errors
+- Verified: `bun run lint` passes clean
+- Verified: Dev server starts, root page compiles, API returns 200
+- Verified: Caddy gateway proxies correctly (200 response on port 81)
+- Verified: Agent Browser confirms landing page renders with updated stats
+- Verified: Sign In flow works (auth-gate renders correctly)
+
+Stage Summary:
+- Root cause was TypeScript type error from auth cache change, preventing page compilation
+- All TypeScript errors fixed with explicit AuthUser type
+- Preview now fully functional: landing page, auth gate, API routes all working

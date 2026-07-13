@@ -1,26 +1,25 @@
 :81 {
-        @transform_port_query {
-                query XTransformPort=*
-        }
+	@transform_port_query {
+		query XTransformPort=*
+	}
 
-        handle @transform_port_query {
-                # In Docker, use service name; locally, use localhost
-                # Docker: app:3000, chat-service:3003
-                # Local: localhost:3000, localhost:3003
-                reverse_proxy {env.UPSTREAM_HOST:-localhost}:{query.XTransformPort} {
-                        header_up Host {host}
-                        header_up X-Forwarded-For {remote_host}
-                        header_up X-Forwarded-Proto {scheme}
-                        header_up X-Real-IP {remote_host}
-                }
-        }
+	handle @transform_port_query {
+		# Route to the port specified in XTransformPort query param
+		# Supported ports: 3000 (Next.js), 3003 (Chat)
+		reverse_proxy localhost:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+		}
+	}
 
-        handle {
-                reverse_proxy {env.APP_HOST:-localhost}:3000 {
-                        header_up Host {host}
-                        header_up X-Forwarded-For {remote_host}
-                        header_up X-Forwarded-Proto {scheme}
-                        header_up X-Real-IP {remote_host}
-                }
-        }
+	handle {
+		reverse_proxy localhost:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+		}
+	}
 }
