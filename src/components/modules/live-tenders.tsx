@@ -2035,7 +2035,13 @@ export function LiveTendersView() {
         setSourceMeta(res.meta?.sources || []);
         if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
         if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
-        setHasMore(res.meta?.hasMore ?? false);
+        // If appending and got 0 new tenders, there's nothing more to load
+        const apiHasMore = res.meta?.hasMore ?? false;
+        if (append && newTenders.length === 0) {
+          setHasMore(false);
+        } else {
+          setHasMore(apiHasMore);
+        }
         if (res.meta?.totalAvailable) setTotalAvailable(res.meta.totalAvailable);
       } else {
         toast.error(res.error || 'Failed to load live tenders');

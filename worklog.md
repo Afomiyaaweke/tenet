@@ -319,3 +319,33 @@ Stage Summary:
 - Document file data is included in all tenders (RFPs, specs, terms of reference)
 - API verified: Load More works, hasMore flag returns correctly, documentFiles populated
 - Server has memory constraints in sandbox but API functionality confirmed working
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Fix Load More hasMore logic and verify external data display
+
+Work Log:
+- Verified Live Tenders Load More is working (click increases from 150 to 300+ tenders)
+- Identified issue: Tenders view external tenders showed "All external tenders loaded" even though more data was available
+- Root cause: /api/tenders/live route.ts had `hasMore = tenders.length >= rows` for live data, but sources cap at 15-50 records each, so total often < 200 rows requested, causing hasMore=false incorrectly
+- Fixed hasMore logic in /api/tenders/live/route.ts:
+  - For live data: hasMore is now true when any source returned data and tenders exist (sources always have more pages available)
+  - For fallback data: uses `(offset + tenders.length) < SAMPLE_TOTAL` with SAMPLE_TOTAL=2000 (was 500)
+- Updated totalAvailable from 500 to 2000 (SAMPLE_TOTAL constant) to match generateSampleTenders
+- Added hasMore and totalAvailable to sector feed response for consistency
+- Fixed both live-tenders.tsx and tenders.tsx to handle edge case: when appending and 0 new tenders returned, set hasMore=false to stop infinite loading
+- Verified with agent browser:
+  - Live Tenders: 150 initial tenders, Load More increases to 300+ (hasMore=true)
+  - Tenders: "Load More +200" button now appears for external tenders (was missing before)
+  - External tenders count increases from 150 to 300 after clicking Load More
+  - Document/requirement data displays correctly ("Requirement Documents Available", "2 files", etc.)
+  - Both views show sector filters, source filters, progress bars
+- Lint check passes
+
+Stage Summary:
+- Load More now works correctly on both Live Tenders and Tenders views
+- hasMore API flag properly indicates more data is available from external sources
+- totalAvailable set to 2000 matching generateSampleTenders capacity
+- Edge case handled: when no new tenders returned on Load More, stops further loading
+- All features verified via agent browser

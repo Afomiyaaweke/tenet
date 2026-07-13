@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api, Tender, Bid, LiveTender, TenderDocument } from '@/lib/api';
+     6→import { Card, CardContent } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Textarea } from '@/components/ui/textarea';
+    11→import { Label } from '@/components/ui/label';
+    12→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    13→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    14→import {
+    15→  Collapsible,
+    16→  CollapsibleContent,
+    17→  CollapsibleTrigger,
+    18→} from '@/components/ui/collapsible';
+    19→import { Separator } from '@/components/ui/separator';
+    20→import { ScrollArea } from '@/components/ui/scroll-area';
+    21→import { toast } from 'sonner';
+    22→import {
+    23→  FileSearch, Plus, Search, MapPin, Calendar, DollarSign,
+    24→  Clock, ArrowRight, TrendingUp, ChevronRight, Zap, Timer,
+    25→  Users, Building2, Target, GitCompareArrows, CheckCircle, X as XIcon,
+    26→  ClipboardList, ChevronDown, ChevronUp, Sparkles, Gavel,
+    27→  ExternalLink, FileText, Tag, Briefcase, Eye, ShieldCheck,
+    28→  Wallet, Clock3, Globe2, Award, CircleDot, ListChecks,
+    29→  Upload, CloudUpload, FileUp, ScanSearch, Brain, Trash2, Loader2,
+    30→  Radio,
+    31→} from 'lucide-react';
+    32→import { InlineTranslator } from '@/components/translator';
+    33→
+    34→const CATEGORIES = ['Construction', 'IT', 'Supply', 'Consulting', 'Engineering', 'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications', 'Energy'];
+    35→
+    36→// Category icons & colors for visual distinction
+    37→const CATEGORY_META: Record<string, { icon: typeof Building2; color: string; bg: string; accent: string }> = {
+    38→  Construction: { icon: Building2, color: 'text-amber-700', bg: 'bg-amber-50', accent: 'from-amber-400 to-amber-600' },
+    39→  IT: { icon: Zap, color: 'text-violet-700', bg: 'bg-violet-50', accent: 'from-violet-400 to-violet-600' },
+    40→  Supply: { icon: ClipboardList, color: 'text-sky-700', bg: 'bg-sky-50', accent: 'from-sky-400 to-sky-600' },
+    41→  Consulting: { icon: Briefcase, color: 'text-indigo-700', bg: 'bg-indigo-50', accent: 'from-indigo-400 to-indigo-600' },
+    42→  Engineering: { icon: Target, color: 'text-emerald-700', bg: 'bg-emerald-50', accent: 'from-emerald-400 to-emerald-600' },
+    43→  Architecture: { icon: Building2, color: 'text-rose-700', bg: 'bg-rose-50', accent: 'from-rose-400 to-rose-600' },
+    44→  Electrical: { icon: Zap, color: 'text-yellow-700', bg: 'bg-yellow-50', accent: 'from-yellow-400 to-yellow-600' },
+    45→  Plumbing: { icon: FileText, color: 'text-blue-700', bg: 'bg-blue-50', accent: 'from-blue-400 to-blue-600' },
+    46→  HVAC: { icon: Clock, color: 'text-teal-700', bg: 'bg-teal-50', accent: 'from-teal-400 to-teal-600' },
+    47→  Logistics: { icon: ArrowRight, color: 'text-orange-700', bg: 'bg-orange-50', accent: 'from-orange-400 to-orange-600' },
+    48→  Healthcare: { icon: ShieldCheck, color: 'text-red-700', bg: 'bg-red-50', accent: 'from-red-400 to-red-600' },
+    49→  Education: { icon: FileText, color: 'text-purple-700', bg: 'bg-purple-50', accent: 'from-purple-400 to-purple-600' },
+    50→  Finance: { icon: DollarSign, color: 'text-green-700', bg: 'bg-green-50', accent: 'from-green-400 to-green-600' },
+    51→  Agriculture: { icon: FileSearch, color: 'text-lime-700', bg: 'bg-lime-50', accent: 'from-lime-400 to-lime-600' },
+    52→  Telecommunications: { icon: Globe2, color: 'text-cyan-700', bg: 'bg-cyan-50', accent: 'from-cyan-400 to-cyan-600' },
+    53→  Energy: { icon: Zap, color: 'text-amber-700', bg: 'bg-amber-50', accent: 'from-amber-400 to-orange-600' },
+    54→};
+    55→
+    56→function getCategoryMeta(cat: string) {
+    57→  return CATEGORY_META[cat] || { icon: FileSearch, color: 'text-muted-foreground', bg: 'bg-muted/50', accent: 'from-gray-400 to-gray-600' };
+    58→}
+    59→
+    60→function daysUntil(dateStr: string): number {
+    61→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    62→}
+    63→
+    64→function deadlineColor(days: number) {
+    65→  if (days <= 0) return 'rose';
+    66→  if (days <= 3) return 'rose';
+    67→  if (days <= 7) return 'amber';
+    68→  return 'emerald';
+    69→}
+    70→
+    71→function deadlineBg(days: number) {
+    72→  const c = deadlineColor(days);
+    73→  const map: Record<string, string> = {
+    74→    rose: 'bg-rose-50 text-rose-700',
+    75→    amber: 'bg-amber-50 text-amber-700',
+    76→    emerald: 'bg-emerald-50 text-emerald-700',
+    77→  };
+    78→  return map[c] || map.emerald;
+    79→}
+    80→
+    81→function formatBudget(min: number, max: number) {
+    82→  const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(0)}K` : n.toLocaleString();
+    83→  return `ETB ${fmt(min)} – ${fmt(max)}`;
+    84→}
+    85→
+    86→// ─── Inline Tender Detail Panel ───────────────────────────────────
+    87→function InlineTenderDetail({ tender, onClose, setView }: {
+    88→  tender: Tender;
+    89→  onClose: () => void;
+    90→  setView: (view: 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle', params?: Record<string, string>) => void;
+    91→}) {
+    92→  const [bids, setBids] = useState<Bid[]>([]);
+    93→  const [bidsLoading, setBidsLoading] = useState(true);
+    94→  const tags = tender.categoryTags.split(',').filter(Boolean);
+    95→  const reqDocs = tender.requiredDocs ? tender.requiredDocs.split(',').filter(Boolean) : [];
+    96→  const days = daysUntil(tender.deadline);
+    97→  const isLive = 'source' in tender && 'externalUrl' in tender;
+    98→
+    99→  useEffect(() => {
+   100→    let cancelled = false;
+   101→    (async () => {
+   102→      setBidsLoading(true);
+   103→      const res = await api.get('/bids', { tenderId: tender.id });
+   104→      if (!cancelled && res.success) setBids(res.data);
+   105→      setBidsLoading(false);
+   106→    })();
+   107→    return () => { cancelled = true; };
+   108→  }, [tender.id]);
+   109→
+   110→  const statusColor = (status: string) => {
+   111→    switch (status) {
+   112→      case 'open': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   113→      case 'closed': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   114→      case 'awarded': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
+   115→      case 'cancelled': return 'bg-muted text-muted-foreground hover:bg-muted';
+   116→      default: return 'bg-muted text-muted-foreground hover:bg-muted';
+   117→    }
+   118→  };
+   119→
+   120→  const bidStatusBadge = (status: string) => {
+   121→    switch (status) {
+   122→      case 'pending_review': return 'bg-amber-100 text-amber-700';
+   123→      case 'shortlisted': return 'bg-sky-100 text-sky-700';
+   124→      case 'awarded': return 'bg-emerald-100 text-emerald-700';
+   125→      case 'rejected': return 'bg-rose-100 text-rose-700';
+   126→      default: return 'bg-muted text-muted-foreground';
+   127→    }
+   128→  };
+   129→
+   130→  return (
+   131→    <div className="animate-[fadeIn_0.2s_ease-out] border border-emerald-200/60 dark:border-emerald-800/40 rounded-xl bg-emerald-50/30 dark:bg-emerald-950/10 overflow-hidden">
+   132→      {/* Header bar */}
+   133→      <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-emerald-200/40 dark:border-emerald-800/30">
+   134→        <div className="flex items-center gap-2 min-w-0">
+   135→          <Gavel className="h-4 w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+   136→          <h4 className="font-semibold text-sm truncate">{tender.title}</h4>
+   137→          <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg shrink-0 ${statusColor(tender.status)}`}>
+   138→            {tender.status}
+   139→          </Badge>
+   140→        </div>
+   141→        <button
+   142→          onClick={onClose}
+   143→          className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors flex-shrink-0"
+   144→          aria-label="Close detail"
+   145→        >
+   146→          <XIcon className="h-4 w-4 text-muted-foreground" />
+   147→        </button>
+   148→      </div>
+   149→
+   150→      <div className="p-5 space-y-5">
+   151→        {/* Scope */}
+   152→        <div>
+   153→          <div className="flex items-center gap-1.5 mb-2">
+   154→            <FileText className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+   155→            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">Scope of Work</span>
+   156→          </div>
+   157→          <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">{tender.scope}</p>
+   158→        </div>
+   159→
+   160→        {/* Key Details Grid */}
+   161→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   162→          <div className="rounded-lg bg-background dark:bg-card border border-emerald-200/40 dark:border-emerald-800/30 p-3 space-y-1">
+   163→            <div className="flex items-center gap-1.5">
+   164→              <DollarSign className="h-3 w-3 text-emerald-600" />
+   165→              <span className="text-[10px] font-medium text-muted-foreground uppercase">Budget</span>
+   166→            </div>
+   167→            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{formatBudget(tender.budgetMin, tender.budgetMax)}</p>
+   168→          </div>
+   169→          <div className="rounded-lg bg-background dark:bg-card border border-emerald-200/40 dark:border-emerald-800/30 p-3 space-y-1">
+   170→            <div className="flex items-center gap-1.5">
+   171→              <Calendar className="h-3 w-3 text-teal-600" />
+   172→              <span className="text-[10px] font-medium text-muted-foreground uppercase">Deadline</span>
+   173→            </div>
+   174→            <p className="text-xs font-semibold">{new Date(tender.deadline).toLocaleDateString()}</p>
+   175→            <Badge className={`text-[9px] px-1 py-0 border-0 rounded ${deadlineBg(days)}`}>
+   176→              {days <= 0 ? 'Expired' : days === 1 ? '1 day left' : `${days} days left`}
+   177→            </Badge>
+   178→          </div>
+   179→          <div className="rounded-lg bg-background dark:bg-card border border-emerald-200/40 dark:border-emerald-800/30 p-3 space-y-1">
+   180→            <div className="flex items-center gap-1.5">
+   181→              <MapPin className="h-3 w-3 text-amber-600" />
+   182→              <span className="text-[10px] font-medium text-muted-foreground uppercase">Location</span>
+   183→            </div>
+   184→            <p className="text-xs font-semibold">{tender.location}</p>
+   185→          </div>
+   186→          <div className="rounded-lg bg-background dark:bg-card border border-emerald-200/40 dark:border-emerald-800/30 p-3 space-y-1">
+   187→            <div className="flex items-center gap-1.5">
+   188→              <Users className="h-3 w-3 text-violet-600" />
+   189→              <span className="text-[10px] font-medium text-muted-foreground uppercase">Bids</span>
+   190→            </div>
+   191→            <p className="text-xs font-semibold">{tender._count?.bids ?? bids.length} submitted</p>
+   192→          </div>
+   193→        </div>
+   194→
+   195→        {/* Category Tags */}
+   196→        {tags.length > 0 && (
+   197→          <div>
+   198→            <div className="flex items-center gap-1.5 mb-2">
+   199→              <Tag className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+   200→              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">Categories</span>
+   201→            </div>
+   202→            <div className="flex flex-wrap gap-1.5">
+   203→              {tags.map(tag => {
+   204→                const meta = getCategoryMeta(tag.trim());
+   205→                return (
+   206→                  <Badge key={tag} className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${meta.bg} ${meta.color}`}>
+   207→                    {tag.trim()}
+   208→                  </Badge>
+   209→                );
+   210→              })}
+   211→            </div>
+   212→          </div>
+   213→        )}
+   214→
+   215→        {/* Required Documents */}
+   216→        {reqDocs.length > 0 && (
+   217→          <div>
+   218→            <div className="flex items-center gap-1.5 mb-2">
+   219→              <ClipboardList className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+   220→              <span className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wide">Required Documents</span>
+   221→              <span className="text-[9px] text-teal-600/70 ml-auto">{reqDocs.length} doc{reqDocs.length === 1 ? '' : 's'}</span>
+   222→            </div>
+   223→            <div className="flex flex-wrap gap-1.5">
+   224→              {reqDocs.map((doc, i) => (
+   225→                <span key={`${doc}-${i}`} className="inline-flex items-center text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-2 py-0.5">
+   226→                  {doc.trim()}
+   227→                </span>
+   228→              ))}
+   229→            </div>
+   230→          </div>
+   231→        )}
+   232→
+   233→        {/* Existing Bids Preview */}
+   234→        <div>
+   235→          <div className="flex items-center gap-1.5 mb-2">
+   236→            <Gavel className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+   237→            <span className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide">Recent Bids</span>
+   238→          </div>
+   239→          {bidsLoading ? (
+   240→            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   241→              <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+   242→              Loading bids...
+   243→            </div>
+   244→          ) : bids.length === 0 ? (
+   245→            <p className="text-xs text-muted-foreground italic">No bids submitted yet. Be the first!</p>
+   246→          ) : (
+   247→            <div className="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
+   248→              {bids.slice(0, 5).map(bid => (
+   249→                <div key={bid.id} className="flex items-center justify-between rounded-lg bg-background dark:bg-card border border-border/40 px-3 py-1.5 text-xs">
+   250→                  <div className="flex items-center gap-2 min-w-0">
+   251→                    <CircleDot className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+   252→                    <span className="font-medium truncate">{bid.user?.profile?.fullName || bid.user?.email || 'Anonymous'}</span>
+   253→                    {bid.user?.company?.name && (
+   254→                      <span className="text-muted-foreground truncate hidden sm:inline">({bid.user.company.name})</span>
+   255→                    )}
+   256→                  </div>
+   257→                  <div className="flex items-center gap-2 flex-shrink-0">
+   258→                    <span className="font-semibold text-emerald-700 dark:text-emerald-300">ETB {bid.financialProposal?.toLocaleString()}</span>
+   259→                    <Badge className={`text-[9px] px-1 py-0 border-0 rounded ${bidStatusBadge(bid.status)}`}>
+   260→                      {bid.status.replace(/_/g, ' ')}
+   261→                    </Badge>
+   262→                  </div>
+   263→                </div>
+   264→              ))}
+   265→              {bids.length > 5 && (
+   266→                <p className="text-[10px] text-muted-foreground text-center">
+   267→                  +{bids.length - 5} more bid{bids.length - 5 !== 1 ? 's' : ''}
+   268→                </p>
+   269→              )}
+   270→            </div>
+   271→          )}
+   272→        </div>
+   273→
+   274→        {/* Live tender external link */}
+   275→        {isLive && (tender as LiveTender).externalUrl && (
+   276→          <div className="rounded-lg border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/50 dark:bg-orange-950/20 p-3">
+   277→            <div className="flex items-center gap-2">
+   278→              <ExternalLink className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+   279→              <span className="text-xs font-medium text-orange-700 dark:text-orange-300">Live Tender Source</span>
+   280→            </div>
+   281→            <a
+   282→              href={(tender as LiveTender).externalUrl}
+   283→              target="_blank"
+   284→              rel="noopener noreferrer"
+   285→              className="text-xs text-orange-600 dark:text-orange-400 underline underline-offset-2 mt-1 inline-flex items-center gap-1 hover:text-orange-800 dark:hover:text-orange-200 transition-colors"
+   286→            >
+   287→              View on {(tender as LiveTender).source || 'original site'}
+   288→              <ArrowRight className="h-3 w-3" />
+   289→            </a>
+   290→          </div>
+   291→        )}
+   292→
+   293→        {/* Match Score */}
+   294→        {tender.matchScore !== undefined && (
+   295→          <div className="space-y-1.5">
+   296→            <div className="flex items-center justify-between">
+   297→              <span className="text-xs font-medium text-muted-foreground">Match Score</span>
+   298→              <span className={`text-xs font-bold ${
+   299→                tender.matchScore >= 70 ? 'text-emerald-700' : tender.matchScore >= 40 ? 'text-amber-700' : 'text-muted-foreground'
+   300→              }`}>
+   301→                {tender.matchScore}%
+   302→              </span>
+   303→            </div>
+   304→            <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+   305→              <div
+   306→                className={`h-full rounded-full transition-[width] duration-700 ${
+   307→                  tender.matchScore >= 70 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
+   308→                  tender.matchScore >= 40 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
+   309→                  'bg-gradient-to-r from-gray-300 to-gray-400'
+   310→                }`}
+   311→                style={{ width: `${tender.matchScore}%` }}
+   312→              />
+   313→            </div>
+   314→          </div>
+   315→        )}
+   316→
+   317→        <Separator className="bg-emerald-200/40 dark:bg-emerald-800/30" />
+   318→
+   319→        {/* Action Buttons */}
+   320→        <div className="flex flex-col sm:flex-row gap-2">
+   321→          {tender.status === 'open' && (
+   322→            <Button
+   323→              className="flex-1 gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+   324→              onClick={() => setView('tender-detail', { id: tender.id, action: 'apply' })}
+   325→            >
+   326→              <Gavel className="h-4 w-4 mr-2" />
+   327→              Apply / Submit Bid
+   328→            </Button>
+   329→          )}
+   330→          <Button
+   331→            variant="outline"
+   332→            className="flex-1 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+   333→            onClick={() => setView('bids', { tenderId: tender.id })}
+   334→          >
+   335→            <Briefcase className="h-4 w-4 mr-2" />
+   336→            Track Application
+   337→          </Button>
+   338→          <Button
+   339→            variant="outline"
+   340→            className="flex-1 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+   341→            onClick={() => setView('tender-detail', { id: tender.id })}
+   342→          >
+   343→            <Eye className="h-4 w-4 mr-2" />
+   344→            Full Details
+   345→          </Button>
+   346→          <Button
+   347→            variant="ghost"
+   348→            size="sm"
+   349→            className="gap-1 text-xs text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 rounded-xl"
+   350→            onClick={() => setView('tender-detail', { id: tender.id, tab: 'ai-overview' })}
+   351→          >
+   352→            <Sparkles className="h-3.5 w-3.5" />
+   353→            AI Review
+   354→          </Button>
+   355→        </div>
+   356→      </div>
+   357→    </div>
+   358→  );
+   359→}
+   360→
+   361→// ─── Category Section ────────────────────────────────────────────
+   362→function CategorySection({ category, tenders, expandedTenderId, onExpandTender, compareSelection, toggleCompare, setView }: {
+   363→  category: string;
+   364→  tenders: Tender[];
+   365→  expandedTenderId: string | null;
+   366→  onExpandTender: (id: string | null) => void;
+   367→  compareSelection: string[];
+   368→  toggleCompare: (tenderId: string, e: React.MouseEvent) => void;
+   369→  setView: (view: 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle', params?: Record<string, string>) => void;
+   370→}) {
+   371→  const [isOpen, setIsOpen] = useState(true);
+   372→  const meta = getCategoryMeta(category);
+   373→  const Icon = meta.icon;
+   374→
+   375→  if (tenders.length === 0) return null;
+   376→
+   377→  return (
+   378→    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+   379→      <CollapsibleTrigger asChild>
+   380→        <div className="flex items-center gap-3 cursor-pointer group py-2 px-1 hover:bg-muted/30 rounded-xl transition-colors">
+   381→          <div className={`p-2 rounded-lg ${meta.bg} flex-shrink-0`}>
+   382→            <Icon className={`h-4 w-4 ${meta.color}`} />
+   383→          </div>
+   384→          <div className="flex-1 min-w-0">
+   385→            <h3 className="font-semibold text-sm group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
+   386→              {category}
+   387→            </h3>
+   388→            <p className="text-[10px] text-muted-foreground">{tenders.length} tender{tenders.length !== 1 ? 's' : ''}</p>
+   389→          </div>
+   390→          <Badge className="text-[10px] px-2 py-0.5 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60">
+   391→            {tenders.filter(t => t.status === 'open').length} open
+   392→          </Badge>
+   393→          <div className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+   394→            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+   395→          </div>
+   396→        </div>
+   397→      </CollapsibleTrigger>
+   398→      <CollapsibleContent>
+   399→        <div className="space-y-3 mt-3 pl-2">
+   400→          {tenders.map(tender => {
+   401→            const isExpanded = expandedTenderId === tender.id;
+   402→            return (
+   403→              <div key={tender.id} className="space-y-0">
+   404→                {/* Tender Card */}
+   405→                <div
+   406→                  className={`hover:-translate-y-[2px] transition-all duration-200 ${isExpanded ? 'ring-2 ring-emerald-300 dark:ring-emerald-700 rounded-xl' : ''}`}
+   407→                >
+   408→                  <Card
+   409→                    className={`premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 ${
+   410→                      compareSelection.includes(tender.id) ? 'ring-2 ring-emerald-400 ring-offset-2' : ''
+   411→                    }`}
+   412→                    onClick={() => onExpandTender(isExpanded ? null : tender.id)}
+   413→                  >
+   414→                    {/* Gradient accent strip */}
+   415→                    <div className={`h-1 bg-gradient-to-r ${statusAccent(tender.status)}`} />
+   416→                    <CardContent className="p-4 space-y-2.5">
+   417→                      {/* Header */}
+   418→                      <div className="flex items-start justify-between gap-2">
+   419→                        <h4 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+   420→                          {tender.title}
+   421→                        </h4>
+   422→                        <div className="flex items-center gap-1.5 flex-shrink-0">
+   423→                          <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
+   424→                            {tender.status}
+   425→                          </Badge>
+   426→                          <button
+   427→                            onClick={(e) => toggleCompare(tender.id, e)}
+   428→                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+   429→                              compareSelection.includes(tender.id)
+   430→                                ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-200'
+   431→                                : 'border-muted-foreground/30 hover:border-primary hover:bg-primary/10'
+   432→                            }`}
+   433→                            title="Select to compare"
+   434→                          >
+   435→                            {compareSelection.includes(tender.id) && (
+   436→                              <CheckCircle className="h-3 w-3 text-white" strokeWidth={3} />
+   437→                            )}
+   438→                          </button>
+   439→                        </div>
+   440→                      </div>
+   441→
+   442→                      {/* Scope preview */}
+   443→                      <p className="text-xs text-muted-foreground line-clamp-2">{tender.scope}</p>
+   444→
+   445→                      {/* Budget + Location + Deadline in one row */}
+   446→                      <div className="flex items-center gap-3 text-xs flex-wrap">
+   447→                        <div className="flex items-center gap-1">
+   448→                          <div className="p-0.5 rounded bg-emerald-50">
+   449→                            <DollarSign className="h-3 w-3 text-emerald-600" />
+   450→                          </div>
+   451→                          <span className="font-medium text-emerald-700">{formatBudget(tender.budgetMin, tender.budgetMax)}</span>
+   452→                        </div>
+   453→                        <div className="flex items-center gap-1">
+   454→                          <div className="p-0.5 rounded bg-amber-50">
+   455→                            <MapPin className="h-3 w-3 text-amber-600" />
+   456→                          </div>
+   457→                          <span className="text-muted-foreground truncate max-w-[80px]">{tender.location}</span>
+   458→                        </div>
+   459→                        <div className="flex items-center gap-1">
+   460→                          <div className="p-0.5 rounded bg-teal-50">
+   461→                            <Calendar className="h-3 w-3 text-teal-600" />
+   462→                          </div>
+   463→                          <span className="text-muted-foreground">{new Date(tender.deadline).toLocaleDateString()}</span>
+   464→                        </div>
+   465→                      </div>
+   466→
+   467→                      {/* Deadline + Bids badges */}
+   468→                      <div className="flex items-center gap-2 flex-wrap">
+   469→                        {(() => {
+   470→                          const d = daysUntil(tender.deadline);
+   471→                          const dlBg2 = deadlineBg(d);
+   472→                          return (
+   473→                            <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${dlBg2} hover:${dlBg2} flex items-center gap-1`}>
+   474→                              <Timer className="h-2.5 w-2.5" />
+   475→                              {d <= 0 ? 'Expired' : d === 1 ? '1 day left' : `${d} days left`}
+   476→                            </Badge>
+   477→                          );
+   478→                        })()}
+   479→                        {tender._count && (
+   480→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60 flex items-center gap-1">
+   481→                            <Users className="h-2.5 w-2.5" />
+   482→                            {tender._count.bids} bid{tender._count.bids !== 1 ? 's' : ''}
+   483→                          </Badge>
+   484→                        )}
+   485→                        {/* Category tags compact */}
+   486→                        {tender.categoryTags.split(',').filter(Boolean).slice(0, 2).map(tag => (
+   487→                          <Badge key={tag} className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+   488→                            {tag.trim()}
+   489→                          </Badge>
+   490→                        ))}
+   491→                      </div>
+   492→
+   493→                      {/* Expand indicator */}
+   494→                      <div className="flex items-center justify-between pt-0.5">
+   495→                        <div className="flex items-center gap-1">
+   496→                          {tender.status === 'open' && (
+   497→                            <Button
+   498→                              variant="ghost"
+   499→                              size="sm"
+   500→                              className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 h-6 px-1.5 font-medium"
+   501→                              onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, action: 'apply' }); }}
+   502→                            >
+   503→                              <Gavel className="h-3 w-3" />
+   504→                              Apply
+   505→                            </Button>
+   506→                          )}
+   507→                          <Button
+   508→                            variant="ghost"
+   509→                            size="sm"
+   510→                            className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
+   511→                            onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
+   512→                          >
+   513→                            <Sparkles className="h-3 w-3" />
+   514→                            AI Review
+   515→                          </Button>
+   516→                          <Button
+   517→                            variant="ghost"
+   518→                            size="sm"
+   519→                            className="gap-1 text-[10px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 h-6 px-1.5"
+   520→                            onClick={(e) => { e.stopPropagation(); setView('bids', { tenderId: tender.id }); }}
+   521→                          >
+   522→                            <Briefcase className="h-3 w-3" />
+   523→                            Track
+   524→                          </Button>
+   525→                        </div>
+   526→                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+   527→                          {isExpanded ? 'Collapse' : 'Expand'} Details
+   528→                          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+   529→                            <ChevronDown className="h-3 w-3" />
+   530→                          </div>
+   531→                        </span>
+   532→                      </div>
+   533→                    </CardContent>
+   534→                  </Card>
+   535→                </div>
+   536→
+   537→                {/* Inline Detail Panel */}
+   538→                {isExpanded && (
+   539→                  <div className="mt-2 mb-1">
+   540→                    <InlineTenderDetail
+   541→                      tender={tender}
+   542→                      onClose={() => onExpandTender(null)}
+   543→                      setView={setView}
+   544→                    />
+   545→                  </div>
+   546→                )}
+   547→              </div>
+   548→            );
+   549→          })}
+   550→        </div>
+   551→      </CollapsibleContent>
+   552→    </Collapsible>
+   553→  );
+   554→}
+   555→
+   556→// ─── Main Tenders View ──────────────────────────────────────────
+   557→export function TendersView() {
+   558→  const { user } = useAuthStore();
+   559→  const { setView } = useNavStore();
+   560→  const [tenders, setTenders] = useState<Tender[]>([]);
+   561→  const [loading, setLoading] = useState(true);
+   562→  const [loadingMore, setLoadingMore] = useState(false);
+   563→  const [page, setPage] = useState(1);
+   564→  const [totalPages, setTotalPages] = useState(1);
+   565→  const [totalTenders, setTotalTenders] = useState(0);
+   566→  const LIMIT = 50;
+   567→  const [search, setSearch] = useState('');
+   568→  const [categoryFilter, setCategoryFilter] = useState('');
+   569→  const [statusFilter, setStatusFilter] = useState('');
+   570→  const [showCreate, setShowCreate] = useState(false);
+   571→  const [createData, setCreateData] = useState({
+   572→    title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '',
+   573→    location: '', categoryTags: '', requiredDocs: '',
+   574→  });
+   575→  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+   576→  const [createDocs, setCreateDocs] = useState<TenderDocument[]>([]);
+   577→  const [createDocUploading, setCreateDocUploading] = useState(false);
+   578→  const [createDocType, setCreateDocType] = useState('tender_document');
+   579→  const createFileInputRef = useRef<HTMLInputElement>(null);
+   580→  const createDropRef = useRef<HTMLDivElement>(null);
+   581→  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+   582→  const [expandedTenderId, setExpandedTenderId] = useState<string | null>(null);
+   583→  const categoryScrollRef = useRef<HTMLDivElement>(null);
+   584→
+   585→  // External/Live tenders section
+   586→  const [externalTenders, setExternalTenders] = useState<LiveTender[]>([]);
+   587→  const [externalLoading, setExternalLoading] = useState(false);
+   588→  const [externalLoadingMore, setExternalLoadingMore] = useState(false);
+   589→  const [externalHasMore, setExternalHasMore] = useState(true);
+   590→  const [externalTotalAvailable, setExternalTotalAvailable] = useState(0);
+   591→  const [showExternal, setShowExternal] = useState(true);
+   592→
+   593→  // Inline document fetching for external tenders
+   594→  const [extDocLoading, setExtDocLoading] = useState<string | null>(null);
+   595→  const [extDocData, setExtDocData] = useState<Record<string, {
+   596→    title: string; metaDescription?: string; content: string;
+   597→    sections?: { heading: string; content: string }[];
+   598→    deadlines?: string[]; budgets?: string[];
+   599→    url: string; fetchedAt: string;
+   600→  }>>({});
+   601→  const [extDocExpanded, setExtDocExpanded] = useState<string | null>(null);
+   602→
+   603→  const fetchExternalDoc = useCallback(async (tender: LiveTender) => {
+   604→    const id = tender.id;
+   605→    if (extDocExpanded === id) {
+   606→      setExtDocExpanded(null);
+   607→      return;
+   608→    }
+   609→    if (extDocData[id]) {
+   610→      setExtDocExpanded(id);
+   611→      return;
+   612→    }
+   613→    setExtDocExpanded(id);
+   614→    setExtDocLoading(id);
+   615→    try {
+   616→      const docUrl = tender.documentUrl || (tender.requiredDocs && tender.requiredDocs.startsWith('http') ? tender.requiredDocs : null) || tender.externalUrl;
+   617→      if (!docUrl) {
+   618→        toast.error('No document URL available for this tender');
+   619→        setExtDocExpanded(null);
+   620→        setExtDocLoading(null);
+   621→        return;
+   622→      }
+   623→      const res = await api.post('/tenders/fetch-doc', { url: docUrl });
+   624→      if (res.success && res.data) {
+   625→        setExtDocData(prev => ({ ...prev, [id]: res.data }));
+   626→      } else {
+   627→        toast.error(res.error || 'Failed to fetch document content');
+   628→        setExtDocExpanded(null);
+   629→      }
+   630→    } catch {
+   631→      toast.error('Failed to fetch document content');
+   632→      setExtDocExpanded(null);
+   633→    }
+   634→    setExtDocLoading(null);
+   635→  }, [extDocExpanded, extDocData]);
+   636→
+   637→  const loadTenders = useCallback(async (pageNum: number = 1, append: boolean = false) => {
+   638→    if (append) setLoadingMore(true);
+   639→    else setLoading(true);
+   640→    const params: Record<string, string> = { page: String(pageNum), limit: String(LIMIT) };
+   641→    if (search) params.search = search;
+   642→    if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+   643→    if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+   644→    const res = await api.get('/tenders', params);
+   645→    if (res.success) {
+   646→      const newTenders = res.data as Tender[];
+   647→      setTenders(append ? (prev: Tender[]) => [...prev, ...newTenders] : newTenders);
+   648→      if (res.meta) {
+   649→        setTotalPages(res.meta.totalPages || 1);
+   650→        setTotalTenders(res.meta.total || newTenders.length);
+   651→      }
+   652→    }
+   653→    setLoading(false);
+   654→    setLoadingMore(false);
+   655→  }, [search, categoryFilter, statusFilter]);
+   656→
+   657→  // Re-fetch when filters change (always reset to page 1)
+   658→  const filterKey = `${search}|${categoryFilter}|${statusFilter}`;
+   659→  /* eslint-disable react-hooks/set-state-in-effect */
+   660→  useEffect(() => {
+   661→    loadTenders(1, false);
+   662→  }, [filterKey, loadTenders]);
+   663→  /* eslint-enable react-hooks/set-state-in-effect */
+   664→
+   665→  // Fetch additional pages when page increments
+   666→  /* eslint-disable react-hooks/set-state-in-effect */
+   667→  useEffect(() => {
+   668→    if (page > 1) {
+   669→      loadTenders(page, true);
+   670→    }
+   671→  }, [page, loadTenders]);
+   672→  /* eslint-enable react-hooks/set-state-in-effect */
+   673→
+   674→  const handleLoadMore = () => {
+   675→    setPage(prev => prev + 1);
+   676→  };
+   677→
+   678→  // ── External/Live Tenders ──
+   679→  // Ref to track external tenders length for offset calculation without re-creating callback
+   680→  const externalTendersLengthRef = useRef(0);
+   681→
+   682→  const loadExternalTenders = useCallback(async (append = false) => {
+   683→    if (append) setExternalLoadingMore(true);
+   684→    else setExternalLoading(true);
+   685→
+   686→    const currentOffset = append ? externalTendersLengthRef.current : 0;
+   687→    const params: Record<string, string> = { rows: '200', offset: String(currentOffset) };
+   688→    if (search) params.search = search;
+   689→    if (categoryFilter && categoryFilter !== 'all') params.source = categoryFilter.toLowerCase();
+   690→
+   691→    const res = await api.get('/tenders/live', params);
+   692→    if (res.success) {
+   693→      const newTenders = res.data as LiveTender[];
+   694→      setExternalTenders(append ? (prev: LiveTender[]) => {
+   695→        const updated = [...prev, ...newTenders];
+   696→        externalTendersLengthRef.current = updated.length;
+   697→        return updated;
+   698→      } : newTenders);
+   699→      if (!append) externalTendersLengthRef.current = newTenders.length;
+   700→      setExternalHasMore(res.meta?.hasMore ?? false);
+   701→      if (res.meta?.totalAvailable) setExternalTotalAvailable(res.meta.totalAvailable);
+   702→    }
+   703→    setExternalLoading(false);
+   704→    setExternalLoadingMore(false);
+   705→  }, [search, categoryFilter]);
+   706→
+   707→  /* eslint-disable react-hooks/set-state-in-effect */
+   708→  useEffect(() => {
+   709→    if (showExternal) {
+   710→      loadExternalTenders(false);
+   711→    }
+   712→  }, [showExternal, search]);
+   713→  /* eslint-enable react-hooks/set-state-in-effect */
+   714→
+   715→  const handleCreate = async () => {
+   716→    const res = await api.post('/tenders', {
+   717→      ...createData,
+   718→      budgetMin: parseFloat(createData.budgetMin),
+   719→      budgetMax: parseFloat(createData.budgetMax),
+   720→      categoryTags: selectedCategories.join(','),
+   721→      documentIds: createDocs.map(d => d.id),
+   722→    });
+   723→    if (res.success) {
+   724→      toast.success('Tender created successfully!');
+   725→      setShowCreate(false);
+   726→      setCreateData({ title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '', location: '', categoryTags: '', requiredDocs: '' });
+   727→      setSelectedCategories([]);
+   728→      setCreateDocs([]);
+   729→      loadTenders(1, false);
+   730→    } else {
+   731→      toast.error(res.error || 'Failed to create tender');
+   732→    }
+   733→  };
+   734→
+   735→  const toggleCategory = (cat: string) => {
+   736→    setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+   737→  };
+   738→
+   739→  // ── Tender Document Upload ──
+   740→  const handleCreateDocUpload = useCallback(async (docType?: string) => {
+   741→    const fileInput = createFileInputRef.current;
+   742→    if (!fileInput?.files?.length) {
+   743→      toast.error('Please select a file first');
+   744→      return;
+   745→    }
+   746→    setCreateDocUploading(true);
+   747→    try {
+   748→      const file = fileInput.files[0];
+   749→      const formData = new FormData();
+   750→      formData.append('file', file);
+   751→      formData.append('docType', docType || createDocType);
+   752→      formData.append('autoOcr', 'true');
+   753→      formData.append('autoReview', 'true');
+   754→      const res = await api.upload('/tenders/documents', formData);
+   755→      if (res.success) {
+   756→        setCreateDocs(prev => [...prev, res.data]);
+   757→        toast.success('Document uploaded — OCR & AI Review started');
+   758→        fileInput.value = '';
+   759→      } else {
+   760→        toast.error(res.error || 'Upload failed');
+   761→      }
+   762→    } catch {
+   763→      toast.error('Upload failed');
+   764→    }
+   765→    setCreateDocUploading(false);
+   766→  }, [createDocType]);
+   767→
+   768→  const handleCreateDocDrop = useCallback(async (files: FileList, docType?: string) => {
+   769→    if (!files.length) return;
+   770→    setCreateDocUploading(true);
+   771→    try {
+   772→      const file = files[0];
+   773→      const formData = new FormData();
+   774→      formData.append('file', file);
+   775→      formData.append('docType', docType || createDocType);
+   776→      formData.append('autoOcr', 'true');
+   777→      formData.append('autoReview', 'true');
+   778→      const res = await api.upload('/tenders/documents', formData);
+   779→      if (res.success) {
+   780→        setCreateDocs(prev => [...prev, res.data]);
+   781→        toast.success('Document uploaded — OCR & AI Review started');
+   782→      } else {
+   783→        toast.error(res.error || 'Upload failed');
+   784→      }
+   785→    } catch {
+   786→      toast.error('Upload failed');
+   787→    }
+   788→    setCreateDocUploading(false);
+   789→  }, [createDocType]);
+   790→
+   791→  const handleRemoveCreateDoc = useCallback(async (docId: string) => {
+   792→    try {
+   793→      // Use fetch directly since api.delete doesn't support body
+   794→      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+   795→      const headers: HeadersInit = {};
+   796→      if (token) headers['Authorization'] = `Bearer ${token}`;
+   797→      headers['Content-Type'] = 'application/json';
+   798→      const res = await fetch('/api/tenders/documents', {
+   799→        method: 'DELETE',
+   800→        headers,
+   801→        body: JSON.stringify({ documentId: docId }),
+   802→      });
+   803→      const data = await res.json();
+   804→      if (data.success) {
+   805→        setCreateDocs(prev => prev.filter(d => d.id !== docId));
+   806→        toast.success('Document removed');
+   807→      } else {
+   808→        // Still remove from local state even if server delete fails
+   809→        setCreateDocs(prev => prev.filter(d => d.id !== docId));
+   810→      }
+   811→    } catch {
+   812→      setCreateDocs(prev => prev.filter(d => d.id !== docId));
+   813→    }
+   814→  }, []);
+   815→
+   816→  const toggleCompare = (tenderId: string, e: React.MouseEvent) => {
+   817→    e.stopPropagation();
+   818→    setCompareSelection(prev =>
+   819→      prev.includes(tenderId) ? prev.filter(id => id !== tenderId) : [...prev, tenderId].slice(-4)
+   820→    );
+   821→  };
+   822→
+   823→  const goToCompare = () => {
+   824→    if (compareSelection.length >= 2) {
+   825→      setView('tender-compare', { ids: compareSelection.join(',') });
+   826→    }
+   827→  };
+   828→
+   829→  // Group tenders by category
+   830→  const tendersByCategory = useMemo(() => {
+   831→    const map: Record<string, Tender[]> = {};
+   832→    tenders.forEach(t => {
+   833→      const cats = t.categoryTags.split(',').filter(Boolean).map(c => c.trim());
+   834→      if (cats.length === 0) {
+   835→        if (!map['Uncategorized']) map['Uncategorized'] = [];
+   836→        map['Uncategorized'].push(t);
+   837→      } else {
+   838→        cats.forEach(cat => {
+   839→          if (!map[cat]) map[cat] = [];
+   840→          // avoid duplicate if tender has multiple categories
+   841→          if (!map[cat].some(existing => existing.id === t.id)) {
+   842→            map[cat].push(t);
+   843→          }
+   844→        });
+   845→      }
+   846→    });
+   847→    return map;
+   848→  }, [tenders]);
+   849→
+   850→  // Get active categories (those with tenders), sorted by CATEGORIES order
+   851→  const activeCategories = useMemo(() => {
+   852→    const catSet = new Set<string>();
+   853→    tenders.forEach(t => {
+   854→      t.categoryTags.split(',').filter(Boolean).forEach(c => catSet.add(c.trim()));
+   855→    });
+   856→    // Sort by CATEGORIES order, then alphabetically for any not in list
+   857→    const ordered = CATEGORIES.filter(c => catSet.has(c));
+   858→    const extras = Array.from(catSet).filter(c => !CATEGORIES.includes(c)).sort();
+   859→    return [...ordered, ...extras];
+   860→  }, [tenders]);
+   861→
+   862→  const stats = useMemo(() => ({
+   863→    open: tenders.filter(t => t.status === 'open').length,
+   864→    closed: tenders.filter(t => t.status === 'closed').length,
+   865→    awarded: tenders.filter(t => t.status === 'awarded').length,
+   866→    total: totalTenders || tenders.length,
+   867→  }), [tenders, totalTenders]);
+   868→
+   869→  // When a specific category is selected, show only that category's tenders
+   870→  const displayCategories = useMemo(() => {
+   871→    if (categoryFilter && categoryFilter !== 'all') {
+   872→      return [categoryFilter];
+   873→    }
+   874→    return activeCategories;
+   875→  }, [categoryFilter, activeCategories]);
+   876→
+   877→  return (
+   878→    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto view-enter">
+   879→      {/* Header */}
+   880→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-[fadeIn_0.3s_ease-out]">
+   881→        <div className="flex items-center gap-4">
+   882→          <div className="p-3 rounded-2xl gradient-emerald shadow-md flex-shrink-0">
+   883→            <FileSearch className="h-6 w-6 text-white" />
+   884→          </div>
+   885→          <div>
+   886→            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+   887→              <span className="text-gradient-emerald">My</span> Tenders
+   888→            </h2>
+   889→            <p className="text-muted-foreground text-sm mt-0.5">Explore published tender opportunities by sector — click to apply</p>
+   890→          </div>
+   891→        </div>
+   892→        <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setCreateDocs([]); setCreateDocType('tender_document'); } }}>
+   893→          <DialogTrigger asChild>
+   894→            <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
+   895→              <Plus className="h-4 w-4 mr-2" /> Create Tender
+   896→            </Button>
+   897→          </DialogTrigger>
+   898→          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
+   899→            <DialogHeader>
+   900→              <DialogTitle className="text-xl font-bold">
+   901→                <span className="text-gradient-emerald">Create New</span> Tender
+   902→              </DialogTitle>
+   903→            </DialogHeader>
+   904→            <div className="space-y-4">
+   905→              <div className="space-y-2">
+   906→                <Label className="text-sm font-medium">Title *</Label>
+   907→                <Input placeholder="e.g. Office Building Construction" value={createData.title}
+   908→                  onChange={e => setCreateData(d => ({ ...d, title: e.target.value }))}
+   909→                  className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   910→              </div>
+   911→              <div className="space-y-2">
+   912→                <Label className="text-sm font-medium">Scope of Work *</Label>
+   913→                <Textarea placeholder="Detailed project description, deliverables, requirements" rows={4}
+   914→                  value={createData.scope} onChange={e => setCreateData(d => ({ ...d, scope: e.target.value }))}
+   915→                  className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   916→              </div>
+   917→              <div className="grid grid-cols-2 gap-4">
+   918→                <div className="space-y-2">
+   919→                  <Label className="text-sm font-medium">Budget Min (ETB) *</Label>
+   920→                  <Input type="number" placeholder="100000" value={createData.budgetMin}
+   921→                    onChange={e => setCreateData(d => ({ ...d, budgetMin: e.target.value }))}
+   922→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   923→                </div>
+   924→                <div className="space-y-2">
+   925→                  <Label className="text-sm font-medium">Budget Max (ETB) *</Label>
+   926→                  <Input type="number" placeholder="500000" value={createData.budgetMax}
+   927→                    onChange={e => setCreateData(d => ({ ...d, budgetMax: e.target.value }))}
+   928→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   929→                </div>
+   930→              </div>
+   931→              <div className="grid grid-cols-2 gap-4">
+   932→                <div className="space-y-2">
+   933→                  <Label className="text-sm font-medium">Deadline *</Label>
+   934→                  <Input type="datetime-local" value={createData.deadline}
+   935→                    onChange={e => setCreateData(d => ({ ...d, deadline: e.target.value }))}
+   936→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   937→                </div>
+   938→                <div className="space-y-2">
+   939→                  <Label className="text-sm font-medium">Location *</Label>
+   940→                  <Input placeholder="Addis Ababa" value={createData.location}
+   941→                    onChange={e => setCreateData(d => ({ ...d, location: e.target.value }))}
+   942→                    className="bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20" />
+   943→                </div>
+   944→              </div>
+   945→              <div className="space-y-2">
+   946→                <Label className="text-sm font-medium">Category Tags</Label>
+   947→                <div className="flex flex-wrap gap-2">
+   948→                  {CATEGORIES.map(cat => (
+   949→                    <Badge key={cat}
+   950→                      className={`cursor-pointer text-xs rounded-lg transition-all duration-200 ${
+   951→                        selectedCategories.includes(cat)
+   952→                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'
+   953→                          : 'bg-background border-border/60 text-muted-foreground hover:bg-muted/80'
+   954→                      }`}
+   955→                      onClick={() => toggleCategory(cat)}>
+   956→                      {cat}
+   957→                    </Badge>
+   958→                  ))}
+   959→                </div>
+   960→              </div>
+   961→
+   962→              {/* ── Tender Document Upload ── */}
+   963→              <div className="space-y-3">
+   964→                <div className="flex items-center gap-2">
+   965→                  <div className="p-1.5 rounded-lg gradient-emerald">
+   966→                    <FileUp className="h-3.5 w-3.5 text-white" />
+   967→                  </div>
+   968→                  <Label className="text-sm font-semibold uppercase tracking-wide">Tender Documents</Label>
+   969→                  <span className="text-[10px] text-muted-foreground ml-1">RFP, specifications, terms of reference, etc.</span>
+   970→                </div>
+   971→
+   972→                {/* Upload area with drag & drop */}
+   973→                <div
+   974→                  ref={createDropRef}
+   975→                  className="relative"
+   976→                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); }}
+   977→                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); }}
+   978→                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-50/60'); handleCreateDocDrop(e.dataTransfer.files, createDocType); }}
+   979→                >
+   980→                  <div className="p-4 bg-gradient-to-b from-emerald-50/40 to-emerald-50/10 border-2 border-dashed border-emerald-200 rounded-xl text-center hover:border-emerald-300 transition-colors">
+   981→                    <CloudUpload className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+   982→                    <p className="text-xs font-medium text-emerald-700 mb-1">
+   983→                      Drag & drop tender documents here
+   984→                    </p>
+   985→                    <p className="text-[10px] text-muted-foreground mb-3">
+   986→                      Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
+   987→                    </p>
+   988→                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
+   989→                      <input
+   990→                        ref={createFileInputRef}
+   991→                        type="file"
+   992→                        accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt"
+   993→                        className="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 file:cursor-pointer file:transition-colors"
+   994→                      />
+   995→                      <select
+   996→                        value={createDocType}
+   997→                        onChange={e => setCreateDocType(e.target.value)}
+   998→                        className="h-7 text-xs rounded-lg bg-white/80 border border-emerald-200 px-2"
+   999→                      >
+  1000→                        <option value="tender_document">Tender Document</option>
+  1001→                        <option value="external_doc">External Document</option>
+  1002→                        <option value="technical_proposal">Technical Spec</option>
+  1003→                        <option value="financial_proposal">Financial Spec</option>
+  1004→                        <option value="business_license">Business License</option>
+  1005→                        <option value="tax_clearance">Tax Clearance</option>
+  1006→                        <option value="certificate">Certificate</option>
+  1007→                        <option value="portfolio">Portfolio</option>
+  1008→                        <option value="other">Other</option>
+  1009→                      </select>
+  1010→                      <Button
+  1011→                        size="sm"
+  1012→                        className="gradient-emerald text-white rounded-lg text-[10px] h-7 px-3 hover:opacity-90"
+  1013→                        onClick={() => handleCreateDocUpload(createDocType)}
+  1014→                        disabled={createDocUploading}
+  1015→                      >
+  1016→                        {createDocUploading ? (
+  1017→                          <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Uploading...</>
+  1018→                        ) : (
+  1019→                          <><Upload className="h-3 w-3 mr-1" /> Upload</>
+  1020→                        )}
+  1021→                      </Button>
+  1022→                    </div>
+  1023→                    <div className="flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground">
+  1024→                      <ScanSearch className="h-2.5 w-2.5 text-emerald-500" /> Auto OCR
+  1025→                      <span className="text-muted-foreground/40">→</span>
+  1026→                      <Brain className="h-2.5 w-2.5 text-purple-500" /> Auto AI Review
+  1027→                    </div>
+  1028→                  </div>
+  1029→                </div>
+  1030→
+  1031→                {/* Uploaded documents list */}
+  1032→                {createDocs.length > 0 && (
+  1033→                  <div className="space-y-2">
+  1034→                    {createDocs.map(doc => (
+  1035→                      <div key={doc.id} className="flex items-center gap-3 p-2.5 bg-muted/40 rounded-xl border border-border/40 group hover:bg-muted/60 transition-colors">
+  1036→                        <div className="p-1.5 rounded-lg bg-emerald-50 flex-shrink-0">
+  1037→                          <FileText className="h-3.5 w-3.5 text-emerald-600" />
+  1038→                        </div>
+  1039→                        <div className="flex-1 min-w-0">
+  1040→                          <p className="text-xs font-medium truncate">{doc.fileName}</p>
+  1041→                          <div className="flex items-center gap-2 mt-0.5">
+  1042→                            <Badge variant="outline" className="text-[8px] h-4 px-1.5">{doc.docType.replace(/_/g, ' ')}</Badge>
+  1043→                            {doc.ocrStatus === 'processing' && (
+  1044→                              <span className="text-[8px] text-amber-600 flex items-center gap-0.5">
+  1045→                                <Loader2 className="h-2 w-2 animate-spin" /> OCR...
+  1046→                              </span>
+  1047→                            )}
+  1048→                            {doc.ocrStatus === 'completed' && (
+  1049→                              <span className="text-[8px] text-emerald-600 flex items-center gap-0.5">
+  1050→                                <CheckCircle className="h-2 w-2" /> OCR ✓
+  1051→                              </span>
+  1052→                            )}
+  1053→                            {doc.aiReviewStatus === 'processing' && (
+  1054→                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+  1055→                                <Loader2 className="h-2 w-2 animate-spin" /> Review...
+  1056→                              </span>
+  1057→                            )}
+  1058→                            {doc.aiReviewStatus === 'completed' && (
+  1059→                              <span className="text-[8px] text-purple-600 flex items-center gap-0.5">
+  1060→                                <Brain className="h-2 w-2" /> Review ✓
+  1061→                              </span>
+  1062→                            )}
+  1063→                          </div>
+  1064→                        </div>
+  1065→                        <Button
+  1066→                          variant="ghost"
+  1067→                          size="sm"
+  1068→                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all rounded-lg"
+  1069→                          onClick={() => handleRemoveCreateDoc(doc.id)}
+  1070→                        >
+  1071→                          <Trash2 className="h-3 w-3" />
+  1072→                        </Button>
+  1073→                      </div>
+  1074→                    ))}
+  1075→                  </div>
+  1076→                )}
+  1077→              </div>
+  1078→
+  1079→              <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleCreate}>
+  1080→                Create Tender <ArrowRight className="h-4 w-4 ml-2" />
+  1081→              </Button>
+  1082→            </div>
+  1083→          </DialogContent>
+  1084→        </Dialog>
+  1085→      </div>
+  1086→
+  1087→      {/* Search / Filter Bar */}
+  1088→      <div className="animate-[fadeIn_0.3s_ease-out]">
+  1089→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1090→          <CardContent className="p-4 space-y-3">
+  1091→            {/* Search row */}
+  1092→            <div className="flex flex-col sm:flex-row gap-3">
+  1093→              <div className="relative flex-1">
+  1094→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  1095→                <Input placeholder="Search tenders by title, scope, or keyword..." value={search} onChange={e => setSearch(e.target.value)}
+  1096→                  className="pl-10 bg-muted/50 border-border/60 rounded-xl focus:ring-emerald-500/20 h-10" />
+  1097→              </div>
+  1098→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+  1099→                <SelectTrigger className="w-full sm:w-36 rounded-xl bg-muted/50 border-border/60 h-10">
+  1100→                  <SelectValue placeholder="Status" />
+  1101→                </SelectTrigger>
+  1102→                <SelectContent>
+  1103→                  <SelectItem value="all">All Status</SelectItem>
+  1104→                  <SelectItem value="open">Open</SelectItem>
+  1105→                  <SelectItem value="closed">Closed</SelectItem>
+  1106→                  <SelectItem value="awarded">Awarded</SelectItem>
+  1107→                </SelectContent>
+  1108→              </Select>
+  1109→            </div>
+  1110→          </CardContent>
+  1111→        </Card>
+  1112→      </div>
+  1113→
+  1114→      {/* Category Tabs - Horizontal Scrollable */}
+  1115→      <div className="animate-[fadeIn_0.3s_ease-out]">
+  1116→        <div
+  1117→          ref={categoryScrollRef}
+  1118→          className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent"
+  1119→        >
+  1120→          {/* "All" tab */}
+  1121→          <button
+  1122→            onClick={() => setCategoryFilter('')}
+  1123→            className={`flex-shrink-0 text-xs px-4 py-2 rounded-xl transition-all duration-200 font-medium border ${
+  1124→              !categoryFilter || categoryFilter === 'all'
+  1125→                ? 'gradient-emerald text-white border-transparent premium-shadow'
+  1126→                : 'bg-card border-border/60 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
+  1127→            }`}
+  1128→          >
+  1129→            All ({totalTenders || tenders.length})
+  1130→          </button>
+  1131→          {CATEGORIES.map(cat => {
+  1132→            const count = (tendersByCategory[cat] || []).length;
+  1133→            const meta = getCategoryMeta(cat);
+  1134→            const Icon = meta.icon;
+  1135→            const isActive = categoryFilter === cat;
+  1136→            return (
+  1137→              <button
+  1138→                key={cat}
+  1139→                onClick={() => setCategoryFilter(isActive ? '' : cat)}
+  1140→                className={`flex-shrink-0 text-xs px-3 py-2 rounded-xl transition-all duration-200 font-medium border flex items-center gap-1.5 ${
+  1141→                  isActive
+  1142→                    ? 'gradient-emerald text-white border-transparent premium-shadow'
+  1143→                    : count > 0
+  1144→                      ? 'bg-card border-border/60 text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30'
+  1145→                      : 'bg-muted/30 border-transparent text-muted-foreground/50 cursor-default'
+  1146→                }`}
+  1147→                disabled={count === 0 && !isActive}
+  1148→              >
+  1149→                <Icon className="h-3 w-3" />
+  1150→                {cat}
+  1151→                {count > 0 && (
+  1152→                  <span className={`text-[10px] px-1.5 py-0 rounded-full ${
+  1153→                    isActive ? 'bg-white/20' : 'bg-muted/60'
+  1154→                  }`}>
+  1155→                    {count}
+  1156→                  </span>
+  1157→                )}
+  1158→              </button>
+  1159→            );
+  1160→          })}
+  1161→        </div>
+  1162→      </div>
+  1163→
+  1164→      {/* Stats Summary */}
+  1165→      {!loading && tenders.length > 0 && (
+  1166→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-[fadeIn_0.3s_ease-out]">
+  1167→          {[
+  1168→            { label: 'Open', count: stats.open, icon: FileSearch, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  1169→            { label: 'Closed', count: stats.closed, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+  1170→            { label: 'Awarded', count: stats.awarded, icon: TrendingUp, bg: 'bg-teal-50', color: 'text-teal-600' },
+  1171→            { label: 'Total', count: stats.total, icon: Target, bg: 'bg-emerald-50', color: 'text-emerald-600' },
+  1172→          ].map(stat => (
+  1173→            <div key={stat.label}>
+  1174→              <Card className="premium-shadow rounded-xl border-0 bg-card hover:-translate-y-0.5 transition-all duration-200">
+  1175→                <CardContent className="p-4 flex items-center gap-3">
+  1176→                  <div className={`p-2 rounded-lg ${stat.bg} flex-shrink-0`}>
+  1177→                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+  1178→                  </div>
+  1179→                  <div>
+  1180→                    <p className="text-xl font-bold">{stat.count}</p>
+  1181→                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+  1182→                  </div>
+  1183→                </CardContent>
+  1184→              </Card>
+  1185→            </div>
+  1186→          ))}
+  1187→        </div>
+  1188→      )}
+  1189→
+  1190→      {/* Tenders List - Category Grouped or Flat */}
+  1191→      {loading ? (
+  1192→        <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
+  1193→          {[1, 2, 3].map(i => (
+  1194→            <div key={i} className="space-y-3">
+  1195→              <div className="flex items-center gap-3">
+  1196→                <div className="h-8 w-8 rounded-lg bg-muted/50 animate-pulse" />
+  1197→                <div className="h-5 bg-muted/50 rounded-xl w-32 animate-pulse" />
+  1198→              </div>
+  1199→              <div className="grid md:grid-cols-2 gap-3 pl-2">
+  1200→                {[1, 2].map(j => (
+  1201→                  <Card key={j} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
+  1202→                    <div className="h-1.5 bg-muted/30" />
+  1203→                    <CardContent className="p-4 space-y-2.5">
+  1204→                      <div className="h-4 bg-muted/50 rounded-xl w-3/4" />
+  1205→                      <div className="h-3 bg-muted/50 rounded-xl w-full" />
+  1206→                      <div className="h-3 bg-muted/50 rounded-xl w-1/2" />
+  1207→                    </CardContent>
+  1208→                  </Card>
+  1209→                ))}
+  1210→              </div>
+  1211→            </div>
+  1212→          ))}
+  1213→        </div>
+  1214→      ) : tenders.length === 0 ? (
+  1215→        <div className="animate-[fadeIn_0.3s_ease-out]">
+  1216→          <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1217→            <CardContent className="p-16 text-center">
+  1218→              <div className="relative w-20 h-20 mx-auto mb-6">
+  1219→                <div className="absolute inset-0 rounded-2xl gradient-emerald opacity-20" />
+  1220→                <div className="absolute inset-2 rounded-xl gradient-emerald flex items-center justify-center">
+  1221→                  <Globe2 className="h-8 w-8 text-white" />
+  1222→                </div>
+  1223→              </div>
+  1224→              <h3 className="text-lg font-semibold">No tenders found</h3>
+  1225→              <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+  1226→                {search || categoryFilter
+  1227→                  ? 'Try adjusting your search or filters to find more opportunities'
+  1228→                  : 'No tenders available at the moment. Check back later!'}
+  1229→              </p>
+  1230→              {(search || categoryFilter) && (
+  1231→                <Button variant="outline" className="mt-4 rounded-xl" onClick={() => { setSearch(''); setCategoryFilter(''); setStatusFilter(''); }}>
+  1232→                  Clear Filters
+  1233→                </Button>
+  1234→              )}
+  1235→            </CardContent>
+  1236→          </Card>
+  1237→        </div>
+  1238→      ) : categoryFilter && categoryFilter !== 'all' ? (
+  1239→        /* Single category view - show flat list with inline detail */
+  1240→        <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+  1241→          {(tendersByCategory[categoryFilter] || []).map(tender => {
+  1242→            const isExpanded = expandedTenderId === tender.id;
+  1243→            const days = daysUntil(tender.deadline);
+  1244→            const tags = tender.categoryTags.split(',').filter(Boolean);
+  1245→            const reqDocs = tender.requiredDocs ? tender.requiredDocs.split(',').filter(Boolean) : [];
+  1246→
+  1247→            return (
+  1248→              <div key={tender.id} className="space-y-0">
+  1249→                <div className={`hover:-translate-y-[3px] transition-all duration-200 ${isExpanded ? 'ring-2 ring-emerald-300 dark:ring-emerald-700 rounded-xl' : ''}`}>
+  1250→                  <Card
+  1251→                    className={`premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 ${
+  1252→                      compareSelection.includes(tender.id) ? 'ring-2 ring-emerald-400 ring-offset-2' : ''
+  1253→                    }`}
+  1254→                    onClick={() => setExpandedTenderId(isExpanded ? null : tender.id)}
+  1255→                  >
+  1256→                    <div className={`h-1.5 bg-gradient-to-r ${statusAccent(tender.status)}`} />
+  1257→                    <CardContent className="p-5 space-y-3">
+  1258→                      <div className="flex items-start justify-between gap-2">
+  1259→                        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+  1260→                          {tender.title}
+  1261→                        </h3>
+  1262→                        <div className="flex items-center gap-1.5 flex-shrink-0">
+  1263→                          <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
+  1264→                            {tender.status}
+  1265→                          </Badge>
+  1266→                          <button
+  1267→                            onClick={(e) => toggleCompare(tender.id, e)}
+  1268→                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+  1269→                              compareSelection.includes(tender.id)
+  1270→                                ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-200'
+  1271→                                : 'border-muted-foreground/30 hover:border-primary hover:bg-primary/10'
+  1272→                            }`}
+  1273→                            title="Select to compare"
+  1274→                          >
+  1275→                            {compareSelection.includes(tender.id) && (
+  1276→                              <CheckCircle className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+  1277→                            )}
+  1278→                          </button>
+  1279→                        </div>
+  1280→                      </div>
+  1281→
+  1282→                      <p className="text-xs text-muted-foreground line-clamp-2">{tender.scope}</p>
+  1283→
+  1284→                      <div className="flex items-center gap-1.5 text-xs">
+  1285→                        <div className="p-1 rounded bg-emerald-50">
+  1286→                          <DollarSign className="h-3 w-3 text-emerald-600" />
+  1287→                        </div>
+  1288→                        <span className="font-medium text-emerald-700">ETB {tender.budgetMin.toLocaleString()} – {tender.budgetMax.toLocaleString()}</span>
+  1289→                      </div>
+  1290→
+  1291→                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+  1292→                        <div className="flex items-center gap-1">
+  1293→                          <div className="p-1 rounded bg-amber-50">
+  1294→                            <MapPin className="h-3 w-3 text-amber-600" />
+  1295→                          </div>
+  1296→                          <span className="truncate max-w-[100px]">{tender.location}</span>
+  1297→                        </div>
+  1298→                        <div className="flex items-center gap-1">
+  1299→                          <div className="p-1 rounded bg-teal-50">
+  1300→                            <Calendar className="h-3 w-3 text-teal-600" />
+  1301→                          </div>
+  1302→                          <span>{new Date(tender.deadline).toLocaleDateString()}</span>
+  1303→                        </div>
+  1304→                      </div>
+  1305→
+  1306→                      <div className="flex items-center gap-2">
+  1307→                        <Badge className={`text-[10px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)} hover:${deadlineBg(days)} flex items-center gap-1`}>
+  1308→                          <Timer className="h-2.5 w-2.5" />
+  1309→                          {days <= 0 ? 'Expired' : days === 1 ? '1 day left' : `${days} days left`}
+  1310→                        </Badge>
+  1311→                        {tender._count && (
+  1312→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60 flex items-center gap-1">
+  1313→                            <Users className="h-2.5 w-2.5" />
+  1314→                            {tender._count.bids} bid{tender._count.bids !== 1 ? 's' : ''}
+  1315→                          </Badge>
+  1316→                        )}
+  1317→                      </div>
+  1318→
+  1319→                      <div className="flex flex-wrap gap-1">
+  1320→                        {tags.slice(0, 3).map(tag => (
+  1321→                          <Badge key={tag} className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+  1322→                            {tag.trim()}
+  1323→                          </Badge>
+  1324→                        ))}
+  1325→                        {tags.length > 3 && (
+  1326→                          <Badge className="text-[10px] px-1.5 py-0 border-0 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted/60">
+  1327→                            +{tags.length - 3}
+  1328→                          </Badge>
+  1329→                        )}
+  1330→                      </div>
+  1331→
+  1332→                      {reqDocs.length > 0 && (
+  1333→                        <div className="rounded-lg border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-2.5 space-y-1.5">
+  1334→                          <div className="flex items-center gap-1.5">
+  1335→                            <ClipboardList className="h-3 w-3 text-teal-600 dark:text-teal-400 shrink-0" />
+  1336→                            <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wide">Requirements</span>
+  1337→                            <span className="text-[9px] text-teal-600/70 dark:text-teal-400/70 ml-auto">{reqDocs.length} doc{reqDocs.length === 1 ? '' : 's'}</span>
+  1338→                          </div>
+  1339→                          <div className="flex flex-wrap gap-1">
+  1340→                            {reqDocs.slice(0, 3).map((doc, i) => (
+  1341→                              doc.trim().startsWith('http') ? (
+  1342→                                <a
+  1343→                                  key={`${doc}-${i}`}
+  1344→                                  href={doc.trim()}
+  1345→                                  target="_blank"
+  1346→                                  rel="noopener noreferrer"
+  1347→                                  className="inline-flex items-center gap-1 text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors"
+  1348→                                >
+  1349→                                  <FileText className="h-2.5 w-2.5" />
+  1350→                                  View Docs
+  1351→                                  <ExternalLink className="h-2 w-2" />
+  1352→                                </a>
+  1353→                              ) : (
+  1354→                                <span key={`${doc}-${i}`} className="inline-flex items-center text-[10px] font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded px-1.5 py-0.5">
+  1355→                                  {doc.trim()}
+  1356→                                </span>
+  1357→                              )
+  1358→                            ))}
+  1359→                            {reqDocs.length > 3 && (
+  1360→                              <span className="text-[10px] text-teal-600/70 dark:text-teal-400/70 px-1.5 py-0.5">+{reqDocs.length - 3}</span>
+  1361→                            )}
+  1362→                          </div>
+  1363→                        </div>
+  1364→                      )}
+  1365→
+  1366→                      {tender.matchScore !== undefined && (
+  1367→                        <div className="pt-1 space-y-1">
+  1368→                          <div className="flex items-center justify-between">
+  1369→                            <span className="text-[10px] text-muted-foreground font-medium">Match Score</span>
+  1370→                            <span className={`text-[10px] font-bold ${
+  1371→                              tender.matchScore >= 70 ? 'text-emerald-700' : tender.matchScore >= 40 ? 'text-amber-700' : 'text-muted-foreground'
+  1372→                            }`}>
+  1373→                              {tender.matchScore}%
+  1374→                            </span>
+  1375→                          </div>
+  1376→                          <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+  1377→                            <div
+  1378→                              className={`h-full rounded-full bg-gradient-to-r ${matchBarColor(tender.matchScore)} transition-[width] duration-700`}
+  1379→                              style={{ width: `${tender.matchScore}%` }}
+  1380→                            />
+  1381→                          </div>
+  1382→                        </div>
+  1383→                      )}
+  1384→
+  1385→                      <div className="flex items-center justify-between pt-1">
+  1386→                        <div className="flex items-center gap-1">
+  1387→                          {tender.status === 'open' && (
+  1388→                            <Button
+  1389→                              variant="ghost"
+  1390→                              size="sm"
+  1391→                              className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 h-6 px-1.5 font-medium"
+  1392→                              onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, action: 'apply' }); }}
+  1393→                            >
+  1394→                              <Gavel className="h-3 w-3" />
+  1395→                              Apply
+  1396→                            </Button>
+  1397→                          )}
+  1398→                          <Button
+  1399→                            variant="ghost"
+  1400→                            size="sm"
+  1401→                            className="gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 h-6 px-1.5"
+  1402→                            onClick={(e) => { e.stopPropagation(); setView('tender-detail', { id: tender.id, tab: 'ai-overview' }); }}
+  1403→                          >
+  1404→                            <Sparkles className="h-3 w-3" />
+  1405→                            AI Review
+  1406→                          </Button>
+  1407→                          <Button
+  1408→                            variant="ghost"
+  1409→                            size="sm"
+  1410→                            className="gap-1 text-[10px] text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 h-6 px-1.5"
+  1411→                            onClick={(e) => { e.stopPropagation(); setView('bids', { tenderId: tender.id }); }}
+  1412→                          >
+  1413→                            <Briefcase className="h-3 w-3" />
+  1414→                            Track
+  1415→                          </Button>
+  1416→                        </div>
+  1417→                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+  1418→                          {isExpanded ? 'Collapse' : 'Expand'} Details
+  1419→                          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+  1420→                            <ChevronDown className="h-3 w-3" />
+  1421→                          </div>
+  1422→                        </span>
+  1423→                      </div>
+  1424→                    </CardContent>
+  1425→                  </Card>
+  1426→                </div>
+  1427→
+  1428→                {isExpanded && (
+  1429→                  <div className="mt-2 mb-1">
+  1430→                    <InlineTenderDetail
+  1431→                      tender={tender}
+  1432→                      onClose={() => setExpandedTenderId(null)}
+  1433→                      setView={setView}
+  1434→                    />
+  1435→                  </div>
+  1436→                )}
+  1437→              </div>
+  1438→            );
+  1439→          })}
+  1440→        </div>
+  1441→      ) : (
+  1442→        /* All categories view - grouped by category with collapsible sections */
+  1443→        <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
+  1444→          {displayCategories.map(cat => {
+  1445→            const catTenders = tendersByCategory[cat] || [];
+  1446→            if (catTenders.length === 0) return null;
+  1447→            return (
+  1448→              <CategorySection
+  1449→                key={cat}
+  1450→                category={cat}
+  1451→                tenders={catTenders}
+  1452→                expandedTenderId={expandedTenderId}
+  1453→                onExpandTender={setExpandedTenderId}
+  1454→                compareSelection={compareSelection}
+  1455→                toggleCompare={toggleCompare}
+  1456→                setView={setView}
+  1457→              />
+  1458→            );
+  1459→          })}
+  1460→        </div>
+  1461→      )}
+  1462→
+  1463→      {/* See More / Load More — server-side pagination */}
+  1464→      {!loading && tenders.length > 0 && (
+  1465→        <div className="flex flex-col items-center gap-3 pt-6 pb-4">
+  1466→          {/* Progress bar */}
+  1467→          {totalTenders > 0 && (
+  1468→            <div className="w-full max-w-lg">
+  1469→              <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+  1470→                <div
+  1471→                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
+  1472→                  style={{ width: `${Math.min(100, Math.round((tenders.length / totalTenders) * 100))}%` }}
+  1473→                />
+  1474→              </div>
+  1475→            </div>
+  1476→          )}
+  1477→          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+  1478→            <span className="flex items-center gap-1">
+  1479→              <FileSearch className="h-3 w-3" />
+  1480→              {totalTenders > 0
+  1481→                ? `Showing ${tenders.length} of ${totalTenders} tenders`
+  1482→                : page >= totalPages
+  1483→                  ? `All ${tenders.length} tenders loaded`
+  1484→                  : `${tenders.length} tenders loaded`}
+  1485→            </span>
+  1486→            {page < totalPages && (
+  1487→              <>
+  1488→                <span className="text-border">·</span>
+  1489→                <span>{totalTenders - tenders.length} remaining</span>
+  1490→              </>
+  1491→            )}
+  1492→          </div>
+  1493→          {page < totalPages ? (
+  1494→            <div className="flex flex-col items-center gap-1.5">
+  1495→              <Button
+  1496→                variant="outline"
+  1497→                size="lg"
+  1498→                className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[280px] h-12 shadow-sm font-medium"
+  1499→                onClick={handleLoadMore}
+  1500→                disabled={loadingMore}
+  1501→              >
+  1502→                {loadingMore ? (
+  1503→                  <Loader2 className="h-4 w-4 animate-spin" />
+  1504→                ) : (
+  1505→                  <ChevronDown className="h-4 w-4" />
+  1506→                )}
+  1507→                {loadingMore ? 'Loading More…' : 'Load More'}
+  1508→                {!loadingMore && (
+  1509→                  <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
+  1510→                    +{Math.min(LIMIT, totalTenders - tenders.length)}
+  1511→                  </Badge>
+  1512→                )}
+  1513→              </Button>
+  1514→              <p className="text-xs text-muted-foreground">
+  1515→                {totalTenders - tenders.length} more tenders available
+  1516→              </p>
+  1517→            </div>
+  1518→          ) : (
+  1519→            <div className="flex flex-col items-center gap-1">
+  1520→              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+  1521→                <CheckCircle className="h-4 w-4" />
+  1522→                All tenders loaded
+  1523→              </p>
+  1524→              <p className="text-xs text-muted-foreground">You&apos;ve reached the end</p>
+  1525→            </div>
+  1526→          )}
+  1527→        </div>
+  1528→      )}
+  1529→
+  1530→      {/* ─── External Tenders from Free Data Sources ─── */}
+  1531→      {showExternal && (
+  1532→        <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
+  1533→          <div className="flex items-center justify-between">
+  1534→            <div className="flex items-center gap-3">
+  1535→              <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-200/40 dark:border-emerald-800/30">
+  1536→                <Globe2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+  1537→              </div>
+  1538→              <div>
+  1539→                <h3 className="text-lg font-bold tracking-tight">
+  1540→                  <span className="text-gradient-emerald">External</span> Tender Opportunities
+  1541→                </h3>
+  1542→                <p className="text-xs text-muted-foreground">
+  1543→                  Live tenders from World Bank, EU TED, UNGM, SAM.gov &amp; more free sources — 
+  1544→                  <span className="text-emerald-600 dark:text-emerald-400 font-medium"> with requirement documents &amp; RFP files</span>
+  1545→                </p>
+  1546→              </div>
+  1547→            </div>
+  1548→            <div className="flex items-center gap-2">
+  1549→              <Badge variant="outline" className="text-[10px] border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400">
+  1550→                <Radio className="h-2.5 w-2.5 mr-1 animate-pulse" />
+  1551→                Live
+  1552→              </Badge>
+  1553→              <Button
+  1554→                variant="ghost"
+  1555→                size="sm"
+  1556→                className="text-xs text-muted-foreground hover:text-foreground"
+  1557→                onClick={() => setShowExternal(false)}
+  1558→              >
+  1559→                Hide
+  1560→              </Button>
+  1561→            </div>
+  1562→          </div>
+  1563→
+  1564→          {externalLoading ? (
+  1565→            <div className="grid md:grid-cols-2 gap-3">
+  1566→              {[1, 2, 3, 4].map(i => (
+  1567→                <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
+  1568→                  <div className="h-1.5 bg-emerald-200/30" />
+  1569→                  <CardContent className="p-4 space-y-2.5">
+  1570→                    <div className="h-4 bg-muted/50 rounded-xl w-3/4" />
+  1571→                    <div className="h-3 bg-muted/50 rounded-xl w-full" />
+  1572→                    <div className="h-3 bg-muted/50 rounded-xl w-1/2" />
+  1573→                  </CardContent>
+  1574→                </Card>
+  1575→              ))}
+  1576→            </div>
+  1577→          ) : externalTenders.length > 0 ? (
+  1578→            <div className="space-y-3">
+  1579→              {externalTenders.map(t => {
+  1580→                const days = daysUntil(t.deadline);
+  1581→                const sourceLabel = (t.source || 'external').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  1582→                const hasDocs = !!(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0));
+  1583→                const isDocExpanded = extDocExpanded === t.id;
+  1584→                const doc = extDocData[t.id];
+  1585→                const isDocLoading = extDocLoading === t.id;
+  1586→                return (
+  1587→                  <Card
+  1588→                    key={t.id}
+  1589→                    className="premium-shadow rounded-xl border-0 bg-card group overflow-hidden transition-all duration-200 hover:ring-1 hover:ring-emerald-300/60"
+  1590→                  >
+  1591→                    <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
+  1592→                    <CardContent className="p-4 space-y-2.5">
+  1593→                      <div className="flex items-start justify-between gap-2">
+  1594→                        <h4 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+  1595→                          {t.title}
+  1596→                        </h4>
+  1597→                        <div className="flex items-center gap-1.5 shrink-0">
+  1598→                          <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+  1599→                            {sourceLabel}
+  1600→                          </Badge>
+  1601→                        </div>
+  1602→                      </div>
+  1603→
+  1604→                      <p className="text-xs text-muted-foreground line-clamp-2">{t.scope}</p>
+  1605→
+  1606→                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+  1607→                        {t.budgetMax > 0 && (
+  1608→                          <div className="flex items-center gap-1">
+  1609→                            <DollarSign className="h-3 w-3 text-emerald-600" />
+  1610→                            <span className="font-medium text-emerald-700 dark:text-emerald-400">
+  1611→                              {t.currency || 'USD'} {t.budgetMin >= 1000000 ? `${(t.budgetMin/1000000).toFixed(1)}M` : t.budgetMin >= 1000 ? `${(t.budgetMin/1000).toFixed(0)}K` : t.budgetMin.toLocaleString()}
+  1612→                              {t.budgetMax !== t.budgetMin ? ` – ${t.budgetMax >= 1000000 ? `${(t.budgetMax/1000000).toFixed(1)}M` : t.budgetMax >= 1000 ? `${(t.budgetMax/1000).toFixed(0)}K` : t.budgetMax.toLocaleString()}` : ''}
+  1613→                            </span>
+  1614→                          </div>
+  1615→                        )}
+  1616→                        <div className="flex items-center gap-1">
+  1617→                          <MapPin className="h-3 w-3 text-amber-600" />
+  1618→                          <span className="truncate max-w-[100px]">{t.location}</span>
+  1619→                        </div>
+  1620→                        <div className="flex items-center gap-1">
+  1621→                          <Calendar className="h-3 w-3 text-teal-600" />
+  1622→                          <span>{new Date(t.deadline).toLocaleDateString()}</span>
+  1623→                        </div>
+  1624→                        {t.borrower && (
+  1625→                          <div className="flex items-center gap-1">
+  1626→                            <Building2 className="h-3 w-3 text-violet-600" />
+  1627→                            <span className="truncate max-w-[120px]">{t.borrower}</span>
+  1628→                          </div>
+  1629→                        )}
+  1630→                        {t.contractType && (
+  1631→                          <div className="flex items-center gap-1">
+  1632→                            <FileText className="h-3 w-3 text-amber-600" />
+  1633→                            <span className="truncate max-w-[100px]">{t.contractType}</span>
+  1634→                          </div>
+  1635→                        )}
+  1636→                      </div>
+  1637→
+  1638→                      {/* Deadline badge + tags */}
+  1639→                      <div className="flex items-center gap-2 flex-wrap">
+  1640→                        <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)}`}>
+  1641→                          <Timer className="h-2.5 w-2.5 mr-0.5" />
+  1642→                          {days <= 0 ? 'Expired' : days === 1 ? '1 day' : `${days} days`}
+  1643→                        </Badge>
+  1644→                        {t.categoryTags && t.categoryTags.split(',').filter(Boolean).slice(0, 3).map((tag: string) => (
+  1645→                          <span key={tag} className="text-[9px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+  1646→                            {tag.trim()}
+  1647→                          </span>
+  1648→                        ))}
+  1649→                      </div>
+  1650→
+  1651→                      {/* Requirement Documents / Files Section */}
+  1652→                      {hasDocs && (
+  1653→                        <div className="rounded-lg border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/40 dark:bg-sky-950/20 p-2.5 space-y-2">
+  1654→                          <div className="flex items-center gap-1.5">
+  1655→                            <FileSearch className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+  1656→                            <span className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wide">Requirement Documents</span>
+  1657→                          </div>
+  1658→                          <div className="flex flex-wrap gap-1.5">
+  1659→                            {t.documentUrl && (
+  1660→                              <a
+  1661→                                href={t.documentUrl}
+  1662→                                target="_blank"
+  1663→                                rel="noopener noreferrer"
+  1664→                                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+  1665→                                onClick={(e) => e.stopPropagation()}
+  1666→                              >
+  1667→                                <FileText className="h-2.5 w-2.5" />
+  1668→                                View RFP / Specs
+  1669→                                <ExternalLink className="h-2 w-2" />
+  1670→                              </a>
+  1671→                            )}
+  1672→                            {t.requiredDocs && t.requiredDocs.startsWith('http') && t.requiredDocs !== t.documentUrl && (
+  1673→                              <a
+  1674→                                href={t.requiredDocs}
+  1675→                                target="_blank"
+  1676→                                rel="noopener noreferrer"
+  1677→                                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+  1678→                                onClick={(e) => e.stopPropagation()}
+  1679→                              >
+  1680→                                <ClipboardList className="h-2.5 w-2.5" />
+  1681→                                Requirements
+  1682→                                <ExternalLink className="h-2 w-2" />
+  1683→                              </a>
+  1684→                            )}
+  1685→                            <Button
+  1686→                              variant="ghost"
+  1687→                              size="sm"
+  1688→                              className={`h-6 gap-1 text-[10px] px-2 rounded-md transition-colors ${
+  1689→                                isDocExpanded
+  1690→                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+  1691→                                  : 'text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50'
+  1692→                              }`}
+  1693→                              onClick={(e) => { e.stopPropagation(); fetchExternalDoc(t); }}
+  1694→                              disabled={isDocLoading}
+  1695→                            >
+  1696→                              {isDocLoading ? (
+  1697→                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+  1698→                              ) : isDocExpanded ? (
+  1699→                                <ChevronUp className="h-2.5 w-2.5" />
+  1700→                              ) : (
+  1701→                                <ScanSearch className="h-2.5 w-2.5" />
+  1702→                              )}
+  1703→                              {isDocLoading ? 'Fetching…' : isDocExpanded ? 'Collapse' : 'Extract Content'}
+  1704→                            </Button>
+  1705→                          </div>
+  1706→                        </div>
+  1707→                      )}
+  1708→
+  1709→                      {/* Document Files list */}
+  1710→                      {t.documentFiles && t.documentFiles.length > 0 && (
+  1711→                        <div className="rounded-lg border border-violet-200/60 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20 p-2.5 space-y-2">
+  1712→                          <div className="flex items-center gap-1.5">
+  1713→                            <FileText className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+  1714→                            <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide">Requirement Files</span>
+  1715→                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-violet-200 dark:border-violet-700 text-violet-600 dark:text-violet-400">
+  1716→                              {t.documentFiles.length}
+  1717→                            </Badge>
+  1718→                          </div>
+  1719→                          <div className="space-y-1">
+  1720→                            {t.documentFiles.map((file, idx) => (
+  1721→                              <div key={idx} className="flex items-center gap-2 text-[10px]">
+  1722→                                <span className="shrink-0 px-1.5 py-0.5 rounded bg-white dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700 font-mono text-violet-700 dark:text-violet-300">
+  1723→                                  {file.type}
+  1724→                                </span>
+  1725→                                <a
+  1726→                                  href={file.url}
+  1727→                                  target="_blank"
+  1728→                                  rel="noopener noreferrer"
+  1729→                                  className="truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium"
+  1730→                                  onClick={(e) => e.stopPropagation()}
+  1731→                                >
+  1732→                                  {file.name}
+  1733→                                </a>
+  1734→                                <span className="text-muted-foreground ml-auto shrink-0">{file.size}</span>
+  1735→                              </div>
+  1736→                            ))}
+  1737→                          </div>
+  1738→                        </div>
+  1739→                      )}
+  1740→
+  1741→                      {/* Fetch document content inline if no explicit doc URL but has externalUrl */}
+  1742→                      {!hasDocs && t.externalUrl && (
+  1743→                        <Button
+  1744→                          variant="ghost"
+  1745→                          size="sm"
+  1746→                          className={`h-6 gap-1.5 text-[10px] px-2 rounded-md transition-colors ${
+  1747→                            isDocExpanded
+  1748→                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+  1749→                              : 'text-muted-foreground hover:bg-muted/60'
+  1750→                          }`}
+  1751→                          onClick={(e) => { e.stopPropagation(); fetchExternalDoc(t); }}
+  1752→                          disabled={isDocLoading}
+  1753→                        >
+  1754→                          {isDocLoading ? (
+  1755→                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+  1756→                          ) : isDocExpanded ? (
+  1757→                            <ChevronUp className="h-2.5 w-2.5" />
+  1758→                          ) : (
+  1759→                            <ScanSearch className="h-2.5 w-2.5" />
+  1760→                          )}
+  1761→                          {isDocLoading ? 'Fetching…' : isDocExpanded ? 'Collapse' : 'View Requirements'}
+  1762→                        </Button>
+  1763→                      )}
+  1764→
+  1765→                      {/* Inline Document Viewer */}
+  1766→                      {isDocExpanded && doc && (
+  1767→                        <div className="border border-border rounded-lg bg-gradient-to-b from-muted/30 to-background overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+  1768→                          <div className="p-3 space-y-3">
+  1769→                            <div className="flex items-start justify-between gap-2">
+  1770→                              <div className="min-w-0 flex-1">
+  1771→                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-0.5">
+  1772→                                  <FileSearch className="h-3 w-3" />
+  1773→                                  <span>Content from {(() => { try { return new URL(doc.url).hostname; } catch { return 'source'; } })()}</span>
+  1774→                                  <span>·</span>
+  1775→                                  <span>{new Date(doc.fetchedAt).toLocaleTimeString()}</span>
+  1776→                                </div>
+  1777→                                <h5 className="text-sm font-semibold text-foreground leading-snug">{doc.title || 'Tender Document'}</h5>
+  1778→                                {doc.metaDescription && (
+  1779→                                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{doc.metaDescription}</p>
+  1780→                                )}
+  1781→                              </div>
+  1782→                              <div className="flex items-center gap-1.5 shrink-0">
+  1783→                                <a
+  1784→                                  href={doc.url}
+  1785→                                  target="_blank"
+  1786→                                  rel="noopener noreferrer"
+  1787→                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+  1788→                                  onClick={(e) => e.stopPropagation()}
+  1789→                                >
+  1790→                                  <ExternalLink className="h-3 w-3" />
+  1791→                                  Original
+  1792→                                </a>
+  1793→                                <Button
+  1794→                                  variant="ghost"
+  1795→                                  size="sm"
+  1796→                                  className="h-5 gap-1 text-[10px] px-1.5"
+  1797→                                  onClick={(e) => {
+  1798→                                    e.stopPropagation();
+  1799→                                    const text = doc.sections
+  1800→                                      ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
+  1801→                                      : doc.content;
+  1802→                                    navigator.clipboard.writeText(text);
+  1803→                                    toast.success('Content copied to clipboard');
+  1804→                                  }}
+  1805→                                >
+  1806→                                  Copy
+  1807→                                </Button>
+  1808→                              </div>
+  1809→                            </div>
+  1810→
+  1811→                            {/* Extracted metadata */}
+  1812→                            {(doc.deadlines && doc.deadlines.length > 0) || (doc.budgets && doc.budgets.length > 0) ? (
+  1813→                              <div className="flex flex-wrap gap-1.5">
+  1814→                                {doc.deadlines?.map((d: string, i: number) => (
+  1815→                                  <Badge key={`dl-${i}`} variant="outline" className="gap-1 text-[9px] border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300">
+  1816→                                    <Calendar className="h-2.5 w-2.5" />
+  1817→                                    {d}
+  1818→                                  </Badge>
+  1819→                                ))}
+  1820→                                {doc.budgets?.map((b: string, i: number) => (
+  1821→                                  <Badge key={`bg-${i}`} variant="outline" className="gap-1 text-[9px] border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+  1822→                                    <DollarSign className="h-2.5 w-2.5" />
+  1823→                                    {b}
+  1824→                                  </Badge>
+  1825→                                ))}
+  1826→                              </div>
+  1827→                            ) : null}
+  1828→
+  1829→                            {/* Sections */}
+  1830→                            {doc.sections && doc.sections.length > 0 ? (
+  1831→                              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-background p-3 space-y-3 scrollbar-thin">
+  1832→                                {doc.sections.map((section: { heading: string; content: string }, i: number) => (
+  1833→                                  <div key={i}>
+  1834→                                    <h6 className="text-xs font-semibold text-foreground mb-1">{section.heading}</h6>
+  1835→                                    <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-line">
+  1836→                                      {section.content}
+  1837→                                    </p>
+  1838→                                    {i < doc.sections!.length - 1 && <Separator className="mt-3 bg-border" />}
+  1839→                                  </div>
+  1840→                                ))}
+  1841→                              </div>
+  1842→                            ) : (
+  1843→                              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-background p-3 scrollbar-thin">
+  1844→                                <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-line">
+  1845→                                  {doc.content || 'No content could be extracted from this page.'}
+  1846→                                </p>
+  1847→                              </div>
+  1848→                            )}
+  1849→                          </div>
+  1850→                        </div>
+  1851→                      )}
+  1852→
+  1853→                      {/* Inline loading skeleton */}
+  1854→                      {isDocExpanded && isDocLoading && (
+  1855→                        <div className="border border-border rounded-lg bg-muted/30 p-3 space-y-2 animate-[fadeIn_0.3s_ease-out]">
+  1856→                          <div className="flex items-center gap-2">
+  1857→                            <ScanSearch className="h-3.5 w-3.5 text-sky-500 animate-pulse" />
+  1858→                            <span className="text-xs font-medium text-sky-700 dark:text-sky-300">Extracting document content…</span>
+  1859→                          </div>
+  1860→                          <div className="space-y-2">
+  1861→                            <div className="h-3 bg-muted/50 rounded w-3/4" />
+  1862→                            <div className="h-2 bg-muted/50 rounded w-full" />
+  1863→                            <div className="h-2 bg-muted/50 rounded w-5/6" />
+  1864→                          </div>
+  1865→                        </div>
+  1866→                      )}
+  1867→
+  1868→                      <div className="flex items-center justify-between pt-1">
+  1869→                        <div className="flex items-center gap-2">
+  1870→                          {t.externalUrl && (
+  1871→                            <a
+  1872→                              href={t.externalUrl}
+  1873→                              target="_blank"
+  1874→                              rel="noopener noreferrer"
+  1875→                              className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+  1876→                              onClick={(e) => e.stopPropagation()}
+  1877→                            >
+  1878→                              <ExternalLink className="h-2.5 w-2.5" />
+  1879→                              View on {sourceLabel}
+  1880→                            </a>
+  1881→                          )}
+  1882→                        </div>
+  1883→                      </div>
+  1884→                    </CardContent>
+  1885→                  </Card>
+  1886→                );
+  1887→              })}
+  1888→            </div>
+  1889→          ) : (
+  1890→            <Card className="bg-card border-border rounded-xl">
+  1891→              <CardContent className="p-8 text-center">
+  1892→                <Globe2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+  1893→                <p className="text-sm text-muted-foreground">No external tenders available right now. Try refreshing later.</p>
+  1894→              </CardContent>
+  1895→            </Card>
+  1896→          )}
+  1897→
+  1898→          {/* External Load More */}
+  1899→          {externalTenders.length > 0 && (
+  1900→            <div className="flex flex-col items-center gap-3 pt-4 pb-2">
+  1901→              {/* Progress bar */}
+  1902→              {externalTotalAvailable > 0 && (
+  1903→                <div className="w-full max-w-lg">
+  1904→                  <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+  1905→                    <div
+  1906→                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
+  1907→                      style={{ width: `${Math.min(100, Math.round((externalTenders.length / externalTotalAvailable) * 100))}%` }}
+  1908→                    />
+  1909→                  </div>
+  1910→                </div>
+  1911→              )}
+  1912→              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+  1913→                <span className="flex items-center gap-1">
+  1914→                  <Globe2 className="h-3 w-3" />
+  1915→                  {externalTotalAvailable > 0
+  1916→                    ? `Showing ${externalTenders.length} of ${externalTotalAvailable} external tenders`
+  1917→                    : `${externalTenders.length} external tenders loaded`}
+  1918→                </span>
+  1919→                {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0)).length > 0 && (
+  1920→                  <>
+  1921→                    <span className="text-border">·</span>
+  1922→                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+  1923→                      <FileSearch className="h-3 w-3" />
+  1924→                      {externalTenders.filter(t => t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http')) || (t.documentFiles && t.documentFiles.length > 0)).length} with documents
+  1925→                    </span>
+  1926→                  </>
+  1927→                )}
+  1928→                {externalTenders.filter(t => t.documentFiles && t.documentFiles.length > 0).length > 0 && (
+  1929→                  <>
+  1930→                    <span className="text-border">·</span>
+  1931→                    <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+  1932→                      <FileText className="h-3 w-3" />
+  1933→                      {externalTenders.reduce((sum, t) => sum + (t.documentFiles?.length || 0), 0)} downloadable files
+  1934→                    </span>
+  1935→                  </>
+  1936→                )}
+  1937→                {externalHasMore && (
+  1938→                  <>
+  1939→                    <span className="text-border">·</span>
+  1940→                    <span>More available</span>
+  1941→                  </>
+  1942→                )}
+  1943→              </div>
+  1944→              {externalHasMore ? (
+  1945→                <div className="flex flex-col items-center gap-1.5">
+  1946→                  <Button
+  1947→                    variant="outline"
+  1948→                    size="lg"
+  1949→                    className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 min-w-[280px] h-12 shadow-sm font-medium"
+  1950→                    onClick={() => loadExternalTenders(true)}
+  1951→                    disabled={externalLoadingMore}
+  1952→                  >
+  1953→                    {externalLoadingMore ? (
+  1954→                      <Loader2 className="h-4 w-4 animate-spin" />
+  1955→                    ) : (
+  1956→                      <ChevronDown className="h-4 w-4" />
+  1957→                    )}
+  1958→                    {externalLoadingMore ? 'Loading More…' : 'Load More'}
+  1959→                    {!externalLoadingMore && (
+  1960→                      <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
+  1961→                        +200
+  1962→                      </Badge>
+  1963→                    )}
+  1964→                  </Button>
+  1965→                  <p className="text-xs text-muted-foreground">
+  1966→                    {externalTotalAvailable > 0
+  1967→                      ? `${externalTotalAvailable - externalTenders.length} more tenders available`
+  1968→                      : 'More tenders available'}
+  1969→                  </p>
+  1970→                </div>
+  1971→              ) : (
+  1972→                <div className="flex flex-col items-center gap-1">
+  1973→                  <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+  1974→                    <CheckCircle className="h-4 w-4" />
+  1975→                    {externalTotalAvailable > 0 ? `All ${externalTotalAvailable} external tenders loaded` : 'All external tenders loaded'}
+  1976→                  </p>
+  1977→                  <p className="text-xs text-muted-foreground">You&apos;ve reached the end</p>
+  1978→                </div>
+  1979→              )}
+  1980→            </div>
+  1981→          )}
+  1982→        </div>
+  1983→      )}
+  1984→
+  1985→      {/* Show External toggle when hidden */}
+  1986→      {!showExternal && (
+  1987→        <div className="flex justify-center pt-2">
+  1988→          <Button
+  1989→            variant="outline"
+  1990→            size="sm"
+  1991→            className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+  1992→            onClick={() => setShowExternal(true)}
+  1993→          >
+  1994→            <Globe2 className="h-3.5 w-3.5" />
+  1995→            Show External Tenders
+  1996→          </Button>
+  1997→        </div>
+  1998→      )}
+  1999→
+  2000→      {/* Floating Compare Bar */}
+
+[showing lines 1-2000 of 2070; use offset=2001 with limit to continue reading]
