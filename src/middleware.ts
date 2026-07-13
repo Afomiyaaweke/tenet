@@ -61,6 +61,8 @@ function checkRateLimit(
 const RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
   '/api/auth/login': { limit: 5, windowMs: 60 * 1000 },          // 5 req/min
   '/api/auth/register': { limit: 3, windowMs: 60 * 1000 },       // 3 req/min
+  '/api/auth/forgot-password': { limit: 3, windowMs: 60 * 1000 }, // 3 req/min
+  '/api/auth/reset-password': { limit: 3, windowMs: 60 * 1000 },  // 3 req/min
   '/api/contact': { limit: 3, windowMs: 60 * 1000 },             // 3 req/min
   '/api/comments': { limit: 10, windowMs: 60 * 1000 },           // 10 req/min
   '/api/agent': { limit: 10, windowMs: 60 * 1000 },              // 10 req/min

@@ -223,10 +223,10 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
       <section className="border-y border-border bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <StatCard value="10+" label="Data Sources" delay="0s" />
-            <StatCard value="AI" label="Powered" delay="0.1s" />
-            <StatCard value="Smart" label="Matching" delay="0.2s" />
-            <StatCard value="Secure" label="Platform" delay="0.3s" />
+            <StatCard value="25+" label="Data Sources" delay="0s" />
+            <StatCard value="2000+" label="Live Tenders" delay="0.1s" />
+            <StatCard value="7" label="AI Tools" delay="0.2s" />
+            <StatCard value="256-bit" label="Encryption" delay="0.3s" />
           </div>
         </div>
       </section>
