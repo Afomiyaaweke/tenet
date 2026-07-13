@@ -1764,239 +1764,239 @@
   1764→  >([]);
   1765→  const [loading, setLoading] = useState(true);
   1766→  const [refreshing, setRefreshing] = useState(false);
-  1767→  const [fallback, setFallback] = useState(false);
-  1768→  const [search, setSearch] = useState('');
-  1769→  const [sourceFilter, setSourceFilter] = useState('all');
-  1770→  const [sectorFilter, setSectorFilter] = useState('');
-  1771→  const [sectorCounts, setSectorCounts] = useState<{ id: string; label: string; count: number }[]>([]);
-  1772→
-  1773→  // Pagination state
-  1774→  const [visibleCount, setVisibleCount] = useState(12);
-  1775→  const PAGE_SIZE = 12;
-  1776→
-  1777→  // Inline document state
-  1778→  const [expandedId, setExpandedId] = useState<string | null>(null);
-  1779→  const [docLoading, setDocLoading] = useState<string | null>(null);
-  1780→  const [docData, setDocData] = useState<Record<string, InlineDocument>>({});
-  1781→  const [docError, setDocError] = useState<Record<string, string>>({});
-  1782→
-  1783→  // AI Review state
-  1784→  const [aiReviewData, setAiReviewData] = useState<Record<string, AIReview>>({});
-  1785→  const [aiReviewLoading, setAiReviewLoading] = useState<Record<string, boolean>>({});
-  1786→  const [aiReviewExpanded, setAiReviewExpanded] = useState<Record<string, boolean>>({});
-  1787→
-  1788→  // Saved/bookmark state
-  1789→  const [savedTenders, setSavedTenders] = useState<Record<string, boolean>>({});
-  1790→  const [savingTender, setSavingTender] = useState<Record<string, boolean>>({});
-  1791→
-  1792→  // Import state
-  1793→  const [importing, setImporting] = useState<string | null>(null);
-  1794→
-  1795→  // Credential dialog state
-  1796→  const [credDialogSource, setCredDialogSource] = useState<GatedSource | null>(null);
-  1797→  const [credDialogOpen, setCredDialogOpen] = useState(false);
-  1798→
-  1799→  // Detail view state (card click expands full info)
-  1800→  const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
-  1801→
-  1802→  // Dashboard stats state
-  1803→  const [dashTenders, setDashTenders] = useState<Tender[]>([]);
-  1804→  const [dashBids, setDashBids] = useState<Bid[]>([]);
-  1805→  const [dashProjects, setDashProjects] = useState<Project[]>([]);
-  1806→  const [dashStatsLoading, setDashStatsLoading] = useState(true);
-  1807→
-  1808→  const { setView } = useNavStore();
-  1809→
-  1810→  // Fetch dashboard summary data on mount
-  1811→  useEffect(() => {
-  1812→    const loadDashStats = async () => {
-  1813→      setDashStatsLoading(true);
-  1814→      const [tendersRes, bidsRes, projectsRes] = await Promise.all([
-  1815→        api.get('/tenders'),
-  1816→        api.get('/bids'),
-  1817→        api.get('/projects'),
-  1818→      ]);
-  1819→      if (tendersRes.success) setDashTenders(tendersRes.data);
-  1820→      if (bidsRes.success) setDashBids(bidsRes.data);
-  1821→      if (projectsRes.success) setDashProjects(projectsRes.data);
-  1822→      setDashStatsLoading(false);
-  1823→    };
-  1824→    loadDashStats();
-  1825→  }, []);
-  1826→
-  1827→  const dashStats = useMemo(() => {
-  1828→    const openTenders = dashTenders.filter(t => t.status === 'open').length;
-  1829→    const activeBids = dashBids.filter(b => b.status === 'pending_review' || b.status === 'shortlisted').length;
-  1830→    const activeProjects = dashProjects.filter(p => p.status === 'active').length;
-  1831→    const totalContractValue = dashProjects.reduce((sum, p) => sum + (p.contractValue || 0), 0);
-  1832→    return { openTenders, activeBids, activeProjects, totalContractValue };
-  1833→  }, [dashTenders, dashBids, dashProjects]);
-  1834→
-  1835→  const formatContractValue = (value: number): string => {
-  1836→    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  1837→    if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  1838→    if (value > 0) return `$${value.toLocaleString()}`;
-  1839→    return '$0';
-  1840→  };
-  1841→
-  1842→  const load = useCallback(
-  1843→    async (isRefresh = false) => {
-  1844→      if (isRefresh) setRefreshing(true);
-  1845→      else setLoading(true);
-  1846→      const params: Record<string, string> = { rows: '500' };
-  1847→      if (search) params.search = search;
-  1848→      if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
-  1849→      if (sectorFilter) params.sector = sectorFilter;
-  1850→      const res = await api.get('/tenders/live', params);
-  1851→      if (res.success) {
-  1852→        setTenders(res.data as LiveTender[]);
-  1853→        setSourceMeta(res.meta?.sources || []);
-  1854→        setFallback(Boolean(res.meta?.fallback));
-  1855→        if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
-  1856→        if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
-  1857→      } else {
-  1858→        toast.error(res.error || 'Failed to load live tenders');
-  1859→      }
-  1860→      setLoading(false);
-  1861→      setRefreshing(false);
-  1862→    },
-  1863→    [search, sourceFilter, sectorFilter],
-  1864→  );
-  1865→
-  1866→  useEffect(() => {
-  1867→    const t = setTimeout(() => load(), 250);
-  1868→    return () => clearTimeout(t);
-  1869→  }, [load]);
-  1870→
-  1871→  // Check saved status for visible tenders
-  1872→  useEffect(() => {
-  1873→    const checkSaved = async () => {
-  1874→      const visibleTenders = tenders.slice(0, visibleCount);
-  1875→      for (const t of visibleTenders) {
-  1876→        if (savedTenders[t.id] !== undefined) continue;
-  1877→        try {
-  1878→          const res = await api.get('/tenders/saved/check', {
-  1879→            tenderId: t.externalId || t.id,
-  1880→            source: t.source,
-  1881→          });
-  1882→          if (res.success) {
-  1883→            setSavedTenders((prev) => ({ ...prev, [t.id]: res.saved }));
-  1884→          }
-  1885→        } catch {
-  1886→          // Ignore errors for saved check
-  1887→        }
-  1888→      }
-  1889→    };
-  1890→    if (tenders.length > 0) checkSaved();
-  1891→  }, [tenders, visibleCount, savedTenders]);
-  1892→
-  1893→  const liveSourcesCount = useMemo(
-  1894→    () => sourceMeta.filter((s) => s.live && s.ok).length,
-  1895→    [sourceMeta],
-  1896→  );
-  1897→
-  1898→  const totalTenderValue = useMemo(() => {
-  1899→    return tenders.reduce((sum, t) => sum + (t.budgetMax || 0), 0);
-  1900→  }, [tenders]);
+  1767→  const [search, setSearch] = useState('');
+  1768→  const [sourceFilter, setSourceFilter] = useState('all');
+  1769→  const [sectorFilter, setSectorFilter] = useState('');
+  1770→  const [sectorCounts, setSectorCounts] = useState<{ id: string; label: string; count: number }[]>([]);
+  1771→
+  1772→  // Pagination state
+  1773→  const [visibleCount, setVisibleCount] = useState(12);
+  1774→  const PAGE_SIZE = 12;
+  1775→
+  1776→  // Inline document state
+  1777→  const [expandedId, setExpandedId] = useState<string | null>(null);
+  1778→  const [docLoading, setDocLoading] = useState<string | null>(null);
+  1779→  const [docData, setDocData] = useState<Record<string, InlineDocument>>({});
+  1780→  const [docError, setDocError] = useState<Record<string, string>>({});
+  1781→
+  1782→  // AI Review state
+  1783→  const [aiReviewData, setAiReviewData] = useState<Record<string, AIReview>>({});
+  1784→  const [aiReviewLoading, setAiReviewLoading] = useState<Record<string, boolean>>({});
+  1785→  const [aiReviewExpanded, setAiReviewExpanded] = useState<Record<string, boolean>>({});
+  1786→
+  1787→  // Saved/bookmark state
+  1788→  const [savedTenders, setSavedTenders] = useState<Record<string, boolean>>({});
+  1789→  const [savingTender, setSavingTender] = useState<Record<string, boolean>>({});
+  1790→
+  1791→  // Import state
+  1792→  const [importing, setImporting] = useState<string | null>(null);
+  1793→
+  1794→  // Credential dialog state
+  1795→  const [credDialogSource, setCredDialogSource] = useState<GatedSource | null>(null);
+  1796→  const [credDialogOpen, setCredDialogOpen] = useState(false);
+  1797→
+  1798→  // Detail view state (card click expands full info)
+  1799→  const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
+  1800→
+  1801→  // Dashboard stats state
+  1802→  const [dashTenders, setDashTenders] = useState<Tender[]>([]);
+  1803→  const [dashBids, setDashBids] = useState<Bid[]>([]);
+  1804→  const [dashProjects, setDashProjects] = useState<Project[]>([]);
+  1805→  const [dashStatsLoading, setDashStatsLoading] = useState(true);
+  1806→
+  1807→  const { setView } = useNavStore();
+  1808→
+  1809→  // Fetch dashboard summary data on mount
+  1810→  useEffect(() => {
+  1811→    const loadDashStats = async () => {
+  1812→      setDashStatsLoading(true);
+  1813→      const [tendersRes, bidsRes, projectsRes] = await Promise.all([
+  1814→        api.get('/tenders'),
+  1815→        api.get('/bids'),
+  1816→        api.get('/projects'),
+  1817→      ]);
+  1818→      if (tendersRes.success) setDashTenders(tendersRes.data);
+  1819→      if (bidsRes.success) setDashBids(bidsRes.data);
+  1820→      if (projectsRes.success) setDashProjects(projectsRes.data);
+  1821→      setDashStatsLoading(false);
+  1822→    };
+  1823→    loadDashStats();
+  1824→  }, []);
+  1825→
+  1826→  const dashStats = useMemo(() => {
+  1827→    const openTenders = dashTenders.filter(t => t.status === 'open').length;
+  1828→    const activeBids = dashBids.filter(b => b.status === 'pending_review' || b.status === 'shortlisted').length;
+  1829→    const activeProjects = dashProjects.filter(p => p.status === 'active').length;
+  1830→    const totalContractValue = dashProjects.reduce((sum, p) => sum + (p.contractValue || 0), 0);
+  1831→    return { openTenders, activeBids, activeProjects, totalContractValue };
+  1832→  }, [dashTenders, dashBids, dashProjects]);
+  1833→
+  1834→  const formatContractValue = (value: number): string => {
+  1835→    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  1836→    if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  1837→    if (value > 0) return `$${value.toLocaleString()}`;
+  1838→    return '$0';
+  1839→  };
+  1840→
+  1841→  const load = useCallback(
+  1842→    async (isRefresh = false) => {
+  1843→      if (isRefresh) setRefreshing(true);
+  1844→      else setLoading(true);
+  1845→      const params: Record<string, string> = { rows: '500' };
+  1846→      if (search) params.search = search;
+  1847→      if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
+  1848→      if (sectorFilter) params.sector = sectorFilter;
+  1849→      const res = await api.get('/tenders/live', params);
+  1850→      if (res.success) {
+  1851→        setTenders(res.data as LiveTender[]);
+  1852→        setSourceMeta(res.meta?.sources || []);
+  1853→        if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
+  1854→        if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
+  1855→      } else {
+  1856→        toast.error(res.error || 'Failed to load live tenders');
+  1857→      }
+  1858→      setLoading(false);
+  1859→      setRefreshing(false);
+  1860→    },
+  1861→    [search, sourceFilter, sectorFilter],
+  1862→  );
+  1863→
+  1864→  useEffect(() => {
+  1865→    const t = setTimeout(() => load(), 250);
+  1866→    return () => clearTimeout(t);
+  1867→  }, [load]);
+  1868→
+  1869→  // Check saved status for visible tenders
+  1870→  useEffect(() => {
+  1871→    const checkSaved = async () => {
+  1872→      const visibleTenders = tenders.slice(0, visibleCount);
+  1873→      for (const t of visibleTenders) {
+  1874→        if (savedTenders[t.id] !== undefined) continue;
+  1875→        try {
+  1876→          const res = await api.get('/tenders/saved/check', {
+  1877→            tenderId: t.externalId || t.id,
+  1878→            source: t.source,
+  1879→          });
+  1880→          if (res.success) {
+  1881→            setSavedTenders((prev) => ({ ...prev, [t.id]: res.saved }));
+  1882→          }
+  1883→        } catch {
+  1884→          // Ignore errors for saved check
+  1885→        }
+  1886→      }
+  1887→    };
+  1888→    if (tenders.length > 0) checkSaved();
+  1889→  }, [tenders, visibleCount, savedTenders]);
+  1890→
+  1891→  const liveSourcesCount = useMemo(
+  1892→    () => sourceMeta.filter((s) => s.live && s.ok).length,
+  1893→    [sourceMeta],
+  1894→  );
+  1895→
+  1896→  const totalTenderValue = useMemo(() => {
+  1897→    return tenders.reduce((sum, t) => sum + (t.budgetMax || 0), 0);
+  1898→  }, [tenders]);
+  1899→
+  1900→  /* ────── Inline document loading ────── */
   1901→
-  1902→  /* ────── Inline document loading ────── */
-  1903→
-  1904→  /** Fetch document content from external URL — does NOT toggle expandedId */
-  1905→  const fetchDocumentContent = useCallback(async (tender: LiveTender) => {
-  1906→    const id = tender.id;
-  1907→    // Already fetched or currently loading?
-  1908→    if (docData[id] || docLoading === id) return;
-  1909→
-  1910→    setDocLoading(id);
-  1911→    setDocError((prev) => { const n = { ...prev }; delete n[id]; return n; });
-  1912→
-  1913→    try {
-  1914→      const res = await api.get(`/tenders/${encodeURIComponent(id)}/documents`, { url: tender.externalUrl });
-  1915→      if (res.success && res.data) {
-  1916→        setDocData((prev) => ({ ...prev, [id]: res.data as InlineDocument }));
-  1917→      } else {
-  1918→        setDocError((prev) => ({ ...prev, [id]: res.error || 'Failed to load document' }));
-  1919→      }
-  1920→    } catch {
-  1921→      setDocError((prev) => ({ ...prev, [id]: 'Network error' }));
-  1922→    }
-  1923→    setDocLoading(null);
-  1924→  }, [docData, docLoading]);
-  1925→
-  1926→  /** Load document content and toggle the inline expanded view */
-  1927→  const loadDocument = useCallback(async (tender: LiveTender) => {
-  1928→    const id = tender.id;
-  1929→    if (expandedId === id) {
-  1930→      setExpandedId(null);
-  1931→      return;
-  1932→    }
-  1933→
-  1934→    // Already fetched?
-  1935→    if (docData[id]) {
-  1936→      setExpandedId(id);
-  1937→      return;
-  1938→    }
-  1939→
-  1940→    setExpandedId(id);
-  1941→    fetchDocumentContent(tender);
-  1942→  }, [expandedId, docData, fetchDocumentContent]);
-  1943→
-  1944→  /* ────── AI Review ────── */
-  1945→  const loadAIReview = useCallback(async (tender: LiveTender) => {
-  1946→    const id = tender.id;
-  1947→    // Toggle off if already expanded
-  1948→    if (aiReviewExpanded[id]) {
-  1949→      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
-  1950→      return;
-  1951→    }
-  1952→    // Expand the panel
-  1953→    setAiReviewExpanded((prev) => ({ ...prev, [id]: true }));
-  1954→    // If already loaded, no need to fetch
-  1955→    if (aiReviewData[id]) return;
-  1956→
-  1957→    setAiReviewLoading((prev) => ({ ...prev, [id]: true }));
-  1958→    try {
-  1959→      const res = await api.post('/tenders/live/review', {
-  1960→        title: tender.title,
-  1961→        scope: tender.scope,
-  1962→        budgetMin: tender.budgetMin,
-  1963→        budgetMax: tender.budgetMax,
-  1964→        deadline: tender.deadline,
-  1965→        location: tender.location,
-  1966→        categoryTags: tender.categoryTags,
-  1967→        source: tender.source,
-  1968→        currency: tender.currency,
-  1969→        borrower: tender.borrower,
-  1970→        contractType: tender.contractType,
-  1971→        region: tender.region,
-  1972→        externalUrl: tender.externalUrl,
-  1973→      });
-  1974→      if (res.success && res.data) {
-  1975→        setAiReviewData((prev) => ({ ...prev, [id]: res.data as AIReview }));
-  1976→      } else {
-  1977→        toast.error(res.error || 'Failed to generate AI review');
-  1978→        setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
-  1979→      }
-  1980→    } catch {
-  1981→      toast.error('Failed to generate AI review');
-  1982→      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
-  1983→    }
-  1984→    setAiReviewLoading((prev) => ({ ...prev, [id]: false }));
-  1985→  }, [aiReviewExpanded, aiReviewData]);
-  1986→
-  1987→  /* ────── Save/Bookmark → Move to Bid ────── */
-  1988→  const toggleSave = useCallback(async (tender: LiveTender) => {
-  1989→    const id = tender.id;
-  1990→    const isCurrentlySaved = savedTenders[id];
-  1991→    setSavingTender((prev) => ({ ...prev, [id]: true }));
-  1992→
-  1993→    try {
-  1994→      if (isCurrentlySaved) {
-  1995→        // Remove from saved/bids
-  1996→        const checkRes = await api.get('/tenders/saved/check', {
-  1997→          tenderId: tender.externalId || tender.id,
-  1998→          source: tender.source,
-  1999→        });
-  2000→        if (checkRes.success && checkRes.data?.id) {
+  1902→  /** Fetch document content from external URL — does NOT toggle expandedId */
+  1903→  const fetchDocumentContent = useCallback(async (tender: LiveTender) => {
+  1904→    const id = tender.id;
+  1905→    // Already fetched or currently loading?
+  1906→    if (docData[id] || docLoading === id) return;
+  1907→
+  1908→    setDocLoading(id);
+  1909→    setDocError((prev) => { const n = { ...prev }; delete n[id]; return n; });
+  1910→
+  1911→    try {
+  1912→      const res = await api.get(`/tenders/${encodeURIComponent(id)}/documents`, { url: tender.externalUrl });
+  1913→      if (res.success && res.data) {
+  1914→        setDocData((prev) => ({ ...prev, [id]: res.data as InlineDocument }));
+  1915→      } else {
+  1916→        setDocError((prev) => ({ ...prev, [id]: res.error || 'Failed to load document' }));
+  1917→      }
+  1918→    } catch {
+  1919→      setDocError((prev) => ({ ...prev, [id]: 'Network error' }));
+  1920→    }
+  1921→    setDocLoading(null);
+  1922→  }, [docData, docLoading]);
+  1923→
+  1924→  /** Load document content and toggle the inline expanded view */
+  1925→  const loadDocument = useCallback(async (tender: LiveTender) => {
+  1926→    const id = tender.id;
+  1927→    if (expandedId === id) {
+  1928→      setExpandedId(null);
+  1929→      return;
+  1930→    }
+  1931→
+  1932→    // Already fetched?
+  1933→    if (docData[id]) {
+  1934→      setExpandedId(id);
+  1935→      return;
+  1936→    }
+  1937→
+  1938→    setExpandedId(id);
+  1939→    fetchDocumentContent(tender);
+  1940→  }, [expandedId, docData, fetchDocumentContent]);
+  1941→
+  1942→  /* ────── AI Review ────── */
+  1943→  const loadAIReview = useCallback(async (tender: LiveTender) => {
+  1944→    const id = tender.id;
+  1945→    // Toggle off if already expanded
+  1946→    if (aiReviewExpanded[id]) {
+  1947→      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+  1948→      return;
+  1949→    }
+  1950→    // Expand the panel
+  1951→    setAiReviewExpanded((prev) => ({ ...prev, [id]: true }));
+  1952→    // If already loaded, no need to fetch
+  1953→    if (aiReviewData[id]) return;
+  1954→
+  1955→    setAiReviewLoading((prev) => ({ ...prev, [id]: true }));
+  1956→    try {
+  1957→      const res = await api.post('/tenders/live/review', {
+  1958→        title: tender.title,
+  1959→        scope: tender.scope,
+  1960→        budgetMin: tender.budgetMin,
+  1961→        budgetMax: tender.budgetMax,
+  1962→        deadline: tender.deadline,
+  1963→        location: tender.location,
+  1964→        categoryTags: tender.categoryTags,
+  1965→        source: tender.source,
+  1966→        currency: tender.currency,
+  1967→        borrower: tender.borrower,
+  1968→        contractType: tender.contractType,
+  1969→        region: tender.region,
+  1970→        externalUrl: tender.externalUrl,
+  1971→      });
+  1972→      if (res.success && res.data) {
+  1973→        setAiReviewData((prev) => ({ ...prev, [id]: res.data as AIReview }));
+  1974→      } else {
+  1975→        toast.error(res.error || 'Failed to generate AI review');
+  1976→        setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+  1977→      }
+  1978→    } catch {
+  1979→      toast.error('Failed to generate AI review');
+  1980→      setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
+  1981→    }
+  1982→    setAiReviewLoading((prev) => ({ ...prev, [id]: false }));
+  1983→  }, [aiReviewExpanded, aiReviewData]);
+  1984→
+  1985→  /* ────── Save/Bookmark → Move to Bid ────── */
+  1986→  const toggleSave = useCallback(async (tender: LiveTender) => {
+  1987→    const id = tender.id;
+  1988→    const isCurrentlySaved = savedTenders[id];
+  1989→    setSavingTender((prev) => ({ ...prev, [id]: true }));
+  1990→
+  1991→    try {
+  1992→      if (isCurrentlySaved) {
+  1993→        // Remove from saved/bids
+  1994→        const checkRes = await api.get('/tenders/saved/check', {
+  1995→          tenderId: tender.externalId || tender.id,
+  1996→          source: tender.source,
+  1997→        });
+  1998→        if (checkRes.success && checkRes.data?.id) {
+  1999→          await api.delete(`/tenders/saved/${checkRes.data.id}`);
+  2000→        }
 
-[showing lines 1-2000 of 2740; use offset=2001 with limit to continue reading]
+[showing lines 1-2000 of 2729; use offset=2001 with limit to continue reading]

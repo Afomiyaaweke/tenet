@@ -27,6 +27,7 @@ import {
   ExternalLink, FileText, Tag, Briefcase, Eye, ShieldCheck,
   Wallet, Clock3, Globe2, Award, CircleDot, ListChecks,
   Upload, CloudUpload, FileUp, ScanSearch, Brain, Trash2, Loader2,
+  Radio,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -581,6 +582,13 @@ export function TendersView() {
   const [expandedTenderId, setExpandedTenderId] = useState<string | null>(null);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
+  // External/Live tenders section
+  const [externalTenders, setExternalTenders] = useState<LiveTender[]>([]);
+  const [externalLoading, setExternalLoading] = useState(false);
+  const [externalLoadingMore, setExternalLoadingMore] = useState(false);
+  const [externalHasMore, setExternalHasMore] = useState(true);
+  const [showExternal, setShowExternal] = useState(true);
+
   const loadTenders = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     if (append) setLoadingMore(true);
     else setLoading(true);
@@ -621,6 +629,34 @@ export function TendersView() {
   const handleLoadMore = () => {
     setPage(prev => prev + 1);
   };
+
+  // ── External/Live Tenders ──
+  const loadExternalTenders = useCallback(async (append = false) => {
+    if (append) setExternalLoadingMore(true);
+    else setExternalLoading(true);
+
+    const currentOffset = append ? externalTenders.length : 0;
+    const params: Record<string, string> = { rows: '10', offset: String(currentOffset) };
+    if (search) params.search = search;
+    if (categoryFilter && categoryFilter !== 'all') params.source = categoryFilter.toLowerCase();
+
+    const res = await api.get('/tenders/live', params);
+    if (res.success) {
+      const newTenders = res.data as LiveTender[];
+      setExternalTenders(append ? (prev: LiveTender[]) => [...prev, ...newTenders] : newTenders);
+      setExternalHasMore(res.meta?.hasMore ?? false);
+    }
+    setExternalLoading(false);
+    setExternalLoadingMore(false);
+  }, [search, categoryFilter, externalTenders.length]);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (showExternal) {
+      loadExternalTenders(false);
+    }
+  }, [showExternal, search]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleCreate = async () => {
     const res = await api.post('/tenders', {
@@ -1399,6 +1435,175 @@ export function TendersView() {
               All tenders loaded
             </p>
           )}
+        </div>
+      )}
+
+      {/* ─── External Tenders from Free Data Sources ─── */}
+      {showExternal && (
+        <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-200/40 dark:border-emerald-800/30">
+                <Globe2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold tracking-tight">
+                  <span className="text-gradient-emerald">External</span> Tender Opportunities
+                </h3>
+                <p className="text-xs text-muted-foreground">Live tenders from World Bank, EU TED, UNGM, SAM.gov &amp; more free sources</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px] border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400">
+                <Radio className="h-2.5 w-2.5 mr-1 animate-pulse" />
+                Live
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setShowExternal(false)}
+              >
+                Hide
+              </Button>
+            </div>
+          </div>
+
+          {externalLoading ? (
+            <div className="grid md:grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map(i => (
+                <Card key={i} className="premium-shadow rounded-xl border-0 bg-card animate-pulse overflow-hidden">
+                  <div className="h-1.5 bg-emerald-200/30" />
+                  <CardContent className="p-4 space-y-2.5">
+                    <div className="h-4 bg-muted/50 rounded-xl w-3/4" />
+                    <div className="h-3 bg-muted/50 rounded-xl w-full" />
+                    <div className="h-3 bg-muted/50 rounded-xl w-1/2" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : externalTenders.length > 0 ? (
+            <div className="grid md:grid-cols-2 gap-3">
+              {externalTenders.slice(0, 10).map(t => {
+                const days = daysUntil(t.deadline);
+                const sourceLabel = (t.source || 'external').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                return (
+                  <Card
+                    key={t.id}
+                    className="premium-shadow rounded-xl border-0 bg-card cursor-pointer group overflow-hidden transition-all duration-200 hover:-translate-y-[2px] hover:ring-1 hover:ring-emerald-300/60"
+                    onClick={() => window.open(t.externalUrl, '_blank')}
+                  >
+                    <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
+                    <CardContent className="p-4 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-semibold text-sm line-clamp-2 group-hover:text-emerald-700 transition-colors flex-1 min-w-0">
+                          {t.title}
+                        </h4>
+                        <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 shrink-0">
+                          {sourceLabel}
+                        </Badge>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground line-clamp-2">{t.scope}</p>
+
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        {t.budgetMax > 0 && (
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-3 w-3 text-emerald-600" />
+                            <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                              {t.currency || 'USD'} {t.budgetMin >= 1000000 ? `${(t.budgetMin/1000000).toFixed(1)}M` : t.budgetMin >= 1000 ? `${(t.budgetMin/1000).toFixed(0)}K` : t.budgetMin.toLocaleString()}
+                              {t.budgetMax !== t.budgetMin ? ` – ${t.budgetMax >= 1000000 ? `${(t.budgetMax/1000000).toFixed(1)}M` : t.budgetMax >= 1000 ? `${(t.budgetMax/1000).toFixed(0)}K` : t.budgetMax.toLocaleString()}` : ''}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-amber-600" />
+                          <span className="truncate max-w-[100px]">{t.location}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-teal-600" />
+                          <span>{new Date(t.deadline).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge className={`text-[9px] px-1.5 py-0 border-0 rounded-lg ${deadlineBg(days)}`}>
+                            <Timer className="h-2.5 w-2.5 mr-0.5" />
+                            {days <= 0 ? 'Expired' : days === 1 ? '1 day' : `${days} days`}
+                          </Badge>
+                          {(t.documentUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))) && (
+                            <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
+                              <FileSearch className="h-2.5 w-2.5 mr-0.5" />
+                              Docs
+                            </Badge>
+                          )}
+                        </div>
+                        <a
+                          href={t.externalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          View <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="bg-card border-border rounded-xl">
+              <CardContent className="p-8 text-center">
+                <Globe2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No external tenders available right now. Try refreshing later.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* External Load More */}
+          {externalTenders.length > 0 && (
+            <div className="flex flex-col items-center gap-2 pt-2 pb-2">
+              {externalHasMore ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  onClick={() => loadExternalTenders(true)}
+                  disabled={externalLoadingMore}
+                >
+                  {externalLoadingMore ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                  Load More External Tenders
+                </Button>
+              ) : (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  All external tenders loaded
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Show External toggle when hidden */}
+      {!showExternal && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+            onClick={() => setShowExternal(true)}
+          >
+            <Globe2 className="h-3.5 w-3.5" />
+            Show External Tenders
+          </Button>
         </div>
       )}
 

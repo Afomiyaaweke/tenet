@@ -9,10 +9,11 @@ import type { LiveTender, DataSource } from '@/lib/api';
  * Requires authentication. Returns normalized LiveTender[] + source metadata.
  *
  * Query params:
- *  - source: 'all' | 'worldbank' | 'eu_ted' | 'ungm' | 'sam_gov' | 'afdb' | 'eu_opentenders' | 'jica' | 'adb' | 'uk_contracts' | 'dgmarket' | 'apify_global' | 'apify_procurement' | 'govrider' | 'tenderwell' | 'seegenebid'
+ *  - source: 'all' | 'worldbank' | 'eu_ted' | 'ungm' | 'sam_gov' | 'afdb' | 'eu_opentenders' | 'jica' | 'adb' | 'uk_contracts' | 'dgmarket' | 'apify_global' | 'apify_procurement' | 'govrider' | 'tenderwell' | 'seegenebid' | 'canada_buyandsell' | 'austender' | 'portugal_base' | 'ontario_tenders' | 'nigeria_nocopo' | 'kenya_tenders' | 'india_cppp' | 'south_africa' | 'philgeps'
  *  - sector: 'all' | 'medical' | 'construction' | 'retail' | 'it' | 'energy' | 'agriculture' | 'education' | 'transport' | 'finance' | 'telecom'
  *  - search: free-text search term
- *  - rows:   number of records per source (default 20, max 50)
+ *  - rows:   number of records per source (default 20, max 500)
+ *  - offset: number of records to skip (default 0)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -25,8 +26,10 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || undefined;
     const rowsRaw = Number(searchParams.get('rows'));
     const rows = Number.isFinite(rowsRaw) && rowsRaw > 0 ? Math.min(rowsRaw, 500) : 20;
+    const offsetRaw = Number(searchParams.get('offset'));
+    const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
-    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders', 'jica', 'adb', 'uk_contracts', 'dgmarket', 'apify_global', 'apify_procurement', 'govrider', 'tenderwell', 'seegenebid', 'canada_buyandsell', 'austender', 'portugal_base', 'ontario_tenders', 'nigeria_nocopo', 'kenya_tenders'];
+    const allowedSources = ['all', 'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'eu_opentenders', 'jica', 'adb', 'uk_contracts', 'dgmarket', 'apify_global', 'apify_procurement', 'govrider', 'tenderwell', 'seegenebid', 'canada_buyandsell', 'austender', 'portugal_base', 'ontario_tenders', 'nigeria_nocopo', 'kenya_tenders', 'india_cppp', 'south_africa', 'philgeps'];
     if (!allowedSources.includes(source)) {
       return NextResponse.json(
         { success: false, error: `Invalid source. Allowed: ${allowedSources.join(', ')}` },
@@ -62,7 +65,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const result = await fetchLiveTenders({ source, search, rows });
+    const result = await fetchLiveTenders({ source, search, rows, offset });
 
     const tenders: LiveTender[] = result.tenders;
     const dataSources: DataSource[] = DATA_SOURCES;
@@ -77,6 +80,8 @@ export async function GET(request: NextRequest) {
         sector: '',
         search: search || '',
         rows,
+        offset,
+        hasMore: result.tenders.length >= rows,
         sectors,
         sources: result.meta.sources,
         dataSources,
