@@ -1392,7 +1392,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">AI Tender Overview</h3>
-                  <p className="text-xs text-muted-foreground">Powered by Tenet AI — understand requirements &amp; prepare a winning bid</p>
+                  <p className="text-xs text-muted-foreground">Powered by Tenets AI — understand requirements &amp; prepare a winning bid</p>
                 </div>
               </div>
               <Button
@@ -1655,7 +1655,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">AI Bid Analysis</h3>
-                  <p className="text-xs text-muted-foreground">Powered by Tenet AI — rank, score, and evaluate bids automatically</p>
+                  <p className="text-xs text-muted-foreground">Powered by Tenets AI — rank, score, and evaluate bids automatically</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

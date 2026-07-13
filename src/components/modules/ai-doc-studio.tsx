@@ -2707,7 +2707,7 @@ export function AIDocStudio() {
                 {/* Document Header */}
                 <div className="border-b-2 border-emerald-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
                   <div className="text-center">
-                    <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">Tenet Tender Ecosystem</p>
+                    <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">Tenets Tender Ecosystem</p>
                     <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
                   </div>
                 </div>

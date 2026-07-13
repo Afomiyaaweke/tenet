@@ -405,7 +405,7 @@ export function DocBuilderView() {
           AI <span className="text-gradient-emerald">Document Builder</span>
         </h3>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Select a template below to generate professional, AI-powered documents for your tender workflow. From company profiles to invoices — all tailored for the Tenet ecosystem.
+          Select a template below to generate professional, AI-powered documents for your tender workflow. From company profiles to invoices — all tailored for the Tenets ecosystem.
         </p>
       </div>
 
@@ -723,7 +723,7 @@ export function DocBuilderView() {
               {/* Document Footer */}
               <div className="mt-8 pt-4 border-t border-border/30 flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
-                  Tenet Tender Ecosystem &middot; AI-Powered Document
+                  Tenets Tender Ecosystem &middot; AI-Powered Document
                 </p>
                 <p className="text-[10px] text-muted-foreground">
                   {generatedTemplateType?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
