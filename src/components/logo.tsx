@@ -27,7 +27,7 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
     <div className={`flex items-center gap-2 ${className}`}>
       {/* Tenets Logo Image */}
       <Image
-        src="/tenets-logo.jpg"
+        src="/tenets-logo.png"
         alt="Tenets Logo"
         width={s.icon}
         height={s.icon}

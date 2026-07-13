@@ -289,7 +289,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
-              <img src="/tenets-logo.jpg" alt="Tenets" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
+              <img src="/tenets-logo.png" alt="Tenets" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
               <div>
                 <h1 className="text-2xl font-bold text-white tracking-tight">Tenets</h1>
                 <p className="text-orange-300/80 text-xs font-medium tracking-wide uppercase">Tender Ecosystem</p>
