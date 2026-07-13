@@ -148,32 +148,58 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/documents
  * List documents: admin sees all, user sees own only
+ * Supports pagination via ?page=1&limit=20
  */
 export async function GET(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)));
+    const skip = (page - 1) * limit;
+
     let documents;
+    let total;
 
     if (user!.role === 'team_admin') {
       // Team admin can see their company's documents
-      documents = await db.document.findMany({
-        where: user!.companyId ? { user: { companyId: user!.companyId } } : {},
-        include: { user: { select: { id: true, email: true, role: true } } },
-        orderBy: { createdAt: 'desc' },
-      });
+      const where = user!.companyId ? { user: { companyId: user!.companyId } } : {};
+      [documents, total] = await Promise.all([
+        db.document.findMany({
+          where,
+          include: { user: { select: { id: true, email: true, role: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip,
+        }),
+        db.document.count({ where }),
+      ]);
     } else {
       // Regular users can only see their own documents
-      documents = await db.document.findMany({
-        where: { userId: user!.id },
-        orderBy: { createdAt: 'desc' },
-      });
+      const where = { userId: user!.id };
+      [documents, total] = await Promise.all([
+        db.document.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip,
+        }),
+        db.document.count({ where }),
+      ]);
     }
 
     return NextResponse.json({
       success: true,
       data: documents,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + documents.length < total,
+      },
     });
   } catch (error) {
     console.error('Get documents error:', error);

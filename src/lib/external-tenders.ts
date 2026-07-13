@@ -3105,7 +3105,17 @@ export async function fetchLiveTenders(opts: {
     });
   }
 
-  const settled = await Promise.all(tasks.map(async (t) => ({ ...t, res: await t.p })));
+  const settled = await Promise.all(tasks.map(async (t) => {
+    // Timeout each external API call after 15 seconds to prevent cascading hangs
+    const timeoutMs = 15_000;
+    const result = await Promise.race([
+      t.p,
+      new Promise<{ ok: false; tenders: never[]; error: string }>((resolve) =>
+        setTimeout(() => resolve({ ok: false, tenders: [], error: `Timeout after ${timeoutMs / 1000}s` }), timeoutMs)
+      ),
+    ]);
+    return { ...t, res: result };
+  }));
 
   const sourcesMeta = settled.map((t) => ({
     id: t.id,
