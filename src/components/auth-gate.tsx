@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,6 +170,18 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
 
+  // Handle ?token=xxx in URL for email reset links
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('token');
+    if (tokenFromUrl) {
+      setResetToken(tokenFromUrl);
+      setAuthMode('reset-password');
+      // Clean up URL without reloading
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginData.email || !loginData.password) return;
@@ -194,6 +206,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       const res = await api.post('/auth/forgot-password', { email: forgotEmail });
       if (res.success) {
         // Always show the confirmation screen to prevent email enumeration
+        // In development mode, the API returns the token for testing convenience
         if (res.resetToken) {
           setResetToken(res.resetToken);
         }
@@ -484,29 +497,23 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       Please check your inbox and spam folder. The link expires in 1 hour.
                     </p>
 
-                    {resetToken ? (
-                      <div className="space-y-3">
-                        <Button
-                          type="button"
-                          onClick={() => setAuthMode('reset-password')}
-                          className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
-                        >
-                          <span className="flex items-center gap-2">
-                            Reset Password Now
-                            <ArrowRight className="w-4 h-4" />
-                          </span>
-                        </Button>
-                        <p className="text-xs text-muted-foreground">
-                          In development mode, you can reset your password directly.
-                        </p>
-                      </div>
-                    ) : (
+                    <div className="space-y-3">
+                      <Button
+                        type="button"
+                        onClick={() => setAuthMode('reset-password')}
+                        className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
+                      >
+                        <span className="flex items-center gap-2">
+                          Enter Reset Code
+                          <ArrowRight className="w-4 h-4" />
+                        </span>
+                      </Button>
                       <div className="p-4 rounded-xl bg-muted/50 border border-border">
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Didn&apos;t receive the email? Make sure the email address is correct and check your spam folder.
+                          Check your email for the reset code or click the reset link in the email. Didn&apos;t receive it? Check your spam folder.
                         </p>
                       </div>
-                    )}
+                    </div>
 
                     <button
                       type="button"
@@ -545,7 +552,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                       <Lock className="w-5 h-5 text-primary" /> Reset Password
                     </h2>
-                    <p className="text-muted-foreground text-sm mt-1">Enter your new password below</p>
+                    <p className="text-muted-foreground text-sm mt-1">Enter the reset code from your email and your new password</p>
                   </div>
 
                   {resetSuccess ? (
@@ -565,6 +572,27 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     </div>
                   ) : (
                     <form onSubmit={handleResetPassword} className="space-y-5">
+                      {/* Reset Token Input */}
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-token" className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <Fingerprint className="w-3.5 h-3.5 text-muted-foreground" />
+                          Reset Code
+                        </Label>
+                        <Input
+                          id="reset-token"
+                          type="text"
+                          placeholder="Paste the reset code from your email"
+                          value={resetToken}
+                          onChange={e => setResetToken(e.target.value)}
+                          required
+
+                          className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          This code was sent to your email. It expires in 1 hour.
+                        </p>
+                      </div>
+
                       <div className="space-y-2">
                         <Label htmlFor="new-password" className="text-sm font-medium text-foreground flex items-center gap-2">
                           <Lock className="w-3.5 h-3.5 text-muted-foreground" />
@@ -614,7 +642,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
                       <Button
                         type="submit"
-                        disabled={loading || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 8}
+                        disabled={loading || !resetToken || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 8}
                         className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
                       >
                         {loading ? (

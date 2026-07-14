@@ -69,3 +69,25 @@ Stage Summary:
 - Root cause was TypeScript type error from auth cache change, preventing page compilation
 - All TypeScript errors fixed with explicit AuthUser type
 - Preview now fully functional: landing page, auth gate, API routes all working
+
+---
+Task ID: 4
+Agent: main
+Task: Fix authentication flow - reset password bypass issue
+
+Work Log:
+- Diagnosed the issue: reset-password form had NO token input field, users couldn't enter the reset code from their email
+- The "forgot-sent" screen had a dev-mode-only "Reset Password Now" button that bypassed the email step
+- No URL query parameter handling for ?token=xxx (email reset links didn't work)
+- Added useEffect hook to read ?token=xxx from URL and auto-switch to reset-password mode
+- Added "Reset Code" input field to reset-password form with Fingerprint icon
+- Changed "forgot-sent" screen: replaced conditional dev-mode button with always-visible "Enter Reset Code" button
+- Updated reset-password description text to clarify the reset code requirement
+- Updated submit button disabled state to require resetToken
+- Verified with agent browser: full flow works (forgot password → email sent → enter reset code → new password → success → login with new password)
+
+Stage Summary:
+- Reset password now requires entering the reset code from email (no more bypass)
+- URL ?token=xxx parameter support added for email reset links
+- Dev mode still auto-fills token from API for testing convenience
+- Full end-to-end flow verified working with agent browser
