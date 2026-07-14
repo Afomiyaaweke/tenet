@@ -188,3 +188,19 @@ export async function requireTeamAdmin(request: NextRequest) {
  * Used by routes that need admin-level access (create tenders, manage projects, etc.)
  */
 export const requireAdmin = requireTeamAdmin;
+
+/**
+ * Invalidate the auth cache for a specific user.
+ * Used after password reset to force re-authentication on all devices.
+ */
+export function invalidateAuthCache(userId: string): void {
+  authCache.delete(userId);
+}
+
+/**
+ * Invalidate all auth cache entries.
+ * Used for global session invalidation.
+ */
+export function invalidateAllAuthCache(): void {
+  authCache.clear();
+}

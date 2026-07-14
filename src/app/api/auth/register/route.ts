@@ -2,37 +2,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { generateToken } from '@/lib/auth';
+import { validatePassword, isValidEmail, normalizeEmail, getClientIP, getUserAgent, isPayloadTooLarge } from '@/lib/validators';
+import { addPasswordHistory } from '@/lib/token-service';
+import { auditLog } from '@/lib/audit-logger';
 
-// ── Input validation helpers ──
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_MIN_LENGTH = 8;
-
-function validatePassword(password: string): string | null {
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters long`;
-  }
-  if (!/[A-Z]/.test(password)) {
-    return 'Password must contain at least one uppercase letter';
-  }
-  if (!/[a-z]/.test(password)) {
-    return 'Password must contain at least one lowercase letter';
-  }
-  if (!/[0-9]/.test(password)) {
-    return 'Password must contain at least one number';
-  }
-  return null;
-}
+const BCRYPT_SALT_ROUNDS = 12;
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // ── Payload size check ──
+    const rawBody = await request.text();
+    if (isPayloadTooLarge(rawBody)) {
+      return NextResponse.json(
+        { success: false, error: 'Request payload too large' },
+        { status: 413 },
+      );
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request format' },
+        { status: 400 },
+      );
+    }
+
     const {
       email,
       password,
       fullName,
       phone,
       location,
-      // Company fields
       companyName,
       companyIndustry,
       companyTinNumber,
@@ -42,52 +44,49 @@ export async function POST(request: NextRequest) {
       companyCountry,
       companyEmail,
       companyWebsite,
-    } = body;
+    } = body as Record<string, string>;
 
-    // Validate required fields
+    // ── Validate required fields ──
     if (!email || !password || !fullName) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields: email, password, fullName' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Validate email format
-    if (!EMAIL_REGEX.test(email)) {
+    // ── Validate email format ──
+    if (typeof email !== 'string' || !isValidEmail(email)) {
       return NextResponse.json(
         { success: false, error: 'Invalid email format' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Validate password strength
-    const passwordError = validatePassword(password);
-    if (passwordError) {
+    // ── Validate password strength ──
+    const validation = validatePassword(password);
+    if (!validation.valid) {
       return NextResponse.json(
-        { success: false, error: passwordError },
-        { status: 400 }
+        { success: false, error: validation.errors[0] },
+        { status: 400 },
       );
     }
 
-    // All new users register as 'user' role
-    // Team admin role can be assigned later via Staff Management
+    const normalizedEmail = normalizeEmail(email);
 
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({ where: { email } });
+    // ── Check if user already exists ──
+    const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return NextResponse.json(
         { success: false, error: 'A user with this email already exists' },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(12);
-    const passwordHash = await bcrypt.hash(password, salt);
+    // ── Hash password with bcrypt ──
+    const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
-    // Create Company + User + Profile in a transaction
+    // ── Create Company + User + Profile in a transaction ──
     const result = await db.$transaction(async (tx) => {
-      // Create Company first if companyName is provided
       let company: { id: string; name: string; [key: string]: unknown } | null = null;
       if (companyName) {
         company = await tx.company.create({
@@ -107,10 +106,9 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Create User linked to Company
       const user = await tx.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           passwordHash,
           role: 'user',
           companyId: company?.id || null,
@@ -119,13 +117,12 @@ export async function POST(request: NextRequest) {
         include: { company: true },
       });
 
-      // Create Profile linked to both User and Company
       const profile = await tx.profile.create({
         data: {
           user: { connect: { id: user.id } },
           company: company ? { connect: { id: company.id } } : undefined,
           fullName,
-          jobTitle: body.jobTitle || null,
+          jobTitle: (body as Record<string, string>).jobTitle || null,
           phone: phone || null,
           location: location || null,
           tinNumber: companyTinNumber || null,
@@ -138,7 +135,10 @@ export async function POST(request: NextRequest) {
       return { user, profile, company };
     });
 
-    // Generate JWT token
+    // ── Store initial password in history ──
+    await addPasswordHistory(result.user.id, passwordHash);
+
+    // ── Generate JWT token ──
     const token = generateToken({
       userId: result.user.id,
       email: result.user.email,
@@ -146,23 +146,19 @@ export async function POST(request: NextRequest) {
       companyId: result.user.companyId,
     });
 
-    // Audit log
-    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || request.headers.get('x-real-ip')?.trim()
-      || 'unknown';
-    await db.auditLog.create({
-      data: {
-        userId: result.user.id,
-        action: 'register',
-        resource: 'user',
-        resourceId: result.user.id,
-        companyId: result.user.companyId || null,
-        ipAddress,
-        userAgent: request.headers.get('user-agent') || 'unknown',
-      },
-    }).catch(() => {}); // Non-critical
+    // ── Audit log ──
+    const clientIP = getClientIP(request);
+    const userAgent = getUserAgent(request);
+    await auditLog({
+      userId: result.user.id,
+      action: 'register',
+      resource: 'user',
+      resourceId: result.user.id,
+      companyId: result.user.companyId || undefined,
+      ipAddress: clientIP,
+      userAgent,
+    });
 
-    // Return user data (without password hash)
     const { passwordHash: _, ...userWithoutPassword } = result.user;
 
     return NextResponse.json(
@@ -173,13 +169,13 @@ export async function POST(request: NextRequest) {
           token,
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json(
       { success: false, error: 'An error occurred during registration' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

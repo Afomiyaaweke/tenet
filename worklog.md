@@ -123,3 +123,35 @@ Stage Summary:
 - Dev mode logs tokens to server console (not client)
 - Email reset links (/?token=xxx) auto-redirect to reset password form
 - Full flow verified: forgot password → email sent → enter code → reset → sign in
+
+---
+Task ID: 6
+Agent: main
+Task: Comprehensive security overhaul of authentication system (17 requirements)
+
+Work Log:
+- Updated Prisma schema: replaced PasswordReset with PasswordResetToken (SHA-256 hashed tokens, userId FK, requestIP, userAgent, usedAt, 15-min expiry) and added PasswordHistory model
+- Created /src/lib/token-service.ts: generate/hash/validate/consume reset tokens, SHA-256 hashing, single-use tokens, password history checking
+- Created /src/lib/validators.ts: 12-char password validation, uppercase/lowercase/number/special requirements, common password rejection, email validation, IP/user-agent extraction, payload size limits, email masking
+- Created /src/lib/audit-logger.ts: Secure audit logging with automatic PII masking, never logs raw tokens/passwords
+- Rewrote /src/app/api/auth/forgot-password/route.ts: per-email rate limiting, payload size check, SHA-256 token storage, generic response (no enumeration), IP/user-agent tracking
+- Rewrote /src/app/api/auth/reset-password/route.ts: SHA-256 token validation, 12-char password minimum, complexity validation, password history check, current password check, auth cache invalidation, generic error messages
+- Rewrote /src/app/api/auth/login/route.ts: brute-force lockout (5 attempts → 15-min lock), payload validation, failed attempt tracking
+- Rewrote /src/app/api/auth/register/route.ts: 12-char minimum, complexity validation, password history stored on registration
+- Rewrote /src/app/api/auth/validate-reset-token/route.ts: SHA-256 hash lookup, generic errors
+- Updated /src/lib/email.ts: IP/device/time info in reset emails, HTTPS enforcement, 15-min expiry display, security warnings, user-agent parsing
+- Updated /src/lib/auth.ts: Added invalidateAuthCache() and invalidateAllAuthCache() for session invalidation
+- Updated /src/middleware.ts: Full security headers (CSP, HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy, X-XSS-Protection), CORS handling, rate limiting
+- Updated /src/components/auth-gate.tsx: PasswordStrengthMeter component (4-bar visual indicator), PasswordRequirements checklist (12 chars, uppercase, lowercase, number, special char), confirm password in registration, 12-char minimum enforcement, disabled submit until validation passes
+
+Stage Summary:
+- All 17 security requirements implemented (except testing per "no test code" rule)
+- Reset tokens: SHA-256 hashed in DB, 15-min expiry, single-use, auto-invalidate previous
+- Password policy: 12-char min, uppercase, lowercase, number, special char, common password rejection, password history (last 10), current password check
+- Rate limiting: per-IP (middleware) + per-email (forgot-password), brute-force lockout (login)
+- Security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- Audit logging: all events logged, PII masked, no raw tokens/passwords in logs
+- Email: HTTPS-only links, IP/device/time info, 15-min expiry, security warnings
+- Session invalidation: auth cache cleared on password reset
+- Frontend: password strength meter, requirements checklist, 12-char minimum
+- E2E verified: forgot → email → reset → login flow works correctly
