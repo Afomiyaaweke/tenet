@@ -70,6 +70,8 @@ model User {
   connectionsReceived Connection[] @relation("UserReceivedConnections")
   endorsementsGiven Endorsement[] @relation("UserGivenEndorsements")
   endorsementsReceived Endorsement[] @relation("UserReceivedEndorsements")
+  passwordResetTokens PasswordResetToken[]
+  passwordHistory PasswordHistory[]
 }
 
 // ==========================================
@@ -490,20 +492,41 @@ model MessageReaction {
 }
 
 // ==========================================
-// PASSWORD RESET
+// PASSWORD RESET (Secure — SHA-256 hashed tokens)
 // ==========================================
 
-model PasswordReset {
-  id        String   @id @default(cuid())
-  email     String
-  token     String   @unique
-  used      Boolean  @default(false)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+model PasswordResetToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique  // SHA-256 hash of the raw token — raw token NEVER stored
+  expiresAt   DateTime           // 15-minute expiry
+  usedAt      DateTime?          // Set when token is consumed (single-use)
+  createdAt   DateTime  @default(now())
+  requestIP   String?            // IP address of the reset requestor
+  userAgent   String?            // User-Agent of the reset requestor
 
-  @@index([email])
-  @@index([token])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
   @@index([expiresAt])
+  @@index([usedAt])
+}
+
+// ==========================================
+// PASSWORD HISTORY (prevent reusing previous passwords)
+// ==========================================
+
+model PasswordHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  passwordHash String   // bcrypt/argon2 hash of the previous password
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // ==========================================

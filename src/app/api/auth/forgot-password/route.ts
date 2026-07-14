@@ -1,73 +1,161 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { createResetToken } from '@/lib/token-service';
 import { sendPasswordResetEmail } from '@/lib/email';
-import crypto from 'crypto';
+import { auditLog } from '@/lib/audit-logger';
+import {
+  isValidEmail,
+  normalizeEmail,
+  getClientIP,
+  getUserAgent,
+  maskEmail,
+  isPayloadTooLarge,
+} from '@/lib/validators';
+
+// ── Per-email rate limiter (in-memory, per-process) ──
+const emailRequestCounts = new Map<string, { count: number; resetTime: number }>();
+const MAX_PER_EMAIL = 3;       // 3 requests per email per window
+const EMAIL_RATE_WINDOW = 15 * 60 * 1000; // 15 minutes
+
+function checkEmailRateLimit(email: string): boolean {
+  const now = Date.now();
+  const entry = emailRequestCounts.get(email);
+
+  if (!entry || now > entry.resetTime) {
+    emailRequestCounts.set(email, { count: 1, resetTime: now + EMAIL_RATE_WINDOW });
+    return true;
+  }
+
+  if (entry.count >= MAX_PER_EMAIL) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
+
+// Clean up periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of emailRequestCounts.entries()) {
+    if (now > entry.resetTime) emailRequestCounts.delete(key);
+  }
+}, 5 * 60 * 1000);
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
-
-    if (!email || typeof email !== 'string') {
-      return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 });
+    // ── Payload size check ──
+    const rawBody = await request.text();
+    if (isPayloadTooLarge(rawBody)) {
+      return NextResponse.json(
+        { success: false, error: 'Request payload too large' },
+        { status: 413 },
+      );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    let body: { email?: unknown };
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request format' },
+        { status: 400 },
+      );
+    }
 
-    // Check if user exists
-    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
+    const { email } = body;
 
-    // Always return success to prevent email enumeration
-    if (!user) {
+    // ── Input validation ──
+    if (!email || typeof email !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'Email is required' },
+        { status: 400 },
+      );
+    }
+
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email format' },
+        { status: 400 },
+      );
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const clientIP = getClientIP(request);
+    const userAgent = getUserAgent(request);
+
+    // ── Per-email rate limiting ──
+    if (!checkEmailRateLimit(normalizedEmail)) {
+      await auditLog({
+        email: normalizedEmail,
+        action: 'rate_limit_exceeded',
+        ipAddress: clientIP,
+        userAgent,
+        metadata: { endpoint: 'forgot-password' },
+      }).catch(() => {});
+
+      // Still return generic success to prevent enumeration
       return NextResponse.json({
         success: true,
         message: 'If an account with that email exists, a reset link has been sent.',
       });
     }
 
-    // Invalidate any existing unused tokens for this email
-    await db.passwordReset.updateMany({
-      where: { email: normalizedEmail, used: false },
-      data: { used: true },
-    });
+    // ── Check if user exists ──
+    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
 
-    // Generate a secure random token
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
-
-    await db.passwordReset.create({
-      data: {
+    // Always return the same response to prevent email enumeration
+    if (!user) {
+      await auditLog({
         email: normalizedEmail,
-        token,
-        expiresAt,
-      },
-    });
+        action: 'forgot_password_requested',
+        ipAddress: clientIP,
+        userAgent,
+        metadata: { userExists: false },
+      }).catch(() => {});
 
-    // Send the reset token via email — NEVER in the API response
-    const emailSent = await sendPasswordResetEmail(normalizedEmail, token);
-
-    if (!emailSent) {
-      console.error('[POST /api/auth/forgot-password] Failed to send reset email to', normalizedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3'));
-      // Don't reveal email sending failure to the client (prevents information leakage)
+      return NextResponse.json({
+        success: true,
+        message: 'If an account with that email exists, a reset link has been sent.',
+      });
     }
 
-    // Audit log (mask email)
-    await db.auditLog.create({
-      data: {
-        action: 'forgot_password',
-        resource: 'user',
-        resourceId: normalizedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
-        metadata: JSON.stringify({ email: normalizedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3') }),
-      },
-    }).catch(() => {});
+    // ── Create secure reset token (SHA-256 hashed in DB) ──
+    const { rawToken } = await createResetToken(user.id, clientIP, userAgent);
 
-    // SECURITY: Never include the reset token in the API response.
-    // The token is only sent to the user's email address.
+    // ── Send reset email with security context ──
+    const emailSent = await sendPasswordResetEmail({
+      to: normalizedEmail,
+      rawToken,
+      requestIP: clientIP,
+      userAgent,
+      requestTime: new Date(),
+    });
+
+    if (!emailSent) {
+      console.error('[POST /api/auth/forgot-password] Failed to send reset email to', maskEmail(normalizedEmail));
+      // Don't reveal email sending failure to the client
+    }
+
+    // ── Audit log ──
+    await auditLog({
+      userId: user.id,
+      email: normalizedEmail,
+      action: 'forgot_password_email_sent',
+      ipAddress: clientIP,
+      userAgent,
+    });
+
+    // SECURITY: Never include the reset token in the API response
     return NextResponse.json({
       success: true,
       message: 'If an account with that email exists, a reset link has been sent.',
     });
   } catch (err) {
     console.error('[POST /api/auth/forgot-password] error:', err);
-    return NextResponse.json({ success: false, error: 'An error occurred' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'An error occurred' },
+      { status: 500 },
+    );
   }
 }

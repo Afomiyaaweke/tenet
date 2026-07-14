@@ -93,16 +93,67 @@ function FeatureHighlight({ icon, title, delay }: { icon: React.ReactNode; title
 }
 
 /* ───────────────────────── Password Strength Meter ───────────────────────── */
-function scorePassword(pw: string): { score: number; label: string; color: string } {
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
   let score = 0;
-  if (pw.length >= 8) score++;
-  if (pw.length >= 12) score++;
-  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong'];
-  const colors = ['bg-rose-500', 'bg-rose-500', 'bg-amber-500', 'bg-yellow-500', 'bg-orange-500', 'bg-orange-600'];
-  return { score, label: labels[score], color: colors[score] };
+  if (password.length >= 12) score += 20;
+  if (password.length >= 16) score += 10;
+  if (/[A-Z]/.test(password)) score += 15;
+  if (/[a-z]/.test(password)) score += 15;
+  if (/[0-9]/.test(password)) score += 15;
+  if (/[^A-Za-z0-9]/.test(password)) score += 15;
+  if (new Set(password.toLowerCase()).size >= 8) score += 10;
+
+  if (score >= 80) return { score, label: 'Strong', color: 'bg-green-500' };
+  if (score >= 60) return { score, label: 'Good', color: 'bg-blue-500' };
+  if (score >= 40) return { score, label: 'Fair', color: 'bg-yellow-500' };
+  return { score, label: 'Weak', color: 'bg-red-500' };
+}
+
+function PasswordStrengthMeter({ password }: { password: string }) {
+  if (!password) return null;
+  const { score, label, color } = getPasswordStrength(password);
+  return (
+    <div className="space-y-1.5 mt-2">
+      <div className="flex gap-1">
+        {[25, 50, 75, 100].map(threshold => (
+          <div key={threshold} className="h-1.5 flex-1 rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${score >= threshold ? color : 'bg-transparent'}`}
+              style={{ width: score >= threshold ? '100%' : '0%' }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="text-xs text-muted-foreground">Strength:</span>
+        <span className={`text-xs font-medium ${score >= 80 ? 'text-green-600' : score >= 60 ? 'text-blue-600' : score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>{label}</span>
+      </div>
+    </div>
+  );
+}
+
+function PasswordRequirements({ password }: { password: string }) {
+  const checks = [
+    { label: 'At least 12 characters', met: password.length >= 12 },
+    { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
+    { label: 'One lowercase letter', met: /[a-z]/.test(password) },
+    { label: 'One number', met: /[0-9]/.test(password) },
+    { label: 'One special character', met: /[^A-Za-z0-9]/.test(password) },
+  ];
+  return (
+    <div className="space-y-1 mt-2">
+      {checks.map(({ label, met }) => (
+        <div key={label} className="flex items-center gap-1.5">
+          {met ? (
+            <CheckCircle2 className="w-3 h-3 text-green-500 flex-shrink-0" />
+          ) : (
+            <div className="w-3 h-3 rounded-full border border-muted-foreground/30 flex-shrink-0" />
+          )}
+          <span className={`text-xs ${met ? 'text-green-600' : 'text-muted-foreground'}`}>{label}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /* ───────────────────────── Step Indicator ───────────────────────── */
@@ -168,6 +219,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
 
   // Handle ?token=xxx in URL for email reset links
@@ -225,8 +277,12 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       toast.error('Passwords do not match');
       return;
     }
-    if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters');
+    if (newPassword.length < 12) {
+      toast.error('Password must be at least 12 characters');
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+      toast.error('Password must include uppercase, lowercase, number, and special character');
       return;
     }
     setLoading(true);
@@ -253,7 +309,15 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const canGoNext = (): boolean => {
     switch (regStep) {
       case 1:
-        return !!regData.email && !!regData.password && regData.password.length >= 8;
+        return !!regData.email &&
+          !!regData.password &&
+          regData.password.length >= 12 &&
+          /[A-Z]/.test(regData.password) &&
+          /[a-z]/.test(regData.password) &&
+          /[0-9]/.test(regData.password) &&
+          /[^A-Za-z0-9]/.test(regData.password) &&
+          !!regConfirmPassword &&
+          regData.password === regConfirmPassword;
       case 2:
         return !!regData.companyName;
       case 3:
@@ -286,7 +350,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     setLoading(false);
   };
 
-  const pwScore = scorePassword(regData.password);
+
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -634,13 +698,12 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         />
                       </div>
 
-                      {newPassword && newPassword.length < 8 && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400">Password must be at least 8 characters</p>
-                      )}
+                      <PasswordStrengthMeter password={newPassword} />
+                      <PasswordRequirements password={newPassword} />
 
                       <Button
                         type="submit"
-                        disabled={loading || !resetToken || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 8}
+                        disabled={loading || !resetToken || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 12 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)}
                         className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
                       >
                         {loading ? (
@@ -797,7 +860,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           <div className="relative">
                             <Input
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="Min 8 chars with uppercase, lowercase, number, special"
+                              placeholder="Min 12 chars with uppercase, lowercase, number, special"
                               required
                               value={regData.password}
                               onChange={e => setRegData(d => ({ ...d, password: e.target.value }))}
@@ -811,20 +874,24 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
-                          {regData.password && (
-                            <div className="space-y-1 animate-[viewEnter_0.2s_ease-out]">
-                              <div className="flex gap-1">
-                                {[0, 1, 2, 3, 4].map(i => (
-                                  <div
-                                    key={i}
-                                    className={`h-1 flex-1 rounded-full transition-all ${i < pwScore.score ? pwScore.color : 'bg-muted'}`}
-                                  />
-                                ))}
-                              </div>
-                              <p className={`text-[10px] font-medium ${pwScore.score >= 4 ? 'text-orange-600' : pwScore.score >= 2 ? 'text-amber-600' : 'text-rose-600'}`}>
-                                {pwScore.label}
-                              </p>
-                            </div>
+                          <PasswordStrengthMeter password={regData.password} />
+                          <PasswordRequirements password={regData.password} />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Lock className="w-3 h-3" /> Confirm Password *
+                          </Label>
+                          <Input
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Re-enter your password"
+                            required
+                            value={regConfirmPassword}
+                            onChange={e => setRegConfirmPassword(e.target.value)}
+                            className="h-10 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 text-sm"
+                          />
+                          {regConfirmPassword && regData.password !== regConfirmPassword && (
+                            <p className="text-xs text-red-500">Passwords do not match</p>
                           )}
                         </div>
                       </div>
