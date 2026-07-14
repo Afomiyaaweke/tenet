@@ -206,10 +206,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       const res = await api.post('/auth/forgot-password', { email: forgotEmail });
       if (res.success) {
         // Always show the confirmation screen to prevent email enumeration
-        // In development mode, the API returns the token for testing convenience
-        if (res.resetToken) {
-          setResetToken(res.resetToken);
-        }
+        // The reset token is sent ONLY to the user's email — never in the API response
+        setResetToken(''); // Clear any previous token
         setAuthMode('forgot-sent');
       } else {
         toast.error(res.error || 'Failed to process request');
@@ -491,10 +489,10 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     </div>
                     <h2 className="text-2xl font-bold text-foreground mb-2">Check Your Email</h2>
                     <p className="text-muted-foreground text-sm mb-1">
-                      If an account with <span className="font-semibold text-foreground">{forgotEmail}</span> exists, a password reset link has been sent.
+                      We&apos;ve sent a password reset code to <span className="font-semibold text-foreground">{forgotEmail}</span>
                     </p>
                     <p className="text-muted-foreground text-xs mb-6">
-                      Please check your inbox and spam folder. The link expires in 1 hour.
+                      The code expires in 1 hour. Check your spam folder if you don&apos;t see it.
                     </p>
 
                     <div className="space-y-3">
@@ -504,13 +502,13 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0"
                       >
                         <span className="flex items-center gap-2">
-                          Enter Reset Code
+                          I Have My Reset Code
                           <ArrowRight className="w-4 h-4" />
                         </span>
                       </Button>
                       <div className="p-4 rounded-xl bg-muted/50 border border-border">
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Check your email for the reset code or click the reset link in the email. Didn&apos;t receive it? Check your spam folder.
+                          You can also click the reset link directly in the email to auto-fill the code. Can&apos;t find it? Check your spam folder or try a different email.
                         </p>
                       </div>
                     </div>

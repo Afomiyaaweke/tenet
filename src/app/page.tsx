@@ -17,6 +17,12 @@ export default function Home() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setMounted(true);
+    // If there's a ?token= in the URL, auto-switch to auth screen
+    // so the auth-gate can pick it up for password reset
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('token')) {
+      setScreen('auth');
+    }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
