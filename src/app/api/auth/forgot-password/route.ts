@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { sendPasswordResetEmail } from '@/lib/email';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -41,7 +42,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Audit log (mask email to avoid logging full email in audit)
+    // Send the reset token via email — NEVER in the API response
+    const emailSent = await sendPasswordResetEmail(normalizedEmail, token);
+
+    if (!emailSent) {
+      console.error('[POST /api/auth/forgot-password] Failed to send reset email to', normalizedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3'));
+      // Don't reveal email sending failure to the client (prevents information leakage)
+    }
+
+    // Audit log (mask email)
     await db.auditLog.create({
       data: {
         action: 'forgot_password',
@@ -51,17 +60,11 @@ export async function POST(request: NextRequest) {
       },
     }).catch(() => {});
 
-    // TODO: Integrate email service (e.g., SendGrid, Resend, AWS SES)
-    // to send the reset link: `${frontendUrl}/reset-password?token=${token}`
-    // For now, the token is stored in the database and must be retrieved separately
-    // in development mode only.
-    const isDev = process.env.NODE_ENV !== 'production';
-
+    // SECURITY: Never include the reset token in the API response.
+    // The token is only sent to the user's email address.
     return NextResponse.json({
       success: true,
       message: 'If an account with that email exists, a reset link has been sent.',
-      // Development only — expose token for testing without email infrastructure
-      ...(isDev ? { resetToken: token } : {}),
     });
   } catch (err) {
     console.error('[POST /api/auth/forgot-password] error:', err);

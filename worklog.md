@@ -91,3 +91,35 @@ Stage Summary:
 - URL ?token=xxx parameter support added for email reset links
 - Dev mode still auto-fills token from API for testing convenience
 - Full end-to-end flow verified working with agent browser
+
+---
+Task ID: 5
+Agent: main
+Task: Fix security issue — reset token was being returned in API response instead of sent via email
+
+Work Log:
+- Identified the core security vulnerability: forgot-password API returned `resetToken` in the response body (even in dev mode), allowing anyone to bypass email verification
+- Created `/src/lib/email.ts` — full email service with nodemailer integration
+  - Supports any SMTP provider (SendGrid, AWS SES, Mailgun, Gmail, etc.)
+  - Professional HTML email template for password reset with clickable link + copyable code
+  - Dev mode fallback: logs email content to server console (not exposed to client)
+- Rewrote `/src/app/api/auth/forgot-password/route.ts`:
+  - REMOVED `resetToken` from API response entirely — NEVER returned to client
+  - Now calls `sendPasswordResetEmail()` which sends the token only to the user's email
+  - Token is only stored in the database and sent via email
+- Updated frontend (`auth-gate.tsx`):
+  - Removed `res.resetToken` handling — no longer reads token from API response
+  - Changed "Enter Reset Code" button to "I Have My Reset Code" (clearer UX)
+  - Updated "Check Your Email" text to be more direct
+- Updated `page.tsx` to detect `?token=xxx` in URL and auto-redirect to auth screen
+  - Email reset links now work: user clicks link → sees reset form with token pre-filled
+- Added SMTP config to `.env` with documentation comments
+- Full end-to-end verified with agent browser
+
+Stage Summary:
+- CRITICAL SECURITY FIX: Reset token no longer exposed in API response
+- Email service created with nodemailer + SMTP provider support
+- Professional HTML email template with reset link + code
+- Dev mode logs tokens to server console (not client)
+- Email reset links (/?token=xxx) auto-redirect to reset password form
+- Full flow verified: forgot password → email sent → enter code → reset → sign in
