@@ -1,52 +1,181 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { signToken } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
+import { db } from '@/lib/db';
+import { generateToken } from '@/lib/auth';
+import { validatePassword, isValidEmail, normalizeEmail, getClientIP, getUserAgent, isPayloadTooLarge } from '@/lib/validators';
+import { addPasswordHistory } from '@/lib/token-service';
+import { auditLog } from '@/lib/audit-logger';
 
-export async function POST(req: NextRequest) {
+const BCRYPT_SALT_ROUNDS = 12;
+
+export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, company, role } = await req.json();
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'Name, email and password required' }, { status: 400 });
+    // ── Payload size check ──
+    const rawBody = await request.text();
+    if (isPayloadTooLarge(rawBody)) {
+      return NextResponse.json(
+        { success: false, error: 'Request payload too large' },
+        { status: 413 },
+      );
     }
 
-    const existing = await db.user.findUnique({ where: { email } });
-    if (existing) {
-      return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request format' },
+        { status: 400 },
+      );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const user = await db.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        company: company || null,
-        role: role || 'contractor',
+    const {
+      email,
+      password,
+      fullName,
+      phone,
+      location,
+      companyName,
+      companyIndustry,
+      companyTinNumber,
+      companyRegistrationNo,
+      companyPhone,
+      companyCity,
+      companyCountry,
+      companyEmail,
+      companyWebsite,
+    } = body as Record<string, string>;
+
+    // ── Validate required fields ──
+    if (!email || !password || !fullName) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: email, password, fullName' },
+        { status: 400 },
+      );
+    }
+
+    // ── Validate email format ──
+    if (typeof email !== 'string' || !isValidEmail(email)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email format' },
+        { status: 400 },
+      );
+    }
+
+    // ── Validate password strength ──
+    const validation = validatePassword(password);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.errors[0] },
+        { status: 400 },
+      );
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+
+    // ── Check if user already exists ──
+    const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
+    if (existingUser) {
+      return NextResponse.json(
+        { success: false, error: 'A user with this email already exists' },
+        { status: 409 },
+      );
+    }
+
+    // ── Hash password with bcrypt ──
+    const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+
+    // ── Create Company + User + Profile in a transaction ──
+    const result = await db.$transaction(async (tx) => {
+      let company: { id: string; name: string; [key: string]: unknown } | null = null;
+      if (companyName) {
+        company = await tx.company.create({
+          data: {
+            name: companyName,
+            industry: companyIndustry || 'General',
+            tinNumber: companyTinNumber || null,
+            registrationNo: companyRegistrationNo || null,
+            phone: companyPhone || null,
+            city: companyCity || null,
+            country: companyCountry || 'Ethiopia',
+            email: companyEmail || null,
+            website: companyWebsite || null,
+            verified: false,
+            status: 'active',
+          },
+        });
+      }
+
+      const user = await tx.user.create({
+        data: {
+          email: normalizedEmail,
+          passwordHash,
+          role: 'user',
+          companyId: company?.id || null,
+          status: 'active',
+        },
+        include: { company: true },
+      });
+
+      const profile = await tx.profile.create({
+        data: {
+          user: { connect: { id: user.id } },
+          company: company ? { connect: { id: company.id } } : undefined,
+          fullName,
+          jobTitle: (body as Record<string, string>).jobTitle || null,
+          phone: phone || null,
+          location: location || null,
+          tinNumber: companyTinNumber || null,
+          skillTags: '',
+          bio: null,
+        },
+        include: { company: true },
+      });
+
+      return { user, profile, company };
+    });
+
+    // ── Store initial password in history ──
+    await addPasswordHistory(result.user.id, passwordHash);
+
+    // ── Generate JWT token ──
+    const token = generateToken({
+      userId: result.user.id,
+      email: result.user.email,
+      role: result.user.role,
+      companyId: result.user.companyId,
+    });
+
+    // ── Audit log ──
+    const clientIP = getClientIP(request);
+    const userAgent = getUserAgent(request);
+    await auditLog({
+      userId: result.user.id,
+      action: 'register',
+      resource: 'user',
+      resourceId: result.user.id,
+      companyId: result.user.companyId || undefined,
+      ipAddress: clientIP,
+      userAgent,
+    });
+
+    const { passwordHash: _, ...userWithoutPassword } = result.user;
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          user: { ...userWithoutPassword, profile: result.profile },
+          token,
+        },
       },
-    });
-
-    const token = signToken({ userId: user.id });
-
-    const response = NextResponse.json({
-      success: true,
-      data: {
-        token,
-        user: { id: user.id, email: user.email, name: user.name, role: user.role, company: user.company },
-      },
-    });
-
-    response.cookies.set('tenet_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/',
-    });
-
-    return response;
+      { status: 201 },
+    );
   } catch (error) {
-    console.error('Register error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Registration error:', error);
+    return NextResponse.json(
+      { success: false, error: 'An error occurred during registration' },
+      { status: 500 },
+    );
   }
 }

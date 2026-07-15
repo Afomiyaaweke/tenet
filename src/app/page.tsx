@@ -1,70 +1,66 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store';
 import { LandingPage } from '@/components/landing-page';
 import { AuthGate } from '@/components/auth-gate';
-import { Loader2 } from 'lucide-react';
+import { AppShell } from '@/components/app-shell';
 
-const AppShell = dynamic(() => import('@/components/app-shell').then(m => ({ default: m.AppShell })), {
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      </div>
-    </div>
-  ),
-});
+type AppScreen = 'landing' | 'auth' | 'app';
 
 export default function Home() {
-  const { user, token, isLoading, fetchMe } = useAuthStore();
-  const [showAuth, setShowAuth] = useState(false);
+  const { fetchMe, isLoading, token } = useAuthStore();
+  const [screen, setScreen] = useState<AppScreen>('landing');
+  const [mounted, setMounted] = useState(false);
 
-  // If user has a real token, try to fetch their profile
+  // Wait until after hydration to read client-only state (localStorage token)
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (token && token !== 'guest' && !user) {
-      fetchMe();
+    setMounted(true);
+    // If there's a ?token= in the URL, auto-switch to auth screen
+    // so the auth-gate can pick it up for password reset
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('token')) {
+      setScreen('auth');
     }
-  }, [token, user, fetchMe]);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Determine if auth gate should be shown:
-  // - If token is null (bad/expired), always show landing (not auth gate)
-  // - If token is 'guest' or user explicitly clicked "Get Started", show auth gate
-  const shouldShowAuth = (showAuth || token === 'guest') && token !== null;
+  useEffect(() => {
+    if (token) {
+      fetchMe();
+    } else {
+      useAuthStore.setState({ isLoading: false });
+    }
+  }, [token, fetchMe]);
 
-  // Loading state while checking auth
-  if (isLoading && token && token !== 'guest') {
+  // Before mount, always render the landing page to match server HTML
+  // This prevents hydration mismatch when localStorage has a token
+  if (!mounted) {
+    return <LandingPage onGetStarted={() => {}} />;
+  }
+
+  // Derive screen from token — when token appears, go to app
+  const activeScreen: AppScreen = token ? 'app' : screen;
+
+  if (isLoading && token) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  // User is authenticated with a real token — show the app
-  if (user && token && token !== 'guest') {
+  if (activeScreen === 'app') {
     return <AppShell />;
   }
 
-  // Show auth gate (sign in / register)
-  if (shouldShowAuth) {
-    return (
-      <AuthGate
-        onBack={() => {
-          useAuthStore.setState({ token: null });
-          setShowAuth(false);
-        }}
-      />
-    );
+  if (activeScreen === 'auth') {
+    return <AuthGate onBack={() => setScreen('landing')} />;
   }
 
-  // Default: show landing page
-  return (
-    <LandingPage
-      onGetStarted={() => setShowAuth(true)}
-    />
-  );
+  return <LandingPage onGetStarted={() => setScreen('auth')} />;
 }
