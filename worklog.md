@@ -289,3 +289,34 @@ Stage Summary:
 - start-dev.sh updated with proper flags (-H 0.0.0.0 for Caddy compatibility)
 - Full end-to-end verification passed via agent browser
 - App is fully functional: auth, CRUD tenders, review dialog, PDF export
+
+---
+Task ID: 10
+Agent: Main Agent
+Task: Restore landing page and original sign-in page
+
+Work Log:
+- Read the original LandingPage component (marketing page with hero, stats, features, how it works, community, CTA, footer)
+- Read the original AuthGate component (split-screen layout with animated dots, feature highlights, multi-step registration, forgot/reset password flow)
+- Updated page.tsx to restore the full flow: LandingPage → AuthGate → AppShell
+- Fixed login API to return token in response body (was only returning in cookie, but the store expects { success: true, data: { token, user } })
+- Fixed register API to match the same response format
+- Fixed /api/auth/me to return { success: true, data: user } format
+- Updated auth.ts to support both cookie-based and Bearer token authentication (extractToken helper)
+- Added Comment model to Prisma schema (was missing, causing /api/comments to 500)
+- Ran prisma db push to sync schema
+- Verified full flow in agent browser:
+  - Landing page renders with hero, stats, features, how-it-works, community, CTA, footer
+  - "Get Started" button navigates to AuthGate with split-screen layout
+  - Sign In works with email/password and navigates to AppShell
+  - AppShell renders with sidebar navigation (Dashboard, Tenders, Live Tenders, Bids, etc.)
+  - Sign out returns to landing page
+  - Create Account multi-step registration works
+  - Forgot Password flow works
+
+Stage Summary:
+- Full user flow restored: LandingPage → AuthGate → AppShell
+- Auth API responses fixed to match store expectations
+- Bearer token auth support added alongside cookie auth
+- Comment model added to database schema
+- All three screens verified working in browser
