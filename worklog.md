@@ -192,3 +192,46 @@ Stage Summary:
 - Installed: `pdfkit@0.19.1`
 - PDF includes: tender details, requirements, scope, documents, bids, and optional AI overview
 - AI Overview tab now shows requirements prominently with both tender data and AI analysis
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Rebuild Tenets Tender Management app with PDF Export and Requirements display
+
+Work Log:
+- Set up Prisma schema with User and Tender models (including requirements field as JSON string)
+- Created database client at /src/lib/db.ts
+- Created auth library at /src/lib/auth.ts with JWT token signing/verification
+- Created auth API routes: login, register, me, logout (with cookie-based auth)
+- Created tender API routes: GET/POST /api/tenders, GET/DELETE /api/tenders/[id]
+- Created PDF export API route: GET /api/tenders/[id]/export-pdf using jsPDF
+- Built complete portal UI in /src/app/page.tsx with:
+  - Auth Gate (login/register tabs)
+  - Dashboard with stats cards
+  - Browse Tenders with search/filter
+  - My Tenders tab
+  - Create Tender form with dynamic requirements list
+  - Tender Review Dialog with:
+    - Full tender details (title, org, category, budget, deadline, location)
+    - Description section
+    - Requirements section with CheckCircle2 icons (KEY FEATURE)
+    - Export PDF button in footer (KEY FEATURE)
+- Added serverExternalPackages: ["jspdf"] to next.config.ts
+- Created missing hooks (use-mobile, use-toast) for shadcn/ui components
+- All API routes verified working via curl:
+  - Registration: 200, creates user
+  - Login: 200, sets cookie
+  - Create tender: 201, stores requirements as JSON
+  - List tenders: 200, returns full data
+  - PDF export: 200, returns valid 7418-byte PDF document
+- Lint passes clean
+- TypeScript compiles with zero errors
+- Browser verification confirmed page renders with auth gate, title "Tenets - Tender Ecosystem"
+
+Stage Summary:
+- Full Tenets Tender Management application rebuilt from scratch
+- Two KEY features implemented:
+  1. **Requirements display** in Tender Review dialog - parses JSON requirements and shows each with checkmark icons in styled cards
+  2. **Export PDF button** in Tender Review dialog - calls backend API to generate professional PDF with tender details, description, and requirements
+- PDF export generates 1-page PDF with: header, organization, status/category badges, key details, description, requirements (with bullet points)
+- All backend APIs functional and verified
