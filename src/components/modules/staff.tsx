@@ -451,7 +451,7 @@ export function StaffView() {
                         {/* Job Title */}
                         <TableCell className="hidden md:table-cell">
                           <span className="text-sm text-muted-foreground">
-                            {member.profile?.jobTitle || '—'}
+                            {member.profile?.jobTitle || '-'}
                           </span>
                         </TableCell>
 
@@ -548,7 +548,7 @@ export function StaffView() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground/50">—</span>
+                            <span className="text-[10px] text-muted-foreground/50">-</span>
                           )}
                         </TableCell>
                       </TableRow>

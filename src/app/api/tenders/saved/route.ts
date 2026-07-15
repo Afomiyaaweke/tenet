@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 
-// GET /api/tenders/saved — List user's saved tenders
+// GET /api/tenders/saved - List user's saved tenders
 export async function GET(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/tenders/saved — Save/bookmark a tender
+// POST /api/tenders/saved - Save/bookmark a tender
 export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);

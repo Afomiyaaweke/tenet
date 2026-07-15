@@ -24,7 +24,7 @@ export async function POST(
     try {
       body = await request.json();
     } catch {
-      // No body or invalid JSON — that's fine, use defaults
+      // No body or invalid JSON - that's fine, use defaults
     }
     const customPrompt = body.prompt?.trim() || '';
 
@@ -179,7 +179,7 @@ export async function POST(
 /**
  * GET /api/document-review/[id]
  * Gets the current AI review status and result for a document.
- * aiReview is stored as a JSON string in the database — returned as-is
+ * aiReview is stored as a JSON string in the database - returned as-is
  * (the frontend will parse it).
  */
 export async function GET(
@@ -234,7 +234,7 @@ export async function GET(
       );
     }
 
-    // aiReview is stored as a JSON string — return it as-is (frontend will parse)
+    // aiReview is stored as a JSON string - return it as-is (frontend will parse)
     return NextResponse.json({
       success: true,
       data: {

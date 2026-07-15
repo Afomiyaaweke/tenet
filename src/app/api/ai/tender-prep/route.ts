@@ -66,7 +66,7 @@ Given basic tender information, generate a complete and professional tender docu
 }
 
 ## Guidelines
-1. Scope should be thorough and unambiguous — bidders should not need to guess requirements
+1. Scope should be thorough and unambiguous - bidders should not need to guess requirements
 2. Required documents should match the category (e.g., construction needs different docs than IT)
 3. Evaluation criteria should be fair, transparent, and aligned with Ethiopian procurement rules
 4. Deliverables should be measurable and verifiable

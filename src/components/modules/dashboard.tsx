@@ -39,7 +39,7 @@ const CHART_COLORS = {
 };
 
 // Monthly activity computed from real tender/bid data when available
-// No placeholder data — sparklines show real trends
+// No placeholder data - sparklines show real trends
 
 // ─── Chart Configs ──────────────────────────────────────────────────
 const bidStatusChartConfig: ChartConfig = {

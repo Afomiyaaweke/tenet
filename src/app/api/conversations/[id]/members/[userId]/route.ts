@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth';
 /**
  * DELETE /api/conversations/[id]/members/[userId]
  * - If requester removes themselves: leave the conversation
- *   (owner cannot leave — must transfer ownership first; return 400).
+ *   (owner cannot leave - must transfer ownership first; return 400).
  * - If requester (owner/admin) removes someone else: kick.
  */
 export async function DELETE(
@@ -60,7 +60,7 @@ export async function DELETE(
       });
     }
 
-    // Kicking someone else — must be owner or admin
+    // Kicking someone else - must be owner or admin
     if (requesterMembership.role !== 'owner' && requesterMembership.role !== 'admin') {
       return NextResponse.json(
         {

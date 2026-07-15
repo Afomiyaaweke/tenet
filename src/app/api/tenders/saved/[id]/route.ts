@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 
-// DELETE /api/tenders/saved/[id] — Remove a saved tender
+// DELETE /api/tenders/saved/[id] - Remove a saved tender
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -33,7 +33,7 @@ export async function DELETE(
   }
 }
 
-// PATCH /api/tenders/saved/[id] — Update saved tender (notes, status)
+// PATCH /api/tenders/saved/[id] - Update saved tender (notes, status)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

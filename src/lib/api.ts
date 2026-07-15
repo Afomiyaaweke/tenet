@@ -250,7 +250,7 @@ export interface LiveTender extends Tender {
 }
 
 /**
- * Metadata describing an external tender data source — derived from the
+ * Metadata describing an external tender data source - derived from the
  * uploaded API coverage document (Document2.pdf). Used to render the
  * "Data Sources" reference panel inside the Live Tenders view.
  */

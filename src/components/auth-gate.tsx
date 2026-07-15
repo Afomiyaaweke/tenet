@@ -258,7 +258,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       const res = await api.post('/auth/forgot-password', { email: forgotEmail });
       if (res.success) {
         // Always show the confirmation screen to prevent email enumeration
-        // The reset token is sent ONLY to the user's email — never in the API response
+        // The reset token is sent ONLY to the user's email - never in the API response
         setResetToken(''); // Clear any previous token
         setAuthMode('forgot-sent');
       } else {
@@ -382,7 +382,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
               <p
                 className="text-orange-100/70 text-base leading-relaxed mb-10 animate-[slideInLeft_0.7s_ease-out_0.1s_both]"
               >
-                Connect with verified users, discover tenders, and manage projects — all in one intelligent platform built for Ethiopia&apos;s future.
+                Connect with verified users, discover tenders, and manage projects - all in one intelligent platform built for Ethiopia&apos;s future.
               </p>
 
               {/* Feature highlights */}
@@ -399,7 +399,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                 />
                 <FeatureHighlight
                   icon={<Lock className="w-5 h-5" />}
-                  title="Secure Payments & Escrow"
+                  title="End-to-End Encryption"
                   delay="0.4s"
                 />
               </div>
@@ -1325,7 +1325,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           {/* Footer inside right panel on desktop, or below on mobile */}
           <footer className="px-6 py-4 text-center border-t border-border lg:border-t lg:py-5">
             <p className="text-xs text-muted-foreground">
-              © 2025 Tenets · Transforming Procurement Through Technology
+              © 2026 Tenets · Transforming Procurement Through Technology
             </p>
           </footer>
         </div>

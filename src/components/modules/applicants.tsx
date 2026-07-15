@@ -169,7 +169,7 @@ function formatCurrency(amount: number): string {
 }
 
 function formatDate(dateStr: string): string {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -590,7 +590,7 @@ export function ApplicantsView() {
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Location</span>
-                <p className="text-sm font-medium">{selectedTenderInfo.location || '—'}</p>
+                <p className="text-sm font-medium">{selectedTenderInfo.location || '-'}</p>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Total Bids</span>
@@ -1168,7 +1168,7 @@ export function ApplicantsView() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-3">
                     <div className="flex items-center gap-1.5">
                       <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="truncate">{tender.location || '—'}</span>
+                      <span className="truncate">{tender.location || '-'}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -1276,7 +1276,7 @@ function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef
       return (
         <div className="flex items-center gap-1.5 min-w-0">
           <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
-          <span className="truncate">{String(val) || '—'}</span>
+          <span className="truncate">{String(val) || '-'}</span>
         </div>
       );
 
@@ -1298,14 +1298,14 @@ function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef
       return (
         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
           <Briefcase className="h-2.5 w-2.5 mr-0.5" />
-          {String(val) || '—'}
+          {String(val) || '-'}
         </Badge>
       );
 
     case 'financialProposal':
       return (
         <span className="font-semibold font-mono">
-          {typeof val === 'number' ? formatCurrency(val) : '—'}
+          {typeof val === 'number' ? formatCurrency(val) : '-'}
         </span>
       );
 
@@ -1329,7 +1329,7 @@ function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef
     case 'technicalProposal':
       return (
         <span className="truncate text-muted-foreground block" style={{ maxWidth: '200px' }}>
-          {String(val) ? String(val).substring(0, 80) + (String(val).length > 80 ? '...' : '') : '—'}
+          {String(val) ? String(val).substring(0, 80) + (String(val).length > 80 ? '...' : '') : '-'}
         </span>
       );
 
@@ -1350,28 +1350,28 @@ function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef
     case 'rejectionNote':
       return val
         ? <span className="text-red-600 dark:text-red-400 truncate block" style={{ maxWidth: '180px' }}>{String(val)}</span>
-        : <span className="text-muted-foreground">—</span>;
+        : <span className="text-muted-foreground">-</span>;
 
     case 'applicantLicense':
     case 'applicantTin':
     case 'companyRegistration':
     case 'companyTin':
-      return <span className="font-mono text-xs text-muted-foreground">{String(val) || '—'}</span>;
+      return <span className="font-mono text-xs text-muted-foreground">{String(val) || '-'}</span>;
 
     case 'companyCity':
     case 'companyCountry':
-      return <span className="truncate">{String(val) || '—'}</span>;
+      return <span className="truncate">{String(val) || '-'}</span>;
 
     case 'applicantLocation':
       return (
         <div className="flex items-center gap-1 min-w-0">
           <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-          <span className="truncate">{String(val) || '—'}</span>
+          <span className="truncate">{String(val) || '-'}</span>
         </div>
       );
 
     default:
-      return <span className="truncate">{String(val ?? '—')}</span>;
+      return <span className="truncate">{String(val ?? '-')}</span>;
   }
 }
 
@@ -1716,7 +1716,7 @@ function ExpandedRowDetail({
             )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">City / Country</span>
-              <span>{[row.companyCity, row.companyCountry].filter(Boolean).join(', ') || '—'}</span>
+              <span>{[row.companyCity, row.companyCountry].filter(Boolean).join(', ') || '-'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Verified</span>

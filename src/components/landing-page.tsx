@@ -184,7 +184,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <p
               className="text-lg sm:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto animate-[fadeUp_0.6s_ease-out_0.2s_both]"
             >
-              Discover tenders, prepare documents with AI, submit winning bids, and manage projects — all in one intelligent platform.
+              Discover tenders, prepare documents with AI, submit winning bids, and manage projects - all in one intelligent platform.
             </p>
 
             {/* CTA Button */}
@@ -296,7 +296,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               Get Started in 3 Simple Steps
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              No complicated setup. Sign up, discover tenders, and start winning — it&apos;s that simple.
+              No complicated setup. Sign up, discover tenders, and start winning - it&apos;s that simple.
             </p>
           </div>
 
@@ -304,7 +304,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <StepCard
               number="1"
               title="Create Your Account"
-              description="Sign up in seconds with just your email. No role selection needed — everyone can post and apply to tenders."
+              description="Sign up in seconds with just your email. No role selection needed - everyone can post and apply to tenders."
               delay="0s"
             />
             <StepCard
@@ -408,7 +408,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
 
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-500">&copy; 2025 Tender Platform &middot; Transforming Procurement Through Technology</p>
+            <p className="text-xs text-gray-500">&copy; 2026 Tenets &middot; Transforming Procurement Through Technology</p>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Users className="w-4 h-4" />

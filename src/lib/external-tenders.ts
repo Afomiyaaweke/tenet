@@ -32,7 +32,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'ungm',
-    name: 'UNGM — UN Global Procurement',
+    name: 'UNGM - UN Global Procurement',
     coverage:
       'UN system tenders from all agencies (UNDP, UNICEF, WHO, etc.). Covers goods, services, and works worldwide.',
     access: 'Public RSS feed',
@@ -42,7 +42,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'sam_gov',
-    name: 'SAM.gov — US Federal',
+    name: 'SAM.gov - US Federal',
     coverage:
       'US federal procurement opportunities, contract awards, and simplified acquisition notices from all agencies.',
     access: 'Public API, no key required for basic search',
@@ -72,7 +72,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'jica',
-    name: 'JICA — Japan International Cooperation Agency',
+    name: 'JICA - Japan International Cooperation Agency',
     coverage:
       'Official Development Assistance (ODA) loan and grant projects across Asia, Africa, and the Middle East.',
     access: 'Public procurement notices at jica.go.jp',
@@ -82,7 +82,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'adb',
-    name: 'ADB — Asian Development Bank',
+    name: 'ADB - Asian Development Bank',
     coverage:
       'Procurement notices for ADB-funded infrastructure, energy, transport, and urban development projects across Asia and the Pacific.',
     access: 'Public procurement notices at adb.org',
@@ -95,14 +95,14 @@ export const DATA_SOURCES: DataSource[] = [
     name: 'UK Contracts Finder',
     coverage:
       'All public sector procurement opportunities in the UK over £10,000 (central government) and £25,000 (other bodies).',
-    access: 'Public API — no registration required',
+    access: 'Public API - no registration required',
     link: 'https://www.contractsfinder.service.gov.uk',
     live: true,
     accent: 'rose',
   },
   {
     id: 'dgmarket',
-    name: 'DgMarket — Development Gateway',
+    name: 'DgMarket - Development Gateway',
     coverage:
       'Global development procurement notices aggregated from multilateral development banks, UN agencies, and government portals across 180+ countries.',
     access: 'Public search with registration for alerts',
@@ -112,7 +112,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'apify_global',
-    name: 'Apify — Global Public Tenders Scraper',
+    name: 'Apify - Global Public Tenders Scraper',
     coverage:
       'Aggregates tender data from Italy, France, Germany, Spain, the UK, the US, and India in a normalized JSON feed.',
     access: 'Requires an Apify account and API token',
@@ -122,7 +122,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'apify_procurement',
-    name: 'Apify — Public Tender & Procurement Alerts',
+    name: 'Apify - Public Tender & Procurement Alerts',
     coverage:
       'Collects project and tender data from World Bank and Asian Development Bank APIs.',
     access: 'Requires an Apify account and API token',
@@ -154,56 +154,56 @@ export const DATA_SOURCES: DataSource[] = [
     id: 'seegenebid',
     name: 'SeeGeneBid MCP',
     coverage: 'Aggregates tenders from G2B (Korea), SAM.gov (US), and UK FTS (UK).',
-    access: 'Open source — available on GitHub',
+    access: 'Open source - available on GitHub',
     link: 'https://github.com/changheesong/seegene-bid-mcp',
     live: false,
     accent: 'rose',
   },
   {
     id: 'canada_buyandsell',
-    name: 'Canada — Buyandsell.gc.ca',
+    name: 'Canada - Buyandsell.gc.ca',
     coverage:
       'Canadian federal government procurement opportunities and tender notices. Public API with no authentication required.',
-    access: 'Public API — no registration required',
+    access: 'Public API - no registration required',
     link: 'https://buyandsell.gc.ca',
     live: true,
     accent: 'red',
   },
   {
     id: 'austender',
-    name: 'Australia — AusTender',
+    name: 'Australia - AusTender',
     coverage:
       'Australian government procurement opportunities, contract notices, and annual procurement plans. Public search API.',
-    access: 'Public — no registration required',
+    access: 'Public - no registration required',
     link: 'https://www.tenders.gov.au',
     live: true,
     accent: 'teal',
   },
   {
     id: 'portugal_base',
-    name: 'Portugal — BASE',
+    name: 'Portugal - BASE',
     coverage:
       'Portuguese public procurement portal with tender notices, contract awards, and downloadable contract documents and technical specifications.',
-    access: 'Public portal — no registration required',
+    access: 'Public portal - no registration required',
     link: 'https://www.base.gov.pt',
     live: true,
     accent: 'green',
   },
   {
     id: 'ontario_tenders',
-    name: 'Ontario — Tenders Portal',
+    name: 'Ontario - Tenders Portal',
     coverage:
       'Ontario provincial government and broader public sector procurement opportunities in Canada.',
-    access: 'Public — browse without registration',
+    access: 'Public - browse without registration',
     link: 'https://www.ontariotenders.ca',
     live: true,
     accent: 'orange',
   },
   {
     id: 'nigeria_nocopo',
-    name: 'Nigeria — NOCOPO',
+    name: 'Nigeria - NOCOPO',
     coverage:
-      'Nigerian Open Contracting Portal — federal and state procurement plans, tender notices, and contract awards.',
+      'Nigerian Open Contracting Portal - federal and state procurement plans, tender notices, and contract awards.',
     access: 'Public open data portal',
     link: 'https://nocopo.bpp.gov.ng',
     live: true,
@@ -211,7 +211,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'kenya_tenders',
-    name: 'Kenya — Public Procurement',
+    name: 'Kenya - Public Procurement',
     coverage:
       'Kenyan public procurement opportunities from the Public Procurement Regulatory Authority and county governments.',
     access: 'Public procurement portal',
@@ -221,140 +221,140 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'india_cppp',
-    name: 'India — CPPP eProcure',
+    name: 'India - CPPP eProcure',
     coverage:
       'Central Public Procurement Portal of India. Tenders from all central and state government departments, PSUs, and autonomous bodies.',
-    access: 'Public — no registration required',
+    access: 'Public - no registration required',
     link: 'https://eprocure.gov.in/eprocure/app',
     live: true,
     accent: 'orange',
   },
   {
     id: 'south_africa',
-    name: 'South Africa — eTenders',
+    name: 'South Africa - eTenders',
     coverage:
       'South African government eTender portal with procurement notices, tender documents, and contract awards from all government entities.',
-    access: 'Public — no registration required',
+    access: 'Public - no registration required',
     link: 'https://www.etenders.gov.za',
     live: true,
     accent: 'amber',
   },
   {
     id: 'philgeps',
-    name: 'Philippines — PhilGEPS',
+    name: 'Philippines - PhilGEPS',
     coverage:
       'Philippine Government Electronic Procurement System. All government procurement opportunities with downloadable bidding documents.',
-    access: 'Public — browse without registration',
+    access: 'Public - browse without registration',
     link: 'https://philgeps.gov.ph',
     live: true,
     accent: 'sky',
   },
   {
     id: 'colombia_secop',
-    name: 'Colombia — SECOP',
+    name: 'Colombia - SECOP',
     coverage:
       'Colombian public procurement portal (Sistema Electrónico para la Contratación Pública). All government tenders with downloadable requirement documents and RFP files, including process documents and contract awards.',
-    access: 'Public API — no registration required (datos.gov.co)',
+    access: 'Public API - no registration required (datos.gov.co)',
     link: 'https://www.colombiacompra.gov.co',
     live: true,
     accent: 'yellow',
   },
   {
     id: 'mexico_compranet',
-    name: 'Mexico — CompraNet',
+    name: 'Mexico - CompraNet',
     coverage:
       'Mexican government e-procurement platform. All federal tenders with downloadable requirement documents and RFP files, including bidding documents, terms of reference, and technical specifications.',
-    access: 'Public API — no registration required',
+    access: 'Public API - no registration required',
     link: 'https://www.gob.mx/compranet',
     live: true,
     accent: 'green',
   },
   {
     id: 'chile_mercado',
-    name: 'Chile — Mercado Público',
+    name: 'Chile - Mercado Público',
     coverage:
       'Chilean public procurement platform. Tenders from all government agencies with downloadable requirement documents and RFP files, including tender documents and public notices.',
-    access: 'Public API — no registration required (mercadopublico.cl)',
+    access: 'Public API - no registration required (mercadopublico.cl)',
     link: 'https://www.mercadopublico.cl',
     live: true,
     accent: 'red',
   },
   {
     id: 'argentina_comprar',
-    name: 'Argentina — COMPR.AR',
+    name: 'Argentina - COMPR.AR',
     coverage:
       'Argentinian federal procurement portal. Public tenders with downloadable requirement documents and RFP files, including pliegos (bidding documents) and technical specifications.',
-    access: 'Public — no registration required',
+    access: 'Public - no registration required',
     link: 'https://www.comprar.gob.ar',
     live: true,
     accent: 'cyan',
   },
   {
     id: 'uruguay_compras',
-    name: 'Uruguay — Compras Estatales',
+    name: 'Uruguay - Compras Estatales',
     coverage:
       'Uruguayan public procurement portal. Government tenders with downloadable requirement documents and RFP files, including bidding documents and pliegos (tender terms).',
-    access: 'Public — no registration required (comprasestatales.gub.uy)',
+    access: 'Public - no registration required (comprasestatales.gub.uy)',
     link: 'https://www.comprasestatales.gub.uy',
     live: true,
     accent: 'blue',
   },
   {
     id: 'undp_procurement',
-    name: 'UNDP — Procurement Notices',
+    name: 'UNDP - Procurement Notices',
     coverage:
       'United Nations Development Programme procurement notices from 170+ countries. Includes goods, services, and works with downloadable requirement documents and RFP files.',
-    access: 'Public — no registration required',
+    access: 'Public - no registration required',
     link: 'https://procurement-notices.undp.org',
     live: true,
     accent: 'sky',
   },
   {
     id: 'global_fund',
-    name: 'The Global Fund — Procurement',
+    name: 'The Global Fund - Procurement',
     coverage:
       'Global Fund to Fight AIDS, TB and Malaria procurement opportunities. Health sector tenders with detailed requirement documents and technical specifications.',
-    access: 'Public — no registration required',
+    access: 'Public - no registration required',
     link: 'https://www.theglobalfund.org/en/procurement/',
     live: true,
     accent: 'red',
   },
   {
     id: 'ifc_advisory',
-    name: 'IFC — Advisory Services',
+    name: 'IFC - Advisory Services',
     coverage:
       'International Finance Corporation advisory and investment procurement. Private sector development projects with downloadable terms of reference and RFP files.',
-    access: 'Public — no registration required',
+    access: 'Public - no registration required',
     link: 'https://www.ifc.org',
     live: true,
     accent: 'emerald',
   },
   {
     id: 'ecuador_sercop',
-    name: 'Ecuador — SERCOP',
+    name: 'Ecuador - SERCOP',
     coverage:
       'Ecuadorian public procurement portal (Sistema Nacional de Contratación Pública). All government tenders with downloadable pliegos (bidding documents) and technical specifications.',
-    access: 'Public API — no registration required (compraspublicas.gob.ec)',
+    access: 'Public API - no registration required (compraspublicas.gob.ec)',
     link: 'https://www.compraspublicas.gob.ec',
     live: true,
     accent: 'orange',
   },
   {
     id: 'peru_compras',
-    name: 'Peru — Compras Estatales',
+    name: 'Peru - Compras Estatales',
     coverage:
       'Peruvian government e-procurement portal. All public sector procurement with downloadable bases (tender terms) and requirement documents.',
-    access: 'Public — no registration required (comprasestatales.gob.pe)',
+    access: 'Public - no registration required (comprasestatales.gob.pe)',
     link: 'https://www.comprasestatales.gob.pe',
     live: true,
     accent: 'rose',
   },
   {
     id: 'paraguay_dncp',
-    name: 'Paraguay — DNCP',
+    name: 'Paraguay - DNCP',
     coverage:
       'Paraguayan National Directorate of Public Procurement. All government tenders with downloadable pliegos and specification documents.',
-    access: 'Public API — no registration required (dncp.gov.py)',
+    access: 'Public API - no registration required (dncp.gov.py)',
     link: 'https://www.dncp.gov.py',
     live: true,
     accent: 'cyan',
@@ -593,7 +593,7 @@ export async function fetchEuTedTenders(opts: {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * UNGM — UN Global Procurement adapter (live via RSS)
+ * UNGM - UN Global Procurement adapter (live via RSS)
  * ───────────────────────────────────────────────────────────────────── */
 
 export async function fetchUngmTenders(opts: {
@@ -655,7 +655,7 @@ export async function fetchUngmTenders(opts: {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * SAM.gov — US Federal Procurement adapter (live, public API)
+ * SAM.gov - US Federal Procurement adapter (live, public API)
  * ───────────────────────────────────────────────────────────────────── */
 
 export async function fetchSamGovTenders(opts: {
@@ -726,7 +726,7 @@ export async function fetchSamGovTenders(opts: {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * AfDB — African Development Bank adapter
+ * AfDB - African Development Bank adapter
  * Attempts public procurement notices; returns empty if unreachable.
  * ───────────────────────────────────────────────────────────────────── */
 
@@ -963,7 +963,7 @@ export async function fetchDgMarketTenders(opts: {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * Apify — Global Public Tenders Scraper adapter
+ * Apify - Global Public Tenders Scraper adapter
  * Requires APIFY_API_TOKEN env var
  * ───────────────────────────────────────────────────────────────────── */
 
@@ -1023,7 +1023,7 @@ export async function fetchApifyGlobalTenders(opts: {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * Apify — Public Tender & Procurement Alerts adapter
+ * Apify - Public Tender & Procurement Alerts adapter
  * Requires APIFY_API_TOKEN env var
  * ───────────────────────────────────────────────────────────────────── */
 
@@ -1215,7 +1215,7 @@ export async function fetchTenderwellTenders(opts: {
 
 /* ─────────────────────────────────────────────────────────────────────
  * Canada Buyandsell adapter
- * Public API — no registration required
+ * Public API - no registration required
  * ───────────────────────────────────────────────────────────────────── */
 
 export async function fetchCanadaBuyandsellTenders(opts: {
@@ -1624,7 +1624,7 @@ export async function fetchPhilgepsTenders(opts: {
 
 /* ─────────────────────────────────────────────────────────────────────
  * SeeGeneBid MCP adapter
- * Open source — aggregates from G2B (Korea), SAM.gov (US), UK FTS
+ * Open source - aggregates from G2B (Korea), SAM.gov (US), UK FTS
  * ───────────────────────────────────────────────────────────────────── */
 
 export async function fetchSeeGeneBidTenders(opts: {
@@ -2184,7 +2184,7 @@ export async function fetchGlobalFundTenders(opts: {
 
     tenders.push({
       id: `global_fund-${id}`,
-      title: `${cat} Procurement — ${country} Program`,
+      title: `${cat} Procurement - ${country} Program`,
       scope: `Procurement of ${cat.toLowerCase()} for Global Fund supported health programs in ${country}. Includes quality assurance, delivery to regional warehouses, and installation/training as applicable. Comprehensive technical specifications available in the RFP documents.`,
       budgetMin: Math.round(amount * 0.7),
       budgetMax: amount,
@@ -2239,7 +2239,7 @@ export async function fetchIfcAdvisoryTenders(opts: {
 
     tenders.push({
       id: `ifc_advisory-${id}`,
-      title: `IFC ${type} — ${country}`,
+      title: `IFC ${type} - ${country}`,
       scope: `Advisory services for ${type.toLowerCase()} program in ${country}. Scope includes feasibility assessment, stakeholder engagement, implementation roadmap, and monitoring framework. Detailed terms of reference and deliverables available in RFP documents.`,
       budgetMin: Math.round(amount * 0.6),
       budgetMax: amount,
@@ -2372,7 +2372,7 @@ export async function fetchPeruComprasTenders(opts: {
 
     tenders.push({
       id: `peru_compras-${id}`,
-      title: `${cat} — ${entity} Program ${idx + 1}`,
+      title: `${cat} - ${entity} Program ${idx + 1}`,
       scope: `Public procurement for ${cat.toLowerCase()} under ${entity} program. Includes delivery, installation, and training as applicable. Bases and technical specifications available for download from the portal.`,
       budgetMin: Math.round(amount * 0.6),
       budgetMax: amount,
@@ -2511,7 +2511,7 @@ export function getSectorCounts(): { id: SectorId; label: string; count: number;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * Aggregator — called by the API route
+ * Aggregator - called by the API route
  * ───────────────────────────────────────────────────────────────────── */
 
 export interface FetchLiveTendersResult {
@@ -2641,7 +2641,7 @@ function generateSampleTenders(rows: number, offset: number, search?: string): L
       paraguay_dncp: `https://www.dncp.gov.py/tender/${offset + i + 200000}`,
     };
 
-    const titleSuffix = cycle > 0 ? ` — Phase ${cycle + 1}` : '';
+    const titleSuffix = cycle > 0 ? ` - Phase ${cycle + 1}` : '';
 
     // Generate documentFiles based on category
     const categoryDocFiles: Record<string, Array<{ name: string; type: string; size: string }>> = {
@@ -2778,7 +2778,7 @@ function generateSampleTenders(rows: number, offset: number, search?: string): L
       updatedAt: signingDate.toISOString(),
       source,
       externalId,
-      externalUrl: docUrl || `https://example.com/tender/${externalId}`,
+      externalUrl: docUrl || ``,
       currency: d.currency,
       borrower: d.borrower,
       supplier: i % 7 === 0 ? `Contractor International ${String.fromCharCode(65 + (i % 26))}` : undefined,

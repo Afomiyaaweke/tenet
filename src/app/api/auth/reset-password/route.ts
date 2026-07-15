@@ -65,11 +65,11 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Validate and consume the reset token ──
-    // Returns null for ALL failure cases (invalid, expired, used) — generic error
+    // Returns null for ALL failure cases (invalid, expired, used) - generic error
     const tokenResult = await validateAndConsumeResetToken(token);
 
     if (!tokenResult) {
-      // Generic error — never reveal WHY the token failed
+      // Generic error - never reveal WHY the token failed
       await auditLog({
         action: 'reset_token_invalid',
         ipAddress: clientIP,

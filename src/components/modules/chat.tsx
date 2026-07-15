@@ -2579,7 +2579,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
   // Render
   return (
     <div className="h-[calc(100vh-3.5rem)] max-w-7xl mx-auto view-enter flex">
-      {/* Left pane — conversation list */}
+      {/* Left pane - conversation list */}
       <div
         className={`${
           showListMobile ? 'flex' : 'hidden'
@@ -2601,7 +2601,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
         />
       </div>
 
-      {/* Middle pane — active conversation or empty */}
+      {/* Middle pane - active conversation or empty */}
       <div
         className={`${
           showListMobile ? 'hidden' : 'flex'
@@ -2907,7 +2907,7 @@ export function ChatView({ chatId }: { chatId?: string }) {
         )}
       </div>
 
-      {/* Right pane — group info panel (desktop) */}
+      {/* Right pane - group info panel (desktop) */}
       {isGroup && activeConv && (
         showInfoPanel && (
             <div

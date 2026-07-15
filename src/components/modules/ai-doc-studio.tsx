@@ -1197,7 +1197,7 @@ export function AIDocStudio() {
           html += `<h2 style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#059669;border-bottom:1px solid #d1fae5;padding-bottom:4px;">Ranked Applicants</h2>`;
           for (const a of d.applicants as Record<string, unknown>[]) {
             html += `<div style="margin:8px 0;padding:8px;border:1px solid #e5e7eb;border-radius:6px;">
-              <strong>#${a.rank} ${a.name}</strong> (${a.company}) — Score: <strong>${a.overallScore}</strong>
+              <strong>#${a.rank} ${a.name}</strong> (${a.company}) - Score: <strong>${a.overallScore}</strong>
               <br/>Technical: ${a.technicalScore}% | Financial: ${a.financialScore}%
               <br/>Risk: ${a.riskLevel} | Recommendation: ${a.recommendation}
             </div>`;
@@ -1604,7 +1604,7 @@ export function AIDocStudio() {
                             </Label>
                             <div className="flex items-center gap-1.5">
                               <Input
-                                placeholder="https://portal.example.com/submit"
+                                placeholder="Enter external submission URL"
                                 value={submitUrls[doc.id] || ''}
                                 onChange={e => setSubmitUrls(prev => ({ ...prev, [doc.id]: e.target.value }))}
                                 onBlur={() => saveSubmitUrl(doc.id)}
@@ -1736,12 +1736,12 @@ export function AIDocStudio() {
                                             onClick={() => {
                                               const safeName = (doc.fileName || 'extract').replace(/\.[^.]+$/, '');
                                               exportExtractAsPdf(
-                                                `${safeName} — AI Extract`,
+                                                `${safeName} - AI Extract`,
                                                 extractPrompt[doc.id] || '',
                                                 extractResults[doc.id],
                                                 `${safeName}-extract.pdf`
                                               );
-                                              toast.success('Export as PDF — use print dialog');
+                                              toast.success('Export as PDF - use print dialog');
                                             }}
                                             title="Export as PDF"
                                           >
@@ -1950,8 +1950,8 @@ export function AIDocStudio() {
                         onClick={() => {
                           const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
                           const safeName = (selectedDoc.fileName || 'ocr-text').replace(/\.[^.]+$/, '');
-                          exportAsPdf(`${safeName} — OCR Text`, text, `${safeName}-ocr.pdf`);
-                          toast.success('Export as PDF — use print dialog');
+                          exportAsPdf(`${safeName} - OCR Text`, text, `${safeName}-ocr.pdf`);
+                          toast.success('Export as PDF - use print dialog');
                         }}
                       >
                         <Download className="h-3 w-3 mr-1" /> PDF
@@ -1980,7 +1980,7 @@ export function AIDocStudio() {
                   <div className="flex items-center justify-between p-3 border-b border-border/30 bg-muted/20">
                     <h4 className="text-xs font-semibold flex items-center gap-1.5">
                       <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                      AI Prompt Writer — Extract Information
+                      AI Prompt Writer - Extract Information
                     </h4>
                     <Button
                       variant="ghost"
@@ -2096,12 +2096,12 @@ export function AIDocStudio() {
                                   const safeName = (selectedDoc.fileName || 'extract').replace(/\.[^.]+$/, '');
                                   const prompt = extractPrompt[selectedDoc.id] || '';
                                   exportExtractAsPdf(
-                                    `${safeName} — AI Extract`,
+                                    `${safeName} - AI Extract`,
                                     prompt,
                                     extractResults[selectedDoc.id],
                                     `${safeName}-extract.pdf`
                                   );
-                                  toast.success('Export as PDF — use print dialog');
+                                  toast.success('Export as PDF - use print dialog');
                                 }}
                               >
                                 <Download className="h-3 w-3 mr-0.5" /> PDF
@@ -2178,7 +2178,7 @@ export function AIDocStudio() {
         const res = await api.upload('/documents', formData);
         if (res.success) {
           setExtractUploadProgress('Starting OCR...');
-          toast.success(`"${file.name}" uploaded — OCR processing started`);
+          toast.success(`"${file.name}" uploaded - OCR processing started`);
           loadDocuments();
           // Trigger OCR and poll
           const newDocId = res.data?.id;
@@ -2195,7 +2195,7 @@ export function AIDocStudio() {
                   if (pollRes.success && pollRes.data?.ocrStatus === 'completed') {
                     setExtractUploadProgress('');
                     setExtractUploading(false);
-                    toast.success('OCR completed — document ready for extraction');
+                    toast.success('OCR completed - document ready for extraction');
                     loadDocuments();
                     setLocalSelectedDocId(newDocId);
                     return;
@@ -2506,12 +2506,12 @@ export function AIDocStudio() {
                             onClick={() => {
                               const safeName = (selectedDoc.fileName || 'extract').replace(/\.[^.]+$/, '');
                               exportExtractAsPdf(
-                                `${safeName} — AI Extract`,
+                                `${safeName} - AI Extract`,
                                 entry.prompt,
                                 entry.result,
                                 `${safeName}-extract-${idx + 1}.pdf`
                               );
-                              toast.success('Export as PDF — use print dialog');
+                              toast.success('Export as PDF - use print dialog');
                             }}
                             title="Export as PDF"
                           >
@@ -2578,8 +2578,8 @@ export function AIDocStudio() {
                       onClick={() => {
                         const text = selectedDoc.ocrText || '';
                         const safeName = (selectedDoc.fileName || 'ocr-text').replace(/\.[^.]+$/, '');
-                        exportAsPdf(`${safeName} — OCR Text`, text, `${safeName}-ocr.pdf`);
-                        toast.success('Export as PDF — use print dialog');
+                        exportAsPdf(`${safeName} - OCR Text`, text, `${safeName}-ocr.pdf`);
+                        toast.success('Export as PDF - use print dialog');
                       }}
                     >
                       <Download className="h-3 w-3 mr-1" /> PDF
@@ -2955,7 +2955,7 @@ function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; promp
               className="h-6 text-[10px]"
               onClick={() => {
                 exportAsPdf('AI Review Result', reviewJson, 'ai-review-result.pdf');
-                toast.success('Export as PDF — use print dialog');
+                toast.success('Export as PDF - use print dialog');
               }}
             >
               <Download className="h-3 w-3 mr-1" /> PDF
@@ -3042,7 +3042,7 @@ function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; promp
             onClick={() => {
               const text = formatReviewAsText(review, prompt);
               exportAsPdf('AI Review Result', text, 'ai-review-result.pdf');
-              toast.success('Export as PDF — use print dialog');
+              toast.success('Export as PDF - use print dialog');
             }}
           >
             <Download className="h-3 w-3 mr-1" /> PDF

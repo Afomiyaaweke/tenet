@@ -119,10 +119,10 @@ const POLICY_SECTIONS: PolicySection[] = [
         </p>
         <ul className="space-y-2">
           {[
-            'Business transfers — In connection with a merger, acquisition, or sale of assets.',
-            'Affiliates — With our affiliated companies under common control.',
-            'Business partners — With trusted third parties who assist us in operating our services.',
-            'Other users — When you interact with collaborative features on the platform.',
+            'Business transfers - In connection with a merger, acquisition, or sale of assets.',
+            'Affiliates - With our affiliated companies under common control.',
+            'Business partners - With trusted third parties who assist us in operating our services.',
+            'Other users - When you interact with collaborative features on the platform.',
           ].map((item) => (
             <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
               <ChevronRight className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
@@ -168,8 +168,8 @@ const POLICY_SECTIONS: PolicySection[] = [
         </p>
         <ul className="space-y-2">
           {[
-            'AI document generation — Automated creation of documents based on your inputs.',
-            'AI text analysis — Intelligent analysis and processing of text content.',
+            'AI document generation - Automated creation of documents based on your inputs.',
+            'AI text analysis - Intelligent analysis and processing of text content.',
           ].map((item) => (
             <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
               <ChevronRight className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
@@ -518,7 +518,7 @@ export function PrivacyPolicyView() {
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left sidebar — sticky on desktop */}
+        {/* Left sidebar - sticky on desktop */}
         <div className="hidden lg:block lg:col-span-1">
           <div className="sticky top-20">
             <Card className="border-border/50 shadow-sm">

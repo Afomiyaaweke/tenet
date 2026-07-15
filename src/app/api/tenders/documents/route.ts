@@ -231,7 +231,7 @@ export async function DELETE(request: NextRequest) {
         }
       }
     } else {
-      // No tender link — only document owner or admin can delete
+      // No tender link - only document owner or admin can delete
       const isDocOwner = document.userId === user!.id;
       const isAdmin = user!.role === 'team_admin';
 

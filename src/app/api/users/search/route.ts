@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     // SQLite Prisma contains is case-insensitive by default for LIKE queries
-    // when using mode: 'insensitive' — but SQLite doesn't natively support
+    // when using mode: 'insensitive' - but SQLite doesn't natively support
     // insensitive mode for all column types. We use a manual OR with contains.
     const users = await db.user.findMany({
       where: {

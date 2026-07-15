@@ -144,7 +144,7 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
     return cached.user;
   }
 
-  // Cache miss — query DB
+  // Cache miss - query DB
   const user = await db.user.findUnique({
     where: { id: payload.userId },
     include: { profile: true, company: true },

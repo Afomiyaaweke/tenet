@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       where: { tokenHash },
     });
 
-    // Generic error — never reveal WHY validation failed
+    // Generic error - never reveal WHY validation failed
     if (!record || record.usedAt || new Date() > record.expiresAt) {
       return NextResponse.json({ valid: false });
     }

@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-// GET /api/comments — Returns approved comments, ordered by createdAt desc, with stats
+// GET /api/comments - Returns approved comments, ordered by createdAt desc, with stats
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/comments — Create a new comment (public, requires admin approval)
+// POST /api/comments - Create a new comment (public, requires admin approval)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         role: validRole,
         content: content.trim().slice(0, 2000),
         rating: validRating,
-        approved: false, // Requires admin approval — prevents spam/abuse
+        approved: false, // Requires admin approval - prevents spam/abuse
         featured: false,
       },
     });

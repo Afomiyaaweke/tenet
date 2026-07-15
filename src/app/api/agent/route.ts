@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 
-const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Assistant — an intelligent, helpful, and professional AI agent embedded within the Tenet procurement platform. You serve as a comprehensive guide, advisor, and assistant for all platform users.
+const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Assistant - an intelligent, helpful, and professional AI agent embedded within the Tenet procurement platform. You serve as a comprehensive guide, advisor, and assistant for all platform users.
 
 ## Your Identity
 - Name: Tenet AI Assistant
@@ -44,12 +44,12 @@ Tenet is a digital tender ecosystem designed for the Ethiopian procurement marke
 
 ### Module 5: Communication Hub
 - Context-aware chat linked to specific tenders or projects
-- No free-form messaging — all conversations are business-context bound
+- No free-form messaging - all conversations are business-context bound
 - Safety monitoring: suspicious phrases flagged (off-platform payments, bypass, under-the-table)
 - Real-time via WebSocket, messages stored in database
 
 ### Module 6: Financial Tracking (Non-Custodial)
-- Platform does NOT hold funds — payments happen externally
+- Platform does NOT hold funds - payments happen externally
 - Contract value locked from winning bid's financial proposal
 - Payment log tracks: amount, method (Bank Transfer, CBE Birr, Cash, Check), reference, date
 - Visual progress bar showing payment completion percentage
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
         if (recentTenders.length > 0) {
           contextPrompt += `\n\n## Latest Open Tenders (recommend these if relevant):`;
           recentTenders.forEach((t, i) => {
-            contextPrompt += `\n${i + 1}. "${t.title}" — ETB ${t.budgetMin.toLocaleString()}-${t.budgetMax.toLocaleString()}, Categories: ${t.categoryTags}, Location: ${t.location}, Deadline: ${new Date(t.deadline).toLocaleDateString()}`;
+            contextPrompt += `\n${i + 1}. "${t.title}" - ETB ${t.budgetMin.toLocaleString()}-${t.budgetMax.toLocaleString()}, Categories: ${t.categoryTags}, Location: ${t.location}, Deadline: ${new Date(t.deadline).toLocaleDateString()}`;
           });
         }
 
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
             matchedTenders.forEach(t => {
               const tags = t.categoryTags.split(',').map(s => s.trim().toLowerCase());
               const matchCount = tags.filter(tag => userSkills.includes(tag)).length;
-              contextPrompt += `\n- "${t.title}" — ${matchCount} skill matches`;
+              contextPrompt += `\n- "${t.title}" - ${matchCount} skill matches`;
             });
           }
         }

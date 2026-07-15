@@ -446,7 +446,7 @@ const GATED_SOURCES: GatedSource[] = [
     id: 'seegenebid',
     name: 'SeeGeneBid',
     envVar: '',
-    description: 'Open source gene/bid discovery platform. No credentials required — community-maintained data feed.',
+    description: 'Open source gene/bid discovery platform. No credentials required - community-maintained data feed.',
     docsUrl: 'https://seegenebid.org',
     credentialType: 'open_source',
   },
@@ -457,7 +457,7 @@ const GATED_SOURCES: GatedSource[] = [
  * ───────────────────────────────────────────────────────────────────── */
 
 function fmtMoney(amount: number, currency: string): string {
-  if (!amount) return '—';
+  if (!amount) return '-';
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -889,7 +889,7 @@ function CredentialDialog({
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * Single Tender Card Component — detailed, World Bank style for ALL sources
+ * Single Tender Card Component - detailed, World Bank style for ALL sources
  * ───────────────────────────────────────────────────────────────────── */
 
 function TenderCard({
@@ -945,7 +945,7 @@ function TenderCard({
   return (
     <Card className={`bg-card border-border transition-all ${accent.ring} ${isDetailOpen ? 'ring-1 ring-primary/20 shadow-md' : ''}`}>
       <CardContent className="p-0">
-        {/* Main card content — clickable to open detail view */}
+        {/* Main card content - clickable to open detail view */}
         <div
           className="p-4 md:p-5 relative cursor-pointer"
           onClick={onCardClick}
@@ -975,7 +975,7 @@ function TenderCard({
               }`}
               onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
               disabled={isSaving}
-              title={isSaved ? 'Added to Bids — click to remove' : 'Move to Bids'}
+              title={isSaved ? 'Added to Bids - click to remove' : 'Move to Bids'}
             >
               {isSaving ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1158,7 +1158,7 @@ function TenderCard({
                 )}
                 {isDetailOpen ? 'Collapse' : 'View Details'}
               </Button>
-              {/* See More — loads the full tender content from the external site */}
+              {/* See More - loads the full tender content from the external site */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1234,7 +1234,7 @@ function TenderCard({
                 </Button>
               </div>
 
-              {/* ── Tender Document Content (PRIMARY — shown first) ── */}
+              {/* ── Tender Document Content (PRIMARY - shown first) ── */}
               <div className="rounded-lg border border-primary/20 bg-gradient-to-b from-primary/5 to-background p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -1363,7 +1363,7 @@ function TenderCard({
                       </div>
                     ) : null}
 
-                    {/* Document content — sections or raw text */}
+                    {/* Document content - sections or raw text */}
                     {doc.sections && doc.sections.length > 0 ? (
                       <div className="max-h-96 overflow-y-auto rounded-lg border border-border bg-background p-4 space-y-4 scrollbar-thin">
                         {doc.sections.map((section, i) => (
@@ -1389,7 +1389,7 @@ function TenderCard({
                   </div>
                 )}
 
-                {/* Load button — shown when doc not yet loaded and not loading */}
+                {/* Load button - shown when doc not yet loaded and not loading */}
                 {!doc && !isLoadingDoc && !docErr && (
                   <div className="py-2 space-y-3">
                     <Button
@@ -1402,7 +1402,7 @@ function TenderCard({
                     <p className="text-xs text-muted-foreground mt-2">
                       Fetch the full tender notice text, requirements, and specifications from the source site.
                     </p>
-                    {/* View Requirements link — when requiredDocs has a URL */}
+                    {/* View Requirements link - when requiredDocs has a URL */}
                     {tender.requiredDocs && tender.requiredDocs.startsWith('http') && (
                       <a
                         href={tender.requiredDocs}
@@ -1861,7 +1861,7 @@ function TenderCard({
           </div>
         )}
 
-        {/* Inline document viewer — only shown when detail view is NOT open */}
+        {/* Inline document viewer - only shown when detail view is NOT open */}
         {isExpanded && !isDetailOpen && (
           <>
             {isLoadingDoc && (
@@ -1879,7 +1879,7 @@ function TenderCard({
                       Could not load the full tender content
                     </p>
                     <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
-                      {docErr} — you can still{' '}
+                      {docErr} - you can still{' '}
                       <a
                         href={tender.externalUrl}
                         target="_blank"
@@ -1909,7 +1909,7 @@ function TenderCard({
           </>
         )}
 
-        {/* AI Review Panel — only shown when detail view is NOT open */}
+        {/* AI Review Panel - only shown when detail view is NOT open */}
         {showAiReview && !isDetailOpen && (
           <AIReviewPanel
             review={aiReview}
@@ -2091,7 +2091,7 @@ export function LiveTendersView() {
 
   /* ────── Inline document loading ────── */
 
-  /** Fetch document content from external URL — does NOT toggle expandedId */
+  /** Fetch document content from external URL - does NOT toggle expandedId */
   const fetchDocumentContent = useCallback(async (tender: LiveTender) => {
     const id = tender.id;
     // Already fetched or currently loading?
@@ -2391,7 +2391,7 @@ export function LiveTendersView() {
               </Badge>
             </div>
             <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-              {tenders.length} tenders from {sourceMeta.length || 15} sources — click a card to view full details, &quot;AI Review&quot; to analyze, &quot;Bid&quot; to work on it later
+              {tenders.length} tenders from {sourceMeta.length || 15} sources - click a card to view full details, &quot;AI Review&quot; to analyze, &quot;Bid&quot; to work on it later
               {sectorFilter && <span className="ml-1 text-primary font-medium">· filtered by {SECTOR_PILLS.find(s => s.id === sectorFilter)?.label || sectorFilter}</span>}
             </p>
           </div>
@@ -2518,7 +2518,7 @@ export function LiveTendersView() {
                 <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
               </div>
               <p className="text-sm md:text-base font-bold text-foreground mt-1">
-                {totalTenderValue > 0 ? fmtMoney(totalTenderValue, 'USD').replace('USD', '').trim() : '—'}
+                {totalTenderValue > 0 ? fmtMoney(totalTenderValue, 'USD').replace('USD', '').trim() : '-'}
               </p>
             </CardContent>
           </Card>
@@ -2540,7 +2540,7 @@ export function LiveTendersView() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search tenders — title, country, category…"
+                  placeholder="Search tenders - title, country, category…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9 bg-muted/50 border-border"
@@ -2576,7 +2576,7 @@ export function LiveTendersView() {
               </Select>
             </div>
 
-            {/* Sector quick-filter pills — dynamically built from actual tenders + API sectors */}
+            {/* Sector quick-filter pills - dynamically built from actual tenders + API sectors */}
             <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border">
               <span className="text-xs font-medium text-muted-foreground mr-1">Sectors:</span>
               <button
@@ -2626,7 +2626,7 @@ export function LiveTendersView() {
                           ? 'ring-2 ring-primary/50 ' + accent.badge
                           : accent.badge
                       }`}
-                      title={s.ok ? 'Connected' : isComingSoon ? 'Coming Soon — requires API credentials' : 'Unavailable — using fallback'}
+                      title={s.ok ? 'Connected' : isComingSoon ? 'Coming Soon - requires API credentials' : 'Unavailable - using fallback'}
                     >
                       <span className={`h-1.5 w-1.5 rounded-full ${s.ok ? accent.dot : 'bg-muted-foreground/40'}`} />
                       {s.name}
@@ -2705,7 +2705,7 @@ export function LiveTendersView() {
                     onImport={() => importTender(t)}
                     onCardClick={() => {
                       if (detailOpenId !== t.id) {
-                        // Opening detail view — also auto-fetch document content
+                        // Opening detail view - also auto-fetch document content
                         setDetailOpenId(t.id);
                         fetchDocumentContent(t);
                       } else {
@@ -2720,7 +2720,7 @@ export function LiveTendersView() {
           </div>
         )}
 
-        {/* Load More section — server-side pagination */}
+        {/* Load More section - server-side pagination */}
         {tenders.length > 0 && (
           <div className="flex flex-col items-center gap-4 pt-8 pb-6">
             {/* Expand All indicator */}
@@ -2729,7 +2729,7 @@ export function LiveTendersView() {
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-700 to-transparent min-w-[40px]" />
                 <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                   <Eye className="h-3.5 w-3.5" />
-                  Expand All — {totalAvailable.toLocaleString()} tenders available
+                  Expand All - {totalAvailable.toLocaleString()} tenders available
                 </span>
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-700 to-transparent min-w-[40px]" />
               </div>

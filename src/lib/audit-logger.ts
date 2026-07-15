@@ -42,7 +42,7 @@ interface AuditLogOptions {
  */
 export async function auditLog(options: AuditLogOptions): Promise<void> {
   try {
-    // Sanitize metadata — strip any raw tokens or passwords
+    // Sanitize metadata - strip any raw tokens or passwords
     const safeMetadata: Record<string, unknown> = {};
     if (options.metadata) {
       for (const [key, value] of Object.entries(options.metadata)) {
