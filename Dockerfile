@@ -1,4 +1,4 @@
-# ─── Stage 1: Dependencies ───
+# --- Stage 1: Dependencies ---
 FROM oven/bun:1.2 AS deps
 
 WORKDIR /app
@@ -6,9 +6,9 @@ WORKDIR /app
 # Install curl for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy package files first for better caching
+# Copy all source files needed for dependency installation
 COPY package.json bun.lock ./
-COPY prisma ./prisma/
+COPY prisma/ ./prisma/
 
 # Install all dependencies
 RUN bun install --frozen-lockfile
@@ -16,22 +16,21 @@ RUN bun install --frozen-lockfile
 # Generate Prisma client
 RUN bun run db:generate
 
-# ─── Stage 2: Build ───
+# --- Stage 2: Build ---
 FROM oven/bun:1.2 AS builder
 
 WORKDIR /app
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/prisma ./prisma
 
-# Copy source code
+# Copy ALL source code (includes prisma/, src/, public/, etc.)
 COPY . .
 
 # Build the Next.js standalone output
 RUN bun run build
 
-# ─── Stage 3: Production ───
+# --- Stage 3: Production ---
 FROM oven/bun:1.2 AS runner
 
 WORKDIR /app
