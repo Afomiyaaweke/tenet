@@ -155,3 +155,40 @@ Stage Summary:
 - Session invalidation: auth cache cleared on password reset
 - Frontend: password strength meter, requirements checklist, 12-char minimum
 - E2E verified: forgot → email → reset → login flow works correctly
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Add Export PDF button for tender download and show requirements in the AI Overview review
+
+Work Log:
+- Installed pdfkit package for server-side PDF generation
+- Created new API route `/api/tenders/[id]/export-pdf/route.ts` with professional PDF generation including:
+  - Tender header with status badge, budget, deadline, location, categories
+  - Scope & Description section
+  - Requirements section (required docs, eligibility rules)
+  - Tender Documents list
+  - Bids Summary table
+  - AI-Powered Insights section (when `includeAiOverview=true` param is passed)
+  - Professional formatting with section headers, accent lines, and color coding
+- Added `serverExternalPackages: ["pdfkit"]` to next.config.ts to fix font data resolution
+- Added "Export PDF" button to the tender detail hero section (next to Review with AI button)
+- Added "PDF" button in the AI Overview tab header (next to Regenerate button)
+- Fixed localStorage token key from 'token' to 'tenet_token' to match the API client
+- Enhanced AI Overview tab with a consolidated "Tender Requirements" card at the top showing:
+  - Required Documents from tender data
+  - Scope & Eligibility from tender data
+  - AI-Identified Key Requirements from AI overview
+  - AI-Identified Required Documents from AI overview
+- Removed duplicate "Key Requirements" and "Required Documents" cards from AI Overview (now consolidated)
+- Reorganized remaining AI Overview cards: Eligibility Check + Budget Analysis (side by side), Timeline, Application Tips
+- Fixed Prisma query in export-pdf route (removed non-existent `creator` relation)
+- Verified with agent browser: PDF export returns 200, AI Overview shows requirements section correctly
+
+Stage Summary:
+- New file: `/src/app/api/tenders/[id]/export-pdf/route.ts` — PDF generation API
+- Modified: `/src/components/modules/tender-detail.tsx` — Added Export PDF button + PDF state/handler + Requirements section in AI Overview
+- Modified: `/next.config.ts` — Added `serverExternalPackages: ["pdfkit"]`
+- Installed: `pdfkit@0.19.1`
+- PDF includes: tender details, requirements, scope, documents, bids, and optional AI overview
+- AI Overview tab now shows requirements prominently with both tender data and AI analysis
