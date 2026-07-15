@@ -5,6 +5,30 @@ import { NextRequest } from 'next/server';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
+/**
+ * In-memory cache tracking invalidated user sessions.
+ * Key: userId, Value: timestamp when invalidated
+ * After password reset, all tokens issued before this timestamp are rejected.
+ */
+const invalidatedUsers = new Map<string, number>();
+
+/**
+ * Invalidate all auth sessions for a user (e.g. after password reset).
+ * Any JWT issued before this call will be rejected on next verification.
+ */
+export function invalidateAuthCache(userId: string): void {
+  invalidatedUsers.set(userId, Date.now());
+}
+
+/**
+ * Check if a user's sessions were invalidated after the given token issue time.
+ */
+function isUserInvalidated(userId: string, tokenIssuedAt: number): boolean {
+  const invalidatedAt = invalidatedUsers.get(userId);
+  if (!invalidatedAt) return false;
+  return tokenIssuedAt < invalidatedAt;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -57,8 +81,13 @@ export async function getAuthUser(request?: NextRequest): Promise<AuthUser | nul
     const token = await extractToken(request);
     if (!token) return null;
 
-    const payload = verifyToken(token);
+    const payload = verifyToken(token) as { userId: string; iat?: number } | null;
     if (!payload) return null;
+
+    // Check if sessions were invalidated after this token was issued
+    if (payload.iat && isUserInvalidated(payload.userId, payload.iat * 1000)) {
+      return null;
+    }
 
     const user = await db.user.findUnique({
       where: { id: payload.userId },

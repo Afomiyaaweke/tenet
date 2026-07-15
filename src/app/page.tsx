@@ -30,12 +30,10 @@ export default function Home() {
     }
   }, [token, user, fetchMe]);
 
-  // If fetchMe fails (bad token), the store clears the token — go back to landing
-  useEffect(() => {
-    if (!isLoading && token === null) {
-      setShowAuth(false);
-    }
-  }, [token, isLoading]);
+  // Determine if auth gate should be shown:
+  // - If token is null (bad/expired), always show landing (not auth gate)
+  // - If token is 'guest' or user explicitly clicked "Get Started", show auth gate
+  const shouldShowAuth = (showAuth || token === 'guest') && token !== null;
 
   // Loading state while checking auth
   if (isLoading && token && token !== 'guest') {
@@ -52,7 +50,7 @@ export default function Home() {
   }
 
   // Show auth gate (sign in / register)
-  if (showAuth || (token === 'guest')) {
+  if (shouldShowAuth) {
     return (
       <AuthGate
         onBack={() => {
