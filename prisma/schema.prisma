@@ -7,53 +7,658 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      String   @default("contractor")
-  company   String?
-  phone     String?
-  createdAt DateTime @default(now())
+// ==========================================
+// COMPANY
+// ==========================================
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  registrationNo  String?  @unique
+  industry        String   @default("General") // Construction, IT, Healthcare, Supply, Consulting, etc.
+  tinNumber       String?  @unique
+  address         String?
+  city            String?
+  country         String   @default("Ethiopia")
+  phone           String?
+  email           String?
+  website         String?
+  logoUrl         String?
+  verified        Boolean  @default(false)
+  status          String   @default("active") // active, suspended
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users     User[]
+  profiles  Profile[]
+  documents Document[]
   tenders   Tender[]
+  projects  Project[]
+  tasks     Task[]
 }
+
+// ==========================================
+// USER & AUTHENTICATION (3-tier roles)
+// ==========================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          String    @default("user") // team_admin, user
+  companyId     String?
+  status        String    @default("active") // active, suspended, banned
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  company   Company?   @relation(fields: [companyId], references: [id])
+  profile   Profile?
+  documents Document[]
+  bids      Bid[]
+  messages  Message[]
+  registrations Registration[]
+  conversationMemberships ConversationMember[]
+  chatMessages ChatMessage[]
+  messageReactions MessageReaction[]
+  assignedTasks Task[]
+  savedTenders SavedTender[]
+  socialPosts SocialPost[]
+  socialPostReactions SocialPostReaction[]
+  socialPostComments SocialPostComment[]
+  connectionsSent Connection[] @relation("UserSentConnections")
+  connectionsReceived Connection[] @relation("UserReceivedConnections")
+  endorsementsGiven Endorsement[] @relation("UserGivenEndorsements")
+  endorsementsReceived Endorsement[] @relation("UserReceivedEndorsements")
+  passwordResetTokens PasswordResetToken[]
+  passwordHistory PasswordHistory[]
+}
+
+// ==========================================
+// PROFILE (KYC Lite)
+// ==========================================
+
+model Profile {
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  companyId     String?
+  fullName      String
+  jobTitle      String?  // CEO, Manager, Engineer, etc.
+  phone         String?
+  location      String?
+  address       String?
+  tinNumber     String?
+  licenseNumber String?
+  skillTags     String  @default("") // comma-separated
+  bio           String?
+  logoUrl       String?
+  profilePhoto  String?
+  verified      Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id])
+}
+
+// ==========================================
+// DOCUMENT VAULT
+// ==========================================
+
+model Document {
+  id          String   @id @default(cuid())
+  userId      String?
+  companyId   String?
+  docType     String   // business_license, tax_clearance, portfolio, certificate, other, bid_attachment, technical_proposal, financial_proposal, timeline_doc, external_doc, tender_document
+  fileUrl     String
+  fileName    String
+  status      String   @default("pending") // pending, approved, rejected
+  reviewNotes String?
+  reviewedAt  DateTime?
+  // OCR & AI Review fields
+  ocrText     String?  // Extracted text from OCR
+  ocrStatus   String   @default("none") // none, processing, completed, failed
+  ocrProcessedAt DateTime?
+  aiReview    String?  // AI review result (JSON string)
+  aiReviewStatus String @default("none") // none, processing, completed, failed
+  aiReviewProcessedAt DateTime?
+  aiReviewPrompt String? // User-provided custom prompt for AI review
+  // Submit link for external documents
+  submitUrl   String?  // External URL to submit the document (e.g., tender portal)
+  // Link to bid (for documents from other sites / bid attachments)
+  bidId       String?
+  // Link to tender (for tender documents / RFP attachments)
+  tenderId    String?
+  createdAt   DateTime @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id])
+  bid     Bid?     @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  tender  Tender?  @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([status])
+  @@index([tenderId])
+  @@index([createdAt])
+}
+
+// ==========================================
+// TENDER
+// ==========================================
 
 model Tender {
-  id           String   @id @default(cuid())
-  title        String
-  organization String
-  category     String
-  deadline     DateTime
-  budget       String
-  description  String
-  requirements String   @default("[]")
-  location     String   @default("")
-  status       String   @default("open")
-  bidCount     Int      @default(0)
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  title         String
+  scope         String   // rich text description
+  budgetMin     Float
+  budgetMax     Float
+  deadline      DateTime
+  location      String
+  categoryTags  String   // comma-separated: Construction, IT, Supply, Consulting, etc.
+  requiredDocs  String   @default("") // comma-separated doc types
+  status        String   @default("open") // draft, open, closed, awarded, cancelled
+  createdBy     String   // admin user id
+  companyId     String?  // company isolation: which company created this tender
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
+  bids          Bid[]
+  project       Project?
+  bidAnalysis   BidAnalysis[]
+  documents     Document[]
+  company       Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
   @@index([status])
-  @@index([category])
-  @@index([userId])
+  @@index([createdBy])
   @@index([deadline])
+  @@index([status, deadline])
 }
+
+// ==========================================
+// BID
+// ==========================================
+
+model Bid {
+  id                String   @id @default(cuid())
+  tenderId          String
+  userId            String
+  technicalProposal String   // rich text
+  financialProposal Float    // amount in ETB
+  timeline          String   // e.g. "30 days"
+  attachments       String   @default("") // JSON string of file URLs
+  status            String   @default("pending_review") // drafted, pending_review, shortlisted, awarded, rejected
+  rejectionNote     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tender  Tender  @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project?
+  documents Document[]
+
+  @@index([tenderId])
+  @@index([userId])
+  @@index([status])
+  @@index([tenderId, userId])
+  @@index([status, createdAt])
+}
+
+// ==========================================
+// BID ANALYSIS (AI-generated)
+// ==========================================
+
+model BidAnalysis {
+  id              String   @id @default(cuid())
+  tenderId        String
+  summary         String   @default("") // JSON: { totalBids, averageScore }
+  rankings        String   @default("") // JSON: [{ rank, name, company, overallScore, ... }]
+  budgetAnalysis  String   @default("") // AI budget analysis text
+  recommendation  String   @default("") // Final recommendation
+  riskSummary     String   @default("") // Overall risk assessment
+  createdBy       String   // admin user id who triggered analysis
+  createdAt       DateTime @default(now())
+
+  tender Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@index([tenderId])
+}
+
+// ==========================================
+// PROJECT WORKSPACE
+// ==========================================
+
+model Project {
+  id          String   @id @default(cuid())
+  tenderId    String   @unique
+  bidId       String   @unique
+  companyId   String?  // company isolation: which company owns this project
+  status      String   @default("active") // active, completed, on_hold, cancelled
+  contractValue Float  // from bid financial proposal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tender    Tender    @relation(fields: [tenderId], references: [id])
+  bid       Bid       @relation(fields: [bidId], references: [id])
+  company   Company?  @relation(fields: [companyId], references: [id])
+  tasks     Task[]
+  payments  Payment[]
+  chat      Chat?
+  milestones Milestone[]
+
+  @@index([companyId])
+  @@index([status])
+}
+
+// ==========================================
+// TASK (Kanban)
+// ==========================================
+
+model Task {
+  id          String   @id @default(cuid())
+  projectId   String
+  companyId   String?  // company isolation: inherited from project
+  title       String
+  description String?
+  status      String   @default("todo") // todo, in_progress, done
+  assigneeId  String?  // user id of assigned team member
+  dueDate     DateTime?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company  Company? @relation(fields: [companyId], references: [id])
+  assignee User?    @relation(fields: [assigneeId], references: [id])
+
+  @@index([companyId])
+  @@index([assigneeId])
+}
+
+// ==========================================
+// MILESTONE
+// ==========================================
+
+model Milestone {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  dueDate     DateTime
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// ==========================================
+// FINANCIAL TRACKING
+// ==========================================
+
+model Payment {
+  id              String   @id @default(cuid())
+  projectId       String
+  amount          Float
+  paymentMethod   String   // bank_transfer, cbe_birr, cash, check
+  referenceNumber String?
+  notes           String?
+  paymentDate     DateTime
+  createdAt       DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// ==========================================
+// COMMUNICATION HUB
+// ==========================================
+
+model Chat {
+  id          String   @id @default(cuid())
+  projectId   String?  @unique
+  tenderId    String?
+  contextType String   // tender, project
+  createdAt   DateTime @default(now())
+
+  messages Message[]
+  project  Project? @relation(fields: [projectId], references: [id])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  chatId    String
+  userId    String
+  content   String
+  flagged   Boolean  @default(false)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+  @@index([userId])
+}
+
+// ==========================================
+// CAPACITY BUILDING (Workshops)
+// ==========================================
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  eventDate   DateTime
+  location    String
+  capacity    Int
+  status      String   @default("upcoming") // upcoming, ongoing, completed, cancelled
+  category    String   @default("workshop") // workshop, training, seminar
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  registrations Registration[]
+}
+
+model Registration {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  attended  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+// ==========================================
+// COMMENTS / TESTIMONIALS
+// ==========================================
 
 model Comment {
   id        String   @id @default(cuid())
   name      String
   email     String
   company   String?
-  role      String   @default("other")
+  role      String?  @default("contractor") // contractor, tender_owner, admin, other
   content   String
-  rating    Int      @default(5)
-  approved  Boolean  @default(false)
+  rating    Int      @default(5) // 1-5 star rating
   featured  Boolean  @default(false)
+  approved  Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  @@index([approved])
+  @@index([approved, createdAt])
+}
+
+// ==========================================
+// NOTIFICATION
+// ==========================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info") // info, success, warning, alert
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+// ==========================================
+// TELEGRAM-STYLE MESSAGING (Conversations, Groups, Channels)
+// ==========================================
+
+model Conversation {
+  id          String   @id @default(cuid())
+  type        String   @default("group") // direct, group, channel, project
+  title       String?
+  description String?
+  avatarUrl   String?
+  createdBy   String
+  tenderId    String?
+  projectId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members  ConversationMember[]
+  messages ChatMessage[]
+
+  @@index([type])
+  @@index([tenderId])
+}
+
+model ConversationMember {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  role           String   @default("member") // owner, admin, member
+  joinedAt       DateTime @default(now())
+  lastReadAt     DateTime? @default(now())
+  muted          Boolean  @default(false)
+  pinned         Boolean  @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  content        String
+  replyToId      String?
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  attachmentUrl  String?
+  attachmentType String?
+  attachmentName String?
+  flagged        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo      ChatMessage?  @relation("MessageReply", fields: [replyToId], references: [id])
+  replies      ChatMessage[] @relation("MessageReply")
+  reactions    MessageReaction[]
+
+  @@index([conversationId, createdAt])
+  @@index([userId])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+// ==========================================
+// PASSWORD RESET (Secure — SHA-256 hashed tokens)
+// ==========================================
+
+model PasswordResetToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique  // SHA-256 hash of the raw token — raw token NEVER stored
+  expiresAt   DateTime           // 15-minute expiry
+  usedAt      DateTime?          // Set when token is consumed (single-use)
+  createdAt   DateTime  @default(now())
+  requestIP   String?            // IP address of the reset requestor
+  userAgent   String?            // User-Agent of the reset requestor
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@index([usedAt])
+}
+
+// ==========================================
+// PASSWORD HISTORY (prevent reusing previous passwords)
+// ==========================================
+
+model PasswordHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  passwordHash String   // bcrypt/argon2 hash of the previous password
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@index([createdAt])
+}
+
+// ==========================================
+// SAVED TENDERS (Bookmarks for later bidding)
+// ==========================================
+
+model SavedTender {
+  id          String   @id @default(cuid())
+  userId      String
+  tenderId    String   // can be local Tender id or external live tender id
+  source      String   @default("local") // local, worldbank, eu_ted, ungm, sam_gov, etc.
+  title       String
+  scope       String   @default("")
+  budgetMin   Float    @default(0)
+  budgetMax   Float    @default(0)
+  deadline    DateTime?
+  location    String   @default("")
+  categoryTags String  @default("")
+  externalUrl String?
+  currency    String   @default("USD")
+  notes       String?  // user notes for later
+  status      String   @default("saved") // saved, bidding, applied, archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenderId, source])
+  @@index([userId])
+  @@index([status])
+}
+
+// ==========================================
+// AUDIT LOG (Site Engagement Tracking)
+// ==========================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // login, register, tender_create, bid_submit, etc.
+  resource  String?  // tender, bid, project, document, etc.
+  resourceId String?
+  companyId String?
+  metadata  String   @default("{}") // JSON string for extra data
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([userId])
+  @@index([companyId])
+  @@index([createdAt])
+}
+
+// ==========================================
+// SOCIAL CIRCLE (LinkedIn-style networking)
+// ==========================================
+
+model SocialPost {
+  id          String   @id @default(cuid())
+  userId      String
+  content     String
+  imageUrls   String   @default("[]") // JSON array of image URLs
+  likes       Int      @default(0)
+  comments    Int      @default(0)
+  tags        String   @default("") // comma-separated tags
+  visibility  String   @default("public") // public, connections, private
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reactions  SocialPostReaction[]
+  postComments SocialPostComment[]
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model SocialPostReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  emoji     String   @default("👍") // like, love, celebrate, insightful, etc.
+  createdAt DateTime @default(now())
+
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, emoji])
+  @@index([postId])
+}
+
+model SocialPostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model Connection {
+  id          String   @id @default(cuid())
+  requesterId String   // user who sent the request
+  receiverId  String   // user who received the request
+  status      String   @default("pending") // pending, accepted, declined, blocked
+  message     String?  // optional connection request message
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester User @relation("UserSentConnections", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiver  User @relation("UserReceivedConnections", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, receiverId])
+  @@index([requesterId, status])
+  @@index([receiverId, status])
+}
+
+model Endorsement {
+  id          String   @id @default(cuid())
+  fromUserId  String   // who endorsed
+  toUserId    String   // who was endorsed
+  skill       String   // skill being endorsed
+  createdAt   DateTime @default(now())
+
+  fromUser User @relation("UserGivenEndorsements", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("UserReceivedEndorsements", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId, skill])
+  @@index([toUserId, skill])
 }

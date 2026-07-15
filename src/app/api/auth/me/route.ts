@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
-    }
-    return NextResponse.json({ success: true, data: user });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
+    const { user, error } = await requireAuth(request);
+    if (error) return error;
+
+    // Remove passwordHash from response (user already includes company via getAuthUser)
+    const { passwordHash: _, ...userWithoutPassword } = user!;
+
+    return NextResponse.json({
+      success: true,
+      data: userWithoutPassword,
+    });
+  } catch (error) {
+    console.error('Get current user error:', error);
+    return NextResponse.json(
+      { success: false, error: 'An error occurred while fetching user data' },
+      { status: 500 }
+    );
   }
 }
