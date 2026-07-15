@@ -235,3 +235,29 @@ Stage Summary:
   2. **Export PDF button** in Tender Review dialog - calls backend API to generate professional PDF with tender details, description, and requirements
 - PDF export generates 1-page PDF with: header, organization, status/category badges, key details, description, requirements (with bullet points)
 - All backend APIs functional and verified
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Fix preview not working - server OOM issues
+
+Work Log:
+- Diagnosed that the Next.js dev server was being killed by OOM during page compilation
+- The original page.tsx was 50KB/1400 lines which required too much memory to compile
+- Split the page into separate component files with dynamic imports:
+  - /src/components/portal/lib.ts (shared types and utilities)
+  - /src/components/portal/auth-gate.tsx (login/register form)
+  - /src/components/portal/tender-review-dialog.tsx (review dialog with requirements + PDF export)
+  - /src/components/portal/tender-card.tsx (tender card component)
+- Reduced page.tsx from 50KB to ~18KB
+- Set NODE_OPTIONS="--max-old-space-size=512" for optimal memory usage
+- Restored middleware.ts (was temporarily disabled)
+- Configured start-dev.sh watchdog for automatic server restarts
+- Verified: page compiles and serves 200 via Caddy, all APIs work
+- The server occasionally dies under heavy load (browser making many asset requests) but the watchdog auto-restarts it
+
+Stage Summary:
+- Preview is working - Caddy returns 200 with the full Tenets page
+- Page split into 4 component files for better compilation performance
+- Key features preserved: Requirements display in review dialog, Export PDF button
+- Watchdog ensures server auto-restarts if it dies
