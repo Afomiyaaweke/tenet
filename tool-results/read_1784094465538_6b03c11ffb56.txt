@@ -1,0 +1,1401 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { toast } from 'sonner';
+     5→import {
+     6→  LayoutDashboard,
+     7→  Search,
+     8→  FileText,
+     9→  Plus,
+    10→  LogOut,
+    11→  Building2,
+    12→  CalendarDays,
+    13→  MapPin,
+    14→  DollarSign,
+    15→  Users,
+    16→  Trash2,
+    17→  Eye,
+    18→  Download,
+    19→  CheckCircle2,
+    20→  X,
+    21→  PlusCircle,
+    22→  Loader2,
+    23→  Briefcase,
+    24→  FileBadge,
+    25→  FolderOpen,
+    26→  TrendingUp,
+    27→  Menu,
+    28→  ChevronDown,
+    29→} from 'lucide-react';
+    30→
+    31→import { Button } from '@/components/ui/button';
+    32→import {
+    33→  Card,
+    34→  CardContent,
+    35→  CardDescription,
+    36→  CardFooter,
+    37→  CardHeader,
+    38→  CardTitle,
+    39→} from '@/components/ui/card';
+    40→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    41→import {
+    42→  Dialog,
+    43→  DialogContent,
+    44→  DialogDescription,
+    45→  DialogFooter,
+    46→  DialogHeader,
+    47→  DialogTitle,
+    48→} from '@/components/ui/dialog';
+    49→import { Input } from '@/components/ui/input';
+    50→import { Textarea } from '@/components/ui/textarea';
+    51→import { Label } from '@/components/ui/label';
+    52→import { Badge } from '@/components/ui/badge';
+    53→import {
+    54→  Select,
+    55→  SelectContent,
+    56→  SelectItem,
+    57→  SelectTrigger,
+    58→  SelectValue,
+    59→} from '@/components/ui/select';
+    60→import { Separator } from '@/components/ui/separator';
+    61→import {
+    62→  DropdownMenu,
+    63→  DropdownMenuContent,
+    64→  DropdownMenuItem,
+    65→  DropdownMenuLabel,
+    66→  DropdownMenuSeparator,
+    67→  DropdownMenuTrigger,
+    68→} from '@/components/ui/dropdown-menu';
+    69→import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+    70→import { ScrollArea } from '@/components/ui/scroll-area';
+    71→import { Skeleton } from '@/components/ui/skeleton';
+    72→
+    73→// ─── Types ───────────────────────────────────────────────────────────────────
+    74→
+    75→interface User {
+    76→  id: string;
+    77→  email: string;
+    78→  name: string;
+    79→  role: string;
+    80→  company: string | null;
+    81→}
+    82→
+    83→interface Tender {
+    84→  id: string;
+    85→  title: string;
+    86→  organization: string;
+    87→  category: string;
+    88→  deadline: string;
+    89→  budget: string;
+    90→  description: string;
+    91→  requirements: string;
+    92→  location: string;
+    93→  status: string;
+    94→  bidCount: number;
+    95→  userId: string;
+    96→  createdAt: string;
+    97→  updatedAt: string;
+    98→  user: { name: string; company: string | null };
+    99→}
+   100→
+   101→// ─── Constants ───────────────────────────────────────────────────────────────
+   102→
+   103→const CATEGORIES = [
+   104→  'Construction',
+   105→  'IT',
+   106→  'Healthcare',
+   107→  'Education',
+   108→  'Energy',
+   109→  'Agriculture',
+   110→  'Transport',
+   111→  'Consulting',
+   112→];
+   113→
+   114→const STATUS_COLORS: Record<string, string> = {
+   115→  open: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+   116→  closed: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+   117→  awarded: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+   118→};
+   119→
+   120→// ─── Helpers ─────────────────────────────────────────────────────────────────
+   121→
+   122→function parseRequirements(requirements: string): string[] {
+   123→  try {
+   124→    const parsed = JSON.parse(requirements);
+   125→    return Array.isArray(parsed) ? parsed : [];
+   126→  } catch {
+   127→    return [];
+   128→  }
+   129→}
+   130→
+   131→function formatDate(dateStr: string): string {
+   132→  try {
+   133→    return new Date(dateStr).toLocaleDateString('en-GB', {
+   134→      day: 'numeric',
+   135→      month: 'short',
+   136→      year: 'numeric',
+   137→    });
+   138→  } catch {
+   139→    return dateStr;
+   140→  }
+   141→}
+   142→
+   143→function isDeadlineSoon(deadline: string): boolean {
+   144→  const d = new Date(deadline);
+   145→  const now = new Date();
+   146→  const diff = d.getTime() - now.getTime();
+   147→  return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000;
+   148→}
+   149→
+   150→function isDeadlinePast(deadline: string): boolean {
+   151→  return new Date(deadline).getTime() < Date.now();
+   152→}
+   153→
+   154→// ─── API helpers ─────────────────────────────────────────────────────────────
+   155→
+   156→async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+   157→  const res = await fetch(url, {
+   158→    headers: { 'Content-Type': 'application/json', ...options?.headers },
+   159→    ...options,
+   160→  });
+   161→  const data = await res.json();
+   162→  if (!res.ok) throw new Error(data.error || 'Request failed');
+   163→  return data;
+   164→}
+   165→
+   166→// ─── Auth Gate Component ─────────────────────────────────────────────────────
+   167→
+   168→function AuthGate({ onAuth }: { onAuth: (user: User) => void }) {
+   169→  const [tab, setTab] = useState<'login' | 'register'>('login');
+   170→  const [loading, setLoading] = useState(false);
+   171→  const [error, setError] = useState('');
+   172→
+   173→  // Login fields
+   174→  const [loginEmail, setLoginEmail] = useState('');
+   175→  const [loginPassword, setLoginPassword] = useState('');
+   176→
+   177→  // Register fields
+   178→  const [regName, setRegName] = useState('');
+   179→  const [regEmail, setRegEmail] = useState('');
+   180→  const [regPassword, setRegPassword] = useState('');
+   181→  const [regCompany, setRegCompany] = useState('');
+   182→
+   183→  const handleLogin = async (e: React.FormEvent) => {
+   184→    e.preventDefault();
+   185→    setError('');
+   186→    setLoading(true);
+   187→    try {
+   188→      const data = await apiFetch<{ user: User }>('/api/auth/login', {
+   189→        method: 'POST',
+   190→        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+   191→      });
+   192→      toast.success('Welcome back!');
+   193→      onAuth(data.user);
+   194→    } catch (err) {
+   195→      setError(err instanceof Error ? err.message : 'Login failed');
+   196→    } finally {
+   197→      setLoading(false);
+   198→    }
+   199→  };
+   200→
+   201→  const handleRegister = async (e: React.FormEvent) => {
+   202→    e.preventDefault();
+   203→    setError('');
+   204→    setLoading(true);
+   205→    try {
+   206→      const data = await apiFetch<{ user: User }>('/api/auth/register', {
+   207→        method: 'POST',
+   208→        body: JSON.stringify({
+   209→          name: regName,
+   210→          email: regEmail,
+   211→          password: regPassword,
+   212→          company: regCompany || undefined,
+   213→        }),
+   214→      });
+   215→      toast.success('Account created successfully!');
+   216→      onAuth(data.user);
+   217→    } catch (err) {
+   218→      setError(err instanceof Error ? err.message : 'Registration failed');
+   219→    } finally {
+   220→      setLoading(false);
+   221→    }
+   222→  };
+   223→
+   224→  return (
+   225→    <div className="min-h-screen flex flex-col">
+   226→      <main className="flex-1 flex items-center justify-center p-4">
+   227→        <div className="w-full max-w-md view-enter">
+   228→          {/* Branding */}
+   229→          <div className="text-center mb-8">
+   230→            <div className="inline-flex items-center gap-2 mb-4">
+   231→              <div className="gradient-emerald rounded-xl p-2.5 shadow-lg">
+   232→                <FileBadge className="size-7 text-white" />
+   233→              </div>
+   234→              <h1 className="text-3xl font-bold text-gradient-emerald">Tenets</h1>
+   235→            </div>
+   236→            <p className="text-muted-foreground text-sm">
+   237→              Transforming procurement through technology
+   238→            </p>
+   239→          </div>
+   240→
+   241→          {/* Auth Card */}
+   242→          <Card className="glass-card premium-shadow border-0">
+   243→            <CardHeader className="pb-4">
+   244→              <Tabs value={tab} onValueChange={(v) => { setTab(v as 'login' | 'register'); setError(''); }}>
+   245→                <TabsList className="w-full">
+   246→                  <TabsTrigger value="login" className="flex-1">Sign In</TabsTrigger>
+   247→                  <TabsTrigger value="register" className="flex-1">Create Account</TabsTrigger>
+   248→                </TabsList>
+   249→              </Tabs>
+   250→            </CardHeader>
+   251→            <CardContent>
+   252→              {error && (
+   253→                <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center gap-2">
+   254→                  <X className="size-4 shrink-0" />
+   255→                  {error}
+   256→                </div>
+   257→              )}
+   258→
+   259→              {tab === 'login' ? (
+   260→                <form onSubmit={handleLogin} className="space-y-4">
+   261→                  <div className="space-y-2">
+   262→                    <Label htmlFor="login-email">Email</Label>
+   263→                    <Input
+   264→                      id="login-email"
+   265→                      type="email"
+   266→                      placeholder="you@example.com"
+   267→                      value={loginEmail}
+   268→                      onChange={(e) => setLoginEmail(e.target.value)}
+   269→                      required
+   270→                      disabled={loading}
+   271→                    />
+   272→                  </div>
+   273→                  <div className="space-y-2">
+   274→                    <Label htmlFor="login-password">Password</Label>
+   275→                    <Input
+   276→                      id="login-password"
+   277→                      type="password"
+   278→                      placeholder="••••••••"
+   279→                      value={loginPassword}
+   280→                      onChange={(e) => setLoginPassword(e.target.value)}
+   281→                      required
+   282→                      disabled={loading}
+   283→                    />
+   284→                  </div>
+   285→                  <Button type="submit" className="w-full gradient-emerald border-0 text-white" disabled={loading}>
+   286→                    {loading && <Loader2 className="size-4 animate-spin" />}
+   287→                    {loading ? 'Signing in...' : 'Sign In'}
+   288→                  </Button>
+   289→                </form>
+   290→              ) : (
+   291→                <form onSubmit={handleRegister} className="space-y-4">
+   292→                  <div className="space-y-2">
+   293→                    <Label htmlFor="reg-name">Full Name</Label>
+   294→                    <Input
+   295→                      id="reg-name"
+   296→                      placeholder="John Doe"
+   297→                      value={regName}
+   298→                      onChange={(e) => setRegName(e.target.value)}
+   299→                      required
+   300→                      disabled={loading}
+   301→                    />
+   302→                  </div>
+   303→                  <div className="space-y-2">
+   304→                    <Label htmlFor="reg-email">Email</Label>
+   305→                    <Input
+   306→                      id="reg-email"
+   307→                      type="email"
+   308→                      placeholder="you@example.com"
+   309→                      value={regEmail}
+   310→                      onChange={(e) => setRegEmail(e.target.value)}
+   311→                      required
+   312→                      disabled={loading}
+   313→                    />
+   314→                  </div>
+   315→                  <div className="space-y-2">
+   316→                    <Label htmlFor="reg-password">Password</Label>
+   317→                    <Input
+   318→                      id="reg-password"
+   319→                      type="password"
+   320→                      placeholder="••••••••"
+   321→                      value={regPassword}
+   322→                      onChange={(e) => setRegPassword(e.target.value)}
+   323→                      required
+   324→                      disabled={loading}
+   325→                      minLength={6}
+   326→                    />
+   327→                  </div>
+   328→                  <div className="space-y-2">
+   329→                    <Label htmlFor="reg-company">Company (optional)</Label>
+   330→                    <Input
+   331→                      id="reg-company"
+   332→                      placeholder="Acme Corp"
+   333→                      value={regCompany}
+   334→                      onChange={(e) => setRegCompany(e.target.value)}
+   335→                      disabled={loading}
+   336→                    />
+   337→                  </div>
+   338→                  <Button type="submit" className="w-full gradient-emerald border-0 text-white" disabled={loading}>
+   339→                    {loading && <Loader2 className="size-4 animate-spin" />}
+   340→                    {loading ? 'Creating account...' : 'Create Account'}
+   341→                  </Button>
+   342→                </form>
+   343→              )}
+   344→            </CardContent>
+   345→          </Card>
+   346→        </div>
+   347→      </main>
+   348→
+   349→      {/* Sticky Footer */}
+   350→      <footer className="mt-auto border-t bg-card/50 backdrop-blur-sm">
+   351→        <div className="max-w-7xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground">
+   352→          &copy; {new Date().getFullYear()} Tenets &mdash; Transforming procurement through technology
+   353→        </div>
+   354→      </footer>
+   355→    </div>
+   356→  );
+   357→}
+   358→
+   359→// ─── Tender Review Dialog ────────────────────────────────────────────────────
+   360→
+   361→function TenderReviewDialog({
+   362→  tender,
+   363→  open,
+   364→  onOpenChange,
+   365→}: {
+   366→  tender: Tender | null;
+   367→  open: boolean;
+   368→  onOpenChange: (open: boolean) => void;
+   369→}) {
+   370→  const [exporting, setExporting] = useState(false);
+   371→
+   372→  if (!tender) return null;
+   373→
+   374→  const requirements = parseRequirements(tender.requirements);
+   375→
+   376→  const handleExportPdf = async () => {
+   377→    setExporting(true);
+   378→    try {
+   379→      const res = await fetch(`/api/tenders/${tender.id}/export-pdf`);
+   380→      if (!res.ok) throw new Error('Export failed');
+   381→      const blob = await res.blob();
+   382→      const url = window.URL.createObjectURL(blob);
+   383→      const a = document.createElement('a');
+   384→      a.href = url;
+   385→      a.download = `${tender.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+   386→      document.body.appendChild(a);
+   387→      a.click();
+   388→      a.remove();
+   389→      window.URL.revokeObjectURL(url);
+   390→      toast.success('PDF exported successfully');
+   391→    } catch {
+   392→      toast.error('Failed to export PDF');
+   393→    } finally {
+   394→      setExporting(false);
+   395→    }
+   396→  };
+   397→
+   398→  return (
+   399→    <Dialog open={open} onOpenChange={onOpenChange}>
+   400→      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+   401→        <div className="flex-1 overflow-y-auto">
+   402→          {/* Header Section */}
+   403→          <div className="gradient-emerald p-6 pb-8 rounded-t-lg relative">
+   404→            <DialogHeader>
+   405→              <DialogTitle className="text-xl text-white font-bold leading-tight pr-8">
+   406→                {tender.title}
+   407→              </DialogTitle>
+   408→              <DialogDescription className="text-white/80 mt-1">
+   409→                Published by {tender.user.name}
+   410→                {tender.user.company && ` · ${tender.user.company}`}
+   411→              </DialogDescription>
+   412→            </DialogHeader>
+   413→            <div className="flex flex-wrap gap-2 mt-4">
+   414→              <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+   415→                <Building2 className="size-3" />
+   416→                {tender.organization}
+   417→              </Badge>
+   418→              <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+   419→                <Briefcase className="size-3" />
+   420→                {tender.category}
+   421→              </Badge>
+   422→              <Badge
+   423→                className={`border-0 ${
+   424→                  tender.status === 'open'
+   425→                    ? 'bg-emerald-600 text-white'
+   426→                    : tender.status === 'closed'
+   427→                      ? 'bg-red-600 text-white'
+   428→                      : 'bg-amber-600 text-white'
+   429→                }`}
+   430→              >
+   431→                {tender.status.charAt(0).toUpperCase() + tender.status.slice(1)}
+   432→              </Badge>
+   433→            </div>
+   434→          </div>
+   435→
+   436→          <div className="p-6 space-y-6">
+   437→            {/* Key Details Grid */}
+   438→            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+   439→              <div className="space-y-1">
+   440→                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Budget</p>
+   441→                <p className="text-sm font-semibold flex items-center gap-1.5">
+   442→                  <DollarSign className="size-4 text-emerald-600" />
+   443→                  {tender.budget}
+   444→                </p>
+   445→              </div>
+   446→              <div className="space-y-1">
+   447→                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deadline</p>
+   448→                <p className="text-sm font-semibold flex items-center gap-1.5">
+   449→                  <CalendarDays className={`size-4 ${isDeadlinePast(tender.deadline) ? 'text-red-500' : isDeadlineSoon(tender.deadline) ? 'text-amber-500' : 'text-emerald-600'}`} />
+   450→                  {formatDate(tender.deadline)}
+   451→                </p>
+   452→              </div>
+   453→              <div className="space-y-1">
+   454→                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Location</p>
+   455→                <p className="text-sm font-semibold flex items-center gap-1.5">
+   456→                  <MapPin className="size-4 text-emerald-600" />
+   457→                  {tender.location || 'Not specified'}
+   458→                </p>
+   459→              </div>
+   460→              <div className="space-y-1">
+   461→                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Published</p>
+   462→                <p className="text-sm font-semibold">
+   463→                  {formatDate(tender.createdAt)}
+   464→                </p>
+   465→              </div>
+   466→              <div className="space-y-1">
+   467→                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Bids</p>
+   468→                <p className="text-sm font-semibold flex items-center gap-1.5">
+   469→                  <Users className="size-4 text-emerald-600" />
+   470→                  {tender.bidCount} {tender.bidCount === 1 ? 'bid' : 'bids'}
+   471→                </p>
+   472→              </div>
+   473→            </div>
+   474→
+   475→            <Separator />
+   476→
+   477→            {/* Description Section */}
+   478→            <div className="space-y-3">
+   479→              <h3 className="text-sm font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+   480→                Description
+   481→              </h3>
+   482→              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+   483→                {tender.description}
+   484→              </p>
+   485→            </div>
+   486→
+   487→            <Separator />
+   488→
+   489→            {/* Requirements Section - KEY FEATURE */}
+   490→            <div className="space-y-3">
+   491→              <h3 className="text-sm font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+   492→                Requirements
+   493→              </h3>
+   494→              {requirements.length > 0 ? (
+   495→                <ul className="space-y-2.5">
+   496→                  {requirements.map((req, i) => (
+   497→                    <li
+   498→                      key={i}
+   499→                      className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30"
+   500→                    >
+   501→                      <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+   502→                      <span className="text-sm leading-relaxed">{req}</span>
+   503→                    </li>
+   504→                  ))}
+   505→                </ul>
+   506→              ) : (
+   507→                <p className="text-sm text-muted-foreground italic">No specific requirements listed.</p>
+   508→              )}
+   509→            </div>
+   510→          </div>
+   511→        </div>
+   512→
+   513→        {/* Dialog Footer */}
+   514→        <div className="border-t p-4 bg-muted/30">
+   515→          <DialogFooter>
+   516→            <Button variant="outline" onClick={() => onOpenChange(false)}>
+   517→              Close
+   518→            </Button>
+   519→            <Button
+   520→              onClick={handleExportPdf}
+   521→              disabled={exporting}
+   522→              className="gradient-emerald border-0 text-white"
+   523→            >
+   524→              {exporting ? (
+   525→                <Loader2 className="size-4 animate-spin" />
+   526→              ) : (
+   527→                <Download className="size-4" />
+   528→              )}
+   529→              {exporting ? 'Exporting...' : 'Export PDF'}
+   530→            </Button>
+   531→          </DialogFooter>
+   532→        </div>
+   533→      </DialogContent>
+   534→    </Dialog>
+   535→  );
+   536→}
+   537→
+   538→// ─── Tender Card Component ──────────────────────────────────────────────────
+   539→
+   540→function TenderCard({
+   541→  tender,
+   542→  onView,
+   543→  onDelete,
+   544→  showDelete = false,
+   545→}: {
+   546→  tender: Tender;
+   547→  onView: (tender: Tender) => void;
+   548→  onDelete?: (id: string) => void;
+   549→  showDelete?: boolean;
+   550→}) {
+   551→  const requirements = parseRequirements(tender.requirements);
+   552→  const deadlinePast = isDeadlinePast(tender.deadline);
+   553→  const deadlineSoon = isDeadlineSoon(tender.deadline);
+   554→
+   555→  return (
+   556→    <Card className="group hover:shadow-lg transition-all duration-200 premium-shadow overflow-hidden">
+   557→      <CardHeader className="pb-3">
+   558→        <div className="flex items-start justify-between gap-2">
+   559→          <CardTitle className="text-base leading-snug line-clamp-2 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
+   560→            {tender.title}
+   561→          </CardTitle>
+   562→          <Badge
+   563→            variant="secondary"
+   564→            className={`shrink-0 text-[11px] ${STATUS_COLORS[tender.status] || ''}`}
+   565→          >
+   566→            {tender.status}
+   567→          </Badge>
+   568→        </div>
+   569→        <CardDescription className="flex items-center gap-1.5">
+   570→          <Building2 className="size-3.5" />
+   571→          {tender.organization}
+   572→        </CardDescription>
+   573→      </CardHeader>
+   574→      <CardContent className="pb-3 space-y-3">
+   575→        <div className="flex flex-wrap gap-1.5">
+   576→          <Badge variant="outline" className="text-[11px]">
+   577→            <Briefcase className="size-3" />
+   578→            {tender.category}
+   579→          </Badge>
+   580→          <Badge variant="outline" className="text-[11px]">
+   581→            <MapPin className="size-3" />
+   582→            {tender.location || 'N/A'}
+   583→          </Badge>
+   584→          <Badge variant="outline" className="text-[11px]">
+   585→            <Users className="size-3" />
+   586→            {tender.bidCount} bids
+   587→          </Badge>
+   588→        </div>
+   589→        <div className="flex items-center justify-between text-sm">
+   590→          <span className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+   591→            <DollarSign className="size-3.5" />
+   592→            {tender.budget}
+   593→          </span>
+   594→          <span
+   595→            className={`text-xs flex items-center gap-1 ${
+   596→              deadlinePast
+   597→                ? 'text-red-500'
+   598→                : deadlineSoon
+   599→                  ? 'text-amber-600'
+   600→                  : 'text-muted-foreground'
+   601→            }`}
+   602→          >
+   603→            <CalendarDays className="size-3" />
+   604→            {formatDate(tender.deadline)}
+   605→          </span>
+   606→        </div>
+   607→        {requirements.length > 0 && (
+   608→          <p className="text-xs text-muted-foreground">
+   609→            {requirements.length} requirement{requirements.length !== 1 ? 's' : ''}
+   610→          </p>
+   611→        )}
+   612→      </CardContent>
+   613→      <CardFooter className="gap-2 pt-0">
+   614→        <Button
+   615→          size="sm"
+   616→          variant="outline"
+   617→          className="flex-1"
+   618→          onClick={() => onView(tender)}
+   619→        >
+   620→          <Eye className="size-3.5" />
+   621→          View
+   622→        </Button>
+   623→        {showDelete && onDelete && (
+   624→          <Button
+   625→            size="sm"
+   626→            variant="destructive"
+   627→            onClick={() => onDelete(tender.id)}
+   628→          >
+   629→            <Trash2 className="size-3.5" />
+   630→          </Button>
+   631→        )}
+   632→      </CardFooter>
+   633→    </Card>
+   634→  );
+   635→}
+   636→
+   637→// ─── Dashboard Tab ───────────────────────────────────────────────────────────
+   638→
+   639→function DashboardTab({
+   640→  tenders,
+   641→  myTenders,
+   642→  onView,
+   643→}: {
+   644→  tenders: Tender[];
+   645→  myTenders: Tender[];
+   646→  onView: (tender: Tender) => void;
+   647→}) {
+   648→  const openTenders = tenders.filter((t) => t.status === 'open');
+   649→  const categories = [...new Set(tenders.map((t) => t.category))];
+   650→
+   651→  const stats = [
+   652→    {
+   653→      label: 'Total Tenders',
+   654→      value: tenders.length,
+   655→      icon: FileText,
+   656→      gradient: 'gradient-emerald',
+   657→      textClass: 'text-white',
+   658→    },
+   659→    {
+   660→      label: 'Open Tenders',
+   661→      value: openTenders.length,
+   662→      icon: FolderOpen,
+   663→      gradient: 'gradient-teal',
+   664→      textClass: 'text-white',
+   665→    },
+   666→    {
+   667→      label: 'My Tenders',
+   668→      value: myTenders.length,
+   669→      icon: FileBadge,
+   670→      gradient: 'gradient-amber',
+   671→      textClass: 'text-white',
+   672→    },
+   673→    {
+   674→      label: 'Categories',
+   675→      value: categories.length,
+   676→      icon: TrendingUp,
+   677→      gradient: 'gradient-slate',
+   678→      textClass: 'text-white',
+   679→    },
+   680→  ];
+   681→
+   682→  const recentTenders = [...tenders]
+   683→    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+   684→    .slice(0, 5);
+   685→
+   686→  return (
+   687→    <div className="space-y-6 view-enter">
+   688→      {/* Stats Cards */}
+   689→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   690→        {stats.map((stat) => (
+   691→          <Card key={stat.label} className="overflow-hidden border-0 premium-shadow">
+   692→            <CardContent className="p-0">
+   693→              <div className={`${stat.gradient} p-4 flex items-center gap-3`}>
+   694→                <div className="bg-white/20 rounded-lg p-2">
+   695→                  <stat.icon className={`size-5 ${stat.textClass}`} />
+   696→                </div>
+   697→                <div>
+   698→                  <p className="text-2xl font-bold text-white">{stat.value}</p>
+   699→                  <p className="text-xs text-white/80">{stat.label}</p>
+   700→                </div>
+   701→              </div>
+   702→            </CardContent>
+   703→          </Card>
+   704→        ))}
+   705→      </div>
+   706→
+   707→      {/* Recent Tenders */}
+   708→      <Card className="border-0 premium-shadow">
+   709→        <CardHeader>
+   710→          <CardTitle className="text-lg">Recent Tenders</CardTitle>
+   711→          <CardDescription>Latest opportunities in the ecosystem</CardDescription>
+   712→        </CardHeader>
+   713→        <CardContent>
+   714→          {recentTenders.length === 0 ? (
+   715→            <p className="text-sm text-muted-foreground text-center py-8">
+   716→              No tenders found. Create your first tender!
+   717→            </p>
+   718→          ) : (
+   719→            <div className="space-y-3">
+   720→              {recentTenders.map((tender) => (
+   721→                <div
+   722→                  key={tender.id}
+   723→                  className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+   724→                  onClick={() => onView(tender)}
+   725→                >
+   726→                  <div className="flex-1 min-w-0">
+   727→                    <p className="text-sm font-medium truncate">{tender.title}</p>
+   728→                    <p className="text-xs text-muted-foreground">
+   729→                      {tender.organization} · {tender.category} · {formatDate(tender.deadline)}
+   730→                    </p>
+   731→                  </div>
+   732→                  <div className="flex items-center gap-2 shrink-0 ml-4">
+   733→                    <Badge
+   734→                      variant="secondary"
+   735→                      className={`text-[11px] ${STATUS_COLORS[tender.status] || ''}`}
+   736→                    >
+   737→                      {tender.status}
+   738→                    </Badge>
+   739→                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+   740→                      {tender.budget}
+   741→                    </span>
+   742→                  </div>
+   743→                </div>
+   744→              ))}
+   745→            </div>
+   746→          )}
+   747→        </CardContent>
+   748→      </Card>
+   749→    </div>
+   750→  );
+   751→}
+   752→
+   753→// ─── Browse Tenders Tab ──────────────────────────────────────────────────────
+   754→
+   755→function BrowseTendersTab({
+   756→  tenders,
+   757→  onView,
+   758→  loading,
+   759→}: {
+   760→  tenders: Tender[];
+   761→  onView: (tender: Tender) => void;
+   762→  loading: boolean;
+   763→}) {
+   764→  const [search, setSearch] = useState('');
+   765→  const [category, setCategory] = useState('all');
+   766→  const [status, setStatus] = useState('all');
+   767→
+   768→  const filtered = tenders.filter((t) => {
+   769→    const matchesSearch =
+   770→      !search ||
+   771→      t.title.toLowerCase().includes(search.toLowerCase()) ||
+   772→      t.organization.toLowerCase().includes(search.toLowerCase());
+   773→    const matchesCategory = category === 'all' || t.category === category;
+   774→    const matchesStatus = status === 'all' || t.status === status;
+   775→    return matchesSearch && matchesCategory && matchesStatus;
+   776→  });
+   777→
+   778→  return (
+   779→    <div className="space-y-6 view-enter">
+   780→      {/* Search & Filter Bar */}
+   781→      <Card className="border-0 premium-shadow">
+   782→        <CardContent className="p-4">
+   783→          <div className="flex flex-col sm:flex-row gap-3">
+   784→            <div className="relative flex-1">
+   785→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   786→              <Input
+   787→                placeholder="Search tenders..."
+   788→                value={search}
+   789→                onChange={(e) => setSearch(e.target.value)}
+   790→                className="pl-9"
+   791→              />
+   792→            </div>
+   793→            <Select value={category} onValueChange={setCategory}>
+   794→              <SelectTrigger className="w-full sm:w-[160px]">
+   795→                <SelectValue placeholder="Category" />
+   796→              </SelectTrigger>
+   797→              <SelectContent>
+   798→                <SelectItem value="all">All Categories</SelectItem>
+   799→                {CATEGORIES.map((cat) => (
+   800→                  <SelectItem key={cat} value={cat}>
+   801→                    {cat}
+   802→                  </SelectItem>
+   803→                ))}
+   804→              </SelectContent>
+   805→            </Select>
+   806→            <Select value={status} onValueChange={setStatus}>
+   807→              <SelectTrigger className="w-full sm:w-[130px]">
+   808→                <SelectValue placeholder="Status" />
+   809→              </SelectTrigger>
+   810→              <SelectContent>
+   811→                <SelectItem value="all">All Status</SelectItem>
+   812→                <SelectItem value="open">Open</SelectItem>
+   813→                <SelectItem value="closed">Closed</SelectItem>
+   814→                <SelectItem value="awarded">Awarded</SelectItem>
+   815→              </SelectContent>
+   816→            </Select>
+   817→          </div>
+   818→        </CardContent>
+   819→      </Card>
+   820→
+   821→      {/* Results */}
+   822→      {loading ? (
+   823→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   824→          {[1, 2, 3, 4, 5, 6].map((i) => (
+   825→            <Card key={i} className="border-0 premium-shadow">
+   826→              <CardHeader>
+   827→                <Skeleton className="h-5 w-3/4" />
+   828→                <Skeleton className="h-4 w-1/2" />
+   829→              </CardHeader>
+   830→              <CardContent className="space-y-3">
+   831→                <Skeleton className="h-4 w-full" />
+   832→                <Skeleton className="h-4 w-2/3" />
+   833→              </CardContent>
+   834→            </Card>
+   835→          ))}
+   836→        </div>
+   837→      ) : filtered.length === 0 ? (
+   838→        <Card className="border-0 premium-shadow">
+   839→          <CardContent className="py-12 text-center">
+   840→            <Search className="size-12 mx-auto text-muted-foreground/50 mb-4" />
+   841→            <p className="text-muted-foreground">No tenders found matching your criteria</p>
+   842→          </CardContent>
+   843→        </Card>
+   844→      ) : (
+   845→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   846→          {filtered.map((tender) => (
+   847→            <TenderCard key={tender.id} tender={tender} onView={onView} />
+   848→          ))}
+   849→        </div>
+   850→      )}
+   851→    </div>
+   852→  );
+   853→}
+   854→
+   855→// ─── My Tenders Tab ──────────────────────────────────────────────────────────
+   856→
+   857→function MyTendersTab({
+   858→  tenders,
+   859→  onView,
+   860→  onDelete,
+   861→  loading,
+   862→}: {
+   863→  tenders: Tender[];
+   864→  onView: (tender: Tender) => void;
+   865→  onDelete: (id: string) => void;
+   866→  loading: boolean;
+   867→}) {
+   868→  if (loading) {
+   869→    return (
+   870→      <div className="space-y-4 view-enter">
+   871→        {[1, 2, 3].map((i) => (
+   872→          <Card key={i} className="border-0 premium-shadow">
+   873→            <CardContent className="p-4">
+   874→              <Skeleton className="h-5 w-3/4 mb-2" />
+   875→              <Skeleton className="h-4 w-1/2" />
+   876→            </CardContent>
+   877→          </Card>
+   878→        ))}
+   879→      </div>
+   880→    );
+   881→  }
+   882→
+   883→  return (
+   884→    <div className="space-y-4 view-enter">
+   885→      {tenders.length === 0 ? (
+   886→        <Card className="border-0 premium-shadow">
+   887→          <CardContent className="py-12 text-center">
+   888→            <FileText className="size-12 mx-auto text-muted-foreground/50 mb-4" />
+   889→            <p className="text-muted-foreground mb-2">You haven&apos;t created any tenders yet</p>
+   890→            <p className="text-sm text-muted-foreground">
+   891→              Go to the Create Tender tab to publish your first tender
+   892→            </p>
+   893→          </CardContent>
+   894→        </Card>
+   895→      ) : (
+   896→        tenders.map((tender) => (
+   897→          <TenderCard
+   898→            key={tender.id}
+   899→            tender={tender}
+   900→            onView={onView}
+   901→            onDelete={onDelete}
+   902→            showDelete
+   903→          />
+   904→        ))
+   905→      )}
+   906→    </div>
+   907→  );
+   908→}
+   909→
+   910→// ─── Create Tender Tab ───────────────────────────────────────────────────────
+   911→
+   912→function CreateTenderTab({ onCreated }: { onCreated: () => void }) {
+   913→  const [loading, setLoading] = useState(false);
+   914→  const [title, setTitle] = useState('');
+   915→  const [organization, setOrganization] = useState('');
+   916→  const [category, setCategory] = useState('');
+   917→  const [deadline, setDeadline] = useState('');
+   918→  const [budget, setBudget] = useState('');
+   919→  const [location, setLocation] = useState('');
+   920→  const [description, setDescription] = useState('');
+   921→  const [requirements, setRequirements] = useState<string[]>(['']);
+   922→  const [error, setError] = useState('');
+   923→
+   924→  const addRequirement = () => setRequirements([...requirements, '']);
+   925→
+   926→  const removeRequirement = (index: number) => {
+   927→    if (requirements.length <= 1) return;
+   928→    setRequirements(requirements.filter((_, i) => i !== index));
+   929→  };
+   930→
+   931→  const updateRequirement = (index: number, value: string) => {
+   932→    const updated = [...requirements];
+   933→    updated[index] = value;
+   934→    setRequirements(updated);
+   935→  };
+   936→
+   937→  const handleSubmit = async (e: React.FormEvent) => {
+   938→    e.preventDefault();
+   939→    setError('');
+   940→
+   941→    if (!title || !organization || !category || !deadline || !budget || !description) {
+   942→      setError('Please fill in all required fields');
+   943→      return;
+   944→    }
+   945→
+   946→    const filteredReqs = requirements.filter((r) => r.trim() !== '');
+   947→
+   948→    setLoading(true);
+   949→    try {
+   950→      await apiFetch('/api/tenders', {
+   951→        method: 'POST',
+   952→        body: JSON.stringify({
+   953→          title,
+   954→          organization,
+   955→          category,
+   956→          deadline,
+   957→          budget,
+   958→          description,
+   959→          requirements: filteredReqs,
+   960→          location,
+   961→        }),
+   962→      });
+   963→      toast.success('Tender created successfully!');
+   964→      setTitle('');
+   965→      setOrganization('');
+   966→      setCategory('');
+   967→      setDeadline('');
+   968→      setBudget('');
+   969→      setLocation('');
+   970→      setDescription('');
+   971→      setRequirements(['']);
+   972→      onCreated();
+   973→    } catch (err) {
+   974→      setError(err instanceof Error ? err.message : 'Failed to create tender');
+   975→    } finally {
+   976→      setLoading(false);
+   977→    }
+   978→  };
+   979→
+   980→  return (
+   981→    <div className="view-enter">
+   982→      <Card className="border-0 premium-shadow">
+   983→        <CardHeader>
+   984→          <CardTitle className="text-lg">Publish New Tender</CardTitle>
+   985→          <CardDescription>Fill in the details to create a new tender opportunity</CardDescription>
+   986→        </CardHeader>
+   987→        <CardContent>
+   988→          {error && (
+   989→            <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center gap-2">
+   990→              <X className="size-4 shrink-0" />
+   991→              {error}
+   992→            </div>
+   993→          )}
+   994→
+   995→          <form onSubmit={handleSubmit} className="space-y-5">
+   996→            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   997→              <div className="space-y-2">
+   998→                <Label htmlFor="title">Title *</Label>
+   999→                <Input
+  1000→                  id="title"
+  1001→                  placeholder="e.g., School Building Construction"
+  1002→                  value={title}
+  1003→                  onChange={(e) => setTitle(e.target.value)}
+  1004→                  required
+  1005→                  disabled={loading}
+  1006→                />
+  1007→              </div>
+  1008→              <div className="space-y-2">
+  1009→                <Label htmlFor="organization">Organization *</Label>
+  1010→                <Input
+  1011→                  id="organization"
+  1012→                  placeholder="e.g., Ministry of Education"
+  1013→                  value={organization}
+  1014→                  onChange={(e) => setOrganization(e.target.value)}
+  1015→                  required
+  1016→                  disabled={loading}
+  1017→                />
+  1018→              </div>
+  1019→            </div>
+  1020→
+  1021→            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  1022→              <div className="space-y-2">
+  1023→                <Label>Category *</Label>
+  1024→                <Select value={category} onValueChange={setCategory} disabled={loading}>
+  1025→                  <SelectTrigger className="w-full">
+  1026→                    <SelectValue placeholder="Select category" />
+  1027→                  </SelectTrigger>
+  1028→                  <SelectContent>
+  1029→                    {CATEGORIES.map((cat) => (
+  1030→                      <SelectItem key={cat} value={cat}>
+  1031→                        {cat}
+  1032→                      </SelectItem>
+  1033→                    ))}
+  1034→                  </SelectContent>
+  1035→                </Select>
+  1036→              </div>
+  1037→              <div className="space-y-2">
+  1038→                <Label htmlFor="deadline">Deadline *</Label>
+  1039→                <Input
+  1040→                  id="deadline"
+  1041→                  type="date"
+  1042→                  value={deadline}
+  1043→                  onChange={(e) => setDeadline(e.target.value)}
+  1044→                  required
+  1045→                  disabled={loading}
+  1046→                />
+  1047→              </div>
+  1048→              <div className="space-y-2">
+  1049→                <Label htmlFor="budget">Budget *</Label>
+  1050→                <Input
+  1051→                  id="budget"
+  1052→                  placeholder="e.g., ETB 5,000,000"
+  1053→                  value={budget}
+  1054→                  onChange={(e) => setBudget(e.target.value)}
+  1055→                  required
+  1056→                  disabled={loading}
+  1057→                />
+  1058→              </div>
+  1059→            </div>
+  1060→
+  1061→            <div className="space-y-2">
+  1062→              <Label htmlFor="location">Location</Label>
+  1063→              <Input
+  1064→                id="location"
+  1065→                placeholder="e.g., Addis Ababa"
+  1066→                value={location}
+  1067→                onChange={(e) => setLocation(e.target.value)}
+  1068→                disabled={loading}
+  1069→              />
+  1070→            </div>
+  1071→
+  1072→            <div className="space-y-2">
+  1073→              <Label htmlFor="description">Description *</Label>
+  1074→              <Textarea
+  1075→                id="description"
+  1076→                placeholder="Provide a detailed description of the tender..."
+  1077→                value={description}
+  1078→                onChange={(e) => setDescription(e.target.value)}
+  1079→                rows={4}
+  1080→                required
+  1081→                disabled={loading}
+  1082→              />
+  1083→            </div>
+  1084→
+  1085→            {/* Dynamic Requirements List */}
+  1086→            <div className="space-y-3">
+  1087→              <div className="flex items-center justify-between">
+  1088→                <Label>Requirements</Label>
+  1089→                <Button
+  1090→                  type="button"
+  1091→                  variant="outline"
+  1092→                  size="sm"
+  1093→                  onClick={addRequirement}
+  1094→                  disabled={loading}
+  1095→                >
+  1096→                  <PlusCircle className="size-3.5" />
+  1097→                  Add Requirement
+  1098→                </Button>
+  1099→              </div>
+  1100→              <div className="space-y-2">
+  1101→                {requirements.map((req, i) => (
+  1102→                  <div key={i} className="flex gap-2">
+  1103→                    <Input
+  1104→                      placeholder={`Requirement ${i + 1}`}
+  1105→                      value={req}
+  1106→                      onChange={(e) => updateRequirement(i, e.target.value)}
+  1107→                      disabled={loading}
+  1108→                    />
+  1109→                    {requirements.length > 1 && (
+  1110→                      <Button
+  1111→                        type="button"
+  1112→                        variant="ghost"
+  1113→                        size="icon"
+  1114→                        onClick={() => removeRequirement(i)}
+  1115→                        disabled={loading}
+  1116→                        className="shrink-0 text-destructive hover:text-destructive"
+  1117→                      >
+  1118→                        <X className="size-4" />
+  1119→                      </Button>
+  1120→                    )}
+  1121→                  </div>
+  1122→                ))}
+  1123→              </div>
+  1124→            </div>
+  1125→
+  1126→            <Button
+  1127→              type="submit"
+  1128→              className="w-full gradient-emerald border-0 text-white"
+  1129→              disabled={loading}
+  1130→              size="lg"
+  1131→            >
+  1132→              {loading && <Loader2 className="size-4 animate-spin" />}
+  1133→              {loading ? 'Creating Tender...' : 'Publish Tender'}
+  1134→            </Button>
+  1135→          </form>
+  1136→        </CardContent>
+  1137→      </Card>
+  1138→    </div>
+  1139→  );
+  1140→}
+  1141→
+  1142→// ─── Main Page ───────────────────────────────────────────────────────────────
+  1143→
+  1144→export default function Home() {
+  1145→  const [user, setUser] = useState<User | null>(null);
+  1146→  const [authLoading, setAuthLoading] = useState(true);
+  1147→  const [tenders, setTenders] = useState<Tender[]>([]);
+  1148→  const [myTenders, setMyTenders] = useState<Tender[]>([]);
+  1149→  const [tendersLoading, setTendersLoading] = useState(false);
+  1150→  const [activeTab, setActiveTab] = useState('dashboard');
+  1151→  const [reviewTender, setReviewTender] = useState<Tender | null>(null);
+  1152→  const [reviewOpen, setReviewOpen] = useState(false);
+  1153→  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  1154→
+  1155→  // Check auth on mount
+  1156→  useEffect(() => {
+  1157→    (async () => {
+  1158→      try {
+  1159→        const data = await apiFetch<{ user: User }>('/api/auth/me');
+  1160→        setUser(data.user);
+  1161→      } catch {
+  1162→        setUser(null);
+  1163→      } finally {
+  1164→        setAuthLoading(false);
+  1165→      }
+  1166→    })();
+  1167→  }, []);
+  1168→
+  1169→  // Fetch tenders when user logs in
+  1170→  const fetchTenders = useCallback(async () => {
+  1171→    if (!user) return;
+  1172→    setTendersLoading(true);
+  1173→    try {
+  1174→      const [allData, mineData] = await Promise.all([
+  1175→        apiFetch<{ tenders: Tender[] }>('/api/tenders?status=all&category=all'),
+  1176→        apiFetch<{ tenders: Tender[] }>('/api/tenders?mine=true&status=all'),
+  1177→      ]);
+  1178→      setTenders(allData.tenders);
+  1179→      setMyTenders(mineData.tenders);
+  1180→    } catch {
+  1181→      toast.error('Failed to load tenders');
+  1182→    } finally {
+  1183→      setTendersLoading(false);
+  1184→    }
+  1185→  }, [user]);
+  1186→
+  1187→  useEffect(() => {
+  1188→    fetchTenders();
+  1189→  }, [fetchTenders]);
+  1190→
+  1191→  const handleAuth = (u: User) => {
+  1192→    setUser(u);
+  1193→  };
+  1194→
+  1195→  const handleLogout = async () => {
+  1196→    try {
+  1197→      await apiFetch('/api/auth/logout', { method: 'POST' });
+  1198→      setUser(null);
+  1199→      setTenders([]);
+  1200→      setMyTenders([]);
+  1201→      toast.success('Logged out successfully');
+  1202→    } catch {
+  1203→      toast.error('Logout failed');
+  1204→    }
+  1205→  };
+  1206→
+  1207→  const handleDeleteTender = async (id: string) => {
+  1208→    try {
+  1209→      await apiFetch(`/api/tenders/${id}`, { method: 'DELETE' });
+  1210→      toast.success('Tender deleted');
+  1211→      fetchTenders();
+  1212→    } catch {
+  1213→      toast.error('Failed to delete tender');
+  1214→    }
+  1215→  };
+  1216→
+  1217→  const handleViewTender = (tender: Tender) => {
+  1218→    setReviewTender(tender);
+  1219→    setReviewOpen(true);
+  1220→  };
+  1221→
+  1222→  // Auth loading state
+  1223→  if (authLoading) {
+  1224→    return (
+  1225→      <div className="min-h-screen flex items-center justify-center">
+  1226→        <div className="text-center space-y-4">
+  1227→          <div className="gradient-emerald rounded-xl p-3 inline-block shadow-lg">
+  1228→            <FileBadge className="size-8 text-white" />
+  1229→          </div>
+  1230→          <div className="flex items-center gap-2 justify-center">
+  1231→            <Loader2 className="size-5 animate-spin text-emerald-600" />
+  1232→            <span className="text-muted-foreground">Loading...</span>
+  1233→          </div>
+  1234→        </div>
+  1235→      </div>
+  1236→    );
+  1237→  }
+  1238→
+  1239→  // Auth gate
+  1240→  if (!user) {
+  1241→    return <AuthGate onAuth={handleAuth} />;
+  1242→  }
+  1243→
+  1244→  // Portal
+  1245→  return (
+  1246→    <div className="min-h-screen flex flex-col bg-background">
+  1247→      {/* Header */}
+  1248→      <header className="sticky top-0 z-40 glass border-b">
+  1249→        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+  1250→          <div className="flex items-center gap-2">
+  1251→            <div className="gradient-emerald rounded-lg p-1.5">
+  1252→              <FileBadge className="size-5 text-white" />
+  1253→            </div>
+  1254→            <h1 className="text-xl font-bold text-gradient-emerald hidden sm:block">Tenets</h1>
+  1255→          </div>
+  1256→
+  1257→          <div className="flex items-center gap-3">
+  1258→            {/* Mobile menu toggle */}
+  1259→            <Button
+  1260→              variant="ghost"
+  1261→              size="icon"
+  1262→              className="sm:hidden"
+  1263→              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+  1264→            >
+  1265→              <Menu className="size-5" />
+  1266→            </Button>
+  1267→
+  1268→            <DropdownMenu>
+  1269→              <DropdownMenuTrigger asChild>
+  1270→                <Button variant="ghost" className="flex items-center gap-2 px-2">
+  1271→                  <Avatar className="size-8">
+  1272→                    <AvatarFallback className="gradient-emerald text-white text-xs">
+  1273→                      {user.name
+  1274→                        .split(' ')
+  1275→                        .map((n) => n[0])
+  1276→                        .join('')
+  1277→                        .toUpperCase()
+  1278→                        .slice(0, 2)}
+  1279→                    </AvatarFallback>
+  1280→                  </Avatar>
+  1281→                  <div className="hidden sm:block text-left">
+  1282→                    <p className="text-sm font-medium leading-tight">{user.name}</p>
+  1283→                    <p className="text-[11px] text-muted-foreground capitalize">{user.role}</p>
+  1284→                  </div>
+  1285→                  <ChevronDown className="size-4 text-muted-foreground" />
+  1286→                </Button>
+  1287→              </DropdownMenuTrigger>
+  1288→              <DropdownMenuContent align="end" className="w-56">
+  1289→                <DropdownMenuLabel>
+  1290→                  <div>
+  1291→                    <p className="font-medium">{user.name}</p>
+  1292→                    <p className="text-xs text-muted-foreground">{user.email}</p>
+  1293→                    {user.company && (
+  1294→                      <p className="text-xs text-muted-foreground">{user.company}</p>
+  1295→                    )}
+  1296→                  </div>
+  1297→                </DropdownMenuLabel>
+  1298→                <DropdownMenuSeparator />
+  1299→                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+  1300→                  <LogOut className="size-4" />
+  1301→                  Sign Out
+  1302→                </DropdownMenuItem>
+  1303→              </DropdownMenuContent>
+  1304→            </DropdownMenu>
+  1305→          </div>
+  1306→        </div>
+  1307→      </header>
+  1308→
+  1309→      {/* Main Content */}
+  1310→      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+  1311→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+  1312→          {/* Desktop Tab Navigation */}
+  1313→          <div className="hidden sm:block mb-6">
+  1314→            <TabsList className="w-full sm:w-auto">
+  1315→              <TabsTrigger value="dashboard">
+  1316→                <LayoutDashboard className="size-4" />
+  1317→                Dashboard
+  1318→              </TabsTrigger>
+  1319→              <TabsTrigger value="browse">
+  1320→                <Search className="size-4" />
+  1321→                Browse
+  1322→              </TabsTrigger>
+  1323→              <TabsTrigger value="my-tenders">
+  1324→                <FileText className="size-4" />
+  1325→                My Tenders
+  1326→              </TabsTrigger>
+  1327→              <TabsTrigger value="create">
+  1328→                <Plus className="size-4" />
+  1329→                Create
+  1330→              </TabsTrigger>
+  1331→            </TabsList>
+  1332→          </div>
+  1333→
+  1334→          {/* Mobile Tab Navigation */}
+  1335→          {mobileMenuOpen && (
+  1336→            <div className="sm:hidden mb-4 view-enter">
+  1337→              <TabsList className="w-full grid grid-cols-4">
+  1338→                <TabsTrigger value="dashboard" onClick={() => setMobileMenuOpen(false)}>
+  1339→                  <LayoutDashboard className="size-4" />
+  1340→                </TabsTrigger>
+  1341→                <TabsTrigger value="browse" onClick={() => setMobileMenuOpen(false)}>
+  1342→                  <Search className="size-4" />
+  1343→                </TabsTrigger>
+  1344→                <TabsTrigger value="my-tenders" onClick={() => setMobileMenuOpen(false)}>
+  1345→                  <FileText className="size-4" />
+  1346→                </TabsTrigger>
+  1347→                <TabsTrigger value="create" onClick={() => setMobileMenuOpen(false)}>
+  1348→                  <Plus className="size-4" />
+  1349→                </TabsTrigger>
+  1350→              </TabsList>
+  1351→            </div>
+  1352→          )}
+  1353→
+  1354→          {/* Mobile active tab label */}
+  1355→          <div className="sm:hidden mb-4">
+  1356→            <TabsList className="hidden">
+  1357→              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+  1358→            </TabsList>
+  1359→            <p className="text-sm font-medium text-muted-foreground">
+  1360→              {activeTab === 'dashboard' && 'Dashboard'}
+  1361→              {activeTab === 'browse' && 'Browse Tenders'}
+  1362→              {activeTab === 'my-tenders' && 'My Tenders'}
+  1363→              {activeTab === 'create' && 'Create Tender'}
+  1364→            </p>
+  1365→          </div>
+  1366→
+  1367→          <TabsContent value="dashboard">
+  1368→            <DashboardTab tenders={tenders} myTenders={myTenders} onView={handleViewTender} />
+  1369→          </TabsContent>
+  1370→
+  1371→          <TabsContent value="browse">
+  1372→            <BrowseTendersTab tenders={tenders} onView={handleViewTender} loading={tendersLoading} />
+  1373→          </TabsContent>
+  1374→
+  1375→          <TabsContent value="my-tenders">
+  1376→            <MyTendersTab tenders={myTenders} onView={handleViewTender} onDelete={handleDeleteTender} loading={tendersLoading} />
+  1377→          </TabsContent>
+  1378→
+  1379→          <TabsContent value="create">
+  1380→            <CreateTenderTab onCreated={fetchTenders} />
+  1381→          </TabsContent>
+  1382→        </Tabs>
+  1383→      </main>
+  1384→
+  1385→      {/* Tender Review Dialog */}
+  1386→      <TenderReviewDialog
+  1387→        tender={reviewTender}
+  1388→        open={reviewOpen}
+  1389→        onOpenChange={setReviewOpen}
+  1390→      />
+  1391→
+  1392→      {/* Sticky Footer */}
+  1393→      <footer className="mt-auto border-t bg-card/50 backdrop-blur-sm">
+  1394→        <div className="max-w-7xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground">
+  1395→          &copy; {new Date().getFullYear()} Tenets &mdash; Transforming procurement through technology
+  1396→        </div>
+  1397→      </footer>
+  1398→    </div>
+  1399→  );
+  1400→}
+  1401→
