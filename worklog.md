@@ -261,3 +261,31 @@ Stage Summary:
 - Page split into 4 component files for better compilation performance
 - Key features preserved: Requirements display in review dialog, Export PDF button
 - Watchdog ensures server auto-restarts if it dies
+
+---
+Task ID: 9
+Agent: Main Agent
+Task: Fix preview not working - server keeps dying
+
+Work Log:
+- Diagnosed root cause: Next.js dev server process was being killed when the Bash tool call completed (background processes get cleaned up)
+- Discovered that using double-fork technique `( nohup node ... & )` keeps the process alive across Bash tool calls
+- Fixed start-dev.sh: changed from `npx next dev -p 3000` to `node node_modules/.bin/next dev -p 3000 -H 0.0.0.0` for proper binding
+- Added `-H 0.0.0.0` flag so the Caddy gateway can proxy to the Next.js server
+- Reduced memory from 512MB to 384MB (--max-old-space-size=384) to reduce memory pressure
+- Verified full app functionality via agent browser:
+  - Sign In / Register flow works
+  - Dashboard with stats and recent tenders
+  - Browse tenders with search/filter
+  - My Tenders tab
+  - Create Tender form with dynamic requirements
+  - Tender Review Dialog with description and requirements
+  - Export PDF button
+- All API routes return proper responses (200/201/401)
+- Lint passes clean (0 errors, 2 warnings)
+
+Stage Summary:
+- Server stability fixed by using double-fork background process technique
+- start-dev.sh updated with proper flags (-H 0.0.0.0 for Caddy compatibility)
+- Full end-to-end verification passed via agent browser
+- App is fully functional: auth, CRUD tenders, review dialog, PDF export
