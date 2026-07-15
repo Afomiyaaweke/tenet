@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: 'assistant',
-          content: `You are a professional translator. Translate the following text to ${targetName}. Only output the translation — no explanations, no notes, no original text. Preserve formatting, lists, and structure.`,
+          content: `You are a professional translator. Translate the following text to ${targetName}. Only output the translation - no explanations, no notes, no original text. Preserve formatting, lists, and structure.`,
         },
         {
           role: 'user',

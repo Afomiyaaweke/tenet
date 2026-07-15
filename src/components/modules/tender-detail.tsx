@@ -234,7 +234,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
         setSubmittingBid(false);
         return;
       }
-      // Bid created — now show the upload area
+      // Bid created - now show the upload area
       setCreatedBidId(res.data.id);
       setSubmittingBid(false);
       toast.success('Bid record created! Now upload your documents.');
@@ -267,7 +267,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
       }
     } catch {
       setUploadProgress(prev => ({ ...prev, [key]: 'error' }));
-      toast.error('Upload failed — please try again');
+      toast.error('Upload failed - please try again');
     }
   }, [createdBidId]);
 
@@ -275,7 +275,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
 
   const handleCloseBidDialog = useCallback(() => {
     if (createdBidId) {
-      // Bid was already created — mark as submitted
+      // Bid was already created - mark as submitted
       setHasBid(true);
     }
     setShowBid(false);
@@ -468,7 +468,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                   </div>
                 </div>
 
-                {/* Requirements — always visible while viewing the tender */}
+                {/* Requirements - always visible while viewing the tender */}
                 <div className="rounded-xl border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-4 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -493,7 +493,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground italic">No specific documents listed — contact the tender owner for eligibility details.</p>
+                    <p className="text-xs text-muted-foreground italic">No specific documents listed - contact the tender owner for eligibility details.</p>
                   )}
                   <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1.5 border-t border-teal-200/50 dark:border-teal-900/30">
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -613,7 +613,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2 p-3 bg-rose-50/30 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800">
                                     <AlertCircle className="h-4 w-4 text-rose-500" />
-                                    <span className="text-xs text-rose-600">Upload failed — please try again</span>
+                                    <span className="text-xs text-rose-600">Upload failed - please try again</span>
                                   </div>
                                   <label className="cursor-pointer block">
                                     <Button variant="outline" size="sm" className="w-full rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs" asChild>
@@ -671,7 +671,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2 p-3 bg-rose-50/30 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800">
                                     <AlertCircle className="h-4 w-4 text-rose-500" />
-                                    <span className="text-xs text-rose-600">Upload failed — please try again</span>
+                                    <span className="text-xs text-rose-600">Upload failed - please try again</span>
                                   </div>
                                   <label className="cursor-pointer block">
                                     <Button variant="outline" size="sm" className="w-full rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 text-xs" asChild>
@@ -729,7 +729,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2 p-3 bg-rose-50/30 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800">
                                     <AlertCircle className="h-4 w-4 text-rose-500" />
-                                    <span className="text-xs text-rose-600">Upload failed — please try again</span>
+                                    <span className="text-xs text-rose-600">Upload failed - please try again</span>
                                   </div>
                                   <label className="cursor-pointer block">
                                     <Button variant="outline" size="sm" className="w-full rounded-lg border-sky-200 text-sky-700 hover:bg-sky-50 text-xs" asChild>
@@ -1013,7 +1013,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
               </Card>
             )}
 
-            {/* AI Requirements Analyzer — only for applicants */}
+            {/* AI Requirements Analyzer - only for applicants */}
             {isApplicant && tender.status === 'open' && (
               <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-orange-400 to-amber-400" />
@@ -1392,7 +1392,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">AI Tender Overview</h3>
-                  <p className="text-xs text-muted-foreground">Powered by Tenets AI — understand requirements &amp; prepare a winning bid</p>
+                  <p className="text-xs text-muted-foreground">Powered by Tenets AI - understand requirements &amp; prepare a winning bid</p>
                 </div>
               </div>
               <Button
@@ -1655,7 +1655,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">AI Bid Analysis</h3>
-                  <p className="text-xs text-muted-foreground">Powered by Tenets AI — rank, score, and evaluate bids automatically</p>
+                  <p className="text-xs text-muted-foreground">Powered by Tenets AI - rank, score, and evaluate bids automatically</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

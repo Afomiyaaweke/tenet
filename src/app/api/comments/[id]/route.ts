@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { requireTeamAdmin } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-// PATCH /api/comments/[id] — Toggle featured/approved status (requires admin role)
+// PATCH /api/comments/[id] - Toggle featured/approved status (requires admin role)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

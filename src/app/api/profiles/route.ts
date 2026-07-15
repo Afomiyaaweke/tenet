@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Build update data (companyId is NOT user-settable — prevents company reassignment attacks)
+    // Build update data (companyId is NOT user-settable - prevents company reassignment attacks)
     const updateData: Record<string, unknown> = {};
     if (fullName !== undefined) updateData.fullName = fullName;
     if (jobTitle !== undefined) updateData.jobTitle = jobTitle || null;

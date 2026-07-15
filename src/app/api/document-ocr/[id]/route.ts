@@ -121,7 +121,7 @@ export async function POST(
 
     try {
       // Read the file from the uploads directory
-      // fileUrl is like "/uploads/filename.ext" — actual file is at process.cwd() + fileUrl
+      // fileUrl is like "/uploads/filename.ext" - actual file is at process.cwd() + fileUrl
       const filePath = process.cwd() + doc.fileUrl;
       const fileBuffer = await readFile(filePath);
 
@@ -143,7 +143,7 @@ export async function POST(
         // Use z-ai-web-dev-sdk Vision API to extract text
         const zai = await ZAI.create();
 
-        // Always use image_url type — it supports data: URLs for both images and PDFs
+        // Always use image_url type - it supports data: URLs for both images and PDFs
         const contentItem = { type: 'image_url' as const, image_url: { url: dataUrl } };
 
         const response = await zai.chat.completions.createVision({

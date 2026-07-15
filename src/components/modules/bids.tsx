@@ -169,7 +169,7 @@ export function BidsView() {
     try {
       const res = await api.upload(`/bids/${bidId}/documents`, formData);
       if (res.success) {
-        toast.success('Document uploaded — OCR & AI Review started automatically');
+        toast.success('Document uploaded - OCR & AI Review started automatically');
         if (ref.current) ref.current.value = '';
         loadBids();
         // Start polling for the newly uploaded document
@@ -217,7 +217,7 @@ export function BidsView() {
           }
           setDocReview(prev => ({ ...prev, [docId]: reviewData as AIReviewData }));
           loadBids();
-          toast.success('AI Review completed — Document fully processed');
+          toast.success('AI Review completed - Document fully processed');
         } else if (pollRes.success && pollRes.data?.aiReviewStatus === 'failed') {
           setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
           toast.error('AI Review processing failed');
@@ -250,7 +250,7 @@ export function BidsView() {
         setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
         setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
         loadBids();
-        toast.success('OCR completed — Starting AI Review...');
+        toast.success('OCR completed - Starting AI Review...');
         // Auto-chain: trigger AI Review after OCR completes
         runReviewRef.current(docId);
       } else if (res.success && res.data?.ocrStatus === 'failed') {
@@ -288,7 +288,7 @@ export function BidsView() {
     try {
       const res = await api.upload(`/bids/${bidId}/documents`, formData);
       if (res.success) {
-        toast.success('Document dropped — OCR & AI Review started');
+        toast.success('Document dropped - OCR & AI Review started');
         loadBids();
         const newDocId = res.data?.id;
         if (newDocId) {
@@ -570,7 +570,7 @@ export function BidsView() {
                         {(st.budgetMin > 0 || st.budgetMax > 0) && (
                           <span className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3" />
-                            {st.currency || 'USD'} {st.budgetMin?.toLocaleString() || '—'} – {st.budgetMax?.toLocaleString() || '—'}
+                            {st.currency || 'USD'} {st.budgetMin?.toLocaleString() || '-'} – {st.budgetMax?.toLocaleString() || '-'}
                           </span>
                         )}
                         {st.location && (
@@ -989,7 +989,7 @@ export function BidsView() {
                                           Drag & drop external documents here
                                         </p>
                                         <p className="text-[10px] text-muted-foreground mb-3">
-                                          Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
+                                          Or click to browse - PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
                                         </p>
                                         <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
                                           <input
@@ -1027,11 +1027,11 @@ export function BidsView() {
                                       <div className="mb-3">
                                         <label className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
                                           <ExternalLink className="h-3 w-3" /> Submit URL
-                                          <span className="text-muted-foreground/50">(optional — external tender portal URL)</span>
+                                          <span className="text-muted-foreground/50">(optional - external tender portal URL)</span>
                                         </label>
                                         <Input
                                           type="url"
-                                          placeholder="https://tender-portal.example.com/submit"
+                                          placeholder="Enter external submission URL"
                                           className="h-7 text-xs rounded-lg border-violet-200 bg-white/60"
                                           value={submitUrlForBid[bid.id] || ''}
                                           onChange={(e) => setSubmitUrlForBid(prev => ({ ...prev, [bid.id]: e.target.value }))}
@@ -1043,7 +1043,7 @@ export function BidsView() {
                                       <div>
                                         <label className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
                                           <MessageSquare className="h-3 w-3" /> Review Prompt
-                                          <span className="text-muted-foreground/50">(optional — custom instructions for AI reviewer)</span>
+                                          <span className="text-muted-foreground/50">(optional - custom instructions for AI reviewer)</span>
                                         </label>
                                         <Textarea
                                           placeholder="E.g., Focus on compliance with Ethiopian procurement law and highlight any missing financial guarantees..."
@@ -1379,7 +1379,7 @@ export function BidsView() {
                                               <div className="p-3 bg-emerald-50/30 border border-emerald-100 rounded-lg">
                                                 <div className="flex items-center gap-1.5 mb-2">
                                                   <Sparkles className="h-3 w-3 text-emerald-600" />
-                                                  <p className="text-[10px] font-semibold text-emerald-700">AI Prompt Writer — Extract Information</p>
+                                                  <p className="text-[10px] font-semibold text-emerald-700">AI Prompt Writer - Extract Information</p>
                                                 </div>
                                                 <p className="text-[9px] text-muted-foreground mb-2">Ask AI to extract any kind of information from this document</p>
                                                 <div className="flex gap-2">

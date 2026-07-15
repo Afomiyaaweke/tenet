@@ -40,7 +40,7 @@ export default function Home() {
     return <LandingPage onGetStarted={() => {}} />;
   }
 
-  // Derive screen from token — when token appears, go to app
+  // Derive screen from token - when token appears, go to app
   const activeScreen: AppScreen = token ? 'app' : screen;
 
   if (isLoading && token) {

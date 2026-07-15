@@ -418,7 +418,7 @@ export function CommentSection() {
             <span className="text-xs font-semibold text-orange-700">Testimonials</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
-            💬 What Our Community Says
+            What Our Community Says
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Hear from users and team admins who are transforming their procurement workflow with Tenets.

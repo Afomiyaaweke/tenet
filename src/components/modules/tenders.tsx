@@ -760,7 +760,7 @@ export function TendersView() {
       const res = await api.upload('/tenders/documents', formData);
       if (res.success) {
         setCreateDocs(prev => [...prev, res.data]);
-        toast.success('Document uploaded — OCR & AI Review started');
+        toast.success('Document uploaded - OCR & AI Review started');
         fileInput.value = '';
       } else {
         toast.error(res.error || 'Upload failed');
@@ -784,7 +784,7 @@ export function TendersView() {
       const res = await api.upload('/tenders/documents', formData);
       if (res.success) {
         setCreateDocs(prev => [...prev, res.data]);
-        toast.success('Document uploaded — OCR & AI Review started');
+        toast.success('Document uploaded - OCR & AI Review started');
       } else {
         toast.error(res.error || 'Upload failed');
       }
@@ -892,7 +892,7 @@ export function TendersView() {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
               <span className="text-gradient-emerald">My</span> Tenders
             </h2>
-            <p className="text-muted-foreground text-sm mt-0.5">Explore published tender opportunities by sector — click to apply</p>
+            <p className="text-muted-foreground text-sm mt-0.5">Explore published tender opportunities by sector - click to apply</p>
           </div>
         </div>
         <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setCreateDocs([]); setCreateDocType('tender_document'); } }}>
@@ -989,7 +989,7 @@ export function TendersView() {
                       Drag & drop tender documents here
                     </p>
                     <p className="text-[10px] text-muted-foreground mb-3">
-                      Or click to browse — PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
+                      Or click to browse - PDF, JPEG, PNG, DOCX, DOC, TXT (max 10MB)
                     </p>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-3">
                       <input
@@ -1466,7 +1466,7 @@ export function TendersView() {
         </div>
       )}
 
-      {/* See More / Load More — server-side pagination */}
+      {/* See More / Load More - server-side pagination */}
       {!loading && tenders.length > 0 && (
         <div className="flex flex-col items-center gap-3 pt-6 pb-4">
           {/* Progress bar */}
@@ -1546,7 +1546,7 @@ export function TendersView() {
                   <span className="text-gradient-emerald">External</span> Tender Opportunities
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Live tenders from World Bank, EU TED, UNGM, SAM.gov &amp; more free sources — 
+                  Live tenders from World Bank, EU TED, UNGM, SAM.gov &amp; more free sources - 
                   <span className="text-emerald-600 dark:text-emerald-400 font-medium"> with requirement documents &amp; RFP files</span>
                 </p>
               </div>

@@ -76,7 +76,7 @@ const FAQ_ITEMS = [
   {
     question: 'How do I register my company on Tenets?',
     answer:
-      'During sign-up, you will create your company workspace along with your account. Each company operates as an isolated environment — your projects, tenders, and data are never shared with other organizations on the platform.',
+      'During sign-up, you will create your company workspace along with your account. Each company operates as an isolated environment - your projects, tenders, and data are never shared with other organizations on the platform.',
   },
   {
     question: 'What are the different user roles?',
@@ -408,13 +408,13 @@ export function ContactUsView() {
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left column — Form (3/5) */}
+        {/* Left column - Form (3/5) */}
         <div className="lg:col-span-3 space-y-6">
           <ContactForm />
           <FAQSection />
         </div>
 
-        {/* Right column — Contact Info (2/5) */}
+        {/* Right column - Contact Info (2/5) */}
         <div className="lg:col-span-2">
           <ContactInfoCards />
         </div>

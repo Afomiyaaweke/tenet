@@ -149,7 +149,7 @@ export function DocumentsView() {
           setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
           setDocOcrText(prev => ({ ...prev, [docId]: res.data.ocrText || '' }));
           loadDocs();
-          toast.success('OCR completed — text extracted successfully');
+          toast.success('OCR completed - text extracted successfully');
         } else if (res.success && res.data?.ocrStatus === 'failed') {
           setOcrLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
           toast.error('OCR processing failed');
@@ -432,7 +432,7 @@ export function DocumentsView() {
                   <p className="text-sm font-semibold text-foreground">
                     {isDragging ? 'Drop your file here' : 'Drag & drop your file here'}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">PDF, JPEG, PNG — Max 10MB</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">PDF, JPEG, PNG - Max 10MB</p>
                 </div>
                 <Button
                   variant="ghost"
@@ -789,7 +789,7 @@ export function DocumentsView() {
               AI Document Review
               {reviewDialogDoc && (
                 <span className="text-sm font-normal text-muted-foreground">
-                  — {reviewDialogDoc.fileName}
+                  - {reviewDialogDoc.fileName}
                 </span>
               )}
             </DialogTitle>

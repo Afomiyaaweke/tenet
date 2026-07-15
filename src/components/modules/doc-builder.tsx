@@ -405,7 +405,7 @@ export function DocBuilderView() {
           AI <span className="text-gradient-emerald">Document Builder</span>
         </h3>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Select a template below to generate professional, AI-powered documents for your tender workflow. From company profiles to invoices — all tailored for the Tenets ecosystem.
+          Select a template below to generate professional, AI-powered documents for your tender workflow. From company profiles to invoices - all tailored for the Tenets ecosystem.
         </p>
       </div>
 

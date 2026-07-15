@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import ZAI from 'z-ai-web-dev-sdk';
 
-// POST /api/tenders/live/review — Generate inline AI review for a live tender
+// POST /api/tenders/live/review - Generate inline AI review for a live tender
 export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);

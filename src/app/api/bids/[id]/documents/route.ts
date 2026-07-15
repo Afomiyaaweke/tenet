@@ -275,7 +275,7 @@ export async function DELETE(
         await unlink(filePath);
       }
     } catch {
-      // File may already be deleted or not exist — that's OK
+      // File may already be deleted or not exist - that's OK
     }
 
     // Delete database record (cascades to related data)

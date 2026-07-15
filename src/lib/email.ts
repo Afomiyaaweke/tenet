@@ -50,7 +50,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailOptions): 
 
   if (!transport) {
     console.log('──────────────────────────────────────────────────');
-    console.log('📧 EMAIL (not sent — SMTP not configured)');
+    console.log('📧 EMAIL (not sent - SMTP not configured)');
     console.log(`   To: ${to}`);
     console.log(`   Subject: ${subject}`);
     if (text) console.log(`   Text: ${text}`);
@@ -178,7 +178,7 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
                           <td style="padding:14px 18px;">
                             <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#c2410c;">⏱ Expires in ${expiresMinutes} minutes</p>
                             <p style="margin:0;font-size:13px;color:#7c2d12;line-height:1.5;">
-                              If you didn't request this password reset, please ignore this email — your password will not change. If you're concerned about your account security, contact support immediately.
+                              If you didn't request this password reset, please ignore this email - your password will not change. If you're concerned about your account security, contact support immediately.
                             </p>
                           </td>
                         </tr>
@@ -191,7 +191,7 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
               <tr>
                 <td style="background:#fafafa;padding:20px 40px;border-top:1px solid #eee;">
                   <p style="margin:0;font-size:12px;color:#999;text-align:center;">
-                    Tenets — Transforming Procurement<br>
+                    Tenets - Transforming Procurement<br>
                     This is an automated message. Please do not reply to this email.
                   </p>
                 </td>
@@ -205,7 +205,7 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
   `;
 
   const textContent = `
-Tenets — Password Reset
+Tenets - Password Reset
 
 We received a request to reset your password.
 
@@ -219,14 +219,14 @@ Time: ${timeStr}
 
 This link and code expire in ${expiresMinutes} minutes.
 
-If you didn't request this, you can safely ignore this email — your password won't change. If you're concerned, contact support.
+If you didn't request this, you can safely ignore this email - your password won't change. If you're concerned, contact support.
 
-— Tenets
+- Tenets
   `.trim();
 
   return sendEmail({
     to: ctx.to,
-    subject: 'Tenets — Reset Your Password',
+    subject: 'Tenets - Reset Your Password',
     html,
     text: textContent,
   });

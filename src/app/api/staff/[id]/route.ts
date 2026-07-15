@@ -8,8 +8,8 @@ import { requireTeamAdmin } from '@/lib/auth';
  * Requires team_admin role.
  *
  * Body options:
- *   - { role: 'team_admin' | 'user' }                        — change role
- *   - { status: 'active' | 'suspended' }                 — change status
+ *   - { role: 'team_admin' | 'user' }                        - change role
+ *   - { status: 'active' | 'suspended' }                 - change status
  *   - Both can be sent together
  *
  * Permission rules:

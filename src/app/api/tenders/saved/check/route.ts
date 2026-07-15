@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 
-// GET /api/tenders/saved/check?source=xxx&tenderId=xxx — Check if a tender is saved
+// GET /api/tenders/saved/check?source=xxx&tenderId=xxx - Check if a tender is saved
 export async function GET(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);

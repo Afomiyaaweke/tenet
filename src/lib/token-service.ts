@@ -1,6 +1,6 @@
 // ── Token Service ────────────────────────────────────────────────────────
 // Generates, hashes, validates, and manages password reset tokens.
-// Raw tokens are NEVER stored in the database — only SHA-256 hashes.
+// Raw tokens are NEVER stored in the database - only SHA-256 hashes.
 
 import crypto from 'crypto';
 import { db } from '@/lib/db';
@@ -21,7 +21,7 @@ export function generateResetToken(): { rawToken: string; tokenHash: string } {
 
 /**
  * Hash a raw token with SHA-256 for database storage.
- * This is a one-way hash — the raw token cannot be recovered from it.
+ * This is a one-way hash - the raw token cannot be recovered from it.
  */
 export function hashToken(rawToken: string): string {
   return crypto.createHash('sha256').update(rawToken).digest('hex');
@@ -62,7 +62,7 @@ export async function createResetToken(
  * Validate a raw reset token.
  * Returns the token record if valid, or null if invalid/expired/used.
  * On success, the token is immediately marked as used (single-use).
- * NEVER reveals WHY validation failed — returns null for all failure cases.
+ * NEVER reveals WHY validation failed - returns null for all failure cases.
  */
 export async function validateAndConsumeResetToken(rawToken: string): Promise<{
   userId: string;
