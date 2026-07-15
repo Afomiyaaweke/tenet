@@ -23,7 +23,11 @@ export async function POST(req: NextRequest) {
     const token = signToken({ userId: user.id });
 
     const response = NextResponse.json({
-      user: { id: user.id, email: user.email, name: user.name, role: user.role, company: user.company },
+      success: true,
+      data: {
+        token,
+        user: { id: user.id, email: user.email, name: user.name, role: user.role, company: user.company },
+      },
     });
 
     response.cookies.set('tenet_token', token, {
