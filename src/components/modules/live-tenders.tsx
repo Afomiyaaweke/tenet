@@ -21,7 +21,7 @@ import {
   CheckCircle2, ExternalLink, TrendingUp, ChevronRight, Languages,
   Bookmark, BookmarkCheck, XCircle, AlertTriangle, Lightbulb,
   Target, BarChart3, Users, Zap, Eye, Gavel,
-  CircleCheck, Send, FileSearch, FolderKanban,
+  CircleCheck, Send, FileSearch, FolderKanban, FileDown, FileSpreadsheet,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -514,13 +514,68 @@ function readinessColor(score: number): string {
  * Inline Document Viewer Component
  * ───────────────────────────────────────────────────────────────────── */
 
-function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: () => void }) {
+function InlineDocumentViewer({ doc, onClose, tenderTitle }: { doc: InlineDocument; onClose: () => void; tenderTitle?: string }) {
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+
   const copyContent = () => {
     const text = doc.sections
       ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
       : doc.content;
     navigator.clipboard.writeText(text);
     toast.success('Content copied to clipboard');
+  };
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const token = localStorage.getItem('tenet_token');
+      const res = await fetch('/api/tenders/fetch-doc/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: doc.url, title: tenderTitle }),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Original_${(tenderTitle || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF exported!');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+    setExportingPdf(false);
+  };
+
+  const handleExportCsv = async () => {
+    setExportingCsv(true);
+    try {
+      const token = localStorage.getItem('tenet_token');
+      const res = await fetch('/api/tenders/fetch-doc/export-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: doc.url, title: tenderTitle }),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Original_${(tenderTitle || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('CSV exported!');
+    } catch {
+      toast.error('Failed to export CSV');
+    }
+    setExportingCsv(false);
   };
 
   return (
@@ -546,6 +601,14 @@ function InlineDocumentViewer({ doc, onClose }: { doc: InlineDocument; onClose: 
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleExportPdf} disabled={exportingPdf}>
+                {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+                PDF
+              </Button>
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleExportCsv} disabled={exportingCsv}>
+                {exportingCsv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+                CSV
+              </Button>
               <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={copyContent}>
                 <Copy className="h-3.5 w-3.5" />
                 Copy
@@ -1322,27 +1385,93 @@ function TenderCard({
                 {doc && !isLoadingDoc && (
                   <div className="space-y-3">
                     {/* Document meta info */}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                       <span>Content loaded from {(() => { try { return new URL(doc.url).hostname; } catch { return 'source'; } })()}</span>
                       <span>·</span>
                       <span>{new Date(doc.fetchedAt).toLocaleTimeString()}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-xs h-6 px-1.5 ml-auto"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const text = doc.sections
-                            ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
-                            : doc.content;
-                          navigator.clipboard.writeText(text);
-                          toast.success('Content copied to clipboard');
-                        }}
-                      >
-                        <Copy className="h-3 w-3" />
-                        Copy
-                      </Button>
+                      <div className="flex items-center gap-1 ml-auto">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-xs h-6 px-1.5"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const token = localStorage.getItem('tenet_token');
+                              const res = await fetch('/api/tenders/fetch-doc/export-pdf', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ url: doc.url, title: tender.title }),
+                              });
+                              if (!res.ok) throw new Error('Export failed');
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `Original_${(tender.title || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              window.URL.revokeObjectURL(url);
+                              toast.success('PDF exported!');
+                            } catch {
+                              toast.error('Failed to export PDF');
+                            }
+                          }}
+                        >
+                          <FileDown className="h-3 w-3" />
+                          PDF
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-xs h-6 px-1.5"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const token = localStorage.getItem('tenet_token');
+                              const res = await fetch('/api/tenders/fetch-doc/export-csv', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ url: doc.url, title: tender.title }),
+                              });
+                              if (!res.ok) throw new Error('Export failed');
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `Original_${(tender.title || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.csv`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              window.URL.revokeObjectURL(url);
+                              toast.success('CSV exported!');
+                            } catch {
+                              toast.error('Failed to export CSV');
+                            }
+                          }}
+                        >
+                          <FileSpreadsheet className="h-3 w-3" />
+                          CSV
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-xs h-6 px-1.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const text = doc.sections
+                              ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
+                              : doc.content;
+                            navigator.clipboard.writeText(text);
+                            toast.success('Content copied to clipboard');
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Extracted metadata pills */}
@@ -1898,6 +2027,7 @@ function TenderCard({
               <InlineDocumentViewer
                 doc={doc}
                 onClose={() => {/* handled by parent */}}
+                tenderTitle={tender.title}
               />
             )}
             {/* Translator for document content */}
