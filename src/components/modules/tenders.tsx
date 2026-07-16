@@ -30,6 +30,7 @@ import {
   Radio, Download, FileDown, FileSpreadsheet,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
+import { FullDocumentViewer } from '@/components/modules/full-document-viewer';
 
 const CATEGORIES = ['Construction', 'IT', 'Supply', 'Consulting', 'Engineering', 'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications', 'Energy'];
 
@@ -599,6 +600,7 @@ export function TendersView() {
     url: string; fetchedAt: string;
   }>>({});
   const [extDocExpanded, setExtDocExpanded] = useState<string | null>(null);
+  const [fullDocTender, setFullDocTender] = useState<LiveTender | null>(null);
 
   const fetchExternalDoc = useCallback(async (tender: LiveTender) => {
     const id = tender.id;
@@ -1738,6 +1740,17 @@ export function TendersView() {
                               )}
                               {isDocLoading ? 'Fetching…' : isDocExpanded ? 'Collapse' : 'Extract Content'}
                             </Button>
+                            {(t.documentUrl || t.externalUrl || (t.requiredDocs && t.requiredDocs.startsWith('http'))) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 gap-1 text-[10px] px-2 rounded-md text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); setFullDocTender(t); }}
+                              >
+                                <FileSearch className="h-2.5 w-2.5" />
+                                Find Full Document
+                              </Button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -2093,6 +2106,14 @@ export function TendersView() {
             Show External Tenders
           </Button>
         </div>
+      )}
+
+      {fullDocTender && (
+        <FullDocumentViewer
+          tender={fullDocTender}
+          open={!!fullDocTender}
+          onOpenChange={(open) => { if (!open) setFullDocTender(null); }}
+        />
       )}
 
       {/* Floating Compare Bar */}
