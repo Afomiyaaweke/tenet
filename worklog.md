@@ -264,3 +264,29 @@ Stage Summary:
 - 4 UI components updated with export capabilities: tender-detail, tenders, live-tenders, bids
 - Users can now: fetch original requirements from source site, preview inline, and export as PDF or CSV
 - External URLs are auto-detected from tender's requiredDocs field (format: "Source: ... | URL: https://...")
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix preview not working - diagnose and fix issues preventing the Next.js app from rendering
+
+Work Log:
+- Investigated the preview not working issue
+- Found that the Next.js dev server was crashing repeatedly
+- Ran TypeScript type checking and found multiple errors:
+  1. View type in store/index.ts missing 'ai-doc-studio', 'doc-builder', 'tender-analyzer'
+  2. Buffer type not assignable to BodyInit in export-pdf routes
+- Fixed the View type in src/store/index.ts to include the missing views
+- Fixed the Buffer type errors in both export-pdf route files by wrapping with new Uint8Array()
+- Diagnosed Caddy proxy issue: the Host header from Caddy was causing Next.js to fail
+- Added "localhost:81" and "localhost:3000" to allowedDevOrigins in next.config.ts
+- Discovered the root cause of persistent server crashes: OOM (Out of Memory) kills in the Kubernetes container
+- The Next.js dev server with Turbopack uses ~1.5GB RAM, and Chrome browser uses ~1GB, total exceeds the 4GB container limit
+- Verified the page renders correctly using both curl and browser (when memory allows)
+- The landing page shows: "Tenets - Tender Ecosystem" with hero section, features, stats, and footer
+
+Stage Summary:
+- Fixed 3 TypeScript errors that were causing compilation issues
+- Fixed Caddy proxy Host header issue by updating allowedDevOrigins
+- The preview works correctly but the server may occasionally get OOM-killed due to memory constraints
+- Page content verified: title "Tenets - Tender Ecosystem", hero "Transform Your Procurement Workflow", features section, CTA buttons

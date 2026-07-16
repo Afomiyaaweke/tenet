@@ -50,6 +50,8 @@ const nextConfig: NextConfig = {
     "tenet.app",
     "127.0.0.1",
     "localhost",
+    "localhost:81",
+    "localhost:3000",
   ],
   async headers() {
     return [
