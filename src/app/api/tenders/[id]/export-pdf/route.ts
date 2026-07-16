@@ -224,7 +224,7 @@ export async function GET(
 
     const safeName = tender.title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

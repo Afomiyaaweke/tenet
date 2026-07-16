@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
       .replace(/\s+/g, '_')
       .substring(0, 50);
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
