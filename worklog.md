@@ -290,3 +290,47 @@ Stage Summary:
 - Fixed Caddy proxy Host header issue by updating allowedDevOrigins
 - The preview works correctly but the server may occasionally get OOM-killed due to memory constraints
 - Page content verified: title "Tenets - Tender Ecosystem", hero "Transform Your Procurement Workflow", features section, CTA buttons
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Implement "Find Full Document" feature for live tenders - discover and view complete documents from external tender sources
+
+Work Log:
+- Investigated current document viewing features: Extract Content button, View RFP/Specs links, document files list
+- Identified need for deep document discovery and a dedicated full document viewer
+- Created new API route `/api/tenders/fetch-doc/discover/route.ts`:
+  - Deep-discovers a live tender page using z-ai-web-dev-sdk page_reader
+  - Parses HTML for linked documents (PDF, DOC, XLS, PPT, RTF, ODT, ODS, ZIP, RAR)
+  - Discovers requirement-related sub-pages (tender, rfp, bidding, procurement, etc.)
+  - Extracts structured sections, deadlines, budgets, meta description/keywords
+  - Returns full content up to 50,000 chars (vs existing 15,000 limit)
+  - Includes stats: totalChars, sectionsFound, docLinksFound, pageLinksFound, deadlinesFound, budgetsFound
+- Created new component `/home/z/my-project/src/components/modules/full-document-viewer.tsx`:
+  - Large modal dialog (max-w-5xl, 90vh) with scrollable content area
+  - Header with tender title, source hostname, published date, discovery status badge
+  - Stats bar showing character count, sections, doc links, page links, deadlines, budget refs
+  - Three tabs: Structured View, Full Text, Linked Documents
+  - Structured View: meta description, deadlines/budgets cards, collapsible section cards, related pages
+  - Full Text: full raw text with search/filter and highlighted matches
+  - Linked Documents: grid of document files with type icons, plus related requirement pages with relevance badges
+  - Export buttons (PDF, CSV, Copy) in header
+  - Loading skeleton and error state with retry
+  - Dark mode support, responsive design, emerald/teal accents
+- Updated `/home/z/my-project/src/components/modules/tenders.tsx`:
+  - Imported FullDocumentViewer component
+  - Added fullDocTender state
+  - Added "Find Full Document" button (emerald accent, FileSearch icon) after Extract Content button
+  - Button only shown for tenders with documentUrl, externalUrl, or requiredDocs starting with http
+  - Added FullDocumentViewer modal near end of component
+- Verified: lint passes with 0 errors, dev server compiles cleanly
+- Verified: API endpoint returns proper JSON with discovered data (tested with auth token)
+- Verified: Homepage compiles and serves correctly
+
+Stage Summary:
+- New deep document discovery API: POST /api/tenders/fetch-doc/discover
+- New FullDocumentViewer modal component with 3 tabs (Structured, Full Text, Linked Documents)
+- "Find Full Document" button added to each live tender card
+- Discovers linked PDFs, DOCs, and requirement pages from external sources
+- Full content extraction up to 50,000 characters
+- Export to PDF, CSV, and clipboard supported
