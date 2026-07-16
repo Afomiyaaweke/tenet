@@ -20,6 +20,7 @@ import {
   Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion,
   TrendingDown, Loader2, BrainCircuit, AlertTriangle, Lightbulb,
   FileCheck, Wallet, Clock3, ClipboardCheck, Stamp, FileSignature, Languages, Upload,
+  Download, FileDown,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator, TranslatorPanel } from '@/components/translator';
@@ -199,6 +200,60 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
       toast.error('Failed to analyze requirements. Please try again.');
     }
     setReqAnalysisLoading(false);
+  };
+
+  // Export requirements as PDF
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const handleExportPdf = async () => {
+    if (!tenderId) return;
+    setExportingPdf(true);
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await fetch(`/api/tenders/${tenderId}/export-pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Tender_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Requirements'}_Export.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF exported successfully!');
+    } catch {
+      toast.error('Failed to export PDF. Please try again.');
+    }
+    setExportingPdf(false);
+  };
+
+  // Download requirements data as JSON
+  const [downloadingReq, setDownloadingReq] = useState(false);
+  const handleDownloadRequirements = async () => {
+    if (!tenderId) return;
+    setDownloadingReq(true);
+    try {
+      const res = await api.get(`/tenders/${tenderId}/requirements`);
+      if (res.success) {
+        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Tender_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Requirements'}_Data.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast.success('Requirements data downloaded!');
+      } else {
+        toast.error(res.error || 'Failed to download requirements');
+      }
+    } catch {
+      toast.error('Failed to download requirements. Please try again.');
+    }
+    setDownloadingReq(false);
   };
 
   const handleGetAIOverview = async () => {
@@ -477,11 +532,33 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                       </div>
                       <span className="text-sm font-semibold text-foreground">Tender Requirements</span>
                     </div>
-                    {tender.requiredDocs && (
-                      <span className="text-[10px] font-medium text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/50 px-2 py-0.5 rounded-full">
-                        {tender.requiredDocs.split(',').filter(Boolean).length} document{tender.requiredDocs.split(',').filter(Boolean).length === 1 ? '' : 's'}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {tender.requiredDocs && (
+                        <span className="text-[10px] font-medium text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/50 px-2 py-0.5 rounded-full">
+                          {tender.requiredDocs.split(',').filter(Boolean).length} doc{tender.requiredDocs.split(',').filter(Boolean).length === 1 ? '' : 's'}
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-teal-600 hover:text-teal-800 hover:bg-teal-100"
+                        onClick={handleDownloadRequirements}
+                        disabled={downloadingReq}
+                        title="Download requirements data"
+                      >
+                        {downloadingReq ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-teal-600 hover:text-teal-800 hover:bg-teal-100"
+                        onClick={handleExportPdf}
+                        disabled={exportingPdf}
+                        title="Export as PDF"
+                      >
+                        {exportingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+                      </Button>
+                    </div>
                   </div>
                   {tender.requiredDocs ? (
                     <div className="flex flex-wrap gap-1.5">
@@ -994,12 +1071,36 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
               <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-teal-50">
-                      <FileStack className="h-3.5 w-3.5 text-teal-600" />
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-teal-50">
+                        <FileStack className="h-3.5 w-3.5 text-teal-600" />
+                      </div>
+                      Required Documents
+                    </CardTitle>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] gap-1.5 rounded-lg border-teal-200 text-teal-700 hover:bg-teal-50"
+                        onClick={handleDownloadRequirements}
+                        disabled={downloadingReq}
+                      >
+                        {downloadingReq ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                        Download
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] gap-1.5 rounded-lg border-teal-200 text-teal-700 hover:bg-teal-50"
+                        onClick={handleExportPdf}
+                        disabled={exportingPdf}
+                      >
+                        {exportingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+                        Export PDF
+                      </Button>
                     </div>
-                    Required Documents
-                  </CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
@@ -1154,6 +1255,40 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.evaluationBreakdown}</p>
                         </div>
                       )}
+
+                      {/* Export Analysis */}
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1.5 rounded-lg"
+                          onClick={() => {
+                            const data = JSON.stringify(reqAnalysis, null, 2);
+                            const blob = new Blob([data], { type: 'application/json' });
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Tender_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Analysis'}_AI_Analysis.json`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                            toast.success('AI analysis exported!');
+                          }}
+                        >
+                          <Download className="h-3 w-3" /> Export Analysis
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1.5 rounded-lg"
+                          onClick={handleExportPdf}
+                          disabled={exportingPdf}
+                        >
+                          {exportingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+                          Export PDF
+                        </Button>
+                      </div>
                     </div>
                   )}
                   {!reqAnalysis && !reqAnalysisLoading && (

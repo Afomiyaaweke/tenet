@@ -27,7 +27,7 @@ import {
   ExternalLink, FileText, Tag, Briefcase, Eye, ShieldCheck,
   Wallet, Clock3, Globe2, Award, CircleDot, ListChecks,
   Upload, CloudUpload, FileUp, ScanSearch, Brain, Trash2, Loader2,
-  Radio,
+  Radio, Download,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -895,7 +895,36 @@ export function TendersView() {
             <p className="text-muted-foreground text-sm mt-0.5">Explore published tender opportunities by sector - click to apply</p>
           </div>
         </div>
-        <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setCreateDocs([]); setCreateDocType('tender_document'); } }}>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 text-xs gap-1.5 rounded-lg"
+            onClick={async () => {
+              try {
+                const token = useAuthStore.getState().token;
+                const res = await fetch('/api/tenders/export', {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) throw new Error('Export failed');
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Tenets_Tenders_Export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                toast.success('Tenders exported as XLSX!');
+              } catch {
+                toast.error('Failed to export tenders');
+              }
+            }}
+          >
+            <Download className="h-3.5 w-3.5" /> Export XLSX
+          </Button>
+          <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setCreateDocs([]); setCreateDocType('tender_document'); } }}>
           <DialogTrigger asChild>
             <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
               <Plus className="h-4 w-4 mr-2" /> Create Tender
@@ -1088,6 +1117,7 @@ export function TendersView() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Search / Filter Bar */}
