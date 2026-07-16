@@ -20,7 +20,7 @@ import {
   Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion,
   TrendingDown, Loader2, BrainCircuit, AlertTriangle, Lightbulb,
   FileCheck, Wallet, Clock3, ClipboardCheck, Stamp, FileSignature, Languages, Upload,
-  Download, FileDown,
+  Download, FileDown, ExternalLink, Globe2, FileSpreadsheet, Copy,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator, TranslatorPanel } from '@/components/translator';
@@ -115,6 +115,23 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
   // AI Overview state (for all users)
   const [aiOverview, setAiOverview] = useState<any>(null);
   const [aiOverviewLoading, setAiOverviewLoading] = useState(false);
+
+  // Source document state (download from original site)
+  const [sourceContent, setSourceContent] = useState<any>(null);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceExportingPdf, setSourceExportingPdf] = useState(false);
+  const [sourceExportingCsv, setSourceExportingCsv] = useState(false);
+  const [sourceExpanded, setSourceExpanded] = useState(false);
+
+  // Extract external URL from requiredDocs (format: "Source: ... | External ID: ... | URL: https://...")
+  const externalSourceUrl = useMemo(() => {
+    if (!tender?.requiredDocs) return null;
+    const urlMatch = tender.requiredDocs.match(/URL:\s*(https?:\/\/[^\s|]+)/i);
+    if (urlMatch) return urlMatch[1];
+    // Also check if requiredDocs itself is a URL
+    if (tender.requiredDocs.startsWith('http')) return tender.requiredDocs;
+    return null;
+  }, [tender?.requiredDocs]);
 
   const isAdminOrCreator = user?.role === 'team_admin' && tender?.createdBy === user.id;
   const isCreatorOrAdmin = tender?.createdBy === user?.id || (user?.role === 'team_admin' && tender?.createdBy === user.id);
@@ -227,6 +244,81 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
       toast.error('Failed to export PDF. Please try again.');
     }
     setExportingPdf(false);
+  };
+
+  // Fetch original requirements from source site
+  const handleFetchSourceContent = async () => {
+    if (!externalSourceUrl) return;
+    setSourceLoading(true);
+    try {
+      const res = await api.post('/tenders/fetch-doc', { url: externalSourceUrl });
+      if (res.success && res.data) {
+        setSourceContent(res.data);
+        setSourceExpanded(true);
+        toast.success('Original requirements fetched from source!');
+      } else {
+        toast.error(res.error || 'Failed to fetch from source site');
+      }
+    } catch {
+      toast.error('Failed to fetch from source site. Please try again.');
+    }
+    setSourceLoading(false);
+  };
+
+  // Export source content as PDF
+  const handleExportSourcePdf = async () => {
+    if (!externalSourceUrl) return;
+    setSourceExportingPdf(true);
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await fetch('/api/tenders/fetch-doc/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: externalSourceUrl, title: tender?.title }),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Original_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Requirements'}_Source.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Original requirements PDF exported!');
+    } catch {
+      toast.error('Failed to export PDF from source. Please try again.');
+    }
+    setSourceExportingPdf(false);
+  };
+
+  // Export source content as CSV
+  const handleExportSourceCsv = async () => {
+    if (!externalSourceUrl) return;
+    setSourceExportingCsv(true);
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await fetch('/api/tenders/fetch-doc/export-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: externalSourceUrl, title: tender?.title }),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Original_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Requirements'}_Source.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Original requirements CSV exported!');
+    } catch {
+      toast.error('Failed to export CSV from source. Please try again.');
+    }
+    setSourceExportingCsv(false);
   };
 
   // Download requirements data as JSON
@@ -581,6 +673,154 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                     </span>
                   </div>
                 </div>
+
+                {/* Download Original from Source */}
+                {externalSourceUrl && (
+                  <div className="rounded-xl border border-sky-200/60 dark:border-sky-900/40 bg-sky-50/50 dark:bg-sky-950/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-sky-100 dark:bg-sky-900/50">
+                          <Globe2 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold text-foreground">Original Requirements from Source</span>
+                          <p className="text-[10px] text-muted-foreground truncate max-w-[280px] sm:max-w-md">
+                            {(() => { try { return new URL(externalSourceUrl).hostname; } catch { return externalSourceUrl; } })()}
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href={externalSourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-6 w-6 p-0 inline-flex items-center justify-center rounded-md text-sky-600 hover:text-sky-800 hover:bg-sky-100 transition-colors"
+                        title="Open source site"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl text-xs border-sky-200 text-sky-700 hover:bg-sky-50 hover:text-sky-800 transition-all"
+                        onClick={handleFetchSourceContent}
+                        disabled={sourceLoading}
+                      >
+                        {sourceLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Globe2 className="h-3.5 w-3.5 mr-1.5" />}
+                        {sourceContent ? 'Refresh from Source' : 'Fetch from Source'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl text-xs border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 transition-all"
+                        onClick={handleExportSourcePdf}
+                        disabled={sourceExportingPdf}
+                      >
+                        {sourceExportingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 mr-1.5" />}
+                        Export PDF
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-all"
+                        onClick={handleExportSourceCsv}
+                        disabled={sourceExportingCsv}
+                      >
+                        {sourceExportingCsv ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />}
+                        Export CSV
+                      </Button>
+                    </div>
+
+                    {/* Fetched content preview */}
+                    {sourceContent && sourceExpanded && (
+                      <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wider">Fetched Content</span>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-[10px] text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                navigator.clipboard.writeText(sourceContent.content || '');
+                                toast.success('Content copied to clipboard!');
+                              }}
+                            >
+                              <Copy className="h-3 w-3 mr-1" /> Copy
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-[10px] text-muted-foreground hover:text-foreground"
+                              onClick={() => setSourceExpanded(false)}
+                            >
+                              <ChevronUp className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {sourceContent.title && (
+                          <p className="text-sm font-semibold text-foreground">{sourceContent.title}</p>
+                        )}
+
+                        {sourceContent.deadlines && sourceContent.deadlines.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {sourceContent.deadlines.map((d: string, i: number) => (
+                              <Badge key={i} className="text-[10px] bg-amber-50 text-amber-700 border-0 rounded-lg">
+                                <Clock className="h-3 w-3 mr-1" /> {d}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {sourceContent.budgets && sourceContent.budgets.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {sourceContent.budgets.map((b: string, i: number) => (
+                              <Badge key={i} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-lg">
+                                <DollarSign className="h-3 w-3 mr-1" /> {b}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {sourceContent.sections && sourceContent.sections.length > 0 && (
+                          <div className="space-y-2">
+                            {sourceContent.sections.map((section: { heading: string; content: string }, i: number) => (
+                              <div key={i} className="bg-background dark:bg-card rounded-lg p-3 border border-border/50">
+                                <p className="text-xs font-semibold text-foreground mb-1">{section.heading}</p>
+                                <p className="text-[11px] text-muted-foreground whitespace-pre-wrap leading-relaxed line-clamp-6">{section.content}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="bg-background dark:bg-card rounded-lg p-3 border border-border/50 max-h-80 overflow-y-auto">
+                          <p className="text-[11px] text-muted-foreground whitespace-pre-wrap leading-relaxed">{sourceContent.content?.slice(0, 5000)}</p>
+                          {sourceContent.content?.length > 5000 && (
+                            <p className="text-[10px] text-sky-600 mt-2 italic">Content truncated. Export as PDF or CSV for the full document.</p>
+                          )}
+                        </div>
+
+                        <p className="text-[10px] text-muted-foreground italic">
+                          Fetched at {new Date(sourceContent.fetchedAt).toLocaleString()} from {(() => { try { return new URL(externalSourceUrl).hostname; } catch { return externalSourceUrl; } })()}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Collapsed indicator */}
+                    {sourceContent && !sourceExpanded && (
+                      <button
+                        className="text-[10px] text-sky-600 hover:text-sky-800 flex items-center gap-1 transition-colors"
+                        onClick={() => setSourceExpanded(true)}
+                      >
+                        <ChevronDown className="h-3 w-3" /> Show fetched content
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Action buttons */}

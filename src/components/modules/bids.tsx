@@ -19,6 +19,7 @@ import {
   ScanSearch, Brain, Loader2, AlertTriangle, Upload, FileText,
   CloudUpload, FileUp, ThumbsUp, ThumbsDown, AlertOctagon,
   BarChart3, CheckCircle2, XCircle, Globe, MessageSquare, Copy,
+  FileDown, FileSpreadsheet,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator } from '@/components/translator';
@@ -608,6 +609,70 @@ export function BidsView() {
                           onClick={() => window.open(st.externalUrl, '_blank')}
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {st.externalUrl && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          onClick={async () => {
+                            try {
+                              const token = useAuthStore.getState().token;
+                              const res = await fetch('/api/tenders/fetch-doc/export-pdf', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ url: st.externalUrl, title: st.title }),
+                              });
+                              if (!res.ok) throw new Error('Export failed');
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `Original_${(st.title || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              window.URL.revokeObjectURL(url);
+                              toast.success('PDF exported!');
+                            } catch {
+                              toast.error('Failed to export PDF');
+                            }
+                          }}
+                        >
+                          <FileDown className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {st.externalUrl && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                          onClick={async () => {
+                            try {
+                              const token = useAuthStore.getState().token;
+                              const res = await fetch('/api/tenders/fetch-doc/export-csv', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ url: st.externalUrl, title: st.title }),
+                              });
+                              if (!res.ok) throw new Error('Export failed');
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `Original_${(st.title || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.csv`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              window.URL.revokeObjectURL(url);
+                              toast.success('CSV exported!');
+                            } catch {
+                              toast.error('Failed to export CSV');
+                            }
+                          }}
+                        >
+                          <FileSpreadsheet className="h-3.5 w-3.5" />
                         </Button>
                       )}
                       <Button

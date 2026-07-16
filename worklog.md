@@ -155,3 +155,112 @@ Stage Summary:
 - Session invalidation: auth cache cleared on password reset
 - Frontend: password strength meter, requirements checklist, 12-char minimum
 - E2E verified: forgot → email → reset → login flow works correctly
+
+---
+Task ID: 2 (fetch-doc export-pdf)
+Agent: main
+Task: Create API route /api/tenders/fetch-doc/export-pdf that fetches content from an external URL and generates a downloadable PDF
+
+Work Log:
+- Read existing /api/tenders/fetch-doc/route.ts and /api/tenders/[id]/export-pdf/route.ts for reference patterns
+- Read /src/lib/auth.ts for requireAuth interface
+- Created new route at /src/app/api/tenders/fetch-doc/export-pdf/route.ts
+- Route accepts POST with { url, title? } body
+- Requires auth via requireAuth
+- Validates URL must be http:// or https://
+- Uses z-ai-web-dev-sdk page_reader to fetch content from the URL
+- Converts HTML to clean text (strips scripts, styles, tags, decodes entities)
+- Extracts sections by heading patterns (same regex as fetch-doc route)
+- Extracts deadlines and budgets with pattern matching
+- Generates professional PDF using pdfkit with:
+  - Dark header bar with "ORIGINAL TENDER REQUIREMENTS" title
+  - Subtitle showing "Downloaded from [hostname]" and source URL
+  - Page title (from override or page_reader result)
+  - Key metadata section (deadlines, budgets)
+  - Content sections with headings and dividers
+  - Full content text with proper pagination (checks doc.y > 700)
+  - Footer on every page: "Tenets Tender Ecosystem - Downloaded from [hostname] - Generated [date] - Page X of Y"
+- Returns PDF as downloadable file with Content-Disposition header
+- Limits content to 15000 chars to avoid overly large PDFs
+- Safe filename derived from title
+- Lint passes with 0 errors
+- Dev server compiles without issues
+
+Stage Summary:
+- New API route fully implemented at /api/tenders/fetch-doc/export-pdf
+- Combines page_reader content extraction with PDFKit PDF generation
+- Professional PDF styling matching existing tender export route
+- Proper auth, validation, pagination, and error handling
+
+---
+Task ID: 2-b
+Agent: main
+Task: Create API route /api/tenders/fetch-doc/export-csv that fetches content from an external URL and generates a downloadable CSV file
+
+Work Log:
+- Read existing /api/tenders/fetch-doc/route.ts for content extraction patterns (HTML-to-text, section/deadline/budget regex)
+- Read /api/tenders/export/route.ts for export patterns
+- Read /src/lib/auth.ts for requireAuth interface
+- Created directory /src/app/api/tenders/fetch-doc/export-csv/
+- Created new route at /src/app/api/tenders/fetch-doc/export-csv/route.ts
+- Route accepts POST with { url, title? } body
+- Requires auth via requireAuth
+- Validates URL must be http:// or https://
+- Uses z-ai-web-dev-sdk page_reader to fetch content from the URL
+- Converts HTML to clean text (strips scripts, styles, tags, decodes entities)
+- Extracts sections by heading patterns (same regex as fetch-doc route)
+- Extracts deadlines and budgets with pattern matching (same regexes as fetch-doc)
+- Generates CSV with structured layout:
+  - Row 1: "Field","Value" header
+  - Rows 2-5: Source URL, Page Title, Published Time, Fetched At
+  - Empty row, then DEADLINES FOUND section
+  - Empty row, then BUDGETS FOUND section
+  - Empty row, then SECTIONS with Heading,Content columns
+  - Empty row, then FULL CONTENT with Content column (each line as separate row)
+- Proper CSV escaping via csvField() helper (quotes fields with commas, double-quotes, newlines; doubles internal quotes)
+- Limits content to 15000 chars
+- Safe filename derived from title (alphanumeric + hyphens, max 60 chars)
+- Content-Type: text/csv; charset=utf-8
+- Content-Disposition with attachment and safe filename
+- Lint passes with 0 errors (only pre-existing warnings in other files)
+- Dev server compiles without issues
+
+Stage Summary:
+- New API route fully implemented at /api/tenders/fetch-doc/export-csv
+- Reuses same extraction logic as fetch-doc and fetch-doc/export-pdf routes
+- Generates properly formatted CSV with all structured data
+- Proper CSV quoting/escaping for safe interoperability with spreadsheet tools
+- Auth, validation, and error handling all in place
+---
+Task ID: 3
+Agent: Main Agent
+Task: Add "Download Original Requirements from Source" feature - make tender requirements downloadable from external sites and exportable as PDF/CSV
+
+Work Log:
+- Investigated existing tender data structures, API routes, and UI components
+- Created API route `/api/tenders/fetch-doc/export-pdf/route.ts` - fetches content from external URL via page_reader SDK and generates professional PDF
+- Created API route `/api/tenders/fetch-doc/export-csv/route.ts` - fetches content from external URL and generates downloadable CSV
+- Updated `tender-detail.tsx`:
+  - Added state for source content fetching and exporting (sourceContent, sourceLoading, sourceExportingPdf, sourceExportingCsv, sourceExpanded)
+  - Added `externalSourceUrl` memo that extracts external URL from requiredDocs field
+  - Added "Original Requirements from Source" section with Fetch/PDF/CSV buttons
+  - Added inline content preview with sections, deadlines, budgets, and full text
+  - Added Copy to clipboard button and expand/collapse functionality
+- Updated `tenders.tsx`:
+  - Added FileDown and FileSpreadsheet icons
+  - Added PDF and CSV export buttons next to existing Copy button in inline document viewer
+- Updated `live-tenders.tsx`:
+  - Added FileDown and FileSpreadsheet icons
+  - Updated InlineDocumentViewer component with PDF/CSV export handlers and buttons
+  - Added PDF and CSV export buttons to TenderCard component's document content section
+  - Updated InlineDocumentViewer usage to pass tenderTitle prop
+- Updated `bids.tsx`:
+  - Added FileDown and FileSpreadsheet icons
+  - Added PDF and CSV export buttons for saved tenders with externalUrl
+- Ran lint: 0 errors, only pre-existing warnings
+
+Stage Summary:
+- 2 new API routes: `/api/tenders/fetch-doc/export-pdf` and `/api/tenders/fetch-doc/export-csv`
+- 4 UI components updated with export capabilities: tender-detail, tenders, live-tenders, bids
+- Users can now: fetch original requirements from source site, preview inline, and export as PDF or CSV
+- External URLs are auto-detected from tender's requiredDocs field (format: "Source: ... | URL: https://...")

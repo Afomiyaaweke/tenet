@@ -27,7 +27,7 @@ import {
   ExternalLink, FileText, Tag, Briefcase, Eye, ShieldCheck,
   Wallet, Clock3, Globe2, Award, CircleDot, ListChecks,
   Upload, CloudUpload, FileUp, ScanSearch, Brain, Trash2, Loader2,
-  Radio, Download,
+  Radio, Download, FileDown, FileSpreadsheet,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -1826,6 +1826,68 @@ export function TendersView() {
                                   <ExternalLink className="h-3 w-3" />
                                   Original
                                 </a>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 gap-1 text-[10px] px-1.5"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const token = useAuthStore.getState().token;
+                                      const res = await fetch('/api/tenders/fetch-doc/export-pdf', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                        body: JSON.stringify({ url: doc.url, title: t.title }),
+                                      });
+                                      if (!res.ok) throw new Error('Export failed');
+                                      const blob = await res.blob();
+                                      const url = window.URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = `Original_${(t.title || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.pdf`;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                      window.URL.revokeObjectURL(url);
+                                      toast.success('PDF exported!');
+                                    } catch {
+                                      toast.error('Failed to export PDF');
+                                    }
+                                  }}
+                                >
+                                  <FileDown className="h-3 w-3" /> PDF
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 gap-1 text-[10px] px-1.5"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const token = useAuthStore.getState().token;
+                                      const res = await fetch('/api/tenders/fetch-doc/export-csv', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                        body: JSON.stringify({ url: doc.url, title: t.title }),
+                                      });
+                                      if (!res.ok) throw new Error('Export failed');
+                                      const blob = await res.blob();
+                                      const url = window.URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = `Original_${(t.title || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.csv`;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                      window.URL.revokeObjectURL(url);
+                                      toast.success('CSV exported!');
+                                    } catch {
+                                      toast.error('Failed to export CSV');
+                                    }
+                                  }}
+                                >
+                                  <FileSpreadsheet className="h-3 w-3" /> CSV
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
