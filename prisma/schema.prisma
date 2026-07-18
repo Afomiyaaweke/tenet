@@ -662,3 +662,91 @@ model Endorsement {
   @@unique([fromUserId, toUserId, skill])
   @@index([toUserId, skill])
 }
+
+// ==========================================
+// INFRASTRUCTURE & DEVOPS
+// ==========================================
+
+model Webhook {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  events      String   // comma-separated: tender.created, bid.submitted, etc.
+  secret      String   // HMAC signing secret
+  active      Boolean  @default(true)
+  lastTriggeredAt DateTime?
+  failureCount Int     @default(0)
+  companyId   String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([active])
+  @@index([events])
+}
+
+model RateLimitConfig {
+  id          String   @id @default(cuid())
+  endpoint    String   @unique // e.g. "/api/auth/login", "/api/tenders", "*"
+  windowMs    Int      @default(60000) // time window in milliseconds
+  maxRequests Int      @default(100) // max requests per window
+  strategy    String   @default("sliding_window") // sliding_window, fixed_window, token_bucket
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([endpoint])
+  @@index([active])
+}
+
+model Secret {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "JWT_SECRET", "SMTP_PASSWORD"
+  value       String   // encrypted value
+  category    String   @default("general") // auth, database, email, payment, integration, general
+  description String?
+  rotatedAt   DateTime?
+  rotationDays Int    @default(90) // auto-rotate interval
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([key])
+}
+
+model InfraAlert {
+  id          String   @id @default(cuid())
+  type        String   // cpu, memory, disk, latency, error_rate, security, uptime
+  severity    String   @default("warning") // info, warning, critical, emergency
+  title       String
+  message     String
+  source      String   @default("system") // system, manual, monitor
+  status      String   @default("active") // active, acknowledged, resolved
+  metadata    String   @default("{}") // JSON string
+  acknowledgedBy String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([type, status])
+  @@index([severity])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model CacheEntry {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   // cached data (JSON string)
+  ttl         Int      // time-to-live in seconds
+  hits        Int      @default(0)
+  misses      Int      @default(0)
+  sizeBytes   Int      @default(0)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@index([expiresAt])
+}
