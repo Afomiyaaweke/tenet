@@ -112,7 +112,7 @@ export function middleware(request: NextRequest) {
     const response = new NextResponse(null, { status: 204 });
     const origin = request.headers.get('origin');
     if (origin) {
-      const allowedOrigins = [new URL(request.url).origin, 'http://localhost:3000'];
+      const allowedOrigins = [new URL(request.url).origin, 'https://tenet.space-z.ai', 'http://localhost:3000'];
       if (allowedOrigins.includes(origin)) {
         response.headers.set('Access-Control-Allow-Origin', origin);
         response.headers.set('Access-Control-Allow-Credentials', 'true');
@@ -155,7 +155,7 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.next();
     const origin = request.headers.get('origin');
     if (origin) {
-      const allowedOrigins = [new URL(request.url).origin, 'http://localhost:3000'];
+      const allowedOrigins = [new URL(request.url).origin, 'https://tenet.space-z.ai', 'http://localhost:3000'];
       if (allowedOrigins.includes(origin)) {
         response.headers.set('Access-Control-Allow-Origin', origin);
         response.headers.set('Access-Control-Allow-Credentials', 'true');

@@ -39,8 +39,8 @@ const CONTACT_INFO = [
   {
     icon: Mail,
     label: 'Email',
-    value: 'support@tenet.app',
-    href: 'mailto:support@tenet.app',
+    value: 'support@tenet.space-z.ai',
+    href: 'mailto:support@tenet.space-z.ai',
     color: 'text-slate-600 dark:text-slate-400',
     bg: 'bg-slate-50 dark:bg-slate-900/40',
   },
@@ -63,8 +63,8 @@ const CONTACT_INFO = [
   {
     icon: Globe,
     label: 'Website',
-    value: 'tenet.app',
-    href: 'https://tenet.app',
+    value: 'tenet.space-z.ai',
+    href: 'https://tenet.space-z.ai',
     color: 'text-orange-600 dark:text-orange-400',
     bg: 'bg-orange-50 dark:bg-orange-950/30',
   },

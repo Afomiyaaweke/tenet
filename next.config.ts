@@ -47,6 +47,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   allowedDevOrigins: [
+    "tenet.space-z.ai",
     "tenet.app",
     "127.0.0.1",
     "localhost",
