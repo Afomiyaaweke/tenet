@@ -16,7 +16,7 @@ import {
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
-  PenTool, BarChart3, FileCode,
+  PenTool, BarChart3, FileCode, Server,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
@@ -45,6 +45,7 @@ const SocialCircleView = dynamic(() => import('@/components/modules/social-circl
 const AIDocStudioView = dynamic(() => import('@/components/modules/ai-doc-studio').then(m => ({ default: m.AIDocStudio })), { ssr: false });
 const DocBuilderView = dynamic(() => import('@/components/modules/doc-builder').then(m => ({ default: m.DocBuilderView })), { ssr: false });
 const TenderAnalyzerView = dynamic(() => import('@/components/modules/tender-analyzer').then(m => ({ default: m.TenderAnalyzerView })), { ssr: false });
+const InfraDashboardView = dynamic(() => import('@/components/modules/infra-dashboard').then(m => ({ default: m.InfraDashboardView })), { ssr: false });
 
 /* ──────────────────────────── Loading spinner ──────────────────────────── */
 
@@ -125,6 +126,7 @@ function getNavItemsForRole(role: string): NavSection[] {
       { id: 'ai-doc-studio', label: 'AI Doc Studio', icon: Bot },
       { id: 'doc-builder', label: 'Doc Builder', icon: PenTool },
       { id: 'tender-analyzer', label: 'Tender Analyzer', icon: BarChart3 },
+      { id: 'infra-dashboard', label: 'Infra & DevOps', icon: Server },
     ],
   };
 
@@ -544,6 +546,8 @@ export function AppShell() {
         return <PrivacyPolicyView />;
       case 'social-circle':
         return <SocialCircleView />;
+      case 'infra-dashboard':
+        return <InfraDashboardView />;
       default:
         return <DashboardView />;
     }
