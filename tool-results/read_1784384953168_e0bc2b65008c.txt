@@ -1,0 +1,579 @@
+   100→        { label: 'Active Rules', value: String(m.rateLimitRules || 0) }, { label: 'Blocked (24h)', value: String(m.blockedRequests || 0) },
+   101→        { label: 'Strategy', value: 'Sliding Window' },
+   102→      ]},
+   103→    { id: 'caching', label: 'Caching', icon: Zap, tab: 'performance',
+   104→      status: s('caching'), metrics: [
+   105→        { label: 'Hit Rate', value: `${m.cacheHitRate || 0}%` }, { label: 'Entries', value: String(m.cacheEntries || 0) },
+   106→        { label: 'Avg TTL', value: `${m.cacheTTL || 300}s` },
+   107→      ]},
+   108→    { id: 'edge_computing', label: 'Edge Computing', icon: Cloud, tab: 'performance',
+   109→      status: s('edge_computing'), metrics: [
+   110→        { label: 'Edge Locations', value: '12' }, { label: 'Deploy Status', value: 'Active' },
+   111→      ]},
+   112→    { id: 'web_performance', label: 'Web Performance', icon: Activity, tab: 'performance',
+   113→      status: s('web_performance'), metrics: [
+   114→        { label: 'LCP', value: '<2.5s' }, { label: 'FID', value: '<100ms' },
+   115→        { label: 'CLS', value: '<0.1' },
+   116→      ]},
+   117→    { id: 'cdn', label: 'CDN', icon: Network, tab: 'performance',
+   118→      status: s('cdn'), metrics: [
+   119→        { label: 'Hit Ratio', value: `${m.cdnHitRatio || 0}%` }, { label: 'Origin Shield', value: 'Enabled' },
+   120→        { label: 'Purge', value: 'Available' },
+   121→      ]},
+   122→    { id: 'monitoring', label: 'Monitoring', icon: Eye, tab: 'reliability',
+   123→      status: s('monitoring'), metrics: [
+   124→        { label: 'Active Alerts', value: String(m.activeAlerts || 0) }, { label: 'Health Checks', value: 'Running' },
+   125→        { label: 'Uptime', value: `${m.uptime || '99.9'}%` },
+   126→      ]},
+   127→    { id: 'network_security', label: 'Network Security', icon: Lock, tab: 'security',
+   128→      status: s('network_security'), metrics: [
+   129→        { label: 'Firewall', value: 'Active' }, { label: 'TLS', value: '1.3' },
+   130→        { label: 'DDoS', value: 'Protected' },
+   131→      ]},
+   132→    { id: 'api_integration', label: 'API Integration', icon: Plug, tab: 'integration',
+   133→      status: s('api_integration'), metrics: [
+   134→        { label: 'Endpoints', value: '60+' }, { label: 'Health', value: 'OK' },
+   135→        { label: 'Auth', value: 'JWT Bearer' },
+   136→      ]},
+   137→    { id: 'idempotency', label: 'Idempotency', icon: Hash, tab: 'integration',
+   138→      status: s('idempotency'), metrics: [
+   139→        { label: 'Key Tracking', value: 'Active' }, { label: 'Dedup', value: 'Enabled' },
+   140→      ]},
+   141→    { id: 'automation', label: 'Automation', icon: RefreshCw, tab: 'integration',
+   142→      status: s('automation'), metrics: [
+   143→        { label: 'Scheduled Tasks', value: '5' }, { label: 'Cron Jobs', value: '3' },
+   144→        { label: 'Pipelines', value: 'Active' },
+   145→      ]},
+   146→    { id: 'webhooks', label: 'Webhooks', icon: Webhook, tab: 'integration',
+   147→      status: s('webhooks'), metrics: [
+   148→        { label: 'Active Hooks', value: String(m.webhookCount || 0) }, { label: 'Delivery Rate', value: `${m.webhookDeliveryRate || 100}%` },
+   149→        { label: 'Retry Policy', value: '3x backoff' },
+   150→      ]},
+   151→    { id: 'secret_management', label: 'Secret Management', icon: Key, tab: 'security',
+   152→      status: s('secret_management'), metrics: [
+   153→        { label: 'Secrets', value: String(m.secretCount || 0) }, { label: 'Rotation', value: '90 days' },
+   154→        { label: 'Vault', value: 'Encrypted' },
+   155→      ]},
+   156→    { id: 'audits', label: 'Audits', icon: FileSearch, tab: 'security',
+   157→      status: s('audits'), metrics: [
+   158→        { label: 'Events (24h)', value: String(m.auditEvents24h || 0) }, { label: 'Compliance', value: 'Active' },
+   159→        { label: 'PII Masking', value: 'Enabled' },
+   160→      ]},
+   161→    { id: 'stateless', label: 'Stateless', icon: Server, tab: 'reliability',
+   162→      status: s('stateless'), metrics: [
+   163→        { label: 'Session Store', value: 'JWT (stateless)' }, { label: 'Scaling', value: 'Horizontal' },
+   164→      ]},
+   165→  ];
+   166→}
+   167→
+   168→// ── Status helpers ─────────────────────────────────────────────────────
+   169→
+   170→const STATUS_CFG: Record<Status, { label: string; color: string; bg: string; border: string; icon: React.ElementType }> = {
+   171→  healthy: { label: 'Healthy', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-200 dark:border-emerald-800', icon: CheckCircle2 },
+   172→  warning: { label: 'Warning', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', icon: AlertTriangle },
+   173→  critical: { label: 'Critical', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-800', icon: XCircle },
+   174→  not_configured: { label: 'Not Configured', color: 'text-slate-500', bg: 'bg-slate-50 dark:bg-slate-900/30', border: 'border-slate-200 dark:border-slate-700', icon: MinusCircle },
+   175→};
+   176→
+   177→// ── Main Component ─────────────────────────────────────────────────────
+   178→
+   179→export function InfraDashboardView() {
+   180→  const { user } = useAuthStore();
+   181→  const isAdmin = user?.role === 'team_admin';
+   182→
+   183→  const [loading, setLoading] = useState(true);
+   184→  const [healthData, setHealthData] = useState<Record<string, unknown> | null>(null);
+   185→  const [metricsData, setMetricsData] = useState<Record<string, unknown> | null>(null);
+   186→  const [alerts, setAlerts] = useState<Array<Record<string, unknown>>>([]);
+   187→  const [webhooks, setWebhooks] = useState<Array<Record<string, unknown>>>([]);
+   188→  const [rateLimits, setRateLimits] = useState<Array<Record<string, unknown>>>([]);
+   189→  const [secrets, setSecrets] = useState<Array<Record<string, unknown>>>([]);
+   190→  const [cacheEntries, setCacheEntries] = useState<Array<Record<string, unknown>>>([]);
+   191→
+   192→  // Dialog states
+   193→  const [dlgOpen, setDlgOpen] = useState(false);
+   194→  const [dlgType, setDlgType] = useState<string>('');
+   195→  const [dlgData, setDlgData] = useState<Record<string, unknown>>({});
+   196→
+   197→  const concerns = buildConcerns(healthData, metricsData);
+   198→
+   199→  const fetchData = useCallback(async () => {
+   200→    setLoading(true);
+   201→    try {
+   202→      const [healthRes, metricsRes, alertsRes, webhooksRes, rateLimitsRes, secretsRes, cacheRes] = await Promise.allSettled([
+   203→        api.get('/infra/health'),
+   204→        api.get('/infra/metrics'),
+   205→        api.get('/infra/alerts'),
+   206→        api.get('/infra/webhooks'),
+   207→        api.get('/infra/rate-limits'),
+   208→        isAdmin ? api.get('/infra/secrets') : Promise.resolve({ success: false, data: [] }),
+   209→        api.get('/infra/cache'),
+   210→      ]);
+   211→
+   212→      if (healthRes.status === 'fulfilled' && healthRes.value.success) setHealthData(healthRes.value.data);
+   213→      if (metricsRes.status === 'fulfilled' && metricsRes.value.success) setMetricsData(metricsRes.value.data);
+   214→      if (alertsRes.status === 'fulfilled' && alertsRes.value.success) setAlerts(alertsRes.value.data || []);
+   215→      if (webhooksRes.status === 'fulfilled' && webhooksRes.value.success) setWebhooks(webhooksRes.value.data || []);
+   216→      if (rateLimitsRes.status === 'fulfilled' && rateLimitsRes.value.success) setRateLimits(rateLimitsRes.value.data || []);
+   217→      if (secretsRes.status === 'fulfilled' && secretsRes.value.success) setSecrets(secretsRes.value.data || []);
+   218→      if (cacheRes.status === 'fulfilled' && cacheRes.value.success) setCacheEntries(cacheRes.value.data?.entries || []);
+   219→    } catch {
+   220→      toast.error('Failed to load infrastructure data');
+   221→    }
+   222→    setLoading(false);
+   223→  }, [isAdmin]);
+   224→
+   225→  /* eslint-disable react-hooks/set-state-in-effect */
+   226→  useEffect(() => { fetchData(); }, [fetchData]);
+   227→  /* eslint-enable react-hooks/set-state-in-effect */
+   228→
+   229→  const score = (healthData?.score as number) ?? 85;
+   230→  const activeAlerts = alerts.filter((a) => a.status === 'active').length;
+   231→  const healthyCount = concerns.filter((c) => c.status === 'healthy').length;
+   232→  const warningCount = concerns.filter((c) => c.status === 'warning').length;
+   233→  const criticalCount = concerns.filter((c) => c.status === 'critical').length;
+   234→  const uptime = healthData?.uptime ? `${(Number(healthData.uptime) / 3600).toFixed(1)}h` : '—';
+   235→
+   236→  const scoreColor = score >= 80 ? 'text-emerald-500' : score >= 60 ? 'text-amber-500' : score >= 40 ? 'text-orange-500' : 'text-red-500';
+   237→  const scoreStroke = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : score >= 40 ? '#f97316' : '#ef4444';
+   238→
+   239→  // ── Dialog handlers ──────────────────────────────────────────────────
+   240→
+   241→  const openConfig = (concernId: string) => {
+   242→    setDlgType(concernId);
+   243→    if (concernId === 'rate_limiting') {
+   244→      setDlgData({ endpoint: '', windowMs: 60000, maxRequests: 100, strategy: 'sliding_window' });
+   245→    } else if (concernId === 'webhooks') {
+   246→      setDlgData({ name: '', url: '', events: 'tender.created,bid.submitted', active: true });
+   247→    } else if (concernId === 'secret_management') {
+   248→      setDlgData({ key: '', value: '', category: 'general', description: '' });
+   249→    } else {
+   250→      setDlgData({ enabled: true, notes: '' });
+   251→    }
+   252→    setDlgOpen(true);
+   253→  };
+   254→
+   255→  const saveConfig = async () => {
+   256→    try {
+   257→      if (dlgType === 'rate_limiting') {
+   258→        const res = await api.post('/infra/rate-limits', dlgData);
+   259→        if (res.success) { toast.success('Rate limit rule created'); fetchData(); }
+   260→        else toast.error(res.error || 'Failed');
+   261→      } else if (dlgType === 'webhooks') {
+   262→        const res = await api.post('/infra/webhooks', dlgData);
+   263→        if (res.success) { toast.success('Webhook created'); fetchData(); }
+   264→        else toast.error(res.error || 'Failed');
+   265→      } else if (dlgType === 'secret_management') {
+   266→        const res = await api.post('/infra/secrets', dlgData);
+   267→        if (res.success) { toast.success('Secret created'); fetchData(); }
+   268→        else toast.error(res.error || 'Failed');
+   269→      } else {
+   270→        toast.success(`${dlgType} configuration saved`);
+   271→      }
+   272→      setDlgOpen(false);
+   273→    } catch { toast.error('Failed to save configuration'); }
+   274→  };
+   275→
+   276→  const testWebhook = async (id: string) => {
+   277→    try {
+   278→      const res = await api.post('/infra/webhooks', { action: 'test', id });
+   279→      if (res.success) toast.success('Webhook test sent successfully');
+   280→      else toast.error(res.error || 'Webhook test failed');
+   281→    } catch { toast.error('Webhook test failed'); }
+   282→  };
+   283→
+   284→  const rotateSecret = async (id: string) => {
+   285→    try {
+   286→      const res = await api.post('/infra/secrets', { action: 'rotate', id });
+   287→      if (res.success) { toast.success('Secret rotated'); fetchData(); }
+   288→      else toast.error(res.error || 'Rotation failed');
+   289→    } catch { toast.error('Secret rotation failed'); }
+   290→  };
+   291→
+   292→  const acknowledgeAlert = async (id: string) => {
+   293→    try {
+   294→      const res = await api.put('/infra/alerts', { id, status: 'acknowledged', acknowledgedBy: user?.id });
+   295→      if (res.success) { toast.success('Alert acknowledged'); fetchData(); }
+   296→    } catch { toast.error('Failed to acknowledge'); }
+   297→  };
+   298→
+   299→  const resolveAlert = async (id: string) => {
+   300→    try {
+   301→      const res = await api.put('/infra/alerts', { id, status: 'resolved' });
+   302→      if (res.success) { toast.success('Alert resolved'); fetchData(); }
+   303→    } catch { toast.error('Failed to resolve'); }
+   304→  };
+   305→
+   306→  // ── Render ───────────────────────────────────────────────────────────
+   307→
+   308→  if (loading && !healthData) {
+   309→    return (
+   310→      <div className="p-6 space-y-4">
+   311→        <Skeleton className="h-10 w-64" />
+   312→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+   313→          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
+   314→        </div>
+   315→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+   316→          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-44" />)}
+   317→        </div>
+   318→      </div>
+   319→    );
+   320→  }
+   321→
+   322→  return (
+   323→    <div className="p-4 md:p-6 space-y-6">
+   324→      {/* ── Header ── */}
+   325→      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   326→        <div>
+   327→          <h1 className="text-2xl font-bold text-foreground">Infrastructure & DevOps</h1>
+   328→          <p className="text-sm text-muted-foreground mt-1">Monitor and manage all 23 infrastructure concerns</p>
+   329→        </div>
+   330→        <div className="flex items-center gap-2">
+   331→          {activeAlerts > 0 && (
+   332→            <Badge variant="destructive" className="gap-1">
+   333→              <AlertTriangle className="w-3 h-3" /> {activeAlerts} Alert{activeAlerts > 1 ? 's' : ''}
+   334→            </Badge>
+   335→          )}
+   336→          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+   337→            <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+   338→          </Button>
+   339→        </div>
+   340→      </div>
+   341→
+   342→      {/* ── Health Score + Quick Stats ── */}
+   343→      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+   344→        {/* Health Score */}
+   345→        <Card className="md:col-span-2">
+   346→          <CardContent className="pt-6 flex items-center gap-6">
+   347→            <div className="relative w-28 h-28 flex-shrink-0">
+   348→              <svg className="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+   349→                <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="8" className="text-muted/30" />
+   350→                <circle cx="60" cy="60" r="50" fill="none" stroke={scoreStroke} strokeWidth="8"
+   351→                  strokeDasharray={`${(score / 100) * 314} 314`} strokeLinecap="round" />
+   352→              </svg>
+   353→              <div className="absolute inset-0 flex items-center justify-center">
+   354→                <span className={`text-3xl font-bold ${scoreColor}`}>{score}</span>
+   355→              </div>
+   356→            </div>
+   357→            <div>
+   358→              <p className="text-sm font-medium text-muted-foreground">Overall Health</p>
+   359→              <p className={`text-lg font-bold ${scoreColor}`}>
+   360→                {score >= 80 ? 'Healthy' : score >= 60 ? 'Degraded' : 'Unhealthy'}
+   361→              </p>
+   362→              <p className="text-xs text-muted-foreground mt-1">Uptime: {uptime}</p>
+   363→            </div>
+   364→          </CardContent>
+   365→        </Card>
+   366→
+   367→        {/* Quick Stats */}
+   368→        {[
+   369→          { label: 'Healthy', value: healthyCount, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20', icon: CheckCircle2 },
+   370→          { label: 'Warnings', value: warningCount, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20', icon: AlertTriangle },
+   371→          { label: 'Critical', value: criticalCount, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/20', icon: XCircle },
+   372→          { label: 'Uptime', value: uptime, color: 'text-slate-600', bg: 'bg-slate-50 dark:bg-slate-900/30', icon: Clock },
+   373→        ].map((stat) => (
+   374→          <Card key={stat.label}>
+   375→            <CardContent className="pt-6">
+   376→              <div className={`w-10 h-10 rounded-lg ${stat.bg} flex items-center justify-center mb-2`}>
+   377→                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+   378→              </div>
+   379→              <p className="text-2xl font-bold">{stat.value}</p>
+   380→              <p className="text-xs text-muted-foreground">{stat.label}</p>
+   381→            </CardContent>
+   382→          </Card>
+   383→        ))}
+   384→      </div>
+   385→
+   386→      {/* ── Active Alerts ── */}
+   387→      {activeAlerts > 0 && (
+   388→        <Card className="border-amber-200 dark:border-amber-800">
+   389→          <CardHeader className="pb-2">
+   390→            <CardTitle className="text-base flex items-center gap-2">
+   391→              <AlertTriangle className="w-4 h-4 text-amber-500" /> Active Alerts
+   392→            </CardTitle>
+   393→          </CardHeader>
+   394→          <CardContent>
+   395→            <ScrollArea className="max-h-40">
+   396→              <div className="space-y-2">
+   397→                {alerts.filter(a => a.status === 'active').slice(0, 5).map((alert) => (
+   398→                  <div key={alert.id as string} className="flex items-center justify-between p-2 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+   399→                    <div className="flex items-center gap-2 min-w-0">
+   400→                      <Badge variant="outline" className={
+   401→                        (alert.severity as string) === 'critical' ? 'border-red-300 text-red-700' :
+   402→                        (alert.severity as string) === 'emergency' ? 'border-red-400 text-red-800' :
+   403→                        'border-amber-300 text-amber-700'
+   404→                      }>
+   405→                        {alert.severity as string}
+   406→                      </Badge>
+   407→                      <span className="text-sm truncate">{alert.title as string}</span>
+   408→                    </div>
+   409→                    <div className="flex items-center gap-1 flex-shrink-0">
+   410→                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => acknowledgeAlert(alert.id as string)}>Ack</Button>
+   411→                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => resolveAlert(alert.id as string)}>Resolve</Button>
+   412→                    </div>
+   413→                  </div>
+   414→                ))}
+   415→              </div>
+   416→            </ScrollArea>
+   417→          </CardContent>
+   418→        </Card>
+   419→      )}
+   420→
+   421→      {/* ── Tabbed Concerns ── */}
+   422→      <Tabs defaultValue="overview">
+   423→        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+   424→          <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+   425→          <TabsTrigger value="security" className="text-xs">Security</TabsTrigger>
+   426→          <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
+   427→          <TabsTrigger value="reliability" className="text-xs">Reliability</TabsTrigger>
+   428→          <TabsTrigger value="integration" className="text-xs">Integration</TabsTrigger>
+   429→          <TabsTrigger value="data" className="text-xs">Data</TabsTrigger>
+   430→        </TabsList>
+   431→
+   432→        {(['overview', 'security', 'performance', 'reliability', 'integration', 'data'] as const).map((tab) => {
+   433→          const filtered = tab === 'overview' ? concerns : concerns.filter(c => c.tab === tab);
+   434→          return (
+   435→            <TabsContent key={tab} value={tab}>
+   436→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+   437→                {filtered.map((concern) => {
+   438→                  const cfg = STATUS_CFG[concern.status];
+   439→                  const StatusIcon = cfg.icon;
+   440→                  return (
+   441→                    <Card key={concern.id} className={`border-l-4 ${cfg.border} hover:shadow-md transition-shadow`}>
+   442→                      <CardHeader className="pb-2 pt-4 px-4">
+   443→                        <div className="flex items-center justify-between">
+   444→                          <div className="flex items-center gap-2 min-w-0">
+   445→                            <concern.icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+   446→                            <CardTitle className="text-sm font-semibold truncate">{concern.label}</CardTitle>
+   447→                          </div>
+   448→                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${cfg.color} ${cfg.bg} border-0`}>
+   449→                            <StatusIcon className="w-3 h-3 mr-0.5" /> {cfg.label}
+   450→                          </Badge>
+   451→                        </div>
+   452→                      </CardHeader>
+   453→                      <CardContent className="px-4 pb-4 pt-0">
+   454→                        <div className="space-y-1 mb-3">
+   455→                          {concern.metrics.map((m, i) => (
+   456→                            <div key={i} className="flex items-center justify-between text-xs">
+   457→                              <span className="text-muted-foreground">{m.label}</span>
+   458→                              <span className="font-medium flex items-center gap-0.5">
+   459→                                {m.trend === 'up' && <TrendingUp className="w-3 h-3 text-emerald-500" />}
+   460→                                {m.trend === 'down' && <TrendingUp className="w-3 h-3 text-red-500 rotate-180" />}
+   461→                                {m.value}
+   462→                              </span>
+   463→                            </div>
+   464→                          ))}
+   465→                        </div>
+   466→                        <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={() => openConfig(concern.id)}>
+   467→                          <Settings className="w-3 h-3 mr-1" /> Configure
+   468→                        </Button>
+   469→                      </CardContent>
+   470→                    </Card>
+   471→                  );
+   472→                })}
+   473→              </div>
+   474→            </TabsContent>
+   475→          );
+   476→        })}
+   477→      </Tabs>
+   478→
+   479→      {/* ── Config Dialogs ── */}
+   480→      <Dialog open={dlgOpen} onOpenChange={setDlgOpen}>
+   481→        <DialogContent className="sm:max-w-md">
+   482→          <DialogHeader>
+   483→            <DialogTitle className="flex items-center gap-2">
+   484→              <Settings className="w-4 h-4" />
+   485→              Configure {concerns.find(c => c.id === dlgType)?.label || dlgType}
+   486→            </DialogTitle>
+   487→          </DialogHeader>
+   488→
+   489→          {dlgType === 'rate_limiting' && (
+   490→            <div className="space-y-4">
+   491→              <div><Label className="text-xs">Endpoint Path</Label><Input className="h-9 mt-1" placeholder="/api/auth/login" value={String(dlgData.endpoint || '')} onChange={e => setDlgData({ ...dlgData, endpoint: e.target.value })} /></div>
+   492→              <div><Label className="text-xs">Window (ms)</Label><Input type="number" className="h-9 mt-1" value={String(dlgData.windowMs || 60000)} onChange={e => setDlgData({ ...dlgData, windowMs: parseInt(e.target.value) })} /></div>
+   493→              <div><Label className="text-xs">Max Requests</Label><Input type="number" className="h-9 mt-1" value={String(dlgData.maxRequests || 100)} onChange={e => setDlgData({ ...dlgData, maxRequests: parseInt(e.target.value) })} /></div>
+   494→              <div><Label className="text-xs">Strategy</Label>
+   495→                <Select value={String(dlgData.strategy || 'sliding_window')} onValueChange={v => setDlgData({ ...dlgData, strategy: v })}>
+   496→                  <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+   497→                  <SelectContent>
+   498→                    <SelectItem value="sliding_window">Sliding Window</SelectItem>
+   499→                    <SelectItem value="fixed_window">Fixed Window</SelectItem>
+   500→                    <SelectItem value="token_bucket">Token Bucket</SelectItem>
+   501→                  </SelectContent>
+   502→                </Select>
+   503→              </div>
+   504→              <Separator />
+   505→              <p className="text-xs text-muted-foreground">Existing rules: {rateLimits.length}</p>
+   506→            </div>
+   507→          )}
+   508→
+   509→          {dlgType === 'webhooks' && (
+   510→            <div className="space-y-4">
+   511→              <div><Label className="text-xs">Name</Label><Input className="h-9 mt-1" placeholder="My Webhook" value={String(dlgData.name || '')} onChange={e => setDlgData({ ...dlgData, name: e.target.value })} /></div>
+   512→              <div><Label className="text-xs">URL</Label><Input className="h-9 mt-1" placeholder="https://..." value={String(dlgData.url || '')} onChange={e => setDlgData({ ...dlgData, url: e.target.value })} /></div>
+   513→              <div><Label className="text-xs">Events (comma-separated)</Label><Textarea className="mt-1 min-h-[60px]" placeholder="tender.created,bid.submitted" value={String(dlgData.events || '')} onChange={e => setDlgData({ ...dlgData, events: e.target.value })} /></div>
+   514→              <div className="flex items-center gap-2"><Switch checked={!!dlgData.active} onCheckedChange={v => setDlgData({ ...dlgData, active: v })} /><Label className="text-xs">Active</Label></div>
+   515→              <Separator />
+   516→              <p className="text-xs text-muted-foreground">Active webhooks: {webhooks.filter(w => w.active).length}</p>
+   517→            </div>
+   518→          )}
+   519→
+   520→          {dlgType === 'secret_management' && isAdmin && (
+   521→            <div className="space-y-4">
+   522→              <div><Label className="text-xs">Key</Label><Input className="h-9 mt-1" placeholder="JWT_SECRET" value={String(dlgData.key || '')} onChange={e => setDlgData({ ...dlgData, key: e.target.value })} /></div>
+   523→              <div><Label className="text-xs">Value</Label><Input type="password" className="h-9 mt-1" value={String(dlgData.value || '')} onChange={e => setDlgData({ ...dlgData, value: e.target.value })} /></div>
+   524→              <div><Label className="text-xs">Category</Label>
+   525→                <Select value={String(dlgData.category || 'general')} onValueChange={v => setDlgData({ ...dlgData, category: v })}>
+   526→                  <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+   527→                  <SelectContent>
+   528→                    <SelectItem value="general">General</SelectItem>
+   529→                    <SelectItem value="auth">Auth</SelectItem>
+   530→                    <SelectItem value="database">Database</SelectItem>
+   531→                    <SelectItem value="email">Email</SelectItem>
+   532→                    <SelectItem value="payment">Payment</SelectItem>
+   533→                    <SelectItem value="integration">Integration</SelectItem>
+   534→                  </SelectContent>
+   535→                </Select>
+   536→              </div>
+   537→              <div><Label className="text-xs">Description</Label><Textarea className="mt-1 min-h-[40px]" value={String(dlgData.description || '')} onChange={e => setDlgData({ ...dlgData, description: e.target.value })} /></div>
+   538→              <Separator />
+   539→              <p className="text-xs text-muted-foreground">Tracked secrets: {secrets.length}</p>
+   540→            </div>
+   541→          )}
+   542→
+   543→          {dlgType !== 'rate_limiting' && dlgType !== 'webhooks' && dlgType !== 'secret_management' && (
+   544→            <div className="space-y-4">
+   545→              <div className="flex items-center gap-2"><Switch checked={!!dlgData.enabled} onCheckedChange={v => setDlgData({ ...dlgData, enabled: v })} /><Label className="text-xs">Enabled</Label></div>
+   546→              <div><Label className="text-xs">Notes</Label><Textarea className="mt-1 min-h-[60px]" value={String(dlgData.notes || '')} onChange={e => setDlgData({ ...dlgData, notes: e.target.value })} placeholder="Configuration notes..." /></div>
+   547→            </div>
+   548→          )}
+   549→
+   550→          <DialogFooter>
+   551→            <Button variant="outline" onClick={() => setDlgOpen(false)} className="h-9">Cancel</Button>
+   552→            <Button onClick={saveConfig} className="h-9">
+   553→              <CheckCircle2 className="w-4 h-4 mr-1" /> Save
+   554→            </Button>
+   555→          </DialogFooter>
+   556→        </DialogContent>
+   557→      </Dialog>
+   558→
+   559→      {/* ── Details Panels (admin only) ── */}
+   560→      {isAdmin && (
+   561→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
+   562→          {/* Webhooks */}
+   563→          <Card>
+   564→            <CardHeader className="pb-2">
+   565→              <CardTitle className="text-sm flex items-center gap-2"><Webhook className="w-4 h-4" /> Webhooks ({webhooks.length})</CardTitle>
+   566→            </CardHeader>
+   567→            <CardContent>
+   568→              {webhooks.length === 0 ? (
+   569→                <p className="text-xs text-muted-foreground py-4 text-center">No webhooks configured</p>
+   570→              ) : (
+   571→                <ScrollArea className="max-h-48">
+   572→                  <div className="space-y-2">
+   573→                    {webhooks.map((wh) => (
+   574→                      <div key={wh.id as string} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-xs">
+   575→                        <div className="min-w-0">
+   576→                          <p className="font-medium truncate">{wh.name as string}</p>
+   577→                          <p className="text-muted-foreground truncate">{wh.url as string}</p>
+   578→                        </div>
+   579→                        <Button variant="ghost" size="sm" className="h-6 text-[10px] flex-shrink-0" onClick={() => testWebhook(wh.id as string)}>Test</Button>
+   580→                      </div>
+   581→                    ))}
+   582→                  </div>
+   583→                </ScrollArea>
+   584→              )}
+   585→            </CardContent>
+   586→          </Card>
+   587→
+   588→          {/* Secrets */}
+   589→          <Card>
+   590→            <CardHeader className="pb-2">
+   591→              <CardTitle className="text-sm flex items-center gap-2"><Key className="w-4 h-4" /> Secrets ({secrets.length})</CardTitle>
+   592→            </CardHeader>
+   593→            <CardContent>
+   594→              {secrets.length === 0 ? (
+   595→                <p className="text-xs text-muted-foreground py-4 text-center">No secrets tracked</p>
+   596→              ) : (
+   597→                <ScrollArea className="max-h-48">
+   598→                  <div className="space-y-2">
+   599→                    {secrets.map((sec) => (
+   600→                      <div key={sec.id as string} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-xs">
+   601→                        <div className="min-w-0">
+   602→                          <p className="font-medium">{sec.key as string}</p>
+   603→                          <p className="text-muted-foreground font-mono text-[10px]">{sec.value as string}</p>
+   604→                        </div>
+   605→                        <Button variant="ghost" size="sm" className="h-6 text-[10px] flex-shrink-0" onClick={() => rotateSecret(sec.id as string)}>
+   606→                          <RotateCcw className="w-3 h-3" /> Rotate
+   607→                        </Button>
+   608→                      </div>
+   609→                    ))}
+   610→                  </div>
+   611→                </ScrollArea>
+   612→              )}
+   613→            </CardContent>
+   614→          </Card>
+   615→
+   616→          {/* Rate Limits */}
+   617→          <Card>
+   618→            <CardHeader className="pb-2">
+   619→              <CardTitle className="text-sm flex items-center gap-2"><Timer className="w-4 h-4" /> Rate Limits ({rateLimits.length})</CardTitle>
+   620→            </CardHeader>
+   621→            <CardContent>
+   622→              {rateLimits.length === 0 ? (
+   623→                <p className="text-xs text-muted-foreground py-4 text-center">No custom rate limits — using middleware defaults</p>
+   624→              ) : (
+   625→                <ScrollArea className="max-h-48">
+   626→                  <div className="space-y-2">
+   627→                    {rateLimits.map((rl) => (
+   628→                      <div key={rl.id as string} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-xs">
+   629→                        <div className="min-w-0">
+   630→                          <p className="font-medium font-mono">{rl.endpoint as string}</p>
+   631→                          <p className="text-muted-foreground">{rl.maxRequests as number} req / {rl.windowMs as number}ms</p>
+   632→                        </div>
+   633→                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-red-600 flex-shrink-0" onClick={async () => {
+   634→                          const res = await api.delete(`/infra/rate-limits?id=${rl.id}`);
+   635→                          if (res.success) { toast.success('Deleted'); fetchData(); }
+   636→                        }}><Trash2 className="w-3 h-3" /></Button>
+   637→                      </div>
+   638→                    ))}
+   639→                  </div>
+   640→                </ScrollArea>
+   641→              )}
+   642→            </CardContent>
+   643→          </Card>
+   644→
+   645→          {/* Cache */}
+   646→          <Card>
+   647→            <CardHeader className="pb-2">
+   648→              <CardTitle className="text-sm flex items-center gap-2"><Zap className="w-4 h-4" /> Cache ({cacheEntries.length})</CardTitle>
+   649→            </CardHeader>
+   650→            <CardContent>
+   651→              {cacheEntries.length === 0 ? (
+   652→                <p className="text-xs text-muted-foreground py-4 text-center">No cache entries</p>
+   653→              ) : (
+   654→                <ScrollArea className="max-h-48">
+   655→                  <div className="space-y-2">
+   656→                    {cacheEntries.map((ce) => (
+   657→                      <div key={ce.id as string} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-xs">
+   658→                        <div className="min-w-0">
+   659→                          <p className="font-medium font-mono truncate">{ce.key as string}</p>
+   660→                          <p className="text-muted-foreground">Hits: {ce.hits as number} | TTL: {ce.ttl as number}s</p>
+   661→                        </div>
+   662→                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-red-600 flex-shrink-0" onClick={async () => {
+   663→                          const res = await api.delete(`/infra/cache?key=${ce.key}`);
+   664→                          if (res.success) { toast.success('Evicted'); fetchData(); }
+   665→                        }}><Trash2 className="w-3 h-3" /></Button>
+   666→                      </div>
+   667→                    ))}
+   668→                  </div>
+   669→                </ScrollArea>
+   670→              )}
+   671→            </CardContent>
+   672→          </Card>
+   673→        </div>
+   674→      )}
+   675→    </div>
+   676→  );
+   677→}
+   678→

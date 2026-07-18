@@ -60,7 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 // Navigation Store
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio' | 'doc-builder' | 'tender-analyzer' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle' | 'infra-dashboard';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio' | 'doc-builder' | 'tender-analyzer' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle';
 
 interface NavState {
   view: View;
