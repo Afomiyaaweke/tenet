@@ -16,7 +16,7 @@ import {
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
-  PenTool, BarChart3, FileCode, Server, ExternalLink,
+  PenTool, BarChart3, FileCode,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
@@ -128,13 +128,6 @@ function getNavItemsForRole(role: string): NavSection[] {
     ],
   };
 
-  const infra: NavSection = {
-    label: 'INFRASTRUCTURE',
-    items: [
-      { id: 'infra-dashboard', label: 'Infra & DevOps', icon: Server },
-    ],
-  };
-
   const support: NavSection = {
     label: 'SUPPORT',
     items: [
@@ -148,7 +141,6 @@ function getNavItemsForRole(role: string): NavSection[] {
       main,
       manage,
       tools,
-      infra,
       support,
       {
         label: 'TEAM',
@@ -161,7 +153,7 @@ function getNavItemsForRole(role: string): NavSection[] {
   }
 
   // Regular user
-  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, infra, support];
+  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support];
 }
 
 /* ──────────────────── Role badge config ──────────────────── */
@@ -303,11 +295,7 @@ function SidebarContent({
                     <button
                       key={item.id}
                       onClick={() => {
-                        if (item.id === 'infra-dashboard') {
-                          window.open('/infra/', '_blank');
-                        } else {
-                          setView(item.id as View);
-                        }
+                        setView(item.id as View);
                       }}
                       className={`
                         group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
@@ -325,9 +313,6 @@ function SidebarContent({
                         }`}
                       />
                       <span className="truncate flex-1 text-left">{item.label}</span>
-                      {item.id === 'infra-dashboard' && (
-                        <ExternalLink className="h-3 w-3 ml-1 flex-shrink-0 text-muted-foreground/40" />
-                      )}
                       {item.id === 'chat' && unreadCount > 0 && (
                         <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-red-200">
                           {unreadCount > 99 ? '99+' : unreadCount}
