@@ -128,3 +128,30 @@ Stage Summary:
 - Dev server cannot run in 4GB container due to Turbopack memory usage during compilation
 - Production build (standalone) works correctly with JWT_SECRET configured
 - All API endpoints verified working: /, /api/auth/login, /api/infra/health
+
+---
+Task ID: infra-separation
+Agent: main
+Task: Remove Infra & DevOps from main Tenet app and create standalone mini-service with database connection for user tracking
+
+Work Log:
+- Removed infra-dashboard from main app: deleted infra-dashboard.tsx component, removed dynamic import and nav item from app-shell.tsx, removed 'infra-dashboard' from View type in store/index.ts, deleted all /api/infra/* routes
+- Created new standalone mini-service at mini-services/infra-service/
+- Built comprehensive Bun HTTP server using Bun.serve() with embedded HTML dashboard
+- Connected to the same SQLite database (db/custom.db) using Bun's built-in sqlite module
+- Implemented full user tracking: total users, active/suspended/banned, new users today/week/month, daily/monthly registration charts, role/status distribution, recent registrations table
+- Implemented all 23 infrastructure concerns health check (Authentication, Analytics, DNS, Stress Testing, Pen Testing, Load Handling, Fail Tolerance, Backup, Data Modeling, Rate Limiting, Caching, Edge Computing, Web Performance, CDN, Monitoring, Network Security, API Integration, Idempotency, Automation, Webhooks, Secret Management, Audits, Stateless)
+- Implemented system metrics with real DB data (companies, tenders, bids, projects, audit logs)
+- Added CRUD for alerts, webhooks, rate limits, cache entries, secrets, and audit logs
+- Created beautiful dark-themed HTML dashboard with Tailwind CSS and Chart.js
+- Updated Caddyfile to route /infra* to port 3004
+- Added "Infra & DevOps" nav item in main app sidebar under "INFRASTRUCTURE" section that opens /infra/ in new tab
+- All services verified working: Next.js on 3000, Chat on 3003, Infra on 3004
+- Lint passes with 0 errors
+
+Stage Summary:
+- Infra & DevOps dashboard is now a completely separate service at mini-services/infra-service/ running on port 3004
+- Database connection established to same SQLite as main app, with real-time user tracking
+- Dashboard accessible via /infra/ route through Caddy gateway
+- Main Tenet app is clean without any infra code
+- 9-tab dashboard: User Tracking, Health Check, System Metrics, Alerts, Webhooks, Rate Limits, Cache, Secrets, Audit Logs

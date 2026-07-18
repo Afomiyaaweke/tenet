@@ -16,7 +16,7 @@ import {
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
-  PenTool, BarChart3, FileCode, Server,
+  PenTool, BarChart3, FileCode, Server, ExternalLink,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
@@ -45,7 +45,6 @@ const SocialCircleView = dynamic(() => import('@/components/modules/social-circl
 const AIDocStudioView = dynamic(() => import('@/components/modules/ai-doc-studio').then(m => ({ default: m.AIDocStudio })), { ssr: false });
 const DocBuilderView = dynamic(() => import('@/components/modules/doc-builder').then(m => ({ default: m.DocBuilderView })), { ssr: false });
 const TenderAnalyzerView = dynamic(() => import('@/components/modules/tender-analyzer').then(m => ({ default: m.TenderAnalyzerView })), { ssr: false });
-const InfraDashboardView = dynamic(() => import('@/components/modules/infra-dashboard').then(m => ({ default: m.InfraDashboardView })), { ssr: false });
 
 /* ──────────────────────────── Loading spinner ──────────────────────────── */
 
@@ -126,6 +125,12 @@ function getNavItemsForRole(role: string): NavSection[] {
       { id: 'ai-doc-studio', label: 'AI Doc Studio', icon: Bot },
       { id: 'doc-builder', label: 'Doc Builder', icon: PenTool },
       { id: 'tender-analyzer', label: 'Tender Analyzer', icon: BarChart3 },
+    ],
+  };
+
+  const infra: NavSection = {
+    label: 'INFRASTRUCTURE',
+    items: [
       { id: 'infra-dashboard', label: 'Infra & DevOps', icon: Server },
     ],
   };
@@ -143,6 +148,7 @@ function getNavItemsForRole(role: string): NavSection[] {
       main,
       manage,
       tools,
+      infra,
       support,
       {
         label: 'TEAM',
@@ -155,7 +161,7 @@ function getNavItemsForRole(role: string): NavSection[] {
   }
 
   // Regular user
-  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support];
+  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, infra, support];
 }
 
 /* ──────────────────── Role badge config ──────────────────── */
@@ -296,7 +302,13 @@ function SidebarContent({
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setView(item.id as View)}
+                      onClick={() => {
+                        if (item.id === 'infra-dashboard') {
+                          window.open('/infra/', '_blank');
+                        } else {
+                          setView(item.id as View);
+                        }
+                      }}
                       className={`
                         group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
                         transition-all duration-150 relative
@@ -313,6 +325,9 @@ function SidebarContent({
                         }`}
                       />
                       <span className="truncate flex-1 text-left">{item.label}</span>
+                      {item.id === 'infra-dashboard' && (
+                        <ExternalLink className="h-3 w-3 ml-1 flex-shrink-0 text-muted-foreground/40" />
+                      )}
                       {item.id === 'chat' && unreadCount > 0 && (
                         <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-red-200">
                           {unreadCount > 99 ? '99+' : unreadCount}
@@ -546,8 +561,6 @@ export function AppShell() {
         return <PrivacyPolicyView />;
       case 'social-circle':
         return <SocialCircleView />;
-      case 'infra-dashboard':
-        return <InfraDashboardView />;
       default:
         return <DashboardView />;
     }

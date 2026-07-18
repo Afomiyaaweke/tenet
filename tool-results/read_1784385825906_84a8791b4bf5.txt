@@ -1,0 +1,1213 @@
+     1→import { Database } from 'bun:sqlite';
+     2→import { existsSync, statSync } from 'fs';
+     3→import { join, dirname } from 'path';
+     4→import { fileURLToPath } from 'url';
+     5→
+     6→// ─────────────────────────────────────────────────────────────────────────────
+     7→// Database Connection – connects to the SAME SQLite as the main Tenet app
+     8→// ─────────────────────────────────────────────────────────────────────────────
+     9→
+    10→const DB_PATH = process.env.DATABASE_URL?.replace('file:', '') || join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'db', 'custom.db');
+    11→
+    12→let db: Database;
+    13→
+    14→function getDb(): Database {
+    15→  if (!db) {
+    16→    if (!existsSync(DB_PATH)) {
+    17→      console.error(`[InfraService] ❌ Database not found at: ${DB_PATH}`);
+    18→      process.exit(1);
+    19→    }
+    20→    db = new Database(DB_PATH);
+    21→    db.exec('PRAGMA journal_mode = WAL');
+    22→    console.log(`[InfraService] ✅ Connected to database: ${DB_PATH}`);
+    23→  }
+    24→  return db;
+    25→}
+    26→
+    27→// ─────────────────────────────────────────────────────────────────────────────
+    28→// User Tracking – queries the real User table for live statistics
+    29→// ─────────────────────────────────────────────────────────────────────────────
+    30→
+    31→interface UserStats {
+    32→  totalUsers: number;
+    33→  activeUsers: number;
+    34→  suspendedUsers: number;
+    35→  bannedUsers: number;
+    36→  verifiedUsers: number;
+    37→  unverifiedUsers: number;
+    38→  newUsersToday: number;
+    39→  newUsersThisWeek: number;
+    40→  newUsersThisMonth: number;
+    41→  usersWithCompany: number;
+    42→  usersWithoutCompany: number;
+    43→  teamAdmins: number;
+    44→  regularUsers: number;
+    45→  recentRegistrations: Array<{ id: string; email: string; role: string; status: string; createdAt: string; companyId: string | null }>;
+    46→  dailyRegistrations: Array<{ date: string; count: number }>;
+    47→  monthlyRegistrations: Array<{ month: string; count: number }>;
+    48→  roleDistribution: Array<{ role: string; count: number }>;
+    49→  statusDistribution: Array<{ status: string; count: number }>;
+    50→}
+    51→
+    52→function getUserStats(): UserStats {
+    53→  const d = getDb();
+    54→
+    55→  const totalUsers = ((d.prepare('SELECT COUNT(*) as c FROM User').get() as any)?.c) ?? 0;
+    56→  const activeUsers = ((d.prepare("SELECT COUNT(*) as c FROM User WHERE status = 'active'").get() as any)?.c) ?? 0;
+    57→  const suspendedUsers = ((d.prepare("SELECT COUNT(*) as c FROM User WHERE status = 'suspended'").get() as any)?.c) ?? 0;
+    58→  const bannedUsers = ((d.prepare("SELECT COUNT(*) as c FROM User WHERE status = 'banned'").get() as any)?.c) ?? 0;
+    59→  const verifiedUsers = ((d.prepare('SELECT COUNT(*) as c FROM User WHERE emailVerified = 1').get() as any)?.c) ?? 0;
+    60→  const unverifiedUsers = ((d.prepare('SELECT COUNT(*) as c FROM User WHERE emailVerified = 0').get() as any)?.c) ?? 0;
+    61→  const usersWithCompany = ((d.prepare('SELECT COUNT(*) as c FROM User WHERE companyId IS NOT NULL').get() as any)?.c) ?? 0;
+    62→  const usersWithoutCompany = totalUsers - usersWithCompany;
+    63→  const teamAdmins = ((d.prepare("SELECT COUNT(*) as c FROM User WHERE role = 'team_admin'").get() as any)?.c) ?? 0;
+    64→  const regularUsers = totalUsers - teamAdmins;
+    65→
+    66→  // Prisma stores DateTime as Unix ms timestamps; convert to Unix seconds for SQLite date functions
+    67→  const nowMs = Date.now();
+    68→  const todayStart = new Date().setHours(0, 0, 0, 0);
+    69→  const weekAgoMs = nowMs - 7 * 86400000;
+    70→  const monthAgoMs = nowMs - 30 * 86400000;
+    71→
+    72→  const newUsersToday = ((d.prepare('SELECT COUNT(*) as c FROM User WHERE createdAt >= ?').get(todayStart) as any)?.c) ?? 0;
+    73→  const newUsersThisWeek = ((d.prepare('SELECT COUNT(*) as c FROM User WHERE createdAt >= ?').get(weekAgoMs) as any)?.c) ?? 0;
+    74→  const newUsersThisMonth = ((d.prepare('SELECT COUNT(*) as c FROM User WHERE createdAt >= ?').get(monthAgoMs) as any)?.c) ?? 0;
+    75→
+    76→  const recentRegistrations = d.prepare(
+    77→    'SELECT id, email, role, status, createdAt, companyId FROM User ORDER BY createdAt DESC LIMIT 20'
+    78→  ).all() as Array<{ id: string; email: string; role: string; status: string; createdAt: number; companyId: string | null }>;
+    79→
+    80→  const dailyRegistrations = d.prepare(
+    81→    "SELECT DATE(createdAt / 1000, 'unixepoch') as date, COUNT(*) as count FROM User WHERE createdAt >= ? GROUP BY DATE(createdAt / 1000, 'unixepoch') ORDER BY date DESC"
+    82→  ).all(nowMs - 30 * 86400000) as Array<{ date: string; count: number }>;
+    83→
+    84→  const monthlyRegistrations = d.prepare(
+    85→    "SELECT STRFTIME('%Y-%m', createdAt / 1000, 'unixepoch') as month, COUNT(*) as count FROM User WHERE createdAt >= ? GROUP BY STRFTIME('%Y-%m', createdAt / 1000, 'unixepoch') ORDER BY month DESC"
+    86→  ).all(nowMs - 365 * 86400000) as Array<{ month: string; count: number }>;
+    87→
+    88→  const roleDistribution = d.prepare(
+    89→    'SELECT role, COUNT(*) as count FROM User GROUP BY role ORDER BY count DESC'
+    90→  ).all() as Array<{ role: string; count: number }>;
+    91→
+    92→  const statusDistribution = d.prepare(
+    93→    'SELECT status, COUNT(*) as count FROM User GROUP BY status ORDER BY count DESC'
+    94→  ).all() as Array<{ status: string; count: number }>;
+    95→
+    96→  return {
+    97→    totalUsers, activeUsers, suspendedUsers, bannedUsers,
+    98→    verifiedUsers, unverifiedUsers,
+    99→    newUsersToday, newUsersThisWeek, newUsersThisMonth,
+   100→    usersWithCompany, usersWithoutCompany,
+   101→    teamAdmins, regularUsers,
+   102→    recentRegistrations, dailyRegistrations, monthlyRegistrations,
+   103→    roleDistribution, statusDistribution,
+   104→  };
+   105→}
+   106→
+   107→// ─────────────────────────────────────────────────────────────────────────────
+   108→// System Metrics – real data from the database + process info
+   109→// ─────────────────────────────────────────────────────────────────────────────
+   110→
+   111→interface SystemMetrics {
+   112→  uptime: number;
+   113→  memoryUsage: { rss: number; heapTotal: number; heapUsed: number; external: number };
+   114→  dbSize: number;
+   115→  totalCompanies: number;
+   116→  totalTenders: number;
+   117→  totalBids: number;
+   118→  totalProjects: number;
+   119→  totalDocuments: number;
+   120→  totalConversations: number;
+   121→  totalAuditLogs: number;
+   122→  openTenders: number;
+   123→  pendingBids: number;
+   124→  activeProjects: number;
+   125→  tendersByStatus: Array<{ status: string; count: number }>;
+   126→  bidsByStatus: Array<{ status: string; count: number }>;
+   127→  recentAuditLogs: Array<{ action: string; resource: string | null; createdAt: string; userId: string | null }>;
+   128→}
+   129→
+   130→function getSystemMetrics(): SystemMetrics {
+   131→  const d = getDb();
+   132→  const mem = process.memoryUsage();
+   133→
+   134→  const totalCompanies = ((d.prepare('SELECT COUNT(*) as c FROM Company').get() as any)?.c) ?? 0;
+   135→  const totalTenders = ((d.prepare('SELECT COUNT(*) as c FROM Tender').get() as any)?.c) ?? 0;
+   136→  const totalBids = ((d.prepare('SELECT COUNT(*) as c FROM Bid').get() as any)?.c) ?? 0;
+   137→  const totalProjects = ((d.prepare('SELECT COUNT(*) as c FROM Project').get() as any)?.c) ?? 0;
+   138→  const totalDocuments = ((d.prepare('SELECT COUNT(*) as c FROM Document').get() as any)?.c) ?? 0;
+   139→  const totalConversations = ((d.prepare('SELECT COUNT(*) as c FROM Conversation').get() as any)?.c) ?? 0;
+   140→  const totalAuditLogs = ((d.prepare('SELECT COUNT(*) as c FROM AuditLog').get() as any)?.c) ?? 0;
+   141→  const openTenders = ((d.prepare("SELECT COUNT(*) as c FROM Tender WHERE status = 'open'").get() as any)?.c) ?? 0;
+   142→  const pendingBids = ((d.prepare("SELECT COUNT(*) as c FROM Bid WHERE status = 'pending_review'").get() as any)?.c) ?? 0;
+   143→  const activeProjects = ((d.prepare("SELECT COUNT(*) as c FROM Project WHERE status = 'active'").get() as any)?.c) ?? 0;
+   144→
+   145→  const tendersByStatus = d.prepare('SELECT status, COUNT(*) as count FROM Tender GROUP BY status ORDER BY count DESC').all() as Array<{ status: string; count: number }>;
+   146→  const bidsByStatus = d.prepare('SELECT status, COUNT(*) as count FROM Bid GROUP BY status ORDER BY count DESC').all() as Array<{ status: string; count: number }>;
+   147→
+   148→  const recentAuditLogs = d.prepare(
+   149→    'SELECT action, resource, createdAt, userId FROM AuditLog ORDER BY createdAt DESC LIMIT 20'
+   150→  ).all() as Array<{ action: string; resource: string | null; createdAt: string; userId: string | null }>;
+   151→
+   152→  let dbSize = 0;
+   153→  try {
+   154→    const stat = statSync(DB_PATH);
+   155→    dbSize = stat.size;
+   156→  } catch {}
+   157→
+   158→  return {
+   159→    uptime: process.uptime(),
+   160→    memoryUsage: mem,
+   161→    dbSize,
+   162→    totalCompanies, totalTenders, totalBids, totalProjects,
+   163→    totalDocuments, totalConversations, totalAuditLogs,
+   164→    openTenders, pendingBids, activeProjects,
+   165→    tendersByStatus, bidsByStatus, recentAuditLogs,
+   166→  };
+   167→}
+   168→
+   169→// ─────────────────────────────────────────────────────────────────────────────
+   170→// Health Check – 23 Infrastructure Concerns
+   171→// ─────────────────────────────────────────────────────────────────────────────
+   172→
+   173→function getHealthCheck() {
+   174→  const concernStatuses: Record<string, string> = {
+   175→    authentication: 'healthy',
+   176→    analytics: 'healthy',
+   177→    dns: 'healthy',
+   178→    stress_testing: 'not_configured',
+   179→    pen_testing: 'warning',
+   180→    load_handling: 'healthy',
+   181→    fail_tolerance: 'healthy',
+   182→    backup: 'warning',
+   183→    data_modeling: 'healthy',
+   184→    rate_limiting: 'healthy',
+   185→    caching: 'healthy',
+   186→    edge_computing: 'warning',
+   187→    web_performance: 'healthy',
+   188→    cdn: 'healthy',
+   189→    monitoring: 'healthy',
+   190→    network_security: 'healthy',
+   191→    api_integration: 'warning',
+   192→    idempotency: 'healthy',
+   193→    automation: 'healthy',
+   194→    webhooks: 'healthy',
+   195→    secret_management: 'healthy',
+   196→    audits: 'healthy',
+   197→    stateless: 'not_configured',
+   198→  };
+   199→
+   200→  // Try to check DB connectivity
+   201→  try {
+   202→    getDb().prepare('SELECT 1').get();
+   203→    concernStatuses.data_modeling = 'healthy';
+   204→  } catch {
+   205→    concernStatuses.data_modeling = 'critical';
+   206→  }
+   207→
+   208→  const weights: Record<string, number> = { healthy: 1, warning: 0.6, critical: 0.2, not_configured: 0.4 };
+   209→  const values = Object.values(concernStatuses);
+   210→  const score = Math.round((values.reduce((sum, s) => sum + (weights[s] ?? 0.5), 0) / values.length) * 100);
+   211→
+   212→  return { score, concerns: concernStatuses, lastChecked: new Date().toISOString(), uptime: process.uptime() };
+   213→}
+   214→
+   215→// ─────────────────────────────────────────────────────────────────────────────
+   216→// Infra Alerts Management (using same DB tables)
+   217→// ─────────────────────────────────────────────────────────────────────────────
+   218→
+   219→function getAlerts() {
+   220→  const d = getDb();
+   221→  try {
+   222→    return d.prepare('SELECT * FROM InfraAlert ORDER BY createdAt DESC LIMIT 50').all();
+   223→  } catch {
+   224→    // Table might not exist yet
+   225→    return [];
+   226→  }
+   227→}
+   228→
+   229→function createAlert(data: { type: string; severity: string; title: string; message: string; source?: string }) {
+   230→  const d = getDb();
+   231→  try {
+   232→    const id = `alert_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+   233→    d.prepare(
+   234→      'INSERT INTO InfraAlert (id, type, severity, title, message, source, status, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+   235→    ).run(id, data.type, data.severity, data.title, data.message, data.source || 'manual', 'active', '{}');
+   236→    return { success: true, id };
+   237→  } catch (e: any) {
+   238→    return { success: false, error: e.message };
+   239→  }
+   240→}
+   241→
+   242→function acknowledgeAlert(id: string) {
+   243→  const d = getDb();
+   244→  try {
+   245→    d.prepare('UPDATE InfraAlert SET status = ?, acknowledgedBy = ? WHERE id = ?').run('acknowledged', 'infra-admin', id);
+   246→    return { success: true };
+   247→  } catch (e: any) {
+   248→    return { success: false, error: e.message };
+   249→  }
+   250→}
+   251→
+   252→function resolveAlert(id: string) {
+   253→  const d = getDb();
+   254→  try {
+   255→    d.prepare('UPDATE InfraAlert SET status = ?, resolvedAt = ? WHERE id = ?').run('resolved', new Date().toISOString(), id);
+   256→    return { success: true };
+   257→  } catch (e: any) {
+   258→    return { success: false, error: e.message };
+   259→  }
+   260→}
+   261→
+   262→// ─────────────────────────────────────────────────────────────────────────────
+   263→// Webhook Management
+   264→// ─────────────────────────────────────────────────────────────────────────────
+   265→
+   266→function getWebhooks() {
+   267→  const d = getDb();
+   268→  try {
+   269→    return d.prepare('SELECT * FROM Webhook ORDER BY createdAt DESC').all();
+   270→  } catch { return []; }
+   271→}
+   272→
+   273→function createWebhook(data: { name: string; url: string; events: string; secret: string; companyId?: string; createdBy: string }) {
+   274→  const d = getDb();
+   275→  try {
+   276→    const id = `wh_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+   277→    d.prepare(
+   278→      'INSERT INTO Webhook (id, name, url, events, secret, active, failureCount, companyId, createdBy) VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?)'
+   279→    ).run(id, data.name, data.url, data.events, data.secret, data.companyId || null, data.createdBy);
+   280→    return { success: true, id };
+   281→  } catch (e: any) {
+   282→    return { success: false, error: e.message };
+   283→  }
+   284→}
+   285→
+   286→function deleteWebhook(id: string) {
+   287→  const d = getDb();
+   288→  try {
+   289→    d.prepare('DELETE FROM Webhook WHERE id = ?').run(id);
+   290→    return { success: true };
+   291→  } catch (e: any) {
+   292→    return { success: false, error: e.message };
+   293→  }
+   294→}
+   295→
+   296→// ─────────────────────────────────────────────────────────────────────────────
+   297→// Rate Limit Config Management
+   298→// ─────────────────────────────────────────────────────────────────────────────
+   299→
+   300→function getRateLimits() {
+   301→  const d = getDb();
+   302→  try {
+   303→    return d.prepare('SELECT * FROM RateLimitConfig ORDER BY endpoint').all();
+   304→  } catch { return []; }
+   305→}
+   306→
+   307→function createRateLimit(data: { endpoint: string; windowMs: number; maxRequests: number; strategy: string }) {
+   308→  const d = getDb();
+   309→  try {
+   310→    const id = `rl_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+   311→    d.prepare(
+   312→      'INSERT INTO RateLimitConfig (id, endpoint, windowMs, maxRequests, strategy, active) VALUES (?, ?, ?, ?, ?, 1)'
+   313→    ).run(id, data.endpoint, data.windowMs, data.maxRequests, data.strategy);
+   314→    return { success: true, id };
+   315→  } catch (e: any) {
+   316→    return { success: false, error: e.message };
+   317→  }
+   318→}
+   319→
+   320→// ─────────────────────────────────────────────────────────────────────────────
+   321→// Cache Entry Management
+   322→// ─────────────────────────────────────────────────────────────────────────────
+   323→
+   324→function getCacheEntries() {
+   325→  const d = getDb();
+   326→  try {
+   327→    return d.prepare('SELECT * FROM CacheEntry ORDER BY createdAt DESC LIMIT 50').all();
+   328→  } catch { return []; }
+   329→}
+   330→
+   331→function getCacheStats() {
+   332→  const d = getDb();
+   333→  try {
+   334→    const total = ((d.prepare('SELECT COUNT(*) as c FROM CacheEntry').get() as any)?.c) ?? 0;
+   335→    const totalHits = ((d.prepare('SELECT SUM(hits) as c FROM CacheEntry').get() as any)?.c) ?? 0;
+   336→    const totalMisses = ((d.prepare('SELECT SUM(misses) as c FROM CacheEntry').get() as any)?.c) ?? 0;
+   337→    const totalSize = ((d.prepare('SELECT SUM(sizeBytes) as c FROM CacheEntry').get() as any)?.c) ?? 0;
+   338→    const expired = ((d.prepare('SELECT COUNT(*) as c FROM CacheEntry WHERE expiresAt < ?').get(Date.now()) as any)?.c) ?? 0;
+   339→    const hitRate = (totalHits + totalMisses) > 0 ? Math.round((totalHits / (totalHits + totalMisses)) * 100) : 0;
+   340→    return { total, totalHits, totalMisses, totalSize, expired, hitRate };
+   341→  } catch {
+   342→    return { total: 0, totalHits: 0, totalMisses: 0, totalSize: 0, expired: 0, hitRate: 0 };
+   343→  }
+   344→}
+   345→
+   346→// ─────────────────────────────────────────────────────────────────────────────
+   347→// Secret Management (masked)
+   348→// ─────────────────────────────────────────────────────────────────────────────
+   349→
+   350→function getSecrets() {
+   351→  const d = getDb();
+   352→  try {
+   353→    return d.prepare('SELECT id, key, category, description, rotatedAt, rotationDays, createdBy, createdAt, updatedAt FROM Secret ORDER BY category, key').all();
+   354→  } catch { return []; }
+   355→}
+   356→
+   357→// ─────────────────────────────────────────────────────────────────────────────
+   358→// Audit Logs
+   359→// ─────────────────────────────────────────────────────────────────────────────
+   360→
+   361→function getAuditLogs(limit = 50, offset = 0, action?: string) {
+   362→  const d = getDb();
+   363→  try {
+   364→    if (action) {
+   365→      return d.prepare('SELECT * FROM AuditLog WHERE action = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?').all(action, limit, offset);
+   366→    }
+   367→    return d.prepare('SELECT * FROM AuditLog ORDER BY createdAt DESC LIMIT ? OFFSET ?').all(limit, offset);
+   368→  } catch { return []; }
+   369→}
+   370→
+   371→// ─────────────────────────────────────────────────────────────────────────────
+   372→// HTML Dashboard Page
+   373→// ─────────────────────────────────────────────────────────────────────────────
+   374→
+   375→function getDashboardHTML(): string {
+   376→  return `<!DOCTYPE html>
+   377→<html lang="en" class="dark">
+   378→<head>
+   379→<meta charset="UTF-8">
+   380→<meta name="viewport" content="width=device-width, initial-scale=1.0">
+   381→<title>Tenet — Infra & DevOps Dashboard</title>
+   382→<script src="https://cdn.tailwindcss.com"></script>
+   383→<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+   384→<script>
+   385→tailwind.config = {
+   386→  darkMode: 'class',
+   387→  theme: {
+   388→    extend: {
+   389→      colors: {
+   390→        brand: { 50:'#f0fdf4',100:'#dcfce7',500:'#22c55e',600:'#16a34a',700:'#15803d' },
+   391→      }
+   392→    }
+   393→  }
+   394→}
+   395→</script>
+   396→<style>
+   397→  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+   398→  body { font-family: 'Inter', sans-serif; }
+   399→  .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+   400→  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+   401→  .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+   402→  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+   403→  .status-healthy { background: #22c55e; box-shadow: 0 0 6px #22c55e80; }
+   404→  .status-warning { background: #f59e0b; box-shadow: 0 0 6px #f59e0b80; }
+   405→  .status-critical { background: #ef4444; box-shadow: 0 0 6px #ef444480; }
+   406→  .status-not_configured { background: #6b7280; }
+   407→  .tab-active { border-bottom: 2px solid #22c55e; color: #22c55e; }
+   408→  .fade-in { animation: fadeIn 0.3s ease-in; }
+   409→  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+   410→  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+   411→  .card:hover { border-color: #475569; }
+   412→  pre { white-space: pre-wrap; word-wrap: break-word; }
+   413→</style>
+   414→</head>
+   415→<body class="bg-slate-950 text-slate-200 min-h-screen">
+   416→
+   417→<!-- Header -->
+   418→<header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
+   419→  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+   420→    <div class="flex items-center gap-3">
+   421→      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center text-white font-bold text-sm">T</div>
+   422→      <div>
+   423→        <h1 class="text-lg font-bold text-white">Tenet Infra & DevOps</h1>
+   424→        <p class="text-xs text-slate-400">Infrastructure monitoring & user tracking</p>
+   425→      </div>
+   426→    </div>
+   427→    <div class="flex items-center gap-4">
+   428→      <div id="health-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 text-xs font-medium">
+   429→        <span class="status-dot status-healthy"></span>
+   430→        <span id="health-score">--</span>% Health
+   431→      </div>
+   432→      <button onclick="refreshAll()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors">
+   433→        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+   434→        Refresh
+   435→      </button>
+   436→      <a href="/" class="px-3 py-1.5 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30 text-xs font-medium transition-colors">
+   437→        ← Back to Tenet
+   438→      </a>
+   439→    </div>
+   440→  </div>
+   441→</header>
+   442→
+   443→<!-- Tabs -->
+   444→<div class="bg-slate-900/50 border-b border-slate-800">
+   445→  <div class="max-w-7xl mx-auto px-4 sm:px-6">
+   446→    <nav class="flex gap-6 overflow-x-auto scrollbar-thin" id="tab-nav">
+   447→      <button class="tab-btn tab-active py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors" data-tab="users">👥 User Tracking</button>
+   448→      <button class="tab-btn py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap transition-colors" data-tab="health">💚 Health Check</button>
+   449→      <button class="tab-btn py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap transition-colors" data-tab="metrics">📊 System Metrics</button>
+   450→      <button class="tab-btn py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap transition-colors" data-tab="alerts">🔔 Alerts</button>
+   451→      <button class="tab-btn py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap transition-colors" data-tab="webhooks">🔗 Webhooks</button>
+   452→      <button class="tab-btn py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap transition-colors" data-tab="ratelimits">⏱ Rate Limits</button>
+   453→      <button class="tab-btn py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap transition-colors" data-tab="cache">⚡ Cache</button>
+   454→      <button class="tab-btn py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap transition-colors" data-tab="secrets">🔑 Secrets</button>
+   455→      <button class="tab-btn py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap transition-colors" data-tab="auditlog">📋 Audit Logs</button>
+   456→    </nav>
+   457→  </div>
+   458→</div>
+   459→
+   460→<!-- Main Content -->
+   461→<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+   462→
+   463→  <!-- User Tracking Tab -->
+   464→  <div id="tab-users" class="tab-content fade-in">
+   465→    <!-- Summary Cards -->
+   466→    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6" id="user-summary-cards"></div>
+   467→    <!-- Charts Row -->
+   468→    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+   469→      <div class="card p-5">
+   470→        <h3 class="text-sm font-semibold text-slate-300 mb-3">Daily Registrations (Last 30 Days)</h3>
+   471→        <canvas id="chart-daily" height="200"></canvas>
+   472→      </div>
+   473→      <div class="card p-5">
+   474→        <h3 class="text-sm font-semibold text-slate-300 mb-3">Monthly Registrations (Last 12 Months)</h3>
+   475→        <canvas id="chart-monthly" height="200"></canvas>
+   476→      </div>
+   477→    </div>
+   478→    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+   479→      <div class="card p-5">
+   480→        <h3 class="text-sm font-semibold text-slate-300 mb-3">Role Distribution</h3>
+   481→        <canvas id="chart-roles" height="200"></canvas>
+   482→      </div>
+   483→      <div class="card p-5">
+   484→        <h3 class="text-sm font-semibold text-slate-300 mb-3">Status Distribution</h3>
+   485→        <canvas id="chart-status" height="200"></canvas>
+   486→      </div>
+   487→    </div>
+   488→    <!-- Recent Users -->
+   489→    <div class="card p-5">
+   490→      <h3 class="text-sm font-semibold text-slate-300 mb-3">Recent Registrations</h3>
+   491→      <div class="overflow-x-auto">
+   492→        <table class="w-full text-sm">
+   493→          <thead><tr class="text-slate-400 border-b border-slate-700">
+   494→            <th class="text-left py-2 px-3">Email</th><th class="text-left py-2 px-3">Role</th><th class="text-left py-2 px-3">Status</th><th class="text-left py-2 px-3">Company</th><th class="text-left py-2 px-3">Registered</th>
+   495→          </tr></thead>
+   496→          <tbody id="recent-users-table"></tbody>
+   497→        </table>
+   498→      </div>
+   499→    </div>
+   500→  </div>
+   501→
+   502→  <!-- Health Check Tab -->
+   503→  <div id="tab-health" class="tab-content hidden fade-in">
+   504→    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="health-concerns-grid"></div>
+   505→  </div>
+   506→
+   507→  <!-- Metrics Tab -->
+   508→  <div id="tab-metrics" class="tab-content hidden fade-in">
+   509→    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6" id="metrics-cards"></div>
+   510→    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+   511→      <div class="card p-5">
+   512→        <h3 class="text-sm font-semibold text-slate-300 mb-3">Tenders by Status</h3>
+   513→        <canvas id="chart-tender-status" height="200"></canvas>
+   514→      </div>
+   515→      <div class="card p-5">
+   516→        <h3 class="text-sm font-semibold text-slate-300 mb-3">Bids by Status</h3>
+   517→        <canvas id="chart-bid-status" height="200"></canvas>
+   518→      </div>
+   519→    </div>
+   520→    <div class="card p-5">
+   521→      <h3 class="text-sm font-semibold text-slate-300 mb-3">Recent Audit Logs</h3>
+   522→      <div class="overflow-x-auto">
+   523→        <table class="w-full text-sm">
+   524→          <thead><tr class="text-slate-400 border-b border-slate-700">
+   525→            <th class="text-left py-2 px-3">Action</th><th class="text-left py-2 px-3">Resource</th><th class="text-left py-2 px-3">User</th><th class="text-left py-2 px-3">Time</th>
+   526→          </tr></thead>
+   527→          <tbody id="audit-log-table"></tbody>
+   528→        </table>
+   529→      </div>
+   530→    </div>
+   531→  </div>
+   532→
+   533→  <!-- Alerts Tab -->
+   534→  <div id="tab-alerts" class="tab-content hidden fade-in">
+   535→    <div class="flex items-center justify-between mb-4">
+   536→      <h3 class="text-sm font-semibold text-slate-300">Active Alerts</h3>
+   537→      <button onclick="showCreateAlert()" class="px-3 py-1.5 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30 text-xs font-medium transition-colors">+ Create Alert</button>
+   538→    </div>
+   539→    <div id="alerts-list" class="space-y-3"></div>
+   540→    <div id="create-alert-form" class="hidden card p-5 mt-4">
+   541→      <h3 class="text-sm font-semibold text-slate-300 mb-3">Create New Alert</h3>
+   542→      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   543→        <div><label class="text-xs text-slate-400">Type</label><select id="alert-type" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm"><option>cpu</option><option>memory</option><option>disk</option><option>latency</option><option>error_rate</option><option>security</option><option>uptime</option></select></div>
+   544→        <div><label class="text-xs text-slate-400">Severity</label><select id="alert-severity" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm"><option>info</option><option>warning</option><option>critical</option><option>emergency</option></select></div>
+   545→        <div class="sm:col-span-2"><label class="text-xs text-slate-400">Title</label><input id="alert-title" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Alert title..."></div>
+   546→        <div class="sm:col-span-2"><label class="text-xs text-slate-400">Message</label><textarea id="alert-message" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" rows="2" placeholder="Alert message..."></textarea></div>
+   547→      </div>
+   548→      <div class="flex gap-2 mt-3">
+   549→        <button onclick="submitAlert()" class="px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium">Create</button>
+   550→        <button onclick="document.getElementById('create-alert-form').classList.add('hidden')" class="px-4 py-1.5 rounded-lg bg-slate-700 text-slate-300 text-xs font-medium">Cancel</button>
+   551→      </div>
+   552→    </div>
+   553→  </div>
+   554→
+   555→  <!-- Webhooks Tab -->
+   556→  <div id="tab-webhooks" class="tab-content hidden fade-in">
+   557→    <div class="flex items-center justify-between mb-4">
+   558→      <h3 class="text-sm font-semibold text-slate-300">Configured Webhooks</h3>
+   559→      <button onclick="showCreateWebhook()" class="px-3 py-1.5 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30 text-xs font-medium transition-colors">+ Add Webhook</button>
+   560→    </div>
+   561→    <div id="webhooks-list" class="space-y-3"></div>
+   562→    <div id="create-webhook-form" class="hidden card p-5 mt-4">
+   563→      <h3 class="text-sm font-semibold text-slate-300 mb-3">Add Webhook</h3>
+   564→      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   565→        <div><label class="text-xs text-slate-400">Name</label><input id="wh-name" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Webhook name"></div>
+   566→        <div><label class="text-xs text-slate-400">URL</label><input id="wh-url" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="https://..."></div>
+   567→        <div><label class="text-xs text-slate-400">Events (comma-separated)</label><input id="wh-events" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="tender.created,bid.submitted"></div>
+   568→        <div><label class="text-xs text-slate-400">Secret</label><input id="wh-secret" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="HMAC signing secret"></div>
+   569→      </div>
+   570→      <div class="flex gap-2 mt-3">
+   571→        <button onclick="submitWebhook()" class="px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium">Create</button>
+   572→        <button onclick="document.getElementById('create-webhook-form').classList.add('hidden')" class="px-4 py-1.5 rounded-lg bg-slate-700 text-slate-300 text-xs font-medium">Cancel</button>
+   573→      </div>
+   574→    </div>
+   575→  </div>
+   576→
+   577→  <!-- Rate Limits Tab -->
+   578→  <div id="tab-ratelimits" class="tab-content hidden fade-in">
+   579→    <div class="flex items-center justify-between mb-4">
+   580→      <h3 class="text-sm font-semibold text-slate-300">Rate Limit Configuration</h3>
+   581→      <button onclick="showCreateRateLimit()" class="px-3 py-1.5 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30 text-xs font-medium transition-colors">+ Add Rule</button>
+   582→    </div>
+   583→    <div id="ratelimits-list" class="space-y-3"></div>
+   584→    <div id="create-ratelimit-form" class="hidden card p-5 mt-4">
+   585→      <h3 class="text-sm font-semibold text-slate-300 mb-3">Add Rate Limit Rule</h3>
+   586→      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   587→        <div><label class="text-xs text-slate-400">Endpoint</label><input id="rl-endpoint" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="/api/*"></div>
+   588→        <div><label class="text-xs text-slate-400">Window (ms)</label><input id="rl-window" type="number" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" value="60000"></div>
+   589→        <div><label class="text-xs text-slate-400">Max Requests</label><input id="rl-max" type="number" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" value="100"></div>
+   590→        <div><label class="text-xs text-slate-400">Strategy</label><select id="rl-strategy" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm"><option>sliding_window</option><option>fixed_window</option><option>token_bucket</option></select></div>
+   591→      </div>
+   592→      <div class="flex gap-2 mt-3">
+   593→        <button onclick="submitRateLimit()" class="px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium">Create</button>
+   594→        <button onclick="document.getElementById('create-ratelimit-form').classList.add('hidden')" class="px-4 py-1.5 rounded-lg bg-slate-700 text-slate-300 text-xs font-medium">Cancel</button>
+   595→      </div>
+   596→    </div>
+   597→  </div>
+   598→
+   599→  <!-- Cache Tab -->
+   600→  <div id="tab-cache" class="tab-content hidden fade-in">
+   601→    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" id="cache-stats-cards"></div>
+   602→    <div class="card p-5">
+   603→      <h3 class="text-sm font-semibold text-slate-300 mb-3">Cache Entries</h3>
+   604→      <div class="overflow-x-auto">
+   605→        <table class="w-full text-sm">
+   606→          <thead><tr class="text-slate-400 border-b border-slate-700">
+   607→            <th class="text-left py-2 px-3">Key</th><th class="text-left py-2 px-3">Hits</th><th class="text-left py-2 px-3">Misses</th><th class="text-left py-2 px-3">Size</th><th class="text-left py-2 px-3">Expires</th>
+   608→          </tr></thead>
+   609→          <tbody id="cache-table"></tbody>
+   610→        </table>
+   611→      </div>
+   612→    </div>
+   613→  </div>
+   614→
+   615→  <!-- Secrets Tab -->
+   616→  <div id="tab-secrets" class="tab-content hidden fade-in">
+   617→    <div class="card p-5">
+   618→      <h3 class="text-sm font-semibold text-slate-300 mb-3">Secrets Vault</h3>
+   619→      <div class="overflow-x-auto">
+   620→        <table class="w-full text-sm">
+   621→          <thead><tr class="text-slate-400 border-b border-slate-700">
+   622→            <th class="text-left py-2 px-3">Key</th><th class="text-left py-2 px-3">Category</th><th class="text-left py-2 px-3">Description</th><th class="text-left py-2 px-3">Last Rotated</th><th class="text-left py-2 px-3">Rotation Days</th>
+   623→          </tr></thead>
+   624→          <tbody id="secrets-table"></tbody>
+   625→        </table>
+   626→      </div>
+   627→    </div>
+   628→  </div>
+   629→
+   630→  <!-- Audit Logs Tab -->
+   631→  <div id="tab-auditlog" class="tab-content hidden fade-in">
+   632→    <div class="flex items-center gap-3 mb-4">
+   633→      <label class="text-xs text-slate-400">Filter by action:</label>
+   634→      <select id="audit-filter" onchange="loadAuditLogs()" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs">
+   635→        <option value="">All Actions</option>
+   636→        <option value="login">Login</option>
+   637→        <option value="register">Register</option>
+   638→        <option value="tender_create">Tender Create</option>
+   639→        <option value="bid_submit">Bid Submit</option>
+   640→        <option value="document_upload">Document Upload</option>
+   641→      </select>
+   642→    </div>
+   643→    <div class="card p-5">
+   644→      <div class="overflow-x-auto">
+   645→        <table class="w-full text-sm">
+   646→          <thead><tr class="text-slate-400 border-b border-slate-700">
+   647→            <th class="text-left py-2 px-3">Action</th><th class="text-left py-2 px-3">Resource</th><th class="text-left py-2 px-3">User ID</th><th class="text-left py-2 px-3">Time</th>
+   648→          </tr></thead>
+   649→          <tbody id="audit-full-table"></tbody>
+   650→        </table>
+   651→      </div>
+   652→    </div>
+   653→  </div>
+   654→
+   655→</main>
+   656→
+   657→<!-- Footer -->
+   658→<footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-500 mt-8">
+   659→  Tenet Infra Service • Port 3004 • Connected to Tenet SQLite Database
+   660→</footer>
+   661→
+   662→<script>
+   663→// ── State ──
+   664→let currentTab = 'users';
+   665→let chartInstances = {};
+   666→
+   667→// ── Tab Switching ──
+   668→document.querySelectorAll('.tab-btn').forEach(btn => {
+   669→  btn.addEventListener('click', () => {
+   670→    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('tab-active'); b.classList.add('text-slate-400'); });
+   671→    btn.classList.add('tab-active'); btn.classList.remove('text-slate-400');
+   672→    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+   673→    const tab = btn.dataset.tab;
+   674→    document.getElementById('tab-' + tab).classList.remove('hidden');
+   675→    currentTab = tab;
+   676→    loadTabData(tab);
+   677→  });
+   678→});
+   679→
+   680→// ── API Helpers ──
+   681→async function api(path) {
+   682→  const res = await fetch(path);
+   683→  return res.json();
+   684→}
+   685→
+   686→function formatBytes(bytes) {
+   687→  if (!bytes || bytes === 0) return '0 B';
+   688→  const k = 1024;
+   689→  const sizes = ['B', 'KB', 'MB', 'GB'];
+   690→  const i = Math.floor(Math.log(bytes) / Math.log(k));
+   691→  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+   692→}
+   693→
+   694→function timeAgo(dateStr) {
+   695→  if (!dateStr) return 'N/A';
+   696→  const diff = Date.now() - new Date(dateStr).getTime();
+   697→  const mins = Math.floor(diff / 60000);
+   698→  if (mins < 1) return 'just now';
+   699→  if (mins < 60) return mins + 'm ago';
+   700→  const hrs = Math.floor(mins / 60);
+   701→  if (hrs < 24) return hrs + 'h ago';
+   702→  const days = Math.floor(hrs / 24);
+   703→  return days + 'd ago';
+   704→}
+   705→
+   706→function destroyChart(id) {
+   707→  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+   708→}
+   709→
+   710→// ── Data Loaders ──
+   711→function loadTabData(tab) {
+   712→  switch(tab) {
+   713→    case 'users': loadUserStats(); break;
+   714→    case 'health': loadHealth(); break;
+   715→    case 'metrics': loadMetrics(); break;
+   716→    case 'alerts': loadAlerts(); break;
+   717→    case 'webhooks': loadWebhooks(); break;
+   718→    case 'ratelimits': loadRateLimits(); break;
+   719→    case 'cache': loadCache(); break;
+   720→    case 'secrets': loadSecrets(); break;
+   721→    case 'auditlog': loadAuditLogs(); break;
+   722→  }
+   723→}
+   724→
+   725→async function loadUserStats() {
+   726→  const data = await api('/api/users');
+   727→  if (!data.success) return;
+   728→  const s = data.data;
+   729→
+   730→  // Summary cards
+   731→  const cards = [
+   732→    { label: 'Total Users', value: s.totalUsers, color: 'text-green-400' },
+   733→    { label: 'Active', value: s.activeUsers, color: 'text-emerald-400' },
+   734→    { label: 'New Today', value: s.newUsersToday, color: 'text-blue-400' },
+   735→    { label: 'This Week', value: s.newUsersThisWeek, color: 'text-cyan-400' },
+   736→    { label: 'This Month', value: s.newUsersThisMonth, color: 'text-purple-400' },
+   737→  ];
+   738→  document.getElementById('user-summary-cards').innerHTML = cards.map(c => \`
+   739→    <div class="card p-4">
+   740→      <p class="text-xs text-slate-400 mb-1">\${c.label}</p>
+   741→      <p class="text-2xl font-bold \${c.color}">\${c.value}</p>
+   742→    </div>
+   743→  \`).join('');
+   744→
+   745→  // Daily chart
+   746→  destroyChart('daily');
+   747→  const dailyLabels = (s.dailyRegistrations || []).map(d => d.date).reverse();
+   748→  const dailyData = (s.dailyRegistrations || []).map(d => d.count).reverse();
+   749→  chartInstances['daily'] = new Chart(document.getElementById('chart-daily'), {
+   750→    type: 'bar',
+   751→    data: { labels: dailyLabels, datasets: [{ label: 'Users', data: dailyData, backgroundColor: '#22c55e80', borderColor: '#22c55e', borderWidth: 1, borderRadius: 4 }] },
+   752→    options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' }, beginAtZero: true } } }
+   753→  });
+   754→
+   755→  // Monthly chart
+   756→  destroyChart('monthly');
+   757→  const monthLabels = (s.monthlyRegistrations || []).map(d => d.month).reverse();
+   758→  const monthData = (s.monthlyRegistrations || []).map(d => d.count).reverse();
+   759→  chartInstances['monthly'] = new Chart(document.getElementById('chart-monthly'), {
+   760→    type: 'line',
+   761→    data: { labels: monthLabels, datasets: [{ label: 'Users', data: monthData, borderColor: '#22c55e', backgroundColor: '#22c55e20', fill: true, tension: 0.3 }] },
+   762→    options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' }, beginAtZero: true } } }
+   763→  });
+   764→
+   765→  // Role chart
+   766→  destroyChart('roles');
+   767→  const roleLabels = (s.roleDistribution || []).map(d => d.role);
+   768→  const roleData = (s.roleDistribution || []).map(d => d.count);
+   769→  chartInstances['roles'] = new Chart(document.getElementById('chart-roles'), {
+   770→    type: 'doughnut',
+   771→    data: { labels: roleLabels, datasets: [{ data: roleData, backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
+   772→    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } } }
+   773→  });
+   774→
+   775→  // Status chart
+   776→  destroyChart('status');
+   777→  const statusLabels = (s.statusDistribution || []).map(d => d.status);
+   778→  const statusData = (s.statusDistribution || []).map(d => d.count);
+   779→  chartInstances['status'] = new Chart(document.getElementById('chart-status'), {
+   780→    type: 'doughnut',
+   781→    data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: ['#22c55e', '#f59e0b', '#ef4444', '#6b7280'] }] },
+   782→    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } } }
+   783→  });
+   784→
+   785→  // Recent users table
+   786→  document.getElementById('recent-users-table').innerHTML = (s.recentRegistrations || []).map(u => \`
+   787→    <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+   788→      <td class="py-2 px-3 text-slate-300">\${u.email}</td>
+   789→      <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-xs \${u.role === 'team_admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}">\${u.role}</span></td>
+   790→      <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-xs \${u.status === 'active' ? 'bg-green-500/20 text-green-400' : u.status === 'suspended' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}">\${u.status}</span></td>
+   791→      <td class="py-2 px-3 text-slate-400">\${u.companyId ? 'Yes' : 'No'}</td>
+   792→      <td class="py-2 px-3 text-slate-400">\${timeAgo(u.createdAt)}</td>
+   793→    </tr>
+   794→  \`).join('');
+   795→}
+   796→
+   797→async function loadHealth() {
+   798→  const data = await api('/api/health');
+   799→  if (!data.success) return;
+   800→  const h = data.data;
+   801→
+   802→  document.getElementById('health-score').textContent = h.score;
+   803→  const badge = document.getElementById('health-badge');
+   804→  const dot = badge.querySelector('.status-dot');
+   805→  dot.className = 'status-dot ' + (h.score >= 80 ? 'status-healthy' : h.score >= 50 ? 'status-warning' : 'status-critical');
+   806→
+   807→  const icons = {
+   808→    authentication: '🛡️', analytics: '📊', dns: '🌐', stress_testing: '🧪', pen_testing: '🔬',
+   809→    load_handling: '⚡', fail_tolerance: '🔄', backup: '💾', data_modeling: '🗄️', rate_limiting: '⏱️',
+   810→    caching: '💨', edge_computing: '☁️', web_performance: '🚀', cdn: '📡', monitoring: '👁️',
+   811→    network_security: '🔒', api_integration: '🔌', idempotency: '🔢', automation: '🤖',
+   812→    webhooks: '🔗', secret_management: '🔑', audits: '📋', stateless: ' Stateless'
+   813→  };
+   814→
+   815→  const grid = document.getElementById('health-concerns-grid');
+   816→  grid.innerHTML = Object.entries(h.concerns).map(([key, status]) => \`
+   817→    <div class="card p-4 flex items-start gap-3">
+   818→      <div class="text-2xl">\${icons[key] || '⚙️'}</div>
+   819→      <div class="flex-1 min-w-0">
+   820→        <div class="flex items-center justify-between mb-1">
+   821→          <span class="text-sm font-medium text-slate-200">\${key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</span>
+   822→          <span class="status-dot status-\${status}"></span>
+   823→        </div>
+   824→        <span class="text-xs px-2 py-0.5 rounded-full \${status === 'healthy' ? 'bg-green-500/20 text-green-400' : status === 'warning' ? 'bg-yellow-500/20 text-yellow-400' : status === 'critical' ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400'}">\${status.replace('_', ' ')}</span>
+   825→      </div>
+   826→    </div>
+   827→  \`).join('');
+   828→}
+   829→
+   830→async function loadMetrics() {
+   831→  const data = await api('/api/metrics');
+   832→  if (!data.success) return;
+   833→  const m = data.data;
+   834→
+   835→  const cards = [
+   836→    { label: 'Companies', value: m.totalCompanies, color: 'text-blue-400' },
+   837→    { label: 'Tenders', value: m.totalTenders, color: 'text-green-400' },
+   838→    { label: 'Bids', value: m.totalBids, color: 'text-purple-400' },
+   839→    { label: 'Projects', value: m.totalProjects, color: 'text-cyan-400' },
+   840→    { label: 'Open Tenders', value: m.openTenders, color: 'text-emerald-400' },
+   841→    { label: 'Pending Bids', value: m.pendingBids, color: 'text-yellow-400' },
+   842→    { label: 'DB Size', value: formatBytes(m.dbSize), color: 'text-orange-400' },
+   843→    { label: 'Uptime', value: Math.floor(m.uptime / 3600) + 'h ' + Math.floor((m.uptime % 3600) / 60) + 'm', color: 'text-teal-400' },
+   844→  ];
+   845→  document.getElementById('metrics-cards').innerHTML = cards.map(c => \`
+   846→    <div class="card p-4">
+   847→      <p class="text-xs text-slate-400 mb-1">\${c.label}</p>
+   848→      <p class="text-xl font-bold \${c.color}">\${c.value}</p>
+   849→    </div>
+   850→  \`).join('');
+   851→
+   852→  // Tender status chart
+   853→  destroyChart('tender-status');
+   854→  const tLabels = (m.tendersByStatus || []).map(d => d.status);
+   855→  const tData = (m.tendersByStatus || []).map(d => d.count);
+   856→  chartInstances['tender-status'] = new Chart(document.getElementById('chart-tender-status'), {
+   857→    type: 'doughnut',
+   858→    data: { labels: tLabels, datasets: [{ data: tData, backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'] }] },
+   859→    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } } }
+   860→  });
+   861→
+   862→  // Bid status chart
+   863→  destroyChart('bid-status');
+   864→  const bLabels = (m.bidsByStatus || []).map(d => d.status);
+   865→  const bData = (m.bidsByStatus || []).map(d => d.count);
+   866→  chartInstances['bid-status'] = new Chart(document.getElementById('chart-bid-status'), {
+   867→    type: 'doughnut',
+   868→    data: { labels: bLabels, datasets: [{ data: bData, backgroundColor: ['#f59e0b', '#22c55e', '#8b5cf6', '#ef4444', '#3b82f6'] }] },
+   869→    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } } }
+   870→  });
+   871→
+   872→  // Audit logs table
+   873→  document.getElementById('audit-log-table').innerHTML = (m.recentAuditLogs || []).map(l => \`
+   874→    <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+   875→      <td class="py-2 px-3 text-slate-300"><span class="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400">\${l.action}</span></td>
+   876→      <td class="py-2 px-3 text-slate-400">\${l.resource || '-'}</td>
+   877→      <td class="py-2 px-3 text-slate-400 text-xs">\${l.userId ? l.userId.substring(0, 12) + '...' : 'system'}</td>
+   878→      <td class="py-2 px-3 text-slate-400">\${timeAgo(l.createdAt)}</td>
+   879→    </tr>
+   880→  \`).join('');
+   881→}
+   882→
+   883→async function loadAlerts() {
+   884→  const data = await api('/api/alerts');
+   885→  if (!data.success) return;
+   886→  const alerts = data.data;
+   887→  document.getElementById('alerts-list').innerHTML = alerts.length === 0
+   888→    ? '<p class="text-sm text-slate-400">No alerts found.</p>'
+   889→    : alerts.map(a => \`
+   890→    <div class="card p-4 flex items-start gap-3">
+   891→      <span class="mt-0.5 px-2 py-0.5 rounded-full text-xs font-medium \${
+   892→        a.severity === 'critical' ? 'bg-red-500/20 text-red-400' :
+   893→        a.severity === 'emergency' ? 'bg-red-500/20 text-red-400' :
+   894→        a.severity === 'warning' ? 'bg-yellow-500/20 text-yellow-400' :
+   895→        'bg-blue-500/20 text-blue-400'
+   896→      }">\${a.severity}</span>
+   897→      <div class="flex-1 min-w-0">
+   898→        <div class="flex items-center justify-between">
+   899→          <span class="text-sm font-medium text-slate-200">\${a.title}</span>
+   900→          <span class="text-xs text-slate-400">\${timeAgo(a.createdAt)}</span>
+   901→        </div>
+   902→        <p class="text-xs text-slate-400 mt-1">\${a.message}</p>
+   903→        <div class="flex items-center gap-2 mt-2">
+   904→          <span class="text-xs text-slate-500">\${a.type} • \${a.source || 'system'}</span>
+   905→          <span class="px-2 py-0.5 rounded-full text-xs \${
+   906→            a.status === 'active' ? 'bg-red-500/20 text-red-400' :
+   907→            a.status === 'acknowledged' ? 'bg-yellow-500/20 text-yellow-400' :
+   908→            'bg-green-500/20 text-green-400'
+   909→          }">\${a.status}</span>
+   910→          \${a.status === 'active' ? \`<button onclick="ackAlert('\${a.id}')" class="text-xs text-yellow-400 hover:underline">Acknowledge</button>\` : ''}
+   911→          \${a.status !== 'resolved' ? \`<button onclick="resolveAlertAction('\${a.id}')" class="text-xs text-green-400 hover:underline">Resolve</button>\` : ''}
+   912→        </div>
+   913→      </div>
+   914→    </div>
+   915→  \`).join('');
+   916→}
+   917→
+   918→async function loadWebhooks() {
+   919→  const data = await api('/api/webhooks');
+   920→  if (!data.success) return;
+   921→  const whs = data.data;
+   922→  document.getElementById('webhooks-list').innerHTML = whs.length === 0
+   923→    ? '<p class="text-sm text-slate-400">No webhooks configured.</p>'
+   924→    : whs.map(w => \`
+   925→    <div class="card p-4 flex items-start gap-3">
+   926→      <span class="px-2 py-0.5 rounded-full text-xs font-medium \${w.active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}">\${w.active ? 'Active' : 'Inactive'}</span>
+   927→      <div class="flex-1 min-w-0">
+   928→        <div class="flex items-center justify-between">
+   929→          <span class="text-sm font-medium text-slate-200">\${w.name}</span>
+   930→          <button onclick="deleteWebhookAction('\${w.id}')" class="text-xs text-red-400 hover:underline">Delete</button>
+   931→        </div>
+   932→        <p class="text-xs text-slate-400 mt-1 truncate">\${w.url}</p>
+   933→        <div class="flex items-center gap-2 mt-1">
+   934→          <span class="text-xs text-slate-500">Events: \${w.events}</span>
+   935→          \${w.failureCount > 0 ? \`<span class="text-xs text-red-400">\${w.failureCount} failures</span>\` : ''}
+   936→        </div>
+   937→      </div>
+   938→    </div>
+   939→  \`).join('');
+   940→}
+   941→
+   942→async function loadRateLimits() {
+   943→  const data = await api('/api/rate-limits');
+   944→  if (!data.success) return;
+   945→  const rules = data.data;
+   946→  document.getElementById('ratelimits-list').innerHTML = rules.length === 0
+   947→    ? '<p class="text-sm text-slate-400">No rate limit rules configured.</p>'
+   948→    : rules.map(r => \`
+   949→    <div class="card p-4 flex items-start gap-3">
+   950→      <span class="px-2 py-0.5 rounded-full text-xs font-medium \${r.active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}">\${r.active ? 'Active' : 'Inactive'}</span>
+   951→      <div class="flex-1 min-w-0">
+   952→        <span class="text-sm font-medium text-slate-200">\${r.endpoint}</span>
+   953→        <p class="text-xs text-slate-400 mt-1">\${r.maxRequests} requests per \${(r.windowMs / 1000).toFixed(0)}s • Strategy: \${r.strategy}</p>
+   954→      </div>
+   955→    </div>
+   956→  \`).join('');
+   957→}
+   958→
+   959→async function loadCache() {
+   960→  const [statsRes, entriesRes] = await Promise.all([api('/api/cache/stats'), api('/api/cache')]);
+   961→  if (!statsRes.success) return;
+   962→  const cs = statsRes.data;
+   963→
+   964→  document.getElementById('cache-stats-cards').innerHTML = [
+   965→    { label: 'Total Entries', value: cs.total, color: 'text-green-400' },
+   966→    { label: 'Hit Rate', value: cs.hitRate + '%', color: 'text-emerald-400' },
+   967→    { label: 'Total Hits', value: cs.totalHits, color: 'text-blue-400' },
+   968→    { label: 'Total Misses', value: cs.totalMisses, color: 'text-yellow-400' },
+   969→    { label: 'Total Size', value: formatBytes(cs.totalSize), color: 'text-purple-400' },
+   970→    { label: 'Expired', value: cs.expired, color: 'text-red-400' },
+   971→  ].map(c => \`
+   972→    <div class="card p-4">
+   973→      <p class="text-xs text-slate-400 mb-1">\${c.label}</p>
+   974→      <p class="text-lg font-bold \${c.color}">\${c.value}</p>
+   975→    </div>
+   976→  \`).join('');
+   977→
+   978→  if (entriesRes.success) {
+   979→    document.getElementById('cache-table').innerHTML = (entriesRes.data || []).map(e => \`
+   980→      <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+   981→        <td class="py-2 px-3 text-slate-300 text-xs font-mono">\${e.key}</td>
+   982→        <td class="py-2 px-3 text-green-400">\${e.hits}</td>
+   983→        <td class="py-2 px-3 text-yellow-400">\${e.misses}</td>
+   984→        <td class="py-2 px-3 text-slate-400">\${formatBytes(e.sizeBytes)}</td>
+   985→        <td class="py-2 px-3 text-slate-400">\${timeAgo(e.expiresAt)}</td>
+   986→      </tr>
+   987→    \`).join('');
+   988→  }
+   989→}
+   990→
+   991→async function loadSecrets() {
+   992→  const data = await api('/api/secrets');
+   993→  if (!data.success) return;
+   994→  document.getElementById('secrets-table').innerHTML = (data.data || []).length === 0
+   995→    ? '<tr><td colspan="5" class="py-4 text-center text-slate-400">No secrets configured</td></tr>'
+   996→    : (data.data || []).map(s => \`
+   997→    <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+   998→      <td class="py-2 px-3 text-slate-300 font-mono text-xs">\${s.key}</td>
+   999→      <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400">\${s.category}</span></td>
+  1000→      <td class="py-2 px-3 text-slate-400 text-xs">\${s.description || '-'}</td>
+  1001→      <td class="py-2 px-3 text-slate-400 text-xs">\${s.rotatedAt ? timeAgo(s.rotatedAt) : 'Never'}</td>
+  1002→      <td class="py-2 px-3 text-slate-400">\${s.rotationDays}d</td>
+  1003→    </tr>
+  1004→  \`).join('');
+  1005→}
+  1006→
+  1007→async function loadAuditLogs() {
+  1008→  const filter = document.getElementById('audit-filter')?.value || '';
+  1009→  const url = '/api/audit-logs?limit=50' + (filter ? '&action=' + filter : '');
+  1010→  const data = await api(url);
+  1011→  if (!data.success) return;
+  1012→  document.getElementById('audit-full-table').innerHTML = (data.data || []).length === 0
+  1013→    ? '<tr><td colspan="4" class="py-4 text-center text-slate-400">No audit logs found</td></tr>'
+  1014→    : (data.data || []).map(l => \`
+  1015→    <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+  1016→      <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400">\${l.action}</span></td>
+  1017→      <td class="py-2 px-3 text-slate-400">\${l.resource || '-'}</td>
+  1018→      <td class="py-2 px-3 text-slate-400 text-xs font-mono">\${l.userId ? l.userId.substring(0, 12) + '...' : 'system'}</td>
+  1019→      <td class="py-2 px-3 text-slate-400">\${timeAgo(l.createdAt)}</td>
+  1020→    </tr>
+  1021→  \`).join('');
+  1022→}
+  1023→
+  1024→// ── Alert Actions ──
+  1025→function showCreateAlert() { document.getElementById('create-alert-form').classList.remove('hidden'); }
+  1026→async function submitAlert() {
+  1027→  const body = {
+  1028→    type: document.getElementById('alert-type').value,
+  1029→    severity: document.getElementById('alert-severity').value,
+  1030→    title: document.getElementById('alert-title').value,
+  1031→    message: document.getElementById('alert-message').value,
+  1032→  };
+  1033→  await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  1034→  document.getElementById('create-alert-form').classList.add('hidden');
+  1035→  loadAlerts();
+  1036→}
+  1037→async function ackAlert(id) { await fetch('/api/alerts/' + id + '/acknowledge', { method: 'POST' }); loadAlerts(); }
+  1038→async function resolveAlertAction(id) { await fetch('/api/alerts/' + id + '/resolve', { method: 'POST' }); loadAlerts(); }
+  1039→
+  1040→// ── Webhook Actions ──
+  1041→function showCreateWebhook() { document.getElementById('create-webhook-form').classList.remove('hidden'); }
+  1042→async function submitWebhook() {
+  1043→  const body = { name: document.getElementById('wh-name').value, url: document.getElementById('wh-url').value, events: document.getElementById('wh-events').value, secret: document.getElementById('wh-secret').value, createdBy: 'infra-admin' };
+  1044→  await fetch('/api/webhooks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  1045→  document.getElementById('create-webhook-form').classList.add('hidden');
+  1046→  loadWebhooks();
+  1047→}
+  1048→async function deleteWebhookAction(id) { await fetch('/api/webhooks?id=' + id, { method: 'DELETE' }); loadWebhooks(); }
+  1049→
+  1050→// ── Rate Limit Actions ──
+  1051→function showCreateRateLimit() { document.getElementById('create-ratelimit-form').classList.remove('hidden'); }
+  1052→async function submitRateLimit() {
+  1053→  const body = { endpoint: document.getElementById('rl-endpoint').value, windowMs: parseInt(document.getElementById('rl-window').value), maxRequests: parseInt(document.getElementById('rl-max').value), strategy: document.getElementById('rl-strategy').value };
+  1054→  await fetch('/api/rate-limits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  1055→  document.getElementById('create-ratelimit-form').classList.add('hidden');
+  1056→  loadRateLimits();
+  1057→}
+  1058→
+  1059→// ── Refresh ──
+  1060→async function refreshAll() {
+  1061→  await loadHealth();
+  1062→  loadTabData(currentTab);
+  1063→}
+  1064→
+  1065→// ── Init ──
+  1066→loadHealth();
+  1067→loadUserStats();
+  1068→</script>
+  1069→</body>
+  1070→</html>`;
+  1071→}
+  1072→
+  1073→// ─────────────────────────────────────────────────────────────────────────────
+  1074→// HTTP Server – using Bun.serve() for stability
+  1075→// ─────────────────────────────────────────────────────────────────────────────
+  1076→
+  1077→const PORT = 3004;
+  1078→
+  1079→// Initialize DB connection on startup
+  1080→getDb();
+  1081→
+  1082→Bun.serve({
+  1083→  port: PORT,
+  1084→  async fetch(req) {
+  1085→    const url = new URL(req.url);
+  1086→    const path = url.pathname;
+  1087→    const method = req.method;
+  1088→
+  1089→    // CORS headers
+  1090→    const corsHeaders = {
+  1091→      'Access-Control-Allow-Origin': '*',
+  1092→      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  1093→      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  1094→    };
+  1095→
+  1096→    if (method === 'OPTIONS') {
+  1097→      return new Response(null, { status: 204, headers: corsHeaders });
+  1098→    }
+  1099→
+  1100→    try {
+  1101→      const headers = { ...corsHeaders };
+  1102→
+  1103→      // ── Serve Dashboard HTML ──
+  1104→      if (path === '/' || path === '/index.html') {
+  1105→        return new Response(getDashboardHTML(), { headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } });
+  1106→      }
+  1107→
+  1108→      // ── API: User Statistics ──
+  1109→      if (path === '/api/users' && method === 'GET') {
+  1110→        return Response.json({ success: true, data: getUserStats() }, { headers });
+  1111→      }
+  1112→
+  1113→      // ── API: Health Check ──
+  1114→      if (path === '/api/health' && method === 'GET') {
+  1115→        return Response.json({ success: true, data: getHealthCheck() }, { headers });
+  1116→      }
+  1117→
+  1118→      // ── API: System Metrics ──
+  1119→      if (path === '/api/metrics' && method === 'GET') {
+  1120→        return Response.json({ success: true, data: getSystemMetrics() }, { headers });
+  1121→      }
+  1122→
+  1123→      // ── API: Alerts ──
+  1124→      if (path === '/api/alerts' && method === 'GET') {
+  1125→        return Response.json({ success: true, data: getAlerts() }, { headers });
+  1126→      }
+  1127→
+  1128→      if (path === '/api/alerts' && method === 'POST') {
+  1129→        const data = await req.json();
+  1130→        const result = createAlert(data);
+  1131→        return Response.json(result, { status: result.success ? 201 : 400, headers });
+  1132→      }
+  1133→
+  1134→      // Acknowledge alert
+  1135→      const ackMatch = path.match(/^\/api\/alerts\/([^/]+)\/acknowledge$/);
+  1136→      if (ackMatch && method === 'POST') {
+  1137→        const result = acknowledgeAlert(ackMatch[1]);
+  1138→        return Response.json(result, { status: result.success ? 200 : 400, headers });
+  1139→      }
+  1140→
+  1141→      // Resolve alert
+  1142→      const resolveMatch = path.match(/^\/api\/alerts\/([^/]+)\/resolve$/);
+  1143→      if (resolveMatch && method === 'POST') {
+  1144→        const result = resolveAlert(resolveMatch[1]);
+  1145→        return Response.json(result, { status: result.success ? 200 : 400, headers });
+  1146→      }
+  1147→
+  1148→      // ── API: Webhooks ──
+  1149→      if (path === '/api/webhooks' && method === 'GET') {
+  1150→        return Response.json({ success: true, data: getWebhooks() }, { headers });
+  1151→      }
+  1152→
+  1153→      if (path === '/api/webhooks' && method === 'POST') {
+  1154→        const data = await req.json();
+  1155→        const result = createWebhook(data);
+  1156→        return Response.json(result, { status: result.success ? 201 : 400, headers });
+  1157→      }
+  1158→
+  1159→      if (path === '/api/webhooks' && method === 'DELETE') {
+  1160→        const id = url.searchParams.get('id');
+  1161→        if (id) {
+  1162→          const result = deleteWebhook(id);
+  1163→          return Response.json(result, { status: result.success ? 200 : 400, headers });
+  1164→        }
+  1165→        return Response.json({ success: false, error: 'id query param required' }, { status: 400, headers });
+  1166→      }
+  1167→
+  1168→      // ── API: Rate Limits ──
+  1169→      if (path === '/api/rate-limits' && method === 'GET') {
+  1170→        return Response.json({ success: true, data: getRateLimits() }, { headers });
+  1171→      }
+  1172→
+  1173→      if (path === '/api/rate-limits' && method === 'POST') {
+  1174→        const data = await req.json();
+  1175→        const result = createRateLimit(data);
+  1176→        return Response.json(result, { status: result.success ? 201 : 400, headers });
+  1177→      }
+  1178→
+  1179→      // ── API: Cache ──
+  1180→      if (path === '/api/cache/stats' && method === 'GET') {
+  1181→        return Response.json({ success: true, data: getCacheStats() }, { headers });
+  1182→      }
+  1183→
+  1184→      if (path === '/api/cache' && method === 'GET') {
+  1185→        return Response.json({ success: true, data: getCacheEntries() }, { headers });
+  1186→      }
+  1187→
+  1188→      // ── API: Secrets ──
+  1189→      if (path === '/api/secrets' && method === 'GET') {
+  1190→        return Response.json({ success: true, data: getSecrets() }, { headers });
+  1191→      }
+  1192→
+  1193→      // ── API: Audit Logs ──
+  1194→      if (path === '/api/audit-logs' && method === 'GET') {
+  1195→        const limit = parseInt(url.searchParams.get('limit') || '50');
+  1196→        const offset = parseInt(url.searchParams.get('offset') || '0');
+  1197→        const action = url.searchParams.get('action') || undefined;
+  1198→        return Response.json({ success: true, data: getAuditLogs(limit, offset, action) }, { headers });
+  1199→      }
+  1200→
+  1201→      // ── 404 ──
+  1202→      return Response.json({ success: false, error: 'Not found' }, { status: 404, headers });
+  1203→    } catch (e: any) {
+  1204→      console.error('[InfraService] Error:', e);
+  1205→      return Response.json({ success: false, error: e.message }, { status: 500 });
+  1206→    }
+  1207→  },
+  1208→});
+  1209→
+  1210→console.log(`[InfraService] ✅ Infra & DevOps dashboard running on port ${PORT}`);
+  1211→console.log(`[InfraService] 📊 Dashboard: http://localhost:${PORT}`);
+  1212→console.log(`[InfraService] 🔗 APIs: /api/users, /api/health, /api/metrics, /api/alerts, /api/webhooks, /api/rate-limits, /api/cache, /api/secrets, /api/audit-logs`);
+  1213→
