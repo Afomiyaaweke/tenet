@@ -29,6 +29,7 @@ export type AuthUser = {
   companyId: string | null;
   status: string;
   emailVerified: boolean;
+  tokenVersion: number;
   createdAt: Date;
   updatedAt: Date;
   profile: {
@@ -93,13 +94,14 @@ export interface JwtPayload {
   email: string;
   role: string;
   companyId?: string | null;
+  tokenVersion?: number;
 }
 
 /**
  * Generate a JWT token for a user
  */
 export function generateToken(payload: JwtPayload): string {
-  return jwt.sign(payload, getSecret(), { expiresIn: '24h' });
+  return jwt.sign({ ...payload, tokenVersion: payload.tokenVersion ?? 0 }, getSecret(), { expiresIn: '24h' });
 }
 
 /**
@@ -141,6 +143,11 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
   const cacheKey = payload.userId;
   const cached = authCache.get(cacheKey);
   if (cached && Date.now() - cached.cachedAt < AUTH_CACHE_TTL_MS) {
+    // Check tokenVersion to invalidate JWTs issued before a password reset
+    if (payload.tokenVersion !== undefined && cached.user.tokenVersion !== undefined && payload.tokenVersion !== cached.user.tokenVersion) {
+      authCache.delete(cacheKey);
+      return null;
+    }
     return cached.user;
   }
 
@@ -151,6 +158,11 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
   });
 
   if (!user) return null;
+
+  // Check tokenVersion — if the JWT was issued before a password reset, reject it
+  if (payload.tokenVersion !== undefined && user.tokenVersion !== undefined && payload.tokenVersion !== user.tokenVersion) {
+    return null;
+  }
 
   // Update cache (cast to AuthUser since we know the shape matches)
   authCache.set(cacheKey, { user: user as AuthUser, cachedAt: Date.now() });

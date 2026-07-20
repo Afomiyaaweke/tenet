@@ -136,7 +136,11 @@ export async function POST(request: NextRequest) {
 
     await db.user.update({
       where: { id: userId },
-      data: { passwordHash, updatedAt: new Date() },
+      data: {
+        passwordHash,
+        tokenVersion: { increment: 1 }, // Invalidate all existing JWTs
+        updatedAt: new Date(),
+      },
     });
 
     // ── Invalidate all other reset tokens for this user ──

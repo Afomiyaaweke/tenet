@@ -101,6 +101,21 @@ export async function cleanupExpiredTokens(): Promise<number> {
   return result.count;
 }
 
+// ── Automatic periodic cleanup ──────────────────────────────────────────────
+// Runs every 30 minutes to remove expired tokens from the database.
+if (typeof setInterval !== 'undefined') {
+  setInterval(async () => {
+    try {
+      const count = await cleanupExpiredTokens();
+      if (count > 0) {
+        console.log(`[Token Cleanup] Removed ${count} expired password reset token(s)`);
+      }
+    } catch (err) {
+      console.error('[Token Cleanup] Error:', err);
+    }
+  }, 30 * 60 * 1000); // 30 minutes
+}
+
 /**
  * Add a password hash to the user's password history.
  */

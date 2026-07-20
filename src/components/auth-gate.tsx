@@ -556,7 +556,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       We&apos;ve sent a password reset code to <span className="font-semibold text-foreground">{forgotEmail}</span>
                     </p>
                     <p className="text-muted-foreground text-xs mb-6">
-                      The code expires in 1 hour. Check your spam folder if you don&apos;t see it.
+                      The code expires in 15 minutes. Check your spam folder if you don&apos;t see it.
                     </p>
 
                     <div className="space-y-3">
@@ -651,7 +651,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 font-mono text-sm"
                         />
                         <p className="text-xs text-muted-foreground">
-                          This code was sent to your email. It expires in 1 hour.
+                          This code was sent to your email. It expires in 15 minutes.
                         </p>
                       </div>
 

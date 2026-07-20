@@ -176,3 +176,32 @@ Stage Summary:
 - CSP headers updated to whitelist Clarity's script and data endpoints
 - Script loads via next/script with afterInteractive strategy for optimal performance
 - Rate limiting was already comprehensively implemented in middleware.ts with 3 strategies (sliding_window, fixed_window, token_bucket) across 15+ endpoint categories
+
+---
+Task ID: 10
+Agent: main
+Task: Implement comprehensive password reset flow improvements (JWT invalidation, UI fix, token cleanup)
+
+Work Log:
+- Audited entire auth system: 12 files, found existing comprehensive implementation with 3 critical gaps
+- Fixed UI bug: "1 hour" → "15 minutes" in auth-gate.tsx (lines 559 and 654) to match backend RESET_TOKEN_EXPIRY_MS
+- Added tokenVersion field to User model in Prisma schema (Int, default 0)
+- Pushed schema to database with bun run db:push
+- Updated JwtPayload interface to include tokenVersion
+- Updated generateToken() to include tokenVersion in JWT payload
+- Updated getAuthUser() to check tokenVersion against DB — rejects JWTs from before password reset
+- Added tokenVersion to AuthUser type
+- Updated login route to include tokenVersion in generated JWT
+- Updated register route to include tokenVersion in generated JWT
+- Updated reset-password route to increment tokenVersion on successful reset (invalidates all existing JWTs)
+- Added automatic periodic cleanup of expired PasswordResetToken records (every 30 min)
+- Created /api/auth/cleanup-tokens endpoint (admin-only POST) for manual/on-demand cleanup
+- Added rate limit config for validate-reset-token and cleanup-tokens endpoints
+- Verified: lint passes with 0 errors, dev server running, all auth endpoints returning correct responses
+
+Stage Summary:
+- JWT invalidation after password reset: ✅ tokenVersion mechanism ensures all pre-reset JWTs are rejected
+- UI text fix: ✅ "1 hour" → "15 minutes" matches backend 15-min expiry
+- Token cleanup: ✅ Automatic every 30 min + manual API endpoint
+- Rate limiting: ✅ validate-reset-token (10/min), cleanup-tokens (2/min)
+- Security posture: Email enumeration prevention, generic error messages, single-use tokens, password history, brute-force lockout all remain intact
