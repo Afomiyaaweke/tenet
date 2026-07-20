@@ -24,6 +24,7 @@ import {
   FileText,
   Fingerprint,
   CheckCircle2,
+  XCircle,
   AlertTriangle,
   UserCircle,
   Building2,
@@ -217,6 +218,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password' | 'forgot-sent' | 'reset-password'>('login');
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
+  const [tokenValidation, setTokenValidation] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -233,6 +235,27 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
+
+  // Debounced token validation — checks the code against the server as user types
+  useEffect(() => {
+    if (!resetToken || resetToken.length < 10) {
+      setTokenValidation('idle');
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setTokenValidation('checking');
+      try {
+        const { api } = await import('@/lib/api');
+        const res = await api.get(`/auth/validate-reset-token?token=${encodeURIComponent(resetToken)}`);
+        setTokenValidation(res.valid ? 'valid' : 'invalid');
+      } catch {
+        setTokenValidation('idle'); // Network error — don't block
+      }
+    }, 600); // 600ms debounce
+
+    return () => clearTimeout(timer);
+  }, [resetToken]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,6 +283,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
         // Always show the confirmation screen to prevent email enumeration
         // The reset token is sent ONLY to the user's email - never in the API response
         setResetToken(''); // Clear any previous token
+        setTokenValidation('idle');
         setAuthMode('forgot-sent');
       } else {
         toast.error(res.error || 'Failed to process request');
@@ -580,7 +604,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     <div className="mt-6 pt-4 border-t border-border">
                       <button
                         type="button"
-                        onClick={() => { setAuthMode('login'); setResetToken(''); }}
+                        onClick={() => { setAuthMode('login'); setResetToken(''); setTokenValidation('idle'); }}
                         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto group"
                       >
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
@@ -618,7 +642,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       <p className="text-sm text-muted-foreground mb-6">Your password has been successfully reset. You can now sign in with your new password.</p>
                       <Button
                         type="button"
-                        onClick={() => { setAuthMode('login'); setResetSuccess(false); }}
+                        onClick={() => { setAuthMode('login'); setResetSuccess(false); setTokenValidation('idle'); }}
                         className="h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 px-8"
                       >
                         Sign In Now
@@ -632,19 +656,43 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           <Fingerprint className="w-3.5 h-3.5 text-muted-foreground" />
                           Reset Code
                         </Label>
-                        <Input
-                          id="reset-token"
-                          type="text"
-                          placeholder="Paste the reset code from your email"
-                          value={resetToken}
-                          onChange={e => setResetToken(e.target.value)}
-                          required
-
-                          className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 font-mono text-sm"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          This code was sent to your email. It expires in 15 minutes.
-                        </p>
+                        <div className="relative">
+                          <Input
+                            id="reset-token"
+                            type="text"
+                            placeholder="Paste the reset code from your email"
+                            value={resetToken}
+                            onChange={e => setResetToken(e.target.value)}
+                            required
+                            className={`h-11 bg-muted/50 border-border focus:bg-background transition-all duration-200 font-mono text-sm pr-10 ${
+                              tokenValidation === 'valid'
+                                ? 'border-green-500 focus:border-green-500 focus:ring-green-500/20'
+                                : tokenValidation === 'invalid'
+                                ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
+                                : 'focus:border-primary focus:ring-primary/20'
+                            }`}
+                          />
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {tokenValidation === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                            {tokenValidation === 'valid' && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                            {tokenValidation === 'invalid' && <XCircle className="w-4 h-4 text-red-400" />}
+                          </div>
+                        </div>
+                        {tokenValidation === 'valid' && (
+                          <p className="text-xs text-green-600 font-medium flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Code verified — enter your new password below
+                          </p>
+                        )}
+                        {tokenValidation === 'invalid' && (
+                          <p className="text-xs text-red-500 font-medium flex items-center gap-1">
+                            <XCircle className="w-3 h-3" /> Invalid or expired code — please request a new one
+                          </p>
+                        )}
+                        {tokenValidation === 'idle' && (
+                          <p className="text-xs text-muted-foreground">
+                            This code was sent to your email. It expires in 15 minutes.
+                          </p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -695,7 +743,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
                       <Button
                         type="submit"
-                        disabled={loading || !resetToken || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 12 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)}
+                        disabled={loading || tokenValidation === 'invalid' || tokenValidation === 'checking' || !resetToken || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 12 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)}
                         className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
                       >
                         {loading ? (

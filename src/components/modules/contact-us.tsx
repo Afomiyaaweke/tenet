@@ -17,10 +17,8 @@ import {
 import {
   Mail,
   Phone,
-  MapPin,
   Send,
   Clock,
-  Globe,
   MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,26 +29,26 @@ const CONTACT_INFO = [
   {
     icon: Phone,
     label: 'Phone',
-    value: '+251 11 234 5678',
-    href: 'tel:+251112345678',
+    value: '+251 956 140 291',
+    href: 'tel:+251956140291',
     color: 'text-orange-600 dark:text-orange-400',
     bg: 'bg-orange-50 dark:bg-orange-950/30',
   },
   {
     icon: Mail,
-    label: 'Email',
-    value: 'support@tenet.space-z.ai',
-    href: 'mailto:support@tenet.space-z.ai',
+    label: 'Support',
+    value: 'support@tenetbid.com',
+    href: 'mailto:support@tenetbid.com',
     color: 'text-slate-600 dark:text-slate-400',
     bg: 'bg-slate-50 dark:bg-slate-900/40',
   },
   {
-    icon: MapPin,
-    label: 'Head Office',
-    value: 'Bole Road, Atlas Building, 4th Floor\nAddis Ababa, Ethiopia',
-    href: undefined,
-    color: 'text-orange-600 dark:text-orange-400',
-    bg: 'bg-orange-50 dark:bg-orange-950/30',
+    icon: Mail,
+    label: 'General Inquiries',
+    value: 'contact@tenetbid.com',
+    href: 'mailto:contact@tenetbid.com',
+    color: 'text-slate-600 dark:text-slate-400',
+    bg: 'bg-slate-50 dark:bg-slate-900/40',
   },
   {
     icon: Clock,
@@ -59,14 +57,6 @@ const CONTACT_INFO = [
     href: undefined,
     color: 'text-slate-600 dark:text-slate-400',
     bg: 'bg-slate-50 dark:bg-slate-900/40',
-  },
-  {
-    icon: Globe,
-    label: 'Website',
-    value: 'tenet.space-z.ai',
-    href: 'https://tenet.space-z.ai',
-    color: 'text-orange-600 dark:text-orange-400',
-    bg: 'bg-orange-50 dark:bg-orange-950/30',
   },
 ];
 
@@ -135,13 +125,13 @@ function ContactForm() {
     try {
       const res = await api.post('/contact', formData);
       if (res.success) {
-        toast.success('Message sent successfully! We\'ll get back to you soon.');
+        toast.success('Message sent to support@tenetbid.com! We\'ll respond within 24 hours.');
         setFormData({ name: '', email: '', subject: '', message: '' });
       } else {
         toast.error(res.error || 'Failed to send message. Please try again.');
       }
     } catch {
-      toast.success('Message received! We\'ll get back to you soon.');
+      toast.success('Message received! We\'ll respond via support@tenetbid.com within 24 hours.');
       setFormData({ name: '', email: '', subject: '', message: '' });
     } finally {
       setIsSubmitting(false);
@@ -160,7 +150,7 @@ function ContactForm() {
               Send Us a Message
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Fill out the form and we&apos;ll respond within 24 hours
+              Messages are sent directly to <a href="mailto:support@tenetbid.com" className="text-orange-600 dark:text-orange-400 font-medium hover:underline">support@tenetbid.com</a> — we respond within 24 hours
             </p>
           </div>
         </div>
@@ -310,8 +300,6 @@ function ContactInfoCards() {
               <a
                 key={item.label}
                 href={item.href}
-                target={item.href.startsWith('http') ? '_blank' : undefined}
-                rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
                 className="block"
               >
                 {content}
@@ -321,6 +309,47 @@ function ContactInfoCards() {
 
           return <div key={item.label}>{content}</div>;
         })}
+      </div>
+
+      {/* Social links */}
+      <div className="pt-4 border-t border-border/50">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          Follow Us
+        </p>
+        <div className="space-y-3">
+          <a
+            href="https://x.com/tenetbid"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/50 transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800/60 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-200 dark:group-hover:bg-slate-700/60 transition-colors">
+              <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-600 dark:text-slate-400 group-hover:text-foreground transition-colors" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">X (Twitter)</p>
+              <p className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">@tenetbid</p>
+            </div>
+          </a>
+          <a
+            href="https://www.reddit.com/user/Tenetbid/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 p-3 rounded-xl border border-border/50 bg-card hover:bg-[#FF4500]/5 dark:hover:bg-[#FF4500]/10 transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-[#FF4500]/10 dark:bg-[#FF4500]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#FF4500]/20 dark:group-hover:bg-[#FF4500]/30 transition-colors">
+              <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#FF4500]" fill="currentColor">
+                <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.624 0 1.2.5 1.2 1.126s-.576 1.126-1.2 1.126c-.608 0-1.176-.504-1.176-1.126 0-.624.568-1.126 1.176-1.126zm-3.654 2.634c1.224-.072 2.584.576 2.584 2.584v4.346h-1.744v-4.076c0-1.008-.408-1.66-1.44-1.66-1.08 0-1.744.792-1.744 1.66v4.076H7.608V9.962c0-1.008.392-1.66 1.44-1.66 1.08 0 1.744.792 1.744 1.66v4.076h-1.744v-4.346c0-2.008 1.36-2.658 2.584-2.584zM6.99 7.378c-.624 0-1.176-.504-1.176-1.126s.552-1.126 1.176-1.126c.624 0 1.2.5 1.2 1.126s-.576 1.126-1.2 1.126zm5.01 12.322c-4.908 0-8.9-3.992-8.9-8.9 0-4.908 3.992-8.9 8.9-8.9 4.908 0 8.9 3.992 8.9 8.9 0 4.908-3.992 8.9-8.9 8.9z"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reddit</p>
+              <p className="text-sm font-medium text-foreground group-hover:text-[#FF4500] dark:group-hover:text-[#FF4500] transition-colors">u/Tenetbid</p>
+            </div>
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -395,13 +424,6 @@ export function ContactUsView() {
           >
             <Clock className="w-3 h-3 mr-1" />
             Response within 24h
-          </Badge>
-          <Badge
-            variant="secondary"
-            className="bg-slate-50 text-slate-700 border-slate-200/60 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-700/40"
-          >
-            <MapPin className="w-3 h-3 mr-1" />
-            Addis Ababa
           </Badge>
         </div>
       </div>

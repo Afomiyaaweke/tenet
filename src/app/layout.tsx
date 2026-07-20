@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tenets - Tender Ecosystem",
+  title: "TenetBid - Transforming Procurement Through Technology",
   description: "Transforming procurement through technology. Connect with verified contractors, discover tenders, and manage projects - all in one platform.",
-  keywords: ["Tenets", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
+  keywords: ["TenetBid", "Tender", "Procurement", "Ethiopia", "Contractor", "Bidding"],
   icons: {
     icon: [
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },

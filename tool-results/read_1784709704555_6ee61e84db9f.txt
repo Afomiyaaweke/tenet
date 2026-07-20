@@ -1,0 +1,1895 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api } from '@/lib/api';
+     6→import { toast } from 'sonner';
+     7→import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Badge } from '@/components/ui/badge';
+    10→import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+    11→import { Input } from '@/components/ui/input';
+    12→import { Textarea } from '@/components/ui/textarea';
+    13→import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+    14→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    15→import { Separator } from '@/components/ui/separator';
+    16→import { ScrollArea } from '@/components/ui/scroll-area';
+    17→import { Skeleton } from '@/components/ui/skeleton';
+    18→import {
+    19→  Select,
+    20→  SelectContent,
+    21→  SelectItem,
+    22→  SelectTrigger,
+    23→  SelectValue,
+    24→} from '@/components/ui/select';
+    25→import {
+    26→  Users, UserPlus, Heart, ThumbsUp, MessageCircle, Share2, Search,
+    27→  Building2, MapPin, Briefcase, Award, Verified, Send, Clock,
+    28→  MoreHorizontal, X, Plus, ChevronDown, Globe2, Handshake,
+    29→  Sparkles, TrendingUp, Star, Link2, Image, Trash2,
+    30→} from 'lucide-react';
+    31→
+    32→// ==========================================
+    33→// Constants
+    34→// ==========================================
+    35→
+    36→const SKILL_COLORS: Record<string, string> = {
+    37→  'Construction': 'bg-amber-50 text-amber-700 border-amber-200/60',
+    38→  'IT': 'bg-blue-50 text-blue-700 border-blue-200/60',
+    39→  'Supply': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    40→  'Consulting': 'bg-purple-50 text-purple-700 border-purple-200/60',
+    41→  'Engineering': 'bg-teal-50 text-teal-700 border-teal-200/60',
+    42→  'Architecture': 'bg-rose-50 text-rose-700 border-rose-200/60',
+    43→  'Electrical': 'bg-yellow-50 text-yellow-700 border-yellow-200/60',
+    44→  'Plumbing': 'bg-cyan-50 text-cyan-700 border-cyan-200/60',
+    45→  'HVAC': 'bg-orange-50 text-orange-700 border-orange-200/60',
+    46→  'Landscaping': 'bg-lime-50 text-lime-700 border-lime-200/60',
+    47→  'Interior Design': 'bg-pink-50 text-pink-700 border-pink-200/60',
+    48→  'Project Management': 'bg-indigo-50 text-indigo-700 border-indigo-200/60',
+    49→  'Logistics': 'bg-sky-50 text-sky-700 border-sky-200/60',
+    50→  'Manufacturing': 'bg-stone-50 text-stone-700 border-stone-200/60',
+    51→  'Healthcare': 'bg-red-50 text-red-700 border-red-200/60',
+    52→  'Education': 'bg-violet-50 text-violet-700 border-violet-200/60',
+    53→  'Finance': 'bg-green-50 text-green-700 border-green-200/60',
+    54→  'Legal': 'bg-slate-50 text-slate-700 border-slate-200/60',
+    55→  'Agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    56→  'Telecommunications': 'bg-blue-50 text-blue-700 border-blue-200/60',
+    57→};
+    58→
+    59→const REACTION_EMOJIS = ['👍', '❤️', '🎉', '💡'] as const;
+    60→
+    61→const INDUSTRY_OPTIONS = [
+    62→  'Construction', 'IT & Technology', 'Supply Chain', 'Consulting',
+    63→  'Engineering', 'Architecture', 'Healthcare', 'Education',
+    64→  'Finance', 'Legal', 'Agriculture', 'Telecommunications',
+    65→  'Manufacturing', 'Logistics', 'Energy', 'Government',
+    66→];
+    67→
+    68→function getSkillColor(skill: string): string {
+    69→  return SKILL_COLORS[skill] || 'bg-emerald-50 text-emerald-700 border-emerald-200/60';
+    70→}
+    71→
+    72→// ==========================================
+    73→// Types
+    74→// ==========================================
+    75→
+    76→interface ReactionSummary {
+    77→  emoji: string;
+    78→  count: number;
+    79→  hasReacted: boolean;
+    80→  users: Array<{ id: string; fullName: string; profilePhoto: string | null }>;
+    81→}
+    82→
+    83→interface SocialPost {
+    84→  id: string;
+    85→  userId: string;
+    86→  content: string;
+    87→  imageUrls: string;
+    88→  likes: number;
+    89→  comments: number;
+    90→  tags: string;
+    91→  visibility: string;
+    92→  createdAt: string;
+    93→  user: {
+    94→    id: string;
+    95→    email: string;
+    96→    profile: { fullName: string; jobTitle: string | null; profilePhoto: string | null };
+    97→    company: { id: string; name: string; industry: string; verified: boolean } | null;
+    98→  };
+    99→  reactionSummary: ReactionSummary[];
+   100→  commentCount: number;
+   101→  totalReactions: number;
+   102→}
+   103→
+   104→interface PostComment {
+   105→  id: string;
+   106→  postId: string;
+   107→  userId: string;
+   108→  content: string;
+   109→  createdAt: string;
+   110→  user: {
+   111→    id: string;
+   112→    email: string;
+   113→    profile: { fullName: string; jobTitle: string | null; profilePhoto: string | null };
+   114→    company: { id: string; name: string } | null;
+   115→  };
+   116→}
+   117→
+   118→interface Connection {
+   119→  id: string;
+   120→  requesterId: string;
+   121→  receiverId: string;
+   122→  status: string;
+   123→  message: string | null;
+   124→  createdAt: string;
+   125→  direction: 'sent' | 'received';
+   126→  requester: {
+   127→    id: string;
+   128→    email: string;
+   129→    profile: { fullName: string; jobTitle: string | null; profilePhoto: string | null; location?: string | null };
+   130→    company: { id: string; name: string; industry: string; verified: boolean } | null;
+   131→  };
+   132→  receiver: {
+   133→    id: string;
+   134→    email: string;
+   135→    profile: { fullName: string; jobTitle: string | null; profilePhoto: string | null; location?: string | null };
+   136→    company: { id: string; name: string; industry: string; verified: boolean } | null;
+   137→  };
+   138→}
+   139→
+   140→interface DiscoverProfile {
+   141→  id: string;
+   142→  userId: string;
+   143→  fullName: string;
+   144→  jobTitle: string | null;
+   145→  profilePhoto: string | null;
+   146→  location: string | null;
+   147→  bio: string | null;
+   148→  skillTags: string;
+   149→  verified: boolean;
+   150→  user: {
+   151→    id: string;
+   152→    email: string;
+   153→    role: string;
+   154→    company: { id: string; name: string; industry: string; verified: boolean; logoUrl: string | null } | null;
+   155→  };
+   156→  connectionStatus: 'none' | 'pending' | 'connected' | 'declined';
+   157→  connectionDirection: string | null;
+   158→  connectionId: string | null;
+   159→  totalEndorsements: number;
+   160→  topSkills: Array<{ skill: string; count: number }>;
+   161→}
+   162→
+   163→interface EndorsementSkill {
+   164→  skill: string;
+   165→  count: number;
+   166→  hasEndorsed: boolean;
+   167→  endorsers: Array<{ id: string; fullName: string; jobTitle: string | null; profilePhoto: string | null }>;
+   168→}
+   169→
+   170→// ==========================================
+   171→// Helpers
+   172→// ==========================================
+   173→
+   174→function relativeTime(dateStr: string): string {
+   175→  const now = Date.now();
+   176→  const then = new Date(dateStr).getTime();
+   177→  const diff = Math.max(0, now - then);
+   178→  const seconds = Math.floor(diff / 1000);
+   179→  if (seconds < 60) return 'just now';
+   180→  const minutes = Math.floor(seconds / 60);
+   181→  if (minutes < 60) return `${minutes}m ago`;
+   182→  const hours = Math.floor(minutes / 60);
+   183→  if (hours < 24) return `${hours}h ago`;
+   184→  const days = Math.floor(hours / 24);
+   185→  if (days < 7) return `${days}d ago`;
+   186→  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+   187→  return new Date(dateStr).toLocaleDateString();
+   188→}
+   189→
+   190→function getInitials(name: string): string {
+   191→  return name
+   192→    .split(' ')
+   193→    .map((n) => n[0])
+   194→    .join('')
+   195→    .toUpperCase()
+   196→    .slice(0, 2);
+   197→}
+   198→
+   199→function parseImageUrls(imageUrls: string): string[] {
+   200→  try {
+   201→    const parsed = JSON.parse(imageUrls);
+   202→    return Array.isArray(parsed) ? parsed : [];
+   203→  } catch {
+   204→    return [];
+   205→  }
+   206→}
+   207→
+   208→function parseTags(tags: string): string[] {
+   209→  if (!tags) return [];
+   210→  try {
+   211→    const parsed = JSON.parse(tags);
+   212→    return Array.isArray(parsed) ? parsed : tags.split(',').map((t) => t.trim()).filter(Boolean);
+   213→  } catch {
+   214→    return tags.split(',').map((t) => t.trim()).filter(Boolean);
+   215→  }
+   216→}
+   217→
+   218→function parseSkillTags(skillTags: string): string[] {
+   219→  if (!skillTags) return [];
+   220→  try {
+   221→    const parsed = JSON.parse(skillTags);
+   222→    return Array.isArray(parsed) ? parsed : skillTags.split(',').map((t) => t.trim()).filter(Boolean);
+   223→  } catch {
+   224→    return skillTags.split(',').map((t) => t.trim()).filter(Boolean);
+   225→  }
+   226→}
+   227→
+   228→// ==========================================
+   229→// Sub-Components
+   230→// ==========================================
+   231→
+   232→function ProfileAvatar({ src, name, className }: { src?: string | null; name: string; className?: string }) {
+   233→  return (
+   234→    <Avatar className={className || 'h-10 w-10'}>
+   235→      {src ? <AvatarImage src={src} alt={name} /> : null}
+   236→      <AvatarFallback className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 text-sm font-semibold">
+   237→        {getInitials(name)}
+   238→      </AvatarFallback>
+   239→    </Avatar>
+   240→  );
+   241→}
+   242→
+   243→function VerifiedBadge({ verified }: { verified?: boolean | null }) {
+   244→  if (!verified) return null;
+   245→  return <Verified className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />;
+   246→}
+   247→
+   248→function SkillBadge({ skill, className }: { skill: string; className?: string }) {
+   249→  return (
+   250→    <Badge variant="outline" className={`text-xs px-2 py-0.5 font-medium ${getSkillColor(skill)} ${className || ''}`}>
+   251→      {skill}
+   252→    </Badge>
+   253→  );
+   254→}
+   255→
+   256→// ─── Left Sidebar: Profile Card ───
+   257→
+   258→function LeftSidebar() {
+   259→  const { user, company } = useAuthStore();
+   260→  const [stats, setStats] = useState({ connections: 0, posts: 0, endorsements: 0 });
+   261→  const [loading, setLoading] = useState(true);
+   262→
+   263→  useEffect(() => {
+   264→    async function fetchStats() {
+   265→      try {
+   266→        const [connRes, postsRes, endRes] = await Promise.all([
+   267→          api.get('/social/connections', { status: 'accepted', limit: '1' }),
+   268→          api.get('/social/posts', { authorId: user?.id || '', limit: '1' }),
+   269→          api.get('/social/endorsements', { userId: user?.id || '' }),
+   270→        ]);
+   271→        setStats({
+   272→          connections: connRes.meta?.total || 0,
+   273→          posts: postsRes.meta?.total || 0,
+   274→          endorsements: endRes.data?.totalEndorsements || 0,
+   275→        });
+   276→      } catch {
+   277→        // silently fail
+   278→      } finally {
+   279→        setLoading(false);
+   280→      }
+   281→    }
+   282→    if (user?.id) fetchStats();
+   283→  }, [user?.id]);
+   284→
+   285→  const profile = user?.profile;
+   286→  const fullName = profile?.fullName || user?.email || 'User';
+   287→  const jobTitle = profile?.jobTitle || '';
+   288→  const companyName = company?.name || user?.company?.name || '';
+   289→  const location = (profile as any)?.location || '';
+   290→  const skillTags = parseSkillTags((profile as any)?.skillTags || '');
+   291→
+   292→  return (
+   293→    <div className="space-y-4">
+   294→      {/* Profile Card */}
+   295→      <Card className="overflow-hidden">
+   296→        <div className="h-16 bg-gradient-to-r from-emerald-500 to-teal-500 relative">
+   297→          {company?.verified && (
+   298→            <div className="absolute top-2 right-2 bg-white/20 backdrop-blur-sm rounded-full p-1">
+   299→              <Verified className="h-3.5 w-3.5 text-white" />
+   300→            </div>
+   301→          )}
+   302→        </div>
+   303→        <CardContent className="pt-0 pb-4 px-4">
+   304→          <div className="-mt-8 mb-3">
+   305→            <ProfileAvatar
+   306→              src={profile?.profilePhoto}
+   307→              name={fullName}
+   308→              className="h-16 w-16 border-4 border-card"
+   309→            />
+   310→          </div>
+   311→          <div className="space-y-1">
+   312→            <div className="flex items-center gap-1.5">
+   313→              <h3 className="font-semibold text-sm text-foreground leading-tight">{fullName}</h3>
+   314→              {profile?.verified && <VerifiedBadge verified={profile.verified} />}
+   315→            </div>
+   316→            {jobTitle && (
+   317→              <p className="text-xs text-muted-foreground">{jobTitle}</p>
+   318→            )}
+   319→            {companyName && (
+   320→              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   321→                <Building2 className="h-3 w-3" />
+   322→                <span>{companyName}</span>
+   323→                {company?.verified && <VerifiedBadge verified={company.verified} />}
+   324→              </div>
+   325→            )}
+   326→            {location && (
+   327→              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   328→                <MapPin className="h-3 w-3" />
+   329→                <span>{location}</span>
+   330→              </div>
+   331→            )}
+   332→          </div>
+   333→        </CardContent>
+   334→        <Separator />
+   335→        <CardContent className="py-3 px-4">
+   336→          {loading ? (
+   337→            <div className="space-y-2">
+   338→              <Skeleton className="h-4 w-full" />
+   339→              <Skeleton className="h-4 w-3/4" />
+   340→            </div>
+   341→          ) : (
+   342→            <div className="grid grid-cols-3 gap-2 text-center">
+   343→              <div>
+   344→                <p className="text-sm font-bold text-foreground">{stats.connections}</p>
+   345→                <p className="text-[10px] text-muted-foreground">Connections</p>
+   346→              </div>
+   347→              <div>
+   348→                <p className="text-sm font-bold text-foreground">{stats.posts}</p>
+   349→                <p className="text-[10px] text-muted-foreground">Posts</p>
+   350→              </div>
+   351→              <div>
+   352→                <p className="text-sm font-bold text-foreground">{stats.endorsements}</p>
+   353→                <p className="text-[10px] text-muted-foreground">Endorsements</p>
+   354→              </div>
+   355→            </div>
+   356→          )}
+   357→        </CardContent>
+   358→      </Card>
+   359→
+   360→      {/* Skills Card */}
+   361→      {skillTags.length > 0 && (
+   362→        <Card>
+   363→          <CardHeader className="pb-2 pt-4 px-4">
+   364→            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+   365→              <Award className="h-3.5 w-3.5" />
+   366→              My Skills
+   367→            </CardTitle>
+   368→          </CardHeader>
+   369→          <CardContent className="pb-4 px-4">
+   370→            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+   371→              {skillTags.map((skill) => (
+   372→                <SkillBadge key={skill} skill={skill} />
+   373→              ))}
+   374→            </div>
+   375→          </CardContent>
+   376→        </Card>
+   377→      )}
+   378→    </div>
+   379→  );
+   380→}
+   381→
+   382→// ─── Create Post Box ───
+   383→
+   384→function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
+   385→  const { user } = useAuthStore();
+   386→  const [content, setContent] = useState('');
+   387→  const [tagInput, setTagInput] = useState('');
+   388→  const [tags, setTags] = useState<string[]>([]);
+   389→  const [visibility, setVisibility] = useState('public');
+   390→  const [isSubmitting, setIsSubmitting] = useState(false);
+   391→  const [isExpanded, setIsExpanded] = useState(false);
+   392→
+   393→  const addTag = () => {
+   394→    const trimmed = tagInput.trim();
+   395→    if (trimmed && !tags.includes(trimmed) && tags.length < 5) {
+   396→      setTags([...tags, trimmed]);
+   397→      setTagInput('');
+   398→    }
+   399→  };
+   400→
+   401→  const removeTag = (tag: string) => {
+   402→    setTags(tags.filter((t) => t !== tag));
+   403→  };
+   404→
+   405→  const handleSubmit = async () => {
+   406→    if (!content.trim()) return;
+   407→    setIsSubmitting(true);
+   408→    try {
+   409→      const res = await api.post('/social/posts', {
+   410→        content: content.trim(),
+   411→        tags: tags.join(','),
+   412→        visibility,
+   413→      });
+   414→      if (res.success) {
+   415→        toast.success('Post created!');
+   416→        setContent('');
+   417→        setTags([]);
+   418→        setTagInput('');
+   419→        setVisibility('public');
+   420→        setIsExpanded(false);
+   421→        onPostCreated();
+   422→      } else {
+   423→        toast.error(res.error || 'Failed to create post');
+   424→      }
+   425→    } catch {
+   426→      toast.error('Failed to create post');
+   427→    } finally {
+   428→      setIsSubmitting(false);
+   429→    }
+   430→  };
+   431→
+   432→  const profile = user?.profile;
+   433→  const fullName = profile?.fullName || user?.email || 'User';
+   434→
+   435→  return (
+   436→    <Card className="mb-4">
+   437→      <CardContent className="p-4">
+   438→        <div className="flex gap-3">
+   439→          <ProfileAvatar src={profile?.profilePhoto} name={fullName} className="h-10 w-10 flex-shrink-0" />
+   440→          <div className="flex-1 min-w-0">
+   441→            <Textarea
+   442→              placeholder="Share an update, insight, or opportunity..."
+   443→              value={content}
+   444→              onChange={(e) => {
+   445→                setContent(e.target.value);
+   446→                if (!isExpanded && e.target.value) setIsExpanded(true);
+   447→              }}
+   448→              onFocus={() => setIsExpanded(true)}
+   449→              className="min-h-[60px] resize-none border-0 bg-muted/50 focus-visible:ring-1 focus-visible:ring-emerald-500/30 p-3 text-sm"
+   450→              maxLength={5000}
+   451→            />
+   452→            {isExpanded && (
+   453→              <div className="mt-3 space-y-3">
+   454→                {/* Tag Input */}
+   455→                <div className="flex items-center gap-2">
+   456→                  <Input
+   457→                    placeholder="Add a tag (press Enter)"
+   458→                    value={tagInput}
+   459→                    onChange={(e) => setTagInput(e.target.value)}
+   460→                    onKeyDown={(e) => {
+   461→                      if (e.key === 'Enter') {
+   462→                        e.preventDefault();
+   463→                        addTag();
+   464→                      }
+   465→                    }}
+   466→                    className="h-8 text-xs"
+   467→                  />
+   468→                  <Button variant="outline" size="sm" onClick={addTag} className="h-8 px-2 flex-shrink-0">
+   469→                    <Plus className="h-3.5 w-3.5" />
+   470→                  </Button>
+   471→                </div>
+   472→                {tags.length > 0 && (
+   473→                  <div className="flex flex-wrap gap-1.5">
+   474→                    {tags.map((tag) => (
+   475→                      <Badge key={tag} variant="outline" className={`text-xs pr-1 ${getSkillColor(tag)}`}>
+   476→                        {tag}
+   477→                        <button onClick={() => removeTag(tag)} className="ml-1 hover:text-red-500">
+   478→                          <X className="h-3 w-3" />
+   479→                        </button>
+   480→                      </Badge>
+   481→                    ))}
+   482→                  </div>
+   483→                )}
+   484→                {/* Visibility + Post */}
+   485→                <div className="flex items-center justify-between">
+   486→                  <div className="flex items-center gap-2">
+   487→                    <Select value={visibility} onValueChange={setVisibility}>
+   488→                      <SelectTrigger className="h-8 w-[130px] text-xs">
+   489→                        <Globe2 className="h-3.5 w-3.5 mr-1" />
+   490→                        <SelectValue />
+   491→                      </SelectTrigger>
+   492→                      <SelectContent>
+   493→                        <SelectItem value="public">🌐 Public</SelectItem>
+   494→                        <SelectItem value="connections">🔗 Connections</SelectItem>
+   495→                        <SelectItem value="private">🔒 Private</SelectItem>
+   496→                      </SelectContent>
+   497→                    </Select>
+   498→                  </div>
+   499→                  <Button
+   500→                    onClick={handleSubmit}
+   501→                    disabled={!content.trim() || isSubmitting}
+   502→                    className="h-8 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+   503→                  >
+   504→                    {isSubmitting ? (
+   505→                      <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+   506→                    ) : (
+   507→                      <>
+   508→                        <Send className="h-3.5 w-3.5 mr-1" />
+   509→                        Post
+   510→                      </>
+   511→                    )}
+   512→                  </Button>
+   513→                </div>
+   514→              </div>
+   515→            )}
+   516→          </div>
+   517→        </div>
+   518→      </CardContent>
+   519→    </Card>
+   520→  );
+   521→}
+   522→
+   523→// ─── Reaction Buttons ───
+   524→
+   525→function ReactionBar({
+   526→  post,
+   527→  onReact,
+   528→}: {
+   529→  post: SocialPost;
+   530→  onReact: (emoji: string) => void;
+   531→}) {
+   532→  const [hovering, setHovering] = useState(false);
+   533→  const { user } = useAuthStore();
+   534→
+   535→  const reactionMap = new Map(post.reactionSummary?.map((r) => [r.emoji, r]) || []);
+   536→
+   537→  return (
+   538→    <div className="flex items-center gap-1 relative">
+   539→      {/* Quick reaction */}
+   540→      <div
+   541→        className="relative"
+   542→        onMouseEnter={() => setHovering(true)}
+   543→        onMouseLeave={() => setHovering(false)}
+   544→      >
+   545→        <Button
+   546→          variant="ghost"
+   547→          size="sm"
+   548→          className="h-8 px-2 text-xs text-muted-foreground hover:text-emerald-600"
+   549→          onClick={() => onReact('👍')}
+   550→        >
+   551→          <ThumbsUp className={`h-4 w-4 mr-1 ${reactionMap.get('👍')?.hasReacted ? 'text-emerald-600 fill-emerald-600' : ''}`} />
+   552→          {reactionMap.get('👍')?.count || 0}
+   553→        </Button>
+   554→
+   555→        {/* Emoji picker on hover */}
+   556→        {hovering && (
+   557→          <div className="absolute bottom-full left-0 mb-1 bg-card border border-border rounded-full shadow-lg px-2 py-1 flex items-center gap-1 z-20">
+   558→            {REACTION_EMOJIS.map((emoji) => (
+   559→              <button
+   560→                key={emoji}
+   561→                onClick={() => onReact(emoji)}
+   562→                className={`text-lg hover:scale-125 transition-transform p-1 rounded-full ${
+   563→                  reactionMap.get(emoji)?.hasReacted ? 'bg-emerald-100 dark:bg-emerald-900/30' : ''
+   564→                }`}
+   565→              >
+   566→                {emoji}
+   567→              </button>
+   568→            ))}
+   569→          </div>
+   570→        )}
+   571→      </div>
+   572→
+   573→      {/* Show other active reactions */}
+   574→      {post.reactionSummary?.filter((r) => r.emoji !== '👍' && r.count > 0).map((r) => (
+   575→        <Button
+   576→          key={r.emoji}
+   577→          variant="ghost"
+   578→          size="sm"
+   579→          className={`h-8 px-2 text-xs ${r.hasReacted ? 'text-emerald-600' : 'text-muted-foreground'}`}
+   580→          onClick={() => onReact(r.emoji)}
+   581→        >
+   582→          <span className="mr-1">{r.emoji}</span>
+   583→          {r.count}
+   584→        </Button>
+   585→      ))}
+   586→
+   587→      {/* Total reactions if no specific shown */}
+   588→      {(!post.reactionSummary || post.reactionSummary.length === 0) && (
+   589→        <span className="text-xs text-muted-foreground ml-1">0</span>
+   590→      )}
+   591→    </div>
+   592→  );
+   593→}
+   594→
+   595→// ─── Post Card ───
+   596→
+   597→function PostCard({
+   598→  post,
+   599→  onReact,
+   600→  onDelete,
+   601→}: {
+   602→  post: SocialPost;
+   603→  onReact: (postId: string, emoji: string) => void;
+   604→  onDelete: (postId: string) => void;
+   605→}) {
+   606→  const { user } = useAuthStore();
+   607→  const [showComments, setShowComments] = useState(false);
+   608→  const [comments, setComments] = useState<PostComment[]>([]);
+   609→  const [commentText, setCommentText] = useState('');
+   610→  const [commentsLoading, setCommentsLoading] = useState(false);
+   611→  const [submittingComment, setSubmittingComment] = useState(false);
+   612→  const [showMenu, setShowMenu] = useState(false);
+   613→
+   614→  const isOwnPost = user?.id === post.userId;
+   615→  const images = parseImageUrls(post.imageUrls);
+   616→  const tags = parseTags(post.tags);
+   617→
+   618→  const fetchComments = useCallback(async () => {
+   619→    setCommentsLoading(true);
+   620→    try {
+   621→      const res = await api.get(`/social/posts/${post.id}/comments`);
+   622→      if (res.success) setComments(res.data);
+   623→    } catch {
+   624→      // silently fail
+   625→    } finally {
+   626→      setCommentsLoading(false);
+   627→    }
+   628→  }, [post.id]);
+   629→
+   630→  const toggleComments = () => {
+   631→    if (!showComments) {
+   632→      fetchComments();
+   633→    }
+   634→    setShowComments(!showComments);
+   635→  };
+   636→
+   637→  const submitComment = async () => {
+   638→    if (!commentText.trim()) return;
+   639→    setSubmittingComment(true);
+   640→    try {
+   641→      const res = await api.post(`/social/posts/${post.id}/comments`, {
+   642→        content: commentText.trim(),
+   643→      });
+   644→      if (res.success) {
+   645→        setComments([...comments, res.data]);
+   646→        setCommentText('');
+   647→        toast.success('Comment added');
+   648→      } else {
+   649→        toast.error(res.error || 'Failed to add comment');
+   650→      }
+   651→    } catch {
+   652→      toast.error('Failed to add comment');
+   653→    } finally {
+   654→      setSubmittingComment(false);
+   655→    }
+   656→  };
+   657→
+   658→  const authorName = post.user?.profile?.fullName || post.user?.email || 'User';
+   659→  const authorTitle = post.user?.profile?.jobTitle || '';
+   660→  const authorCompany = post.user?.company?.name || '';
+   661→  const authorPhoto = post.user?.profile?.profilePhoto;
+   662→
+   663→  return (
+   664→    <Card className="mb-4">
+   665→      <CardHeader className="pb-2 pt-4 px-4">
+   666→        <div className="flex items-start justify-between">
+   667→          <div className="flex items-center gap-3 min-w-0">
+   668→            <ProfileAvatar src={authorPhoto} name={authorName} className="h-10 w-10 flex-shrink-0" />
+   669→            <div className="min-w-0">
+   670→              <div className="flex items-center gap-1.5">
+   671→                <span className="font-semibold text-sm text-foreground truncate">{authorName}</span>
+   672→                {post.user?.company?.verified && <VerifiedBadge verified={post.user.company.verified} />}
+   673→              </div>
+   674→              <div className="text-xs text-muted-foreground truncate">
+   675→                {authorTitle}{authorTitle && authorCompany ? ' at ' : ''}{authorCompany}
+   676→              </div>
+   677→              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+   678→                <Clock className="h-3 w-3" />
+   679→                {relativeTime(post.createdAt)}
+   680→                {post.visibility === 'connections' && (
+   681→                  <span className="flex items-center gap-0.5 ml-1">
+   682→                    <Link2 className="h-3 w-3" /> Connections only
+   683→                  </span>
+   684→                )}
+   685→                {post.visibility === 'private' && (
+   686→                  <span className="ml-1">🔒 Private</span>
+   687→                )}
+   688→              </div>
+   689→            </div>
+   690→          </div>
+   691→          {isOwnPost && (
+   692→            <div className="relative">
+   693→              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setShowMenu(!showMenu)}>
+   694→                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+   695→              </Button>
+   696→              {showMenu && (
+   697→                <div className="absolute right-0 top-8 bg-card border border-border rounded-md shadow-lg z-10 py-1 min-w-[120px]">
+   698→                  <button
+   699→                    onClick={() => { onDelete(post.id); setShowMenu(false); }}
+   700→                    className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 w-full"
+   701→                  >
+   702→                    <Trash2 className="h-3.5 w-3.5" />
+   703→                    Delete Post
+   704→                  </button>
+   705→                </div>
+   706→              )}
+   707→            </div>
+   708→          )}
+   709→        </div>
+   710→      </CardHeader>
+   711→
+   712→      <CardContent className="pb-2 px-4">
+   713→        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
+   714→        {images.length > 0 && (
+   715→          <div className={`mt-3 grid gap-2 ${images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+   716→            {images.slice(0, 4).map((url, idx) => (
+   717→              <div key={idx} className={`relative rounded-lg overflow-hidden bg-muted ${images.length > 2 && idx === 3 ? 'col-span-1' : ''}`}>
+   718→                <img
+   719→                  src={url}
+   720→                  alt={`Post image ${idx + 1}`}
+   721→                  className="w-full h-48 object-cover"
+   722→                />
+   723→                {images.length > 4 && idx === 3 && (
+   724→                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-lg">
+   725→                    +{images.length - 4}
+   726→                  </div>
+   727→                )}
+   728→              </div>
+   729→            ))}
+   730→          </div>
+   731→        )}
+   732→        {tags.length > 0 && (
+   733→          <div className="flex flex-wrap gap-1.5 mt-3">
+   734→            {tags.map((tag) => (
+   735→              <SkillBadge key={tag} skill={tag} />
+   736→            ))}
+   737→          </div>
+   738→        )}
+   739→      </CardContent>
+   740→
+   741→      <Separator className="mx-4" />
+   742→
+   743→      <CardFooter className="py-1 px-4 flex items-center justify-between">
+   744→        <ReactionBar post={post} onReact={(emoji) => onReact(post.id, emoji)} />
+   745→        <div className="flex items-center gap-1">
+   746→          <Button
+   747→            variant="ghost"
+   748→            size="sm"
+   749→            className="h-8 px-2 text-xs text-muted-foreground hover:text-emerald-600"
+   750→            onClick={toggleComments}
+   751→          >
+   752→            <MessageCircle className="h-4 w-4 mr-1" />
+   753→            {post.commentCount || comments.length || 0}
+   754→          </Button>
+   755→          <Button
+   756→            variant="ghost"
+   757→            size="sm"
+   758→            className="h-8 px-2 text-xs text-muted-foreground hover:text-emerald-600"
+   759→            onClick={() => {
+   760→              navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`);
+   761→              toast.success('Link copied to clipboard');
+   762→            }}
+   763→          >
+   764→            <Share2 className="h-4 w-4 mr-1" />
+   765→            Share
+   766→          </Button>
+   767→        </div>
+   768→      </CardFooter>
+   769→
+   770→      {/* Comments Section */}
+   771→      {showComments && (
+   772→        <div className="border-t border-border px-4 py-3">
+   773→          {commentsLoading ? (
+   774→            <div className="space-y-3">
+   775→              {[1, 2].map((i) => (
+   776→                <div key={i} className="flex gap-2">
+   777→                  <Skeleton className="h-7 w-7 rounded-full" />
+   778→                  <Skeleton className="h-5 flex-1" />
+   779→                </div>
+   780→              ))}
+   781→            </div>
+   782→          ) : (
+   783→            <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
+   784→              {comments.length === 0 && (
+   785→                <p className="text-xs text-muted-foreground text-center py-2">No comments yet. Be the first!</p>
+   786→              )}
+   787→              {comments.map((comment) => (
+   788→                <div key={comment.id} className="flex gap-2">
+   789→                  <ProfileAvatar
+   790→                    src={comment.user?.profile?.profilePhoto}
+   791→                    name={comment.user?.profile?.fullName || 'User'}
+   792→                    className="h-7 w-7 flex-shrink-0"
+   793→                  />
+   794→                  <div className="min-w-0 flex-1">
+   795→                    <div className="bg-muted/60 rounded-lg px-3 py-2">
+   796→                      <span className="font-semibold text-xs text-foreground">
+   797→                        {comment.user?.profile?.fullName || 'User'}
+   798→                      </span>
+   799→                      <p className="text-xs text-foreground mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+   800→                    </div>
+   801→                    <span className="text-[10px] text-muted-foreground ml-3">{relativeTime(comment.createdAt)}</span>
+   802→                  </div>
+   803→                </div>
+   804→              ))}
+   805→            </div>
+   806→          )}
+   807→          {/* Add Comment */}
+   808→          <div className="flex gap-2 mt-3">
+   809→            <ProfileAvatar
+   810→              src={user?.profile?.profilePhoto}
+   811→              name={user?.profile?.fullName || user?.email || 'U'}
+   812→              className="h-7 w-7 flex-shrink-0"
+   813→            />
+   814→            <div className="flex-1 flex gap-2">
+   815→              <Input
+   816→                placeholder="Write a comment..."
+   817→                value={commentText}
+   818→                onChange={(e) => setCommentText(e.target.value)}
+   819→                onKeyDown={(e) => {
+   820→                  if (e.key === 'Enter' && !e.shiftKey) {
+   821→                    e.preventDefault();
+   822→                    submitComment();
+   823→                  }
+   824→                }}
+   825→                className="h-8 text-xs"
+   826→              />
+   827→              <Button
+   828→                variant="ghost"
+   829→                size="sm"
+   830→                onClick={submitComment}
+   831→                disabled={!commentText.trim() || submittingComment}
+   832→                className="h-8 px-2 text-emerald-600 hover:text-emerald-700"
+   833→              >
+   834→                <Send className="h-3.5 w-3.5" />
+   835→              </Button>
+   836→            </div>
+   837→          </div>
+   838→        </div>
+   839→      )}
+   840→    </Card>
+   841→  );
+   842→}
+   843→
+   844→// ─── Feed Tab ───
+   845→
+   846→function FeedTab() {
+   847→  const { user } = useAuthStore();
+   848→  const [posts, setPosts] = useState<SocialPost[]>([]);
+   849→  const [loading, setLoading] = useState(true);
+   850→  const [page, setPage] = useState(1);
+   851→  const [hasMore, setHasMore] = useState(true);
+   852→  const [loadingMore, setLoadingMore] = useState(false);
+   853→  const observerRef = useRef<IntersectionObserver | null>(null);
+   854→  const loadMoreRef = useRef<HTMLDivElement>(null);
+   855→
+   856→  const fetchPosts = useCallback(async (pageNum: number, append = false) => {
+   857→    if (pageNum === 1) setLoading(true);
+   858→    else setLoadingMore(true);
+   859→    try {
+   860→      const res = await api.get('/social/posts', { page: String(pageNum), limit: '10' });
+   861→      if (res.success) {
+   862→        const newPosts = res.data || [];
+   863→        setPosts(append ? (prev) => [...prev, ...newPosts] : newPosts);
+   864→        setHasMore(pageNum < (res.meta?.totalPages || 1));
+   865→      }
+   866→    } catch {
+   867→      toast.error('Failed to load posts');
+   868→    } finally {
+   869→      setLoading(false);
+   870→      setLoadingMore(false);
+   871→    }
+   872→  }, []);
+   873→
+   874→  useEffect(() => {
+   875→    fetchPosts(1);
+   876→  }, [fetchPosts]);
+   877→
+   878→  // Infinite scroll
+   879→  useEffect(() => {
+   880→    if (observerRef.current) observerRef.current.disconnect();
+   881→    if (!loadMoreRef.current || !hasMore) return;
+   882→
+   883→    observerRef.current = new IntersectionObserver(
+   884→      (entries) => {
+   885→        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+   886→          const nextPage = page + 1;
+   887→          setPage(nextPage);
+   888→          fetchPosts(nextPage, true);
+   889→        }
+   890→      },
+   891→      { threshold: 0.5 }
+   892→    );
+   893→    observerRef.current.observe(loadMoreRef.current);
+   894→
+   895→    return () => { if (observerRef.current) observerRef.current.disconnect(); };
+   896→  }, [hasMore, loadingMore, page, fetchPosts]);
+   897→
+   898→  const handleReact = async (postId: string, emoji: string) => {
+   899→    // Optimistic update
+   900→    setPosts((prev) =>
+   901→      prev.map((p) => {
+   902→        if (p.id !== postId) return p;
+   903→        const summary = [...(p.reactionSummary || [])];
+   904→        const existingIdx = summary.findIndex((r) => r.emoji === emoji);
+   905→        if (existingIdx >= 0) {
+   906→          const existing = { ...summary[existingIdx] };
+   907→          if (existing.hasReacted) {
+   908→            existing.count = Math.max(0, existing.count - 1);
+   909→            existing.hasReacted = false;
+   910→          } else {
+   911→            existing.count += 1;
+   912→            existing.hasReacted = true;
+   913→          }
+   914→          summary[existingIdx] = existing;
+   915→        } else {
+   916→          summary.push({ emoji, count: 1, hasReacted: true, users: [] });
+   917→        }
+   918→        return { ...p, reactionSummary: summary };
+   919→      })
+   920→    );
+   921→
+   922→    try {
+   923→      const res = await api.patch(`/social/posts/${postId}`, { emoji });
+   924→      if (!res.success) {
+   925→        // Revert on failure
+   926→        fetchPosts(1);
+   927→        toast.error(res.error || 'Failed to react');
+   928→      }
+   929→    } catch {
+   930→      fetchPosts(1);
+   931→      toast.error('Failed to react');
+   932→    }
+   933→  };
+   934→
+   935→  const handleDelete = async (postId: string) => {
+   936→    try {
+   937→      const res = await api.delete(`/social/posts/${postId}`);
+   938→      if (res.success) {
+   939→        setPosts((prev) => prev.filter((p) => p.id !== postId));
+   940→        toast.success('Post deleted');
+   941→      } else {
+   942→        toast.error(res.error || 'Failed to delete post');
+   943→      }
+   944→    } catch {
+   945→      toast.error('Failed to delete post');
+   946→    }
+   947→  };
+   948→
+   949→  const handlePostCreated = () => {
+   950→    fetchPosts(1);
+   951→  };
+   952→
+   953→  return (
+   954→    <div>
+   955→      <CreatePostBox onPostCreated={handlePostCreated} />
+   956→
+   957→      {loading ? (
+   958→        <div className="space-y-4">
+   959→          {[1, 2, 3].map((i) => (
+   960→            <Card key={i} className="p-4">
+   961→              <div className="flex gap-3">
+   962→                <Skeleton className="h-10 w-10 rounded-full" />
+   963→                <div className="flex-1 space-y-2">
+   964→                  <Skeleton className="h-4 w-1/3" />
+   965→                  <Skeleton className="h-3 w-1/4" />
+   966→                  <Skeleton className="h-20 w-full mt-2" />
+   967→                </div>
+   968→              </div>
+   969→            </Card>
+   970→          ))}
+   971→        </div>
+   972→      ) : posts.length === 0 ? (
+   973→        <Card className="p-8">
+   974→          <div className="text-center">
+   975→            <MessageCircle className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+   976→            <h3 className="font-semibold text-sm text-foreground">No posts yet</h3>
+   977→            <p className="text-xs text-muted-foreground mt-1">Be the first to share something with your network!</p>
+   978→          </div>
+   979→        </Card>
+   980→      ) : (
+   981→        <div>
+   982→          {posts.map((post) => (
+   983→            <PostCard key={post.id} post={post} onReact={handleReact} onDelete={handleDelete} />
+   984→          ))}
+   985→          <div ref={loadMoreRef} className="py-4 text-center">
+   986→            {loadingMore && (
+   987→              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+   988→                <div className="h-4 w-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+   989→                Loading more...
+   990→              </div>
+   991→            )}
+   992→            {!hasMore && posts.length > 0 && (
+   993→              <p className="text-xs text-muted-foreground">You&apos;re all caught up!</p>
+   994→            )}
+   995→          </div>
+   996→        </div>
+   997→      )}
+   998→    </div>
+   999→  );
+  1000→}
+  1001→
+  1002→// ─── Discover Tab ───
+  1003→
+  1004→function DiscoverTab() {
+  1005→  const { user } = useAuthStore();
+  1006→  const [profiles, setProfiles] = useState<DiscoverProfile[]>([]);
+  1007→  const [loading, setLoading] = useState(true);
+  1008→  const [search, setSearch] = useState('');
+  1009→  const [industry, setIndustry] = useState('');
+  1010→  const [page, setPage] = useState(1);
+  1011→  const [hasMore, setHasMore] = useState(true);
+  1012→  const [connectingIds, setConnectingIds] = useState<Set<string>>(new Set());
+  1013→  const [endorsingSkills, setEndorsingSkills] = useState<Set<string>>(new Set());
+  1014→
+  1015→  const fetchProfiles = useCallback(async (pageNum: number, append = false, searchOverride?: string, industryOverride?: string) => {
+  1016→    if (pageNum === 1) setLoading(true);
+  1017→    try {
+  1018→      const params: Record<string, string> = { page: String(pageNum), limit: '12' };
+  1019→      const s = searchOverride !== undefined ? searchOverride : search;
+  1020→      const ind = industryOverride !== undefined ? industryOverride : industry;
+  1021→      if (s) params.search = s;
+  1022→      if (ind) params.industry = ind;
+  1023→
+  1024→      const res = await api.get('/social/discover', params);
+  1025→      if (res.success) {
+  1026→        const newProfiles = res.data || [];
+  1027→        setProfiles(append ? (prev) => [...prev, ...newProfiles] : newProfiles);
+  1028→        setHasMore(pageNum < (res.meta?.totalPages || 1));
+  1029→      }
+  1030→    } catch {
+  1031→      toast.error('Failed to load profiles');
+  1032→    } finally {
+  1033→      setLoading(false);
+  1034→    }
+  1035→  }, [search, industry]);
+  1036→
+  1037→  useEffect(() => {
+  1038→    fetchProfiles(1);
+  1039→  }, [fetchProfiles]);
+  1040→
+  1041→  const handleSearch = () => {
+  1042→    setPage(1);
+  1043→    fetchProfiles(1, false, search, industry);
+  1044→  };
+  1045→
+  1046→  const handleConnect = async (profile: DiscoverProfile) => {
+  1047→    const key = profile.userId;
+  1048→    setConnectingIds((prev) => new Set(prev).add(key));
+  1049→
+  1050→    // Optimistic
+  1051→    setProfiles((prev) =>
+  1052→      prev.map((p) =>
+  1053→        p.userId === key ? { ...p, connectionStatus: 'pending', connectionDirection: 'sent' } : p
+  1054→      )
+  1055→    );
+  1056→
+  1057→    try {
+  1058→      const res = await api.post('/social/connections', { receiverId: key });
+  1059→      if (res.success) {
+  1060→        toast.success(`Connection request sent to ${profile.fullName}`);
+  1061→      } else {
+  1062→        // Revert
+  1063→        setProfiles((prev) =>
+  1064→          prev.map((p) => (p.userId === key ? { ...p, connectionStatus: 'none', connectionDirection: null } : p))
+  1065→        );
+  1066→        toast.error(res.error || 'Failed to send request');
+  1067→      }
+  1068→    } catch {
+  1069→      setProfiles((prev) =>
+  1070→        prev.map((p) => (p.userId === key ? { ...p, connectionStatus: 'none', connectionDirection: null } : p))
+  1071→      );
+  1072→      toast.error('Failed to send request');
+  1073→    } finally {
+  1074→      setConnectingIds((prev) => {
+  1075→        const next = new Set(prev);
+  1076→        next.delete(key);
+  1077→        return next;
+  1078→      });
+  1079→    }
+  1080→  };
+  1081→
+  1082→  const handleEndorse = async (profile: DiscoverProfile, skill: string) => {
+  1083→    const endorseKey = `${profile.userId}-${skill}`;
+  1084→    setEndorsingSkills((prev) => new Set(prev).add(endorseKey));
+  1085→
+  1086→    try {
+  1087→      const res = await api.post('/social/endorsements', { toUserId: profile.userId, skill });
+  1088→      if (res.success) {
+  1089→        toast.success(`Endorsed ${profile.fullName} for ${skill}`);
+  1090→        // Update topSkills optimistically
+  1091→        setProfiles((prev) =>
+  1092→          prev.map((p) => {
+  1093→            if (p.userId !== profile.userId) return p;
+  1094→            const updatedSkills = p.topSkills.map((s) =>
+  1095→              s.skill === skill ? { ...s, count: s.count + 1 } : s
+  1096→            );
+  1097→            if (!updatedSkills.find((s) => s.skill === skill)) {
+  1098→              updatedSkills.push({ skill, count: 1 });
+  1099→            }
+  1100→            return { ...p, topSkills: updatedSkills };
+  1101→          })
+  1102→        );
+  1103→      } else {
+  1104→        toast.error(res.error || 'Failed to endorse');
+  1105→      }
+  1106→    } catch {
+  1107→      toast.error('Failed to endorse');
+  1108→    } finally {
+  1109→      setEndorsingSkills((prev) => {
+  1110→        const next = new Set(prev);
+  1111→        next.delete(endorseKey);
+  1112→        return next;
+  1113→      });
+  1114→    }
+  1115→  };
+  1116→
+  1117→  const getConnectionButton = (profile: DiscoverProfile) => {
+  1118→    const isLoading = connectingIds.has(profile.userId);
+  1119→    switch (profile.connectionStatus) {
+  1120→      case 'connected':
+  1121→        return (
+  1122→          <Button variant="outline" size="sm" className="h-7 text-xs w-full" disabled>
+  1123→            <Handshake className="h-3.5 w-3.5 mr-1" />
+  1124→            Connected
+  1125→          </Button>
+  1126→        );
+  1127→      case 'pending':
+  1128→        return (
+  1129→          <Button variant="outline" size="sm" className="h-7 text-xs w-full text-amber-600 border-amber-200 dark:border-amber-800" disabled>
+  1130→            <Clock className="h-3.5 w-3.5 mr-1" />
+  1131→            Pending
+  1132→          </Button>
+  1133→        );
+  1134→      default:
+  1135→        return (
+  1136→          <Button
+  1137→            variant="outline"
+  1138→            size="sm"
+  1139→            className="h-7 text-xs w-full text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
+  1140→            onClick={() => handleConnect(profile)}
+  1141→            disabled={isLoading}
+  1142→          >
+  1143→            {isLoading ? (
+  1144→              <div className="h-3.5 w-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mr-1" />
+  1145→            ) : (
+  1146→              <UserPlus className="h-3.5 w-3.5 mr-1" />
+  1147→            )}
+  1148→            Connect
+  1149→          </Button>
+  1150→        );
+  1151→    }
+  1152→  };
+  1153→
+  1154→  return (
+  1155→    <div>
+  1156→      {/* Search Bar */}
+  1157→      <Card className="mb-4">
+  1158→        <CardContent className="p-4">
+  1159→          <div className="flex items-center gap-2">
+  1160→            <div className="flex-1 relative">
+  1161→              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  1162→              <Input
+  1163→                placeholder="Search by name, title, or company..."
+  1164→                value={search}
+  1165→                onChange={(e) => setSearch(e.target.value)}
+  1166→                onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+  1167→                className="pl-8 h-9 text-sm"
+  1168→              />
+  1169→            </div>
+  1170→            <Select value={industry} onValueChange={(v) => { setIndustry(v === 'all' ? '' : v); }}>
+  1171→              <SelectTrigger className="h-9 w-[150px] text-xs">
+  1172→                <Building2 className="h-3.5 w-3.5 mr-1" />
+  1173→                <SelectValue placeholder="Industry" />
+  1174→              </SelectTrigger>
+  1175→              <SelectContent>
+  1176→                <SelectItem value="all">All Industries</SelectItem>
+  1177→                {INDUSTRY_OPTIONS.map((ind) => (
+  1178→                  <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+  1179→                ))}
+  1180→              </SelectContent>
+  1181→            </Select>
+  1182→            <Button onClick={handleSearch} className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3">
+  1183→              <Search className="h-3.5 w-3.5" />
+  1184→            </Button>
+  1185→          </div>
+  1186→        </CardContent>
+  1187→      </Card>
+  1188→
+  1189→      {/* Profile Grid */}
+  1190→      {loading ? (
+  1191→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1192→          {[1, 2, 3, 4].map((i) => (
+  1193→            <Card key={i} className="p-4">
+  1194→              <div className="flex gap-3">
+  1195→                <Skeleton className="h-12 w-12 rounded-full" />
+  1196→                <div className="flex-1 space-y-2">
+  1197→                  <Skeleton className="h-4 w-2/3" />
+  1198→                  <Skeleton className="h-3 w-1/2" />
+  1199→                </div>
+  1200→              </div>
+  1201→            </Card>
+  1202→          ))}
+  1203→        </div>
+  1204→      ) : profiles.length === 0 ? (
+  1205→        <Card className="p-8">
+  1206→          <div className="text-center">
+  1207→            <Users className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+  1208→            <h3 className="font-semibold text-sm text-foreground">No profiles found</h3>
+  1209→            <p className="text-xs text-muted-foreground mt-1">Try adjusting your search filters</p>
+  1210→          </div>
+  1211→        </Card>
+  1212→      ) : (
+  1213→        <>
+  1214→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1215→            {profiles.map((profile) => {
+  1216→              const skills = parseSkillTags(profile.skillTags);
+  1217→              return (
+  1218→                <Card key={profile.id} className="hover:shadow-md transition-shadow">
+  1219→                  <CardContent className="p-4">
+  1220→                    <div className="flex items-start gap-3">
+  1221→                      <ProfileAvatar src={profile.profilePhoto} name={profile.fullName} className="h-12 w-12 flex-shrink-0" />
+  1222→                      <div className="flex-1 min-w-0">
+  1223→                        <div className="flex items-center gap-1.5">
+  1224→                          <h4 className="font-semibold text-sm text-foreground truncate">{profile.fullName}</h4>
+  1225→                          {profile.verified && <VerifiedBadge verified={profile.verified} />}
+  1226→                        </div>
+  1227→                        {profile.jobTitle && (
+  1228→                          <p className="text-xs text-muted-foreground truncate">{profile.jobTitle}</p>
+  1229→                        )}
+  1230→                        {profile.user?.company && (
+  1231→                          <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+  1232→                            <Building2 className="h-3 w-3 flex-shrink-0" />
+  1233→                            <span className="truncate">{profile.user.company.name}</span>
+  1234→                            {profile.user.company.verified && <VerifiedBadge verified={profile.user.company.verified} />}
+  1235→                          </div>
+  1236→                        )}
+  1237→                        {profile.location && (
+  1238→                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+  1239→                            <MapPin className="h-3 w-3 flex-shrink-0" />
+  1240→                            <span>{profile.location}</span>
+  1241→                          </div>
+  1242→                        )}
+  1243→                      </div>
+  1244→                    </div>
+  1245→
+  1246→                    {/* Skills */}
+  1247→                    <div className="flex flex-wrap gap-1 mt-3">
+  1248→                      {skills.slice(0, 4).map((skill) => {
+  1249→                        const topSkill = profile.topSkills?.find((s) => s.skill === skill);
+  1250→                        const endorseKey = `${profile.userId}-${skill}`;
+  1251→                        const isEndorsing = endorsingSkills.has(endorseKey);
+  1252→                        return (
+  1253→                          <button
+  1254→                            key={skill}
+  1255→                            onClick={() => handleEndorse(profile, skill)}
+  1256→                            disabled={isEndorsing || profile.userId === user?.id}
+  1257→                            className="group"
+  1258→                          >
+  1259→                            <Badge
+  1260→                              variant="outline"
+  1261→                              className={`text-[10px] px-1.5 py-0 ${getSkillColor(skill)} cursor-pointer hover:ring-1 hover:ring-emerald-500/30 transition-all ${
+  1262→                                profile.userId === user?.id ? 'opacity-50 cursor-not-allowed' : ''
+  1263→                              }`}
+  1264→                            >
+  1265→                              {isEndorsing ? (
+  1266→                                <div className="h-2.5 w-2.5 border border-current border-t-transparent rounded-full animate-spin mr-0.5" />
+  1267→                              ) : (
+  1268→                                <Plus className="h-2.5 w-2.5 mr-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+  1269→                              )}
+  1270→                              {skill}
+  1271→                              {topSkill && topSkill.count > 0 && (
+  1272→                                <span className="ml-0.5 text-[9px] opacity-60">({topSkill.count})</span>
+  1273→                              )}
+  1274→                            </Badge>
+  1275→                          </button>
+  1276→                        );
+  1277→                      })}
+  1278→                      {skills.length > 4 && (
+  1279→                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50 text-muted-foreground">
+  1280→                          +{skills.length - 4}
+  1281→                        </Badge>
+  1282→                      )}
+  1283→                    </div>
+  1284→
+  1285→                    {/* Endorsement count */}
+  1286→                    {profile.totalEndorsements > 0 && (
+  1287→                      <div className="flex items-center gap-1 mt-2 text-[10px] text-amber-600">
+  1288→                        <Award className="h-3 w-3" />
+  1289→                        {profile.totalEndorsements} endorsement{profile.totalEndorsements !== 1 ? 's' : ''}
+  1290→                      </div>
+  1291→                    )}
+  1292→
+  1293→                    {/* Connect Button */}
+  1294→                    <div className="mt-3">
+  1295→                      {getConnectionButton(profile)}
+  1296→                    </div>
+  1297→                  </CardContent>
+  1298→                </Card>
+  1299→              );
+  1300→            })}
+  1301→          </div>
+  1302→          {hasMore && (
+  1303→            <div className="py-4 text-center">
+  1304→              <Button
+  1305→                variant="outline"
+  1306→                size="sm"
+  1307→                onClick={() => {
+  1308→                  const next = page + 1;
+  1309→                  setPage(next);
+  1310→                  fetchProfiles(next, true);
+  1311→                }}
+  1312→                className="text-xs"
+  1313→              >
+  1314→                Load More
+  1315→              </Button>
+  1316→            </div>
+  1317→          )}
+  1318→        </>
+  1319→      )}
+  1320→    </div>
+  1321→  );
+  1322→}
+  1323→
+  1324→// ─── My Network Tab ───
+  1325→
+  1326→function MyNetworkTab() {
+  1327→  const [subTab, setSubTab] = useState<'connections' | 'pending' | 'sent'>('connections');
+  1328→  const [connections, setConnections] = useState<Connection[]>([]);
+  1329→  const [loading, setLoading] = useState(true);
+  1330→  const [actioningIds, setActioningIds] = useState<Set<string>>(new Set());
+  1331→
+  1332→  const fetchConnections = useCallback(async () => {
+  1333→    setLoading(true);
+  1334→    try {
+  1335→      let type = 'all';
+  1336→      let status = 'accepted';
+  1337→      if (subTab === 'pending') { type = 'received'; status = 'pending'; }
+  1338→      else if (subTab === 'sent') { type = 'sent'; status = 'pending'; }
+  1339→
+  1340→      const res = await api.get('/social/connections', { status, type, limit: '50' });
+  1341→      if (res.success) setConnections(res.data || []);
+  1342→    } catch {
+  1343→      toast.error('Failed to load connections');
+  1344→    } finally {
+  1345→      setLoading(false);
+  1346→    }
+  1347→  }, [subTab]);
+  1348→
+  1349→  useEffect(() => {
+  1350→    fetchConnections();
+  1351→  }, [fetchConnections]);
+  1352→
+  1353→  const handleAccept = async (connId: string) => {
+  1354→    setActioningIds((prev) => new Set(prev).add(connId));
+  1355→    // Optimistic
+  1356→    setConnections((prev) => prev.filter((c) => c.id !== connId));
+  1357→    try {
+  1358→      const res = await api.patch(`/social/connections/${connId}`, { action: 'accept' });
+  1359→      if (res.success) {
+  1360→        toast.success('Connection accepted');
+  1361→      } else {
+  1362→        fetchConnections();
+  1363→        toast.error(res.error || 'Failed to accept');
+  1364→      }
+  1365→    } catch {
+  1366→      fetchConnections();
+  1367→      toast.error('Failed to accept');
+  1368→    } finally {
+  1369→      setActioningIds((prev) => { const n = new Set(prev); n.delete(connId); return n; });
+  1370→    }
+  1371→  };
+  1372→
+  1373→  const handleDecline = async (connId: string) => {
+  1374→    setActioningIds((prev) => new Set(prev).add(connId));
+  1375→    setConnections((prev) => prev.filter((c) => c.id !== connId));
+  1376→    try {
+  1377→      const res = await api.patch(`/social/connections/${connId}`, { action: 'decline' });
+  1378→      if (res.success) {
+  1379→        toast.success('Connection declined');
+  1380→      } else {
+  1381→        fetchConnections();
+  1382→        toast.error(res.error || 'Failed to decline');
+  1383→      }
+  1384→    } catch {
+  1385→      fetchConnections();
+  1386→      toast.error('Failed to decline');
+  1387→    } finally {
+  1388→      setActioningIds((prev) => { const n = new Set(prev); n.delete(connId); return n; });
+  1389→    }
+  1390→  };
+  1391→
+  1392→  const handleWithdraw = async (connId: string) => {
+  1393→    setActioningIds((prev) => new Set(prev).add(connId));
+  1394→    setConnections((prev) => prev.filter((c) => c.id !== connId));
+  1395→    try {
+  1396→      const res = await api.delete(`/social/connections/${connId}`);
+  1397→      if (res.success) {
+  1398→        toast.success('Request withdrawn');
+  1399→      } else {
+  1400→        fetchConnections();
+  1401→        toast.error(res.error || 'Failed to withdraw');
+  1402→      }
+  1403→    } catch {
+  1404→      fetchConnections();
+  1405→      toast.error('Failed to withdraw');
+  1406→    } finally {
+  1407→      setActioningIds((prev) => { const n = new Set(prev); n.delete(connId); return n; });
+  1408→    }
+  1409→  };
+  1410→
+  1411→  const handleRemove = async (connId: string) => {
+  1412→    setActioningIds((prev) => new Set(prev).add(connId));
+  1413→    setConnections((prev) => prev.filter((c) => c.id !== connId));
+  1414→    try {
+  1415→      const res = await api.delete(`/social/connections/${connId}`);
+  1416→      if (res.success) {
+  1417→        toast.success('Connection removed');
+  1418→      } else {
+  1419→        fetchConnections();
+  1420→        toast.error(res.error || 'Failed to remove');
+  1421→      }
+  1422→    } catch {
+  1423→      fetchConnections();
+  1424→      toast.error('Failed to remove');
+  1425→    } finally {
+  1426→      setActioningIds((prev) => { const n = new Set(prev); n.delete(connId); return n; });
+  1427→    }
+  1428→  };
+  1429→
+  1430→  const getOtherUser = (conn: Connection) => {
+  1431→    return conn.direction === 'sent' ? conn.receiver : conn.requester;
+  1432→  };
+  1433→
+  1434→  return (
+  1435→    <div>
+  1436→      {/* Sub-tabs */}
+  1437→      <div className="flex items-center gap-2 mb-4">
+  1438→        {(['connections', 'pending', 'sent'] as const).map((tab) => (
+  1439→          <Button
+  1440→            key={tab}
+  1441→            variant={subTab === tab ? 'default' : 'outline'}
+  1442→            size="sm"
+  1443→            className={`h-8 text-xs ${
+  1444→              subTab === tab
+  1445→                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+  1446→                : 'text-muted-foreground'
+  1447→            }`}
+  1448→            onClick={() => setSubTab(tab)}
+  1449→          >
+  1450→            {tab === 'connections' && <Handshake className="h-3.5 w-3.5 mr-1" />}
+  1451→            {tab === 'pending' && <Clock className="h-3.5 w-3.5 mr-1" />}
+  1452→            {tab === 'sent' && <Send className="h-3.5 w-3.5 mr-1" />}
+  1453→            {tab === 'connections' ? 'Connections' : tab === 'pending' ? 'Pending' : 'Sent'}
+  1454→          </Button>
+  1455→        ))}
+  1456→      </div>
+  1457→
+  1458→      {loading ? (
+  1459→        <div className="space-y-3">
+  1460→          {[1, 2, 3].map((i) => (
+  1461→            <Card key={i} className="p-4">
+  1462→              <div className="flex gap-3">
+  1463→                <Skeleton className="h-10 w-10 rounded-full" />
+  1464→                <div className="flex-1 space-y-2">
+  1465→                  <Skeleton className="h-4 w-1/3" />
+  1466→                  <Skeleton className="h-3 w-1/4" />
+  1467→                </div>
+  1468→              </div>
+  1469→            </Card>
+  1470→          ))}
+  1471→        </div>
+  1472→      ) : connections.length === 0 ? (
+  1473→        <Card className="p-8">
+  1474→          <div className="text-center">
+  1475→            {subTab === 'connections' && <Handshake className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />}
+  1476→            {subTab === 'pending' && <Clock className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />}
+  1477→            {subTab === 'sent' && <Send className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />}
+  1478→            <h3 className="font-semibold text-sm text-foreground">
+  1479→              {subTab === 'connections' ? 'No connections yet' : subTab === 'pending' ? 'No pending requests' : 'No sent requests'}
+  1480→            </h3>
+  1481→            <p className="text-xs text-muted-foreground mt-1">
+  1482→              {subTab === 'connections' ? 'Start connecting with professionals in your network' :
+  1483→               subTab === 'pending' ? 'You have no pending connection requests' :
+  1484→               'You haven\'t sent any connection requests'}
+  1485→            </p>
+  1486→          </div>
+  1487→        </Card>
+  1488→      ) : (
+  1489→        <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto custom-scrollbar pr-1">
+  1490→          {connections.map((conn) => {
+  1491→            const other = getOtherUser(conn);
+  1492→            const otherName = other?.profile?.fullName || other?.email || 'User';
+  1493→            const otherTitle = other?.profile?.jobTitle || '';
+  1494→            const otherCompany = other?.company?.name || '';
+  1495→            const otherPhoto = other?.profile?.profilePhoto;
+  1496→            const isActioning = actioningIds.has(conn.id);
+  1497→
+  1498→            return (
+  1499→              <Card key={conn.id} className="hover:shadow-sm transition-shadow">
+  1500→                <CardContent className="p-4">
+  1501→                  <div className="flex items-center gap-3">
+  1502→                    <ProfileAvatar src={otherPhoto} name={otherName} className="h-10 w-10 flex-shrink-0" />
+  1503→                    <div className="flex-1 min-w-0">
+  1504→                      <div className="flex items-center gap-1.5">
+  1505→                        <span className="font-semibold text-sm text-foreground truncate">{otherName}</span>
+  1506→                        {other?.company?.verified && <VerifiedBadge verified={other.company.verified} />}
+  1507→                      </div>
+  1508→                      {otherTitle && (
+  1509→                        <p className="text-xs text-muted-foreground truncate">{otherTitle}</p>
+  1510→                      )}
+  1511→                      {otherCompany && (
+  1512→                        <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+  1513→                          <Building2 className="h-3 w-3 flex-shrink-0" />
+  1514→                          <span className="truncate">{otherCompany}</span>
+  1515→                        </div>
+  1516→                      )}
+  1517→                      {conn.message && (
+  1518→                        <p className="text-xs text-muted-foreground mt-1 italic truncate">&ldquo;{conn.message}&rdquo;</p>
+  1519→                      )}
+  1520→                      <span className="text-[10px] text-muted-foreground">{relativeTime(conn.createdAt)}</span>
+  1521→                    </div>
+  1522→                    <div className="flex items-center gap-1.5 flex-shrink-0">
+  1523→                      {subTab === 'pending' && (
+  1524→                        <>
+  1525→                          <Button
+  1526→                            size="sm"
+  1527→                            className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+  1528→                            onClick={() => handleAccept(conn.id)}
+  1529→                            disabled={isActioning}
+  1530→                          >
+  1531→                            {isActioning ? <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+  1532→                          </Button>
+  1533→                          <Button
+  1534→                            variant="outline"
+  1535→                            size="sm"
+  1536→                            className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30"
+  1537→                            onClick={() => handleDecline(conn.id)}
+  1538→                            disabled={isActioning}
+  1539→                          >
+  1540→                            <X className="h-3.5 w-3.5" />
+  1541→                          </Button>
+  1542→                        </>
+  1543→                      )}
+  1544→                      {subTab === 'sent' && (
+  1545→                        <Button
+  1546→                          variant="outline"
+  1547→                          size="sm"
+  1548→                          className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30"
+  1549→                          onClick={() => handleWithdraw(conn.id)}
+  1550→                          disabled={isActioning}
+  1551→                        >
+  1552→                          {isActioning ? <div className="h-3 w-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <X className="h-3.5 w-3.5" />}
+  1553→                          Withdraw
+  1554→                        </Button>
+  1555→                      )}
+  1556→                      {subTab === 'connections' && (
+  1557→                        <Button
+  1558→                          variant="ghost"
+  1559→                          size="sm"
+  1560→                          className="h-7 px-2 text-xs text-muted-foreground hover:text-red-600"
+  1561→                          onClick={() => handleRemove(conn.id)}
+  1562→                          disabled={isActioning}
+  1563→                        >
+  1564→                          <X className="h-3.5 w-3.5" />
+  1565→                        </Button>
+  1566→                      )}
+  1567→                    </div>
+  1568→                  </div>
+  1569→                </CardContent>
+  1570→              </Card>
+  1571→            );
+  1572→          })}
+  1573→        </div>
+  1574→      )}
+  1575→    </div>
+  1576→  );
+  1577→}
+  1578→
+  1579→// ─── Right Sidebar ───
+  1580→
+  1581→function RightSidebar() {
+  1582→  const { user } = useAuthStore();
+  1583→  const [pendingCount, setPendingCount] = useState(0);
+  1584→  const [suggested, setSuggested] = useState<DiscoverProfile[]>([]);
+  1585→  const [trendingSkills, setTrendingSkills] = useState<Array<{ skill: string; count: number }>>([]);
+  1586→  const [topEndorsed, setTopEndorsed] = useState<DiscoverProfile[]>([]);
+  1587→  const [loading, setLoading] = useState(true);
+  1588→
+  1589→  useEffect(() => {
+  1590→    async function fetchData() {
+  1591→      try {
+  1592→        const [pendingRes, discoverRes] = await Promise.all([
+  1593→          api.get('/social/connections', { status: 'pending', type: 'received', limit: '5' }),
+  1594→          api.get('/social/discover', { limit: '6' }),
+  1595→        ]);
+  1596→        setPendingCount(pendingRes.meta?.total || 0);
+  1597→        const discoverData = discoverRes.data || [];
+  1598→        setSuggested(discoverData.slice(0, 3));
+  1599→        setTopEndorsed(
+  1600→          [...discoverData]
+  1601→            .sort((a, b) => (b.totalEndorsements || 0) - (a.totalEndorsements || 0))
+  1602→            .slice(0, 3)
+  1603→        );
+  1604→
+  1605→        // Build trending skills from discover results
+  1606→        const skillCounts = new Map<string, number>();
+  1607→        discoverData.forEach((p: DiscoverProfile) => {
+  1608→          const skills = parseSkillTags(p.skillTags);
+  1609→          skills.forEach((skill) => {
+  1610→            skillCounts.set(skill, (skillCounts.get(skill) || 0) + 1);
+  1611→          });
+  1612→        });
+  1613→        const sorted = Array.from(skillCounts.entries())
+  1614→          .map(([skill, count]) => ({ skill, count }))
+  1615→          .sort((a, b) => b.count - a.count)
+  1616→          .slice(0, 8);
+  1617→        setTrendingSkills(sorted);
+  1618→      } catch {
+  1619→        // silently fail
+  1620→      } finally {
+  1621→        setLoading(false);
+  1622→      }
+  1623→    }
+  1624→    fetchData();
+  1625→  }, []);
+  1626→
+  1627→  const handleQuickConnect = async (profile: DiscoverProfile) => {
+  1628→    try {
+  1629→      const res = await api.post('/social/connections', { receiverId: profile.userId });
+  1630→      if (res.success) {
+  1631→        toast.success(`Connected with ${profile.fullName}`);
+  1632→        setSuggested((prev) => prev.filter((p) => p.userId !== profile.userId));
+  1633→      } else {
+  1634→        toast.error(res.error || 'Failed to connect');
+  1635→      }
+  1636→    } catch {
+  1637→      toast.error('Failed to connect');
+  1638→    }
+  1639→  };
+  1640→
+  1641→  if (loading) {
+  1642→    return (
+  1643→      <div className="space-y-4">
+  1644→        {[1, 2, 3].map((i) => (
+  1645→          <Card key={i}>
+  1646→            <CardHeader className="pb-2 pt-4 px-4">
+  1647→              <Skeleton className="h-4 w-24" />
+  1648→            </CardHeader>
+  1649→            <CardContent className="pb-4 px-4 space-y-2">
+  1650→              <Skeleton className="h-8 w-full" />
+  1651→              <Skeleton className="h-8 w-full" />
+  1652→            </CardContent>
+  1653→          </Card>
+  1654→        ))}
+  1655→      </div>
+  1656→    );
+  1657→  }
+  1658→
+  1659→  return (
+  1660→    <div className="space-y-4">
+  1661→      {/* Pending Requests Summary */}
+  1662→      {pendingCount > 0 && (
+  1663→        <Card className="border-amber-200 dark:border-amber-800/50">
+  1664→          <CardHeader className="pb-2 pt-4 px-4">
+  1665→            <CardTitle className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+  1666→              <Clock className="h-3.5 w-3.5" />
+  1667→              Pending Requests
+  1668→            </CardTitle>
+  1669→          </CardHeader>
+  1670→          <CardContent className="pb-4 px-4">
+  1671→            <div className="flex items-center gap-2">
+  1672→              <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-700 dark:text-amber-400 font-bold text-sm">
+  1673→                {pendingCount}
+  1674→              </div>
+  1675→              <p className="text-xs text-muted-foreground">
+  1676→                {pendingCount} pending connection {pendingCount === 1 ? 'request' : 'requests'} waiting for your review
+  1677→              </p>
+  1678→            </div>
+  1679→          </CardContent>
+  1680→        </Card>
+  1681→      )}
+  1682→
+  1683→      {/* Suggested Connections */}
+  1684→      {suggested.length > 0 && (
+  1685→        <Card>
+  1686→          <CardHeader className="pb-2 pt-4 px-4">
+  1687→            <CardTitle className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 text-muted-foreground">
+  1688→              <Sparkles className="h-3.5 w-3.5" />
+  1689→              Suggested For You
+  1690→            </CardTitle>
+  1691→          </CardHeader>
+  1692→          <CardContent className="pb-4 px-4 space-y-3">
+  1693→            {suggested.map((profile) => (
+  1694→              <div key={profile.userId} className="flex items-center gap-2.5">
+  1695→                <ProfileAvatar src={profile.profilePhoto} name={profile.fullName} className="h-9 w-9 flex-shrink-0" />
+  1696→                <div className="flex-1 min-w-0">
+  1697→                  <div className="flex items-center gap-1">
+  1698→                    <span className="font-medium text-xs text-foreground truncate">{profile.fullName}</span>
+  1699→                    {profile.verified && <VerifiedBadge verified={profile.verified} />}
+  1700→                  </div>
+  1701→                  <p className="text-[10px] text-muted-foreground truncate">
+  1702→                    {profile.jobTitle}{profile.user?.company ? ` at ${profile.user.company.name}` : ''}
+  1703→                  </p>
+  1704→                </div>
+  1705→                <Button
+  1706→                  variant="outline"
+  1707→                  size="sm"
+  1708→                  className="h-6 px-2 text-[10px] text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/30 flex-shrink-0"
+  1709→                  onClick={() => handleQuickConnect(profile)}
+  1710→                >
+  1711→                  <UserPlus className="h-3 w-3" />
+  1712→                </Button>
+  1713→              </div>
+  1714→            ))}
+  1715→          </CardContent>
+  1716→        </Card>
+  1717→      )}
+  1718→
+  1719→      {/* Trending Skills */}
+  1720→      {trendingSkills.length > 0 && (
+  1721→        <Card>
+  1722→          <CardHeader className="pb-2 pt-4 px-4">
+  1723→            <CardTitle className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 text-muted-foreground">
+  1724→              <TrendingUp className="h-3.5 w-3.5" />
+  1725→              Trending Skills
+  1726→            </CardTitle>
+  1727→          </CardHeader>
+  1728→          <CardContent className="pb-4 px-4">
+  1729→            <div className="flex flex-wrap gap-1.5">
+  1730→              {trendingSkills.map(({ skill, count }) => (
+  1731→                <Badge
+  1732→                  key={skill}
+  1733→                  variant="outline"
+  1734→                  className={`text-[10px] px-2 py-0.5 ${getSkillColor(skill)}`}
+  1735→                >
+  1736→                  {skill}
+  1737→                  <span className="ml-1 text-[9px] opacity-60">· {count}</span>
+  1738→                </Badge>
+  1739→              ))}
+  1740→            </div>
+  1741→          </CardContent>
+  1742→        </Card>
+  1743→      )}
+  1744→
+  1745→      {/* Top Endorsed Professionals */}
+  1746→      {topEndorsed.length > 0 && (
+  1747→        <Card>
+  1748→          <CardHeader className="pb-2 pt-4 px-4">
+  1749→            <CardTitle className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 text-muted-foreground">
+  1750→              <Star className="h-3.5 w-3.5" />
+  1751→              Top Endorsed
+  1752→            </CardTitle>
+  1753→          </CardHeader>
+  1754→          <CardContent className="pb-4 px-4 space-y-3">
+  1755→            {topEndorsed.map((profile, idx) => (
+  1756→              <div key={profile.userId} className="flex items-center gap-2.5">
+  1757→                <div className="h-5 w-5 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-700 dark:text-amber-400 font-bold text-[10px] flex-shrink-0">
+  1758→                  {idx + 1}
+  1759→                </div>
+  1760→                <ProfileAvatar src={profile.profilePhoto} name={profile.fullName} className="h-8 w-8 flex-shrink-0" />
+  1761→                <div className="flex-1 min-w-0">
+  1762→                  <span className="font-medium text-xs text-foreground truncate block">{profile.fullName}</span>
+  1763→                  <div className="flex items-center gap-1 text-[10px] text-amber-600">
+  1764→                    <Award className="h-3 w-3" />
+  1765→                    {profile.totalEndorsements} endorsements
+  1766→                  </div>
+  1767→                </div>
+  1768→              </div>
+  1769→            ))}
+  1770→          </CardContent>
+  1771→        </Card>
+  1772→      )}
+  1773→
+  1774→      {/* Empty state */}
+  1775→      {pendingCount === 0 && suggested.length === 0 && trendingSkills.length === 0 && topEndorsed.length === 0 && (
+  1776→        <Card className="p-6">
+  1777→          <div className="text-center">
+  1778→            <Users className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+  1779→            <p className="text-xs text-muted-foreground">Grow your network to see suggestions here</p>
+  1780→          </div>
+  1781→        </Card>
+  1782→      )}
+  1783→    </div>
+  1784→  );
+  1785→}
+  1786→
+  1787→// ==========================================
+  1788→// Main Component
+  1789→// ==========================================
+  1790→
+  1791→export function SocialCircleView() {
+  1792→  const [activeTab, setActiveTab] = useState('feed');
+  1793→
+  1794→  return (
+  1795→    <div className="min-h-screen bg-background">
+  1796→      <style jsx global>{`
+  1797→        .custom-scrollbar::-webkit-scrollbar {
+  1798→          width: 4px;
+  1799→        }
+  1800→        .custom-scrollbar::-webkit-scrollbar-track {
+  1801→          background: transparent;
+  1802→        }
+  1803→        .custom-scrollbar::-webkit-scrollbar-thumb {
+  1804→          background: hsl(var(--border));
+  1805→          border-radius: 9999px;
+  1806→        }
+  1807→        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  1808→          background: hsl(var(--muted-foreground));
+  1809→        }
+  1810→      `}</style>
+  1811→
+  1812→      <div className="max-w-7xl mx-auto px-4 py-6">
+  1813→        {/* Page Header */}
+  1814→        <div className="mb-6">
+  1815→          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+  1816→            <Users className="h-6 w-6 text-emerald-600" />
+  1817→            Social Circle
+  1818→          </h1>
+  1819→          <p className="text-sm text-muted-foreground mt-1">Connect, share, and grow your professional network</p>
+  1820→        </div>
+  1821→
+  1822→        {/* Three-column layout on desktop, single column on mobile */}
+  1823→        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+  1824→          {/* Left Sidebar - hidden on mobile */}
+  1825→          <div className="hidden lg:block lg:col-span-1">
+  1826→            <div className="sticky top-20">
+  1827→              <LeftSidebar />
+  1828→            </div>
+  1829→          </div>
+  1830→
+  1831→          {/* Main Content */}
+  1832→          <div className="lg:col-span-2">
+  1833→            <Tabs value={activeTab} onValueChange={setActiveTab}>
+  1834→              <TabsList className="w-full mb-4 bg-muted/50">
+  1835→                <TabsTrigger value="feed" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+  1836→                  <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+  1837→                  Feed
+  1838→                </TabsTrigger>
+  1839→                <TabsTrigger value="discover" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+  1840→                  <Search className="h-3.5 w-3.5 mr-1.5" />
+  1841→                  Discover
+  1842→                </TabsTrigger>
+  1843→                <TabsTrigger value="network" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+  1844→                  <Users className="h-3.5 w-3.5 mr-1.5" />
+  1845→                  My Network
+  1846→                </TabsTrigger>
+  1847→              </TabsList>
+  1848→
+  1849→              <TabsContent value="feed" className="mt-0">
+  1850→                <FeedTab />
+  1851→              </TabsContent>
+  1852→
+  1853→              <TabsContent value="discover" className="mt-0">
+  1854→                <DiscoverTab />
+  1855→              </TabsContent>
+  1856→
+  1857→              <TabsContent value="network" className="mt-0">
+  1858→                <MyNetworkTab />
+  1859→              </TabsContent>
+  1860→            </Tabs>
+  1861→          </div>
+  1862→
+  1863→          {/* Right Sidebar - hidden on mobile */}
+  1864→          <div className="hidden lg:block lg:col-span-1">
+  1865→            <div className="sticky top-20">
+  1866→              <RightSidebar />
+  1867→            </div>
+  1868→          </div>
+  1869→        </div>
+  1870→
+  1871→        {/* Mobile: show sidebars as bottom sheets / quick access */}
+  1872→        <div className="lg:hidden mt-6">
+  1873→          <Separator className="mb-6" />
+  1874→          <div className="grid grid-cols-2 gap-4">
+  1875→            <div>
+  1876→              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+  1877→                <Sparkles className="h-3.5 w-3.5" />
+  1878→                Quick Access
+  1879→              </h3>
+  1880→              <LeftSidebar />
+  1881→            </div>
+  1882→            <div>
+  1883→              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+  1884→                <TrendingUp className="h-3.5 w-3.5" />
+  1885→                Trending
+  1886→              </h3>
+  1887→              <RightSidebar />
+  1888→            </div>
+  1889→          </div>
+  1890→        </div>
+  1891→      </div>
+  1892→    </div>
+  1893→  );
+  1894→}
+  1895→
