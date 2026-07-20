@@ -175,6 +175,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       role: user.role,
       companyId: user.companyId,
+      tokenVersion: user.tokenVersion ?? 0,
     });
 
     // ── Audit log ──

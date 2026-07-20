@@ -116,6 +116,8 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/auth/register': { limit: 3, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/auth/forgot-password': { limit: 3, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/auth/reset-password': { limit: 3, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  '/api/auth/validate-reset-token': { limit: 10, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  '/api/auth/cleanup-tokens': { limit: 2, windowMs: 60 * 1000, strategy: 'fixed_window' },
   // AI routes — moderate (expensive operations)
   '/api/ai/': { limit: 10, windowMs: 60 * 1000, strategy: 'token_bucket' },
   '/api/agent': { limit: 15, windowMs: 60 * 1000, strategy: 'token_bucket' },
