@@ -17,6 +17,8 @@ import {
   Users,
   Zap,
   ChevronRight,
+  Phone,
+  Mail,
 } from 'lucide-react';
 
 /* ───────────────────────── Animated Background ───────────────────────── */
@@ -366,7 +368,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
       {/* ═══════════ FOOTER ═══════════ */}
       <footer className="bg-gray-900 text-white mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8 mb-10">
             {/* Brand */}
             <div className="sm:col-span-2 lg:col-span-1">
               <TenetLogo size="sm" className="mb-4" />
@@ -397,8 +399,48 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               </ul>
             </div>
 
-            {/* Legal */}
+            {/* Contact */}
             <div>
+              <h4 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-4">Contact</h4>
+              <ul className="space-y-2.5">
+                <li>
+                  <a href="tel:+251956140291" className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5" />
+                    +251 956 140 291
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:support@tenetbid.com" className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5" />
+                    support@tenetbid.com
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:contact@tenetbid.com" className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5" />
+                    contact@tenetbid.com
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Social & Legal */}
+            <div>
+              <h4 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-4">Social</h4>
+              <ul className="space-y-2.5 mb-6">
+                <li>
+                  <a href="https://x.com/tenetbid" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    @tenetbid
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.reddit.com/user/Tenetbid/" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-[#FF4500] transition-colors flex items-center gap-2 group">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 group-hover:text-[#FF4500]" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.624 0 1.2.5 1.2 1.126s-.576 1.126-1.2 1.126c-.608 0-1.176-.504-1.176-1.126 0-.624.568-1.126 1.176-1.126zm-3.654 2.634c1.224-.072 2.584.576 2.584 2.584v4.346h-1.744v-4.076c0-1.008-.408-1.66-1.44-1.66-1.08 0-1.744.792-1.744 1.66v4.076H7.608V9.962c0-1.008.392-1.66 1.44-1.66 1.08 0 1.744.792 1.744 1.66v4.076h-1.744v-4.346c0-2.008 1.36-2.658 2.584-2.584zM6.99 7.378c-.624 0-1.176-.504-1.176-1.126s.552-1.126 1.176-1.126c.624 0 1.2.5 1.2 1.126s-.576 1.126-1.2 1.126zm5.01 12.322c-4.908 0-8.9-3.992-8.9-8.9 0-4.908 3.992-8.9 8.9-8.9 4.908 0 8.9 3.992 8.9 8.9 0 4.908-3.992 8.9-8.9 8.9z"/></svg>
+                    <span className="group-hover:text-[#FF4500]">u/Tenetbid</span>
+                  </a>
+                </li>
+              </ul>
               <h4 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-4">Legal</h4>
               <ul className="space-y-2.5">
                 <li><span className="text-sm text-gray-400">Privacy Policy</span></li>
@@ -408,7 +450,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
 
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-500">&copy; 2026 Tenets &middot; Transforming Procurement Through Technology</p>
+            <p className="text-xs text-gray-500">&copy; 2026 TenetBid &middot; Transforming Procurement Through Technology</p>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Users className="w-4 h-4" />

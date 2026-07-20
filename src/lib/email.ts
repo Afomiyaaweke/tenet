@@ -1,7 +1,16 @@
 import crypto from 'crypto';
 
 // ── Email configuration ─────────────────────────────────────────────────
-// Configure SMTP for production. Without it, emails log to server console.
+// Primary: Resend API (https://resend.com) — free 100 emails/day
+// Fallback: SMTP (nodemailer) — for self-hosted email servers
+// Development: Logs to console with clearly visible reset codes
+
+function getEmailProvider(): 'resend' | 'smtp' | 'console' {
+  if (process.env.RESEND_API_KEY) return 'resend';
+  const { host, user, pass } = getSmtpConfig();
+  if (host && user && pass) return 'smtp';
+  return 'console';
+}
 
 function getSmtpConfig() {
   return {
@@ -9,22 +18,35 @@ function getSmtpConfig() {
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
-    from: process.env.SMTP_FROM || 'Tenets <noreply@tenet.space-z.ai>',
+    from: process.env.SMTP_FROM || 'TenetBid <noreply@tenetbid.com>',
   };
 }
 
-function isSmtpConfigured(): boolean {
-  const { host, user, pass } = getSmtpConfig();
-  return !!(host && user && pass);
+function getFromEmail(): string {
+  return process.env.EMAIL_FROM || process.env.SMTP_FROM || 'TenetBid <noreply@tenetbid.com>';
 }
 
+// ── Resend transport ──────────────────────────────────────────────────────
+let resendClient: import('resend').Resend | null = null;
+
+function getResendClient(): import('resend').Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  if (resendClient) return resendClient;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Resend } = require('resend') as typeof import('resend');
+  resendClient = new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
+}
+
+// ── SMTP transport ────────────────────────────────────────────────────────
 let transporter: import('nodemailer').Transporter | null = null;
 
-function getTransporter(): import('nodemailer').Transporter | null {
-  if (!isSmtpConfigured()) return null;
+function getSmtpTransporter(): import('nodemailer').Transporter | null {
+  const { host, user, pass } = getSmtpConfig();
+  if (!host || !user || !pass) return null;
   if (transporter) return transporter;
 
-  const { host, port, user, pass } = getSmtpConfig();
+  const { port } = getSmtpConfig();
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const nodemailerLib = require('nodemailer') as typeof import('nodemailer');
   transporter = nodemailerLib.createTransport({
@@ -46,29 +68,65 @@ export interface SendEmailOptions {
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailOptions): Promise<boolean> {
-  const transport = getTransporter();
+  const provider = getEmailProvider();
 
-  if (!transport) {
-    console.log('──────────────────────────────────────────────────');
-    console.log('📧 EMAIL (not sent - SMTP not configured)');
-    console.log(`   To: ${to}`);
-    console.log(`   Subject: ${subject}`);
-    if (text) console.log(`   Text: ${text}`);
-    console.log('   (HTML content omitted from console log)');
-    console.log('──────────────────────────────────────────────────');
+  // ── Console mode (development) ──
+  if (provider === 'console') {
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════════╗');
+    console.log('║  📧 EMAIL (SMTP not configured — email logged to console)   ║');
+    console.log('╠══════════════════════════════════════════════════════════════╣');
+    console.log(`║  To:      ${to.padEnd(49)}║`);
+    console.log(`║  Subject: ${subject.padEnd(49)}║`);
+    if (text) {
+      console.log('║  Plain text:                                                ║');
+      text.split('\n').forEach(line => {
+        console.log(`║  ${line.padEnd(61)}║`);
+      });
+    }
+    console.log('╚══════════════════════════════════════════════════════════════╝');
+    console.log('');
     return true;
   }
 
+  // ── Resend API ──
+  if (provider === 'resend') {
+    try {
+      const client = getResendClient()!;
+      const from = getFromEmail();
+      const { error } = await client.emails.send({
+        from,
+        to,
+        subject,
+        html,
+        text,
+      });
+      if (error) {
+        console.error('📧 Resend error:', error);
+        return false;
+      }
+      console.log(`📧 Email sent via Resend to ${to}: ${subject}`);
+      return true;
+    } catch (err) {
+      console.error('📧 Resend exception:', err);
+      return false;
+    }
+  }
+
+  // ── SMTP (nodemailer) ──
   try {
+    const transport = getSmtpTransporter()!;
     const { from } = getSmtpConfig();
     await transport.sendMail({ from, to, subject, html, text });
-    console.log(`📧 Email sent to ${to}: ${subject}`);
+    console.log(`📧 Email sent via SMTP to ${to}: ${subject}`);
     return true;
   } catch (err) {
-    console.error('📧 Failed to send email:', err);
+    console.error('📧 SMTP error:', err);
     return false;
   }
 }
+
+// ── Password Reset Email ─────────────────────────────────────────────────
 
 interface ResetEmailContext {
   to: string;
@@ -81,11 +139,10 @@ interface ResetEmailContext {
 /**
  * Send a secure password reset email with:
  * - HTTPS-only reset link
- * - Copyable reset code
+ * - Copyable reset code (displayed in a clear box)
  * - IP/device/time information
  * - Clear expiration warning
  * - "Ignore if you didn't request this" warning
- * - No sensitive information in the email
  */
 export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<boolean> {
   // Enforce HTTPS in production for reset links
@@ -102,6 +159,9 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
   const deviceInfo = parseUserAgent(ctx.userAgent || null);
   const ipDisplay = ctx.requestIP && ctx.requestIP !== 'unknown' ? ctx.requestIP : null;
 
+  // Format the raw token for display: split into groups of 8 for readability
+  const formattedCode = ctx.rawToken.match(/.{1,8}/g)?.join('-') || ctx.rawToken;
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -117,7 +177,7 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
               <!-- Header -->
               <tr>
                 <td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:32px 40px;text-align:center;">
-                  <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.5px;">Tenets</h1>
+                  <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.5px;">TenetBid</h1>
                   <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Password Reset Request</p>
                 </td>
               </tr>
@@ -144,19 +204,23 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
                   <p style="margin:0 0 24px;font-size:13px;color:#f97316;word-break:break-all;line-height:1.5;">
                     ${resetLink}
                   </p>
-                  <!-- Divider -->
+                  <!-- Reset Code Section -->
                   <table width="100%" cellpadding="0" cellspacing="0">
                     <tr><td style="border-top:1px solid #eee;padding-top:20px;">
+                      <p style="margin:0 0 8px;font-size:15px;color:#1a1a1a;font-weight:600;">
+                        🔑 Your Reset Code
+                      </p>
                       <p style="margin:0 0 12px;font-size:14px;color:#777;line-height:1.6;">
-                        Alternatively, you can enter this reset code manually on the reset page:
+                        Alternatively, enter this code manually on the reset page:
                       </p>
                       <table width="100%" cellpadding="0" cellspacing="0">
                         <tr>
-                          <td style="background:#f8f8f8;border:1px dashed #ddd;border-radius:8px;padding:14px 18px;text-align:center;">
-                            <code style="font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px;color:#333;word-break:break-all;">${ctx.rawToken}</code>
+                          <td style="background:#f8f8f8;border:2px solid #f97316;border-radius:10px;padding:16px 20px;text-align:center;">
+                            <code style="font-family:'SF Mono',Monaco,Consolas,monospace;font-size:15px;color:#ea580c;letter-spacing:1px;word-break:break-all;">${formattedCode}</code>
                           </td>
                         </tr>
                       </table>
+                      <p style="margin:8px 0 0;font-size:12px;color:#999;text-align:center;">Copy this code exactly as shown — it is case-sensitive</p>
                     </td></tr>
                   </table>
                   <!-- Request details -->
@@ -178,7 +242,7 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
                           <td style="padding:14px 18px;">
                             <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#c2410c;">⏱ Expires in ${expiresMinutes} minutes</p>
                             <p style="margin:0;font-size:13px;color:#7c2d12;line-height:1.5;">
-                              If you didn't request this password reset, please ignore this email - your password will not change. If you're concerned about your account security, contact support immediately.
+                              If you didn't request this password reset, please ignore this email — your password will not change. If you're concerned about your account security, contact support immediately.
                             </p>
                           </td>
                         </tr>
@@ -191,7 +255,7 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
               <tr>
                 <td style="background:#fafafa;padding:20px 40px;border-top:1px solid #eee;">
                   <p style="margin:0;font-size:12px;color:#999;text-align:center;">
-                    Tenets - Transforming Procurement<br>
+                    TenetBid — Transforming Procurement Through Technology<br>
                     This is an automated message. Please do not reply to this email.
                   </p>
                 </td>
@@ -205,13 +269,14 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
   `;
 
   const textContent = `
-Tenets - Password Reset
+TenetBid — Password Reset
 
 We received a request to reset your password.
 
 Reset link: ${resetLink}
 
-Or use this reset code: ${ctx.rawToken}
+Your Reset Code: ${formattedCode}
+(Copy this code exactly as shown — it is case-sensitive)
 
 ${ipDisplay ? `IP Address: ${ipDisplay}` : ''}
 ${deviceInfo ? `Device: ${deviceInfo}` : ''}
@@ -219,14 +284,14 @@ Time: ${timeStr}
 
 This link and code expire in ${expiresMinutes} minutes.
 
-If you didn't request this, you can safely ignore this email - your password won't change. If you're concerned, contact support.
+If you didn't request this, you can safely ignore this email — your password won't change. If you're concerned, contact support.
 
-- Tenets
+— TenetBid
   `.trim();
 
   return sendEmail({
     to: ctx.to,
-    subject: 'Tenets - Reset Your Password',
+    subject: 'TenetBid — Reset Your Password',
     html,
     text: textContent,
   });

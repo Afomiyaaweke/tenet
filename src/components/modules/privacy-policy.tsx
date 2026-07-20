@@ -342,10 +342,10 @@ const POLICY_SECTIONS: PolicySection[] = [
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</p>
             <a
-              href="mailto:afomiyaaweke6@gmail.com"
+              href="mailto:contact@tenetbid.com"
               className="text-sm font-medium text-orange-600 dark:text-orange-400 hover:underline"
             >
-              afomiyaaweke6@gmail.com
+              contact@tenetbid.com
             </a>
           </div>
         </div>
@@ -363,7 +363,7 @@ const POLICY_SECTIONS: PolicySection[] = [
         <ul className="space-y-2">
           {[
             'Visiting your account settings within the platform',
-            'Contacting us directly at afomiyaaweke6@gmail.com',
+            'Contacting us directly at contact@tenetbid.com',
             'Submitting a formal data subject access request',
           ].map((item) => (
             <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -570,10 +570,10 @@ export function PrivacyPolicyView() {
                   This privacy policy is effective as of June 23, 2026 and applies to all users of the Tenets platform.
                   For questions about this policy, please contact us at{' '}
                   <a
-                    href="mailto:afomiyaaweke6@gmail.com"
+                    href="mailto:contact@tenetbid.com"
                     className="text-orange-600 dark:text-orange-400 hover:underline font-medium"
                   >
-                    afomiyaaweke6@gmail.com
+                    contact@tenetbid.com
                   </a>
                   .
                 </p>
