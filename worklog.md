@@ -155,3 +155,24 @@ Stage Summary:
 - Dashboard accessible via /infra/ route through Caddy gateway
 - Main Tenet app is clean without any infra code
 - 9-tab dashboard: User Tracking, Health Check, System Metrics, Alerts, Webhooks, Rate Limits, Cache, Secrets, Audit Logs
+
+---
+Task ID: 9
+Agent: main
+Task: Add Microsoft Clarity analytics tracking script to the application
+
+Work Log:
+- Created /src/components/analytics/clarity.tsx - a client component using next/script with afterInteractive strategy
+- Clarity project ID: xpjlnkckwv
+- Added MicrosoftClarity component to root layout (src/app/layout.tsx) inside <html> tag
+- Updated Content Security Policy in middleware.ts to allow Clarity domains:
+  - script-src: added https://www.clarity.ms
+  - connect-src: added https://www.clarity.ms https://*.clarity.ms
+  - img-src: added https://www.clarity.ms
+- Verified: lint passes with 0 errors, Clarity script present in rendered page HTML, dev server running correctly
+
+Stage Summary:
+- Microsoft Clarity analytics (ID: xpjlnkckwv) is now integrated across the entire Tenet application
+- CSP headers updated to whitelist Clarity's script and data endpoints
+- Script loads via next/script with afterInteractive strategy for optimal performance
+- Rate limiting was already comprehensively implemented in middleware.ts with 3 strategies (sliding_window, fixed_window, token_bucket) across 15+ endpoint categories
