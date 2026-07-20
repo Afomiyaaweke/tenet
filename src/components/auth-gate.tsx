@@ -577,14 +577,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => { setAuthMode('forgot-password'); setResetToken(''); }}
-                      className="mt-4 text-sm text-primary hover:underline font-medium"
-                    >
-                      Try a different email
-                    </button>
-
                     <div className="mt-6 pt-4 border-t border-border">
                       <button
                         type="button"
