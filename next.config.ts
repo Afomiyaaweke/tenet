@@ -47,13 +47,18 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   allowedDevOrigins: [
-    "tenet.space-z.ai",
-    "tenet.app",
     "127.0.0.1",
     "localhost",
     "localhost:81",
     "localhost:3000",
+    // Add your production domain here, e.g.:
+    // "tenetbid.com",
+    // "tenet.space-z.ai",
   ],
+  // Turbopack serverExternalPackages: packages that should NOT be bundled
+  // by Turbopack and should be resolved at runtime instead.
+  // xlsx (SheetJS) has known Turbopack resolution issues — exclude it.
+  serverExternalPackages: ["xlsx"],
   async headers() {
     return [
       {

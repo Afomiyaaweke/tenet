@@ -1,3 +1,11 @@
+# ──────────────────────────────────────────────────────────────
+# TenetBid — Production Dockerfile (Node.js Server)
+# ──────────────────────────────────────────────────────────────
+# This is a Node.js SERVER application, NOT a static site.
+# Next.js requires a running Node.js process for SSR, API routes,
+# and dynamic rendering. Do NOT deploy as a static/nginx site.
+# ──────────────────────────────────────────────────────────────
+
 # --- Stage 1: Dependencies ---
 FROM oven/bun:1.2 AS deps
 
@@ -26,6 +34,10 @@ COPY --from=deps /app/node_modules ./node_modules
 
 # Copy ALL source code (includes prisma/, src/, public/, etc.)
 COPY . .
+
+# Set production environment for build
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the Next.js standalone output
 RUN bun run build
@@ -62,6 +74,9 @@ COPY --from=builder /app/prisma/seed.ts ./prisma/seed.ts
 
 # Create db directory and set ownership
 RUN mkdir -p ./db && chown -R nextjs:nodejs ./db
+
+# Create uploads directory and set ownership
+RUN mkdir -p ./uploads && chown -R nextjs:nodejs ./uploads
 
 # Copy entrypoint script
 COPY --chmod=755 docker-entrypoint.sh ./docker-entrypoint.sh
