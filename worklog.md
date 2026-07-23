@@ -317,3 +317,20 @@ Stage Summary:
   3. User role type missing super_admin → added to type union
 - Production build now compiles successfully
 - Dev server running fine on port 3000
+---
+Task ID: 2
+Agent: main
+Task: Fix deployment build failures and prepare production deployment files
+
+Work Log:
+- Analyzed build log showing Turbopack error: Module not found: Can't resolve 'xlsx'
+- Found platform treating app as STATIC site (nginx) instead of Node.js server
+- Fixed xlsx by adding serverExternalPackages to next.config.ts
+- Created .env.production.example with all required variables
+- Updated Dockerfile, docker-compose.yml, docker-entrypoint.sh for TenetBid
+- Build verified locally, lint passes, app renders correctly
+
+Stage Summary:
+- Deployment-blocking issues fixed
+- Production files ready for deployment
+- User must set platform to Node.js/Docker type, NOT Static Site

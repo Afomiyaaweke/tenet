@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Tenets Tender Ecosystem..."
+echo "🚀 Starting TenetBid — Transforming Procurement Through Technology..."
 
 # Check if database exists, if not initialize it
 if [ ! -f ./db/custom.db ]; then
@@ -21,5 +21,5 @@ else
 fi
 
 # Start the Next.js server
-echo "🌐 Starting Next.js server on port 3000..."
+echo "🌐 Starting TenetBid server on port 3000..."
 exec bun server.js
