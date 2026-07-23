@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireSuperAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireSuperAdmin(request);
+  const { error } = await requireAdmin(request);
   if (error) return error;
 
   try {

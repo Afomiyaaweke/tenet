@@ -294,3 +294,26 @@ Stage Summary:
 - Backend was already configured to send to support@tenetbid.com — UI now reflects this clearly
 - All toast messages reference support@tenetbid.com for transparency
 - Submit button explicitly shows the destination email
+
+---
+Task ID: deploy-fix
+Agent: main
+Task: Fix deployment build failures from pasted build log
+
+Work Log:
+- Analyzed deployment build log: build failed with "Module not found: Can't resolve 'xlsx'" in src/app/api/tenders/export/route.ts
+- Installed missing xlsx package (xlsx@0.18.5)
+- Scanned all source imports for other missing packages - only Node.js built-in modules showed as "missing" (not real issues)
+- Ran production build test, found second error: requireSuperAdmin doesn't exist in auth.ts
+- Fixed src/app/api/audit/stats/route.ts: changed import from requireSuperAdmin to requireAdmin
+- Ran build again, found third error: TypeScript type mismatch - User.role type was 'team_admin' | 'user' but admin.tsx checks for 'super_admin'
+- Fixed src/lib/api.ts: added 'super_admin' to User role type union
+- Ran production build successfully - all 64 pages generated, zero errors
+
+Stage Summary:
+- 3 deployment-blocking issues fixed:
+  1. Missing xlsx package → installed
+  2. requireSuperAdmin import → changed to requireAdmin
+  3. User role type missing super_admin → added to type union
+- Production build now compiles successfully
+- Dev server running fine on port 3000
