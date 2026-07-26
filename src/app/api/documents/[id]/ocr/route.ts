@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { getFileBuffer } from '@/lib/storage';
 import ZAI from 'z-ai-web-dev-sdk';
 
 /**
@@ -64,15 +65,8 @@ export async function POST(
     });
 
     try {
-      // Read the file from disk
-      const fs = await import('fs/promises');
-      const filePath = process.cwd() + '/uploads/' + doc.fileUrl.split('/uploads/')[1];
-
-      if (!filePath) {
-        throw new Error('Invalid file URL');
-      }
-
-      const fileBuffer = await fs.readFile(filePath);
+      // Read the file from storage (local filesystem or Vercel Blob)
+      const fileBuffer = await getFileBuffer(doc.fileUrl);
       const base64File = fileBuffer.toString('base64');
 
       // Determine MIME type based on file extension

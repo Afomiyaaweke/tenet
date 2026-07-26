@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { writeFile, mkdir, unlink } from 'fs/promises';
+import { uploadFile, deleteFile, getFileBuffer } from '@/lib/storage';
 import path from 'path';
 
-const UPLOAD_DIR = process.cwd() + '/uploads';
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -94,16 +94,9 @@ export async function POST(
       );
     }
 
-    // Save file
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Upload file via storage abstraction (local filesystem or Vercel Blob)
     const safeName = sanitizeFilename(file.name);
-    const safeExt = path.extname(safeName).toLowerCase();
-    const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${safeExt}`;
-    const filePath = path.join(UPLOAD_DIR, uniqueName);
-
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    await writeFile(filePath, buffer);
+    const { url: fileUrl } = await uploadFile(file);
 
     // Create document record linked to the bid
     const document = await db.document.create({
@@ -111,7 +104,7 @@ export async function POST(
         userId: user!.id,
         companyId: user!.companyId || undefined,
         docType,
-        fileUrl: `/uploads/${uniqueName}`,
+        fileUrl,
         fileName: safeName,
         status: 'pending',
         bidId,
@@ -124,7 +117,7 @@ export async function POST(
 
     // If auto-OCR is requested, trigger it asynchronously (and auto-chain AI Review if requested)
     if (autoOcr) {
-      triggerOcrAsync(document.id, safeName, `/uploads/${uniqueName}`, autoReview, reviewPrompt).catch(err => {
+      triggerOcrAsync(document.id, safeName, fileUrl, autoReview, reviewPrompt).catch(err => {
         console.error('Async OCR trigger failed:', err);
       });
     }
@@ -268,11 +261,10 @@ export async function DELETE(
       );
     }
 
-    // Delete physical file
+    // Delete file via storage abstraction
     try {
       if (document.fileUrl) {
-        const filePath = path.join(process.cwd(), document.fileUrl);
-        await unlink(filePath);
+        await deleteFile(document.fileUrl);
       }
     } catch {
       // File may already be deleted or not exist - that's OK
@@ -294,9 +286,7 @@ export async function DELETE(
 // Helper: trigger OCR asynchronously, and optionally auto-chain AI Review
 async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string, autoReview: boolean = false, reviewPrompt: string | null = null) {
   try {
-    const fs = await import('fs/promises');
-    const filePath = process.cwd() + '/uploads/' + fileUrl.split('/uploads/')[1];
-    const fileBuffer = await fs.readFile(filePath);
+    const fileBuffer = await getFileBuffer(fileUrl);
 
     const ext = fileName.toLowerCase().split('.').pop() || '';
     let ocrText = '';

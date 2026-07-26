@@ -35,7 +35,7 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
+      "img-src 'self' data: blob: https: https://*.blob.vercel-storage.com",
       "font-src 'self' data:",
       "connect-src 'self' ws: wss: https:",
       "frame-ancestors 'none'",
@@ -43,27 +43,49 @@ const securityHeaders = [
   },
 ];
 
+// Build allowedDevOrigins dynamically from environment
+// On Vercel, the platform handles origins automatically — this is only needed for local dev
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const appUrlHost = appUrl.replace(/^https?:\/\//, "");
+const allowedDevOrigins = [
+  "127.0.0.1",
+  "localhost",
+  "localhost:3000",
+  appUrlHost, // e.g. "tenet.space-z.ai" or "localhost:3000"
+];
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // NOTE: "output: standalone" removed — Vercel handles builds natively and doesn't need it.
+  // standalone output is for Docker/self-hosted deployments only and can cause issues on Vercel.
   reactStrictMode: true,
-  allowedDevOrigins: [
-    "127.0.0.1",
-    "localhost",
-    "localhost:81",
-    "localhost:3000",
-    // Add your production domain here, e.g.:
-    // "tenetbid.com",
-    // "tenet.space-z.ai",
-  ],
+  allowedDevOrigins,
   // Turbopack serverExternalPackages: packages that should NOT be bundled
   // by Turbopack and should be resolved at runtime instead.
   // xlsx (SheetJS) has known Turbopack resolution issues — exclude it.
   serverExternalPackages: ["xlsx"],
+  // Vercel serverless function max duration — some API routes (OCR, AI analysis)
+  // take longer than the default 10s timeout. Set to 60s for Pro/Enterprise plans.
+  // On Hobby plan, the effective max is 10s regardless of this config.
+  experimental: {
+    maxDuration: 60,
+  },
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+    ];
+  },
+  // Rewrite /uploads/* to the API route that serves local files.
+  // This is needed for local dev where uploaded files are stored on the filesystem.
+  // In production (Vercel), files are stored in Vercel Blob with absolute URLs,
+  // so these rewrites won't be triggered (Blob URLs bypass Next.js routing).
+  async rewrites() {
+    return [
+      {
+        source: "/uploads/:path*",
+        destination: "/api/uploads/:path*",
       },
     ];
   },

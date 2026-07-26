@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { uploadFile } from '@/lib/storage';
 
-const UPLOAD_DIR = process.cwd() + '/uploads/profile-photos';
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -57,18 +56,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save file to disk
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const safeName = sanitizeFilename(file.name);
-    const safeExt = path.extname(safeName).toLowerCase();
-    const uniqueName = `${user!.id}-${photoType}-${Date.now()}${safeExt}`;
-    const filePath = path.join(UPLOAD_DIR, uniqueName);
-
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    await writeFile(filePath, buffer);
-
-    const fileUrl = `/uploads/profile-photos/${uniqueName}`;
+    // Upload file via storage abstraction (local filesystem or Vercel Blob)
+    const { url: fileUrl } = await uploadFile(file, 'profile-photos');
 
     // Update profile
     const updateField = photoType === 'cover' ? 'logoUrl' : 'profilePhoto';

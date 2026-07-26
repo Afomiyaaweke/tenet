@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, requireAdmin } from '@/lib/auth';
-import { unlink } from 'fs/promises';
-import path from 'path';
+import { deleteFile } from '@/lib/storage';
 
 /**
  * DELETE /api/documents/[id]
@@ -36,11 +35,10 @@ export async function DELETE(
       );
     }
 
-    // Delete physical file
+    // Delete file via storage abstraction
     try {
       if (document.fileUrl) {
-        const filePath = path.join(process.cwd(), document.fileUrl);
-        await unlink(filePath);
+        await deleteFile(document.fileUrl);
       }
     } catch {
       // File may already be deleted or not exist - that's OK
