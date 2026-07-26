@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── In-memory rate limiter ──────────────────────────────────────────────────
+// NOTE: This in-memory rate limiter works for long-running Node.js processes
+// (local dev, Docker/self-hosted) but will NOT persist across Vercel serverless
+// function invocations. Each invocation gets a fresh Map instance, so rate
+// limiting will effectively reset on every cold start.
+//
+// For production rate limiting on Vercel, use one of these approaches:
+//   1. Upstash Redis (@upstash/ratelimit) — works at the Edge, persists across invocations
+//   2. Vercel Edge Config — native Vercel solution for distributed rate limiting
+//   3. Vercel KV — Redis-compatible storage that persists across function invocations
+//
+// This code is kept as-is for local development and self-hosted deployments.
+// On Vercel, consider replacing checkRateLimit() with an Upstash/Edge Config call.
+
 interface RateLimitEntry {
   count: number;
   resetTime: number;
@@ -22,13 +35,17 @@ declare global {
 }
 globalThis.__rateLimitStats = rateLimitStats;
 
-// Clean up expired entries every 5 minutes
-setInterval(() => {
+// NOTE: setInterval-based cleanup removed — it doesn't work reliably on
+// Vercel serverless (function may not be alive long enough for the interval
+// to fire). Instead, expired entries are cleaned up inline during rate limit
+// checks (see purgeExpiredEntries below).
+
+function purgeExpiredEntries(): void {
   const now = Date.now();
   for (const [key, entry] of rateLimitStore.entries()) {
     if (now > entry.resetTime) rateLimitStore.delete(key);
   }
-}, 5 * 60 * 1000);
+}
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -44,6 +61,11 @@ function checkRateLimit(
   windowMs: number,
   strategy: string = 'sliding_window',
 ): { allowed: boolean; remaining: number; resetTime: number; retryAfter?: number } {
+  // Inline cleanup: purge expired entries on every check
+  // This keeps the Map from growing unbounded in long-running processes
+  // On Vercel serverless, the Map resets on every cold start anyway
+  purgeExpiredEntries();
+
   const now = Date.now();
 
   // Token bucket strategy
@@ -146,6 +168,25 @@ declare global {
 }
 globalThis.__rateLimitConfig = RATE_LIMITS;
 
+// ── CORS configuration ─────────────────────────────────────────────────────
+// CORS origins are now configurable via environment variables instead of
+// hardcoded values. This makes deployment to different environments easy.
+//
+// NEXT_PUBLIC_APP_URL — primary app origin (e.g. https://tenet.space-z.ai)
+// CORS_EXTRA_ORIGINS — comma-separated additional origins (e.g. https://staging.tenet.space-z.ai)
+//
+// Falls back to localhost for development if no env vars are set.
+
+function getAllowedOrigins(requestUrl: string): string[] {
+  const requestOrigin = new URL(requestUrl).origin;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const extraOrigins = process.env.CORS_EXTRA_ORIGINS
+    ? process.env.CORS_EXTRA_ORIGINS.split(',').map((o: string) => o.trim())
+    : [];
+
+  return [requestOrigin, appUrl, ...extraOrigins];
+}
+
 // ── Security headers ───────────────────────────────────────────────────────
 function addSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set(
@@ -154,9 +195,9 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.clarity.ms",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https: https://www.clarity.ms",
+      "img-src 'self' data: blob: https: https://www.clarity.ms https://*.blob.vercel-storage.com",
       "font-src 'self' data:",
-      "connect-src 'self' ws: wss: https://www.clarity.ms https://*.clarity.ms",
+      "connect-src 'self' ws: wss: https://www.clarity.ms https://*.clarity.ms https://*.blob.vercel-storage.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -199,7 +240,7 @@ export function middleware(request: NextRequest) {
     const response = new NextResponse(null, { status: 204 });
     const origin = request.headers.get('origin');
     if (origin) {
-      const allowedOrigins = [new URL(request.url).origin, 'https://tenet.space-z.ai', 'http://localhost:3000'];
+      const allowedOrigins = getAllowedOrigins(request.url);
       if (allowedOrigins.includes(origin)) {
         response.headers.set('Access-Control-Allow-Origin', origin);
         response.headers.set('Access-Control-Allow-Credentials', 'true');
@@ -263,7 +304,7 @@ export function middleware(request: NextRequest) {
       // CORS
       const origin = request.headers.get('origin');
       if (origin) {
-        const allowedOrigins = [new URL(request.url).origin, 'https://tenet.space-z.ai', 'http://localhost:3000'];
+        const allowedOrigins = getAllowedOrigins(request.url);
         if (allowedOrigins.includes(origin)) {
           response.headers.set('Access-Control-Allow-Origin', origin);
           response.headers.set('Access-Control-Allow-Credentials', 'true');
@@ -280,7 +321,7 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.next();
     const origin = request.headers.get('origin');
     if (origin) {
-      const allowedOrigins = [new URL(request.url).origin, 'https://tenet.space-z.ai', 'http://localhost:3000'];
+      const allowedOrigins = getAllowedOrigins(request.url);
       if (allowedOrigins.includes(origin)) {
         response.headers.set('Access-Control-Allow-Origin', origin);
         response.headers.set('Access-Control-Allow-Credentials', 'true');

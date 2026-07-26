@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { getFileBuffer } from '@/lib/storage';
 import ZAI from 'z-ai-web-dev-sdk';
 
 /**
@@ -120,10 +120,8 @@ export async function POST(
     });
 
     try {
-      // Read the file from the uploads directory
-      // fileUrl is like "/uploads/filename.ext" - actual file is at process.cwd() + fileUrl
-      const filePath = process.cwd() + doc.fileUrl;
-      const fileBuffer = await readFile(filePath);
+      // Read the file from storage (local filesystem or Vercel Blob)
+      const fileBuffer = await getFileBuffer(doc.fileUrl);
 
       // Determine file extension
       const ext = doc.fileName.toLowerCase().split('.').pop() || '';

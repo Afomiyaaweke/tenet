@@ -49,7 +49,38 @@ Stage Summary:
 - Target with PostgreSQL + Redis + multi-instance: ~10,000+ concurrent users
 
 ---
-Task ID: 7
+Task ID: 3
+Agent: main
+Task: Update TenetBid's next.config.ts and middleware for Vercel deployment compatibility
+
+Work Log:
+- Updated next.config.ts:
+  - Removed `output: "standalone"` — Vercel handles builds natively, standalone is for Docker/self-hosted only and causes issues on Vercel
+  - Added `experimental: { maxDuration: 60 }` — some API routes (OCR, AI analysis) need longer than default 10s timeout
+  - Made `allowedDevOrigins` dynamic — now derives from `NEXT_PUBLIC_APP_URL` env var instead of hardcoded list
+  - Kept `serverExternalPackages: ["xlsx"]` (needed for Turbopack) and `reactStrictMode: true`
+  - Kept all security headers unchanged
+- Updated middleware.ts:
+  - Added comprehensive comments about in-memory rate limiter limitations on Vercel serverless (each invocation gets fresh Map, no persistence)
+  - Recommended Upstash Redis, Vercel Edge Config, or Vercel KV for production rate limiting
+  - Removed `setInterval` cleanup — doesn't work reliably on serverless, replaced with inline `purgeExpiredEntries()` called during each rate limit check
+  - Made CORS origins configurable: replaced hardcoded `https://tenet.space-z.ai` and `http://localhost:3000` with `NEXT_PUBLIC_APP_URL || 'http://localhost:3000'`
+  - Added `CORS_EXTRA_ORIGINS` env var support (comma-separated) for additional origins like staging domains
+  - Kept all rate limit configs, security headers, and strategy implementations unchanged
+- Created vercel.json:
+  - Set `framework: "nextjs"` for Vercel auto-detection
+  - Set `maxDuration: 60` for AI/agent routes, 30s for document/tender routes, 15s for auth/bid routes
+  - Set deployment region to `iad1` (US East — closest to East Africa users on Vercel)
+  - Added build-time env var for `NEXT_PUBLIC_APP_URL`
+  - Added security headers at Vercel edge level
+- Verified: lint passes with 0 errors, dev server running, all configs valid
+
+Stage Summary:
+- next.config.ts: Vercel-compatible — no standalone output, dynamic origins, 60s maxDuration
+- middleware.ts: Serverless-aware — documented limitations, configurable CORS, no setInterval
+- vercel.json: Complete deployment config with route-specific timeouts and security headers
+- CORS origins now fully configurable via env vars (NEXT_PUBLIC_APP_URL + CORS_EXTRA_ORIGINS)
+- Rate limiter kept for local dev/self-hosted, documented need for Upstash/Edge Config on Vercel
 Agent: Main Agent
 Task: Build comprehensive Infrastructure & DevOps Dashboard covering all 23 concerns
 
@@ -334,3 +365,79 @@ Stage Summary:
 - Deployment-blocking issues fixed
 - Production files ready for deployment
 - User must set platform to Node.js/Docker type, NOT Static Site
+
+---
+Task ID: 2
+Agent: db-config-agent
+Task: Update TenetBid Prisma schema and configuration for Vercel deployment with PostgreSQL
+
+Work Log:
+- Changed prisma/schema.prisma datasource provider from "sqlite" to "postgresql"
+- Reviewed all 25 models for SQLite→PostgreSQL compatibility:
+  - String fields storing JSON (aiReview, attachments, imageUrls, rankings, summary, metadata, value, events) remain as String — PostgreSQL handles large strings fine
+  - Default values (cuid(), now(), false, 0, "", "active", "[]", "{}") all work in PostgreSQL
+  - @unique on nullable fields (Company.registrationNo, Company.tinNumber) kept as-is — known PostgreSQL behavior difference (only one NULL allowed in unique column) but acceptable for current use case
+- Enhanced src/lib/db.ts for Vercel serverless deployment:
+  - Added createPrismaClient() factory function with production/development branching
+  - Production: detects postgresql:// URLs and automatically appends connection_limit=5 and pool_timeout=10
+  - Production: detects Neon.tech URLs and appends pooled=true for serverless pipelining
+  - Development: uses DATABASE_URL as-is (SQLite) with error/warn logging
+  - Maintains global singleton pattern for development hot-reload prevention
+- Updated .env with comprehensive PostgreSQL production documentation:
+  - Kept SQLite DATABASE_URL for local development
+  - Added commented templates for Neon, Vercel Postgres, and Supabase connection strings
+  - Documented that db.ts auto-appends connection pooling params in production
+- Ran bun run db:generate successfully — Prisma Client regenerated for PostgreSQL provider
+- Did NOT run db:push (per instructions — would wipe local SQLite database)
+- Verified: lint passes with 0 errors, dev server running correctly
+
+Stage Summary:
+- Prisma schema provider changed to PostgreSQL for Vercel deployment
+- db.ts now has production-grade connection pooling for serverless PostgreSQL
+- Local development still uses SQLite (DATABASE_URL=file:...)
+- Vercel production will use PostgreSQL via DATABASE_URL environment variable
+- Known consideration: @unique on nullable fields (registrationNo, tinNumber) allows only one NULL in PostgreSQL — may need partial unique index in future if multiple companies lack these fields
+
+---
+Task ID: 4
+Agent: main
+Task: Update TenetBid's file upload handling to support Vercel Blob storage for production deployment
+
+Work Log:
+- Installed @vercel/blob@2.6.1 package
+- Created /src/lib/storage.ts with unified storage abstraction:
+  - uploadFile(file, subPath?): detects BLOB_READ_WRITE_TOKEN env var, uploads to Vercel Blob in production or local filesystem in dev
+  - deleteFile(urlOrKey): deletes from Vercel Blob or local filesystem, handles backward compatibility with mixed URL types
+  - getFileBuffer(fileUrl): reads file content for OCR processing from Vercel Blob (fetch) or local filesystem (readFile)
+  - getStorageMode(): returns 'local' or 'vercel-blob' for debugging
+  - isLocalFileUrl(): checks if URL is a local filesystem path
+  - Backward compatible: if BLOB_READ_WRITE_TOKEN is not set, falls back to local filesystem
+- Updated 6 API routes to use storage abstraction:
+  1. /api/documents/route.ts: replaced writeFile/mkdir with uploadFile(), removed fs/promises import
+  2. /api/profiles/upload-photo/route.ts: replaced writeFile/mkdir with uploadFile(file, 'profile-photos'), removed fs/promises and path imports
+  3. /api/tenders/documents/route.ts: replaced writeFile/mkdir with uploadFile(), replaced unlink with deleteFile(), replaced fs.readFile in triggerOcrAsync with getFileBuffer(), removed UPLOAD_DIR
+  4. /api/bids/[id]/documents/route.ts: same pattern as tenders/documents, replaced all filesystem ops with storage abstraction
+  5. /api/documents/[id]/route.ts: replaced unlink with deleteFile(), removed fs/promises and path imports
+  6. /api/documents/[id]/ocr/route.ts: replaced fs.readFile with getFileBuffer()
+  7. /api/document-ocr/[id]/route.ts: replaced readFile from fs/promises with getFileBuffer()
+- Created /api/uploads/[...path]/route.ts: serves uploaded files from local filesystem for development
+  - Handles path traversal prevention (resolves path and checks it starts with UPLOAD_DIR)
+  - Sets proper Content-Type, Content-Length, Cache-Control headers
+  - Returns 404 for missing files, 403 for path traversal attempts
+- Added Next.js rewrites in next.config.ts: /uploads/:path* → /api/uploads/:path*
+  - Enables backward compatibility: existing /uploads/ URLs in database work via rewrite to API route
+  - Vercel Blob URLs are absolute URLs that bypass Next.js routing entirely
+- Updated CSP (Content Security Policy) in next.config.ts and middleware.ts:
+  - Added https://*.blob.vercel-storage.com to img-src directive (for displaying uploaded images)
+  - Added https://*.blob.vercel-storage.com to connect-src directive (for fetching blob content in OCR)
+- Updated .env with documentation for BLOB_READ_WRITE_TOKEN
+- Verified: lint passes with 0 errors (5 pre-existing warnings), dev server running
+
+Stage Summary:
+- All file upload, delete, and OCR operations now go through unified storage abstraction
+- Local development: unchanged behavior — files stored in /uploads/, served via /api/uploads/ route with rewrite
+- Production (Vercel): files uploaded to Vercel Blob via @vercel/blob SDK, absolute URLs stored in database
+- Backward compatible: BLOB_READ_WRITE_TOKEN not set → falls back to local filesystem
+- Migration-safe: existing /uploads/ URLs in database work via rewrite in local dev, and are skipped gracefully in Vercel environment
+- OCR processing works in both environments: getFileBuffer() reads from filesystem or fetches from Blob URL
+- To enable Vercel Blob: set BLOB_READ_WRITE_TOKEN in Vercel dashboard environment variables

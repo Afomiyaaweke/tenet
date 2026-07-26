@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { writeFile, mkdir } from 'fs/promises';
+import { uploadFile } from '@/lib/storage';
 import path from 'path';
-
-const UPLOAD_DIR = process.cwd() + '/uploads';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -107,26 +105,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save file to disk
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Sanitize the filename and create unique filename
+    // Upload file via storage abstraction (local filesystem or Vercel Blob)
     const safeName = sanitizeFilename(file.name);
-    const safeExt = path.extname(safeName).toLowerCase();
-    const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${safeExt}`;
-    const filePath = path.join(UPLOAD_DIR, uniqueName);
-
-    // Ensure uploads directory exists
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    await writeFile(filePath, buffer);
+    const { url: fileUrl } = await uploadFile(file);
 
     // Create document record
     const document = await db.document.create({
       data: {
         userId: targetUserId,
         docType,
-        fileUrl: `/uploads/${uniqueName}`,
+        fileUrl,
         fileName: safeName,
         status: 'pending',
       },
