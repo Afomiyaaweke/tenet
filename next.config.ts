@@ -33,43 +33,41 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.clarity.ms",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https: https://*.blob.vercel-storage.com",
+      "img-src 'self' data: blob: https: https://www.clarity.ms https://*.blob.vercel-storage.com",
       "font-src 'self' data:",
-      "connect-src 'self' ws: wss: https:",
+      "connect-src 'self' ws: wss: https: https://www.clarity.ms https://*.clarity.ms https://*.blob.vercel-storage.com",
       "frame-ancestors 'none'",
     ].join("; "),
   },
 ];
 
 // Build allowedDevOrigins dynamically from environment
-// On Vercel, the platform handles origins automatically — this is only needed for local dev
+// Include all domains that may serve the app:
+// - localhost for local dev
+// - tenet.space-z.ai for the custom domain
+// - preview-chat-*.space-z.ai for the sandbox preview panel
+// - *.space-z.ai for any other platform subdomains
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const appUrlHost = appUrl.replace(/^https?:\/\//, "");
 const allowedDevOrigins = [
   "127.0.0.1",
   "localhost",
   "localhost:3000",
-  appUrlHost, // e.g. "tenet.space-z.ai" or "localhost:3000"
-  "tenet.space-z.ai", // explicitly allow the custom domain
+  appUrlHost, // e.g. "tenet.space-z.ai" from NEXT_PUBLIC_APP_URL
+  "tenet.space-z.ai",
+  "preview-chat.space-z.ai", // sandbox preview chat panel
 ];
 
 const nextConfig: NextConfig = {
   // NOTE: "output: standalone" removed — Vercel handles builds natively and doesn't need it.
-  // standalone output is for Docker/self-hosted deployments only and can cause issues on Vercel.
   reactStrictMode: true,
   allowedDevOrigins,
   // Turbopack serverExternalPackages: packages that should NOT be bundled
   // by Turbopack and should be resolved at runtime instead.
   // xlsx (SheetJS) has known Turbopack resolution issues — exclude it.
   serverExternalPackages: ["xlsx"],
-  // Vercel serverless function max duration — some API routes (OCR, AI analysis)
-  // take longer than the default 10s timeout. Set to 60s for Pro/Enterprise plans.
-  // On Hobby plan, the effective max is 10s regardless of this config.
-  experimental: {
-    maxDuration: 60,
-  },
   async headers() {
     return [
       {
