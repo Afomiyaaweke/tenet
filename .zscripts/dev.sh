@@ -9,10 +9,11 @@
 # process. Direct children of tini stay alive indefinitely.
 #
 # Strategy:
-# 1. Build production bundle first (more memory-efficient at runtime)
-# 2. Use 'next start' (production server) which uses less memory than dev
-# 3. Start server as a direct child of tini using the disown pattern
-# 4. Monitor and restart the server if it dies
+# 1. Ensure dependencies are installed
+# 2. Build production bundle (more memory-efficient at runtime)
+# 3. Use 'next start' (production server) which uses less memory than dev
+# 4. Start server as a direct child of tini using the disown pattern
+# 5. Monitor and restart the server if it dies
 
 cd /home/z/my-project
 
@@ -23,18 +24,22 @@ trap 'echo "[DEV] Received signal, shutting down..."; exit 0' SIGTERM SIGINT SIG
 fuser -k 3000/tcp 2>/dev/null
 sleep 2
 
+# Ensure dependencies are installed (node_modules may be missing)
+echo "[DEV] Installing dependencies..."
+bun install 2>&1 || true
+
 # Push dev schema (SQLite) for local database
 echo "[DEV] Setting up database..."
 bun run db:push 2>&1 || true
 
 # Build production bundle (more memory-efficient at runtime)
 echo "[DEV] Building production bundle..."
-NODE_OPTIONS="--max-old-space-size=768" node_modules/.bin/next build 2>&1 | tail -5
+NODE_OPTIONS="--max-old-space-size=768" npx next build 2>&1 | tail -5 || NODE_OPTIONS="--max-old-space-size=768" bun run build 2>&1 | tail -5 || true
 
 # Auto-restart loop: start server using the disown pattern
 # that makes it a direct child of tini (PID 1)
 RESTART_COUNT=0
-MAX_RESTARTS=50
+MAX_RESTARTS=100
 
 while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
   echo "[DEV] Starting production server (attempt $((RESTART_COUNT + 1))/$MAX_RESTARTS)..."
@@ -42,6 +47,12 @@ while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
   # Kill any existing process on port 3000
   fuser -k 3000/tcp 2>/dev/null
   sleep 2
+
+  # Re-install deps if next binary is missing (can happen after crashes)
+  if [ ! -f "/home/z/my-project/node_modules/.bin/next" ]; then
+    echo "[DEV] next binary missing, reinstalling..."
+    bun install 2>&1 || true
+  fi
 
   # Start the server using the disown pattern
   # bash -c creates a subshell that starts the server in background and disowns it
@@ -53,7 +64,7 @@ while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
   sleep 5
 
   # Check if the server is still alive
-  if curl -s -o /dev/null -w "" http://localhost:3000/ 2>/dev/null; then
+  if curl -s -o /dev/null http://localhost:3000/ 2>/dev/null; then
     echo "[DEV] Server is running and responding."
     # Server is alive - monitor it periodically
     while true; do
@@ -70,8 +81,8 @@ while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
   RESTART_COUNT=$((RESTART_COUNT + 1))
 
   if [ $RESTART_COUNT -lt $MAX_RESTARTS ]; then
-    echo "[DEV] Waiting 5 seconds before restarting..."
-    sleep 5
+    echo "[DEV] Waiting 3 seconds before restarting..."
+    sleep 3
   fi
 done
 
