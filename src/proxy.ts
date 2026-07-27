@@ -197,7 +197,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https: https://www.clarity.ms https://*.blob.vercel-storage.com",
       "font-src 'self' data:",
-      "connect-src 'self' ws: wss: https://www.clarity.ms https://*.clarity.ms https://*.blob.vercel-storage.com",
+      "connect-src 'self' ws: wss: https: https://www.clarity.ms https://*.clarity.ms https://*.blob.vercel-storage.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
