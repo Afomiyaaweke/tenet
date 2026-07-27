@@ -1,0 +1,752 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api } from '@/lib/api';
+     6→import { toast } from 'sonner';
+     7→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Badge } from '@/components/ui/badge';
+    10→import { Separator } from '@/components/ui/separator';
+    11→import { ScrollArea } from '@/components/ui/scroll-area';
+    12→import {
+    13→  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    14→} from '@/components/ui/dialog';
+    15→import {
+    16→  Check, X, Crown, Zap, Rocket, ArrowRight, Shield,
+    17→  RefreshCw, Sparkles, Star, TrendingUp, Lock,
+    18→  BarChart3, Bot, Users, FileText, Gavel,
+    19→  MessageSquare, Globe2, Award, Calendar, ChevronDown, ChevronUp,
+    20→  PartyPopper, CircleCheckBig,
+    21→} from 'lucide-react';
+    22→
+    23→// ─── Plan Data Types ──────────────────────────────────────────────────
+    24→
+    25→interface PlanData {
+    26→  id: string;
+    27→  name: string;
+    28→  price: number;
+    29→  currency: string;
+    30→  billingCycle: string;
+    31→  description: string;
+    32→  features: string[];
+    33→  limits: Record<string, number>;
+    34→  aiCallsPerDay: number;
+    35→  maxTenders: number;
+    36→  maxBids: number;
+    37→  maxProjects: number;
+    38→  maxDocuments: number;
+    39→  maxTeamMembers: number;
+    40→  prioritySupport: boolean;
+    41→  customAiPrompts: boolean;
+    42→  apiAccess: boolean;
+    43→  highlight: boolean;
+    44→  badge: string;
+    45→  badgeColor: string;
+    46→}
+    47→
+    48→interface UsageItem {
+    49→  category: string;
+    50→  used: number;
+    51→  limit: number;
+    52→  percentage: number;
+    53→  unlimited: boolean;
+    54→}
+    55→
+    56→interface SubscriptionData {
+    57→  id: string;
+    58→  plan: string;
+    59→  status: string;
+    60→  startDate: string;
+    61→  endDate?: string;
+    62→  amount: number;
+    63→  billingCycle: string;
+    64→}
+    65→
+    66→// ─── Category display labels ───────────────────────────────────────────
+    67→
+    68→const CATEGORY_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+    69→  api_general: { label: 'General API', icon: <BarChart3 className="h-4 w-4" />, color: 'text-slate-500' },
+    70→  ai: { label: 'AI & Intelligence', icon: <Bot className="h-4 w-4" />, color: 'text-violet-500' },
+    71→  documents: { label: 'Documents', icon: <FileText className="h-4 w-4" />, color: 'text-sky-500' },
+    72→  bids: { label: 'Bids', icon: <Gavel className="h-4 w-4" />, color: 'text-emerald-500' },
+    73→  tenders: { label: 'Tenders', icon: <Globe2 className="h-4 w-4" />, color: 'text-teal-500' },
+    74→  chat: { label: 'Chat & Messaging', icon: <MessageSquare className="h-4 w-4" />, color: 'text-cyan-500' },
+    75→  social: { label: 'Social Circle', icon: <Users className="h-4 w-4" />, color: 'text-amber-500' },
+    76→  auth: { label: 'Auth & Security', icon: <Shield className="h-4 w-4" />, color: 'text-rose-500' },
+    77→};
+    78→
+    79→const PLAN_ICONS: Record<string, React.ReactNode> = {
+    80→  free: <Rocket className="h-6 w-6" />,
+    81→  pro: <Zap className="h-6 w-6" />,
+    82→  enterprise: <Crown className="h-6 w-6" />,
+    83→};
+    84→
+    85→const PLAN_THEMES: Record<string, {
+    86→  gradient: string;
+    87→  cardBorder: string;
+    88→  cardShadow: string;
+    89→  badgeBg: string;
+    90→  badgeText: string;
+    91→  iconBg: string;
+    92→  iconText: string;
+    93→  buttonBg: string;
+    94→  accent: string;
+    95→  checkColor: string;
+    96→  headerBg: string;
+    97→}> = {
+    98→  free: {
+    99→    gradient: 'from-slate-50 to-slate-100/50 dark:from-slate-950 dark:to-slate-900/50',
+   100→    cardBorder: 'border-slate-200 dark:border-slate-800',
+   101→    cardShadow: 'shadow-sm hover:shadow-md',
+   102→    badgeBg: 'bg-slate-100 dark:bg-slate-800',
+   103→    badgeText: 'text-slate-700 dark:text-slate-300',
+   104→    iconBg: 'bg-slate-100 dark:bg-slate-800',
+   105→    iconText: 'text-slate-600 dark:text-slate-400',
+   106→    buttonBg: 'bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600',
+   107→    accent: 'text-slate-700 dark:text-slate-300',
+   108→    checkColor: 'text-slate-500',
+   109→    headerBg: 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800',
+   110→  },
+   111→  pro: {
+   112→    gradient: 'from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/30',
+   113→    cardBorder: 'border-orange-300 dark:border-orange-700',
+   114→    cardShadow: 'shadow-lg hover:shadow-xl ring-2 ring-orange-400/60 dark:ring-orange-600/60',
+   115→    badgeBg: 'bg-gradient-to-r from-orange-500 to-amber-500',
+   116→    badgeText: 'text-white',
+   117→    iconBg: 'bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900 dark:to-amber-900',
+   118→    iconText: 'text-orange-600 dark:text-orange-400',
+   119→    buttonBg: 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600',
+   120→    accent: 'text-orange-700 dark:text-orange-400',
+   121→    checkColor: 'text-orange-500',
+   122→    headerBg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/30',
+   123→  },
+   124→  enterprise: {
+   125→    gradient: 'from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/30',
+   126→    cardBorder: 'border-violet-300 dark:border-violet-700',
+   127→    cardShadow: 'shadow-lg hover:shadow-xl ring-2 ring-violet-400/60 dark:ring-violet-600/60',
+   128→    badgeBg: 'bg-gradient-to-r from-violet-600 to-purple-600',
+   129→    badgeText: 'text-white',
+   130→    iconBg: 'bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900 dark:to-purple-900',
+   131→    iconText: 'text-violet-600 dark:text-violet-400',
+   132→    buttonBg: 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700',
+   133→    accent: 'text-violet-700 dark:text-violet-400',
+   134→    checkColor: 'text-violet-500',
+   135→    headerBg: 'bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/30',
+   136→  },
+   137→};
+   138→
+   139→// ─── Component ────────────────────────────────────────────────────────
+   140→
+   141→export function PricingPlansView() {
+   142→  const { user } = useAuthStore();
+   143→  const [plansData, setPlansData] = useState<{
+   144→    currentPlan: PlanData;
+   145→    allPlans: PlanData[];
+   146→    usage: UsageItem[];
+   147→    subscription: SubscriptionData | null;
+   148→    planName: string;
+   149→  } | null>(null);
+   150→  const [loading, setLoading] = useState(true);
+   151→  const [upgrading, setUpgrading] = useState<string | null>(null);
+   152→  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; plan: PlanData | null }>({ open: false, plan: null });
+   153→  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+   154→  const [showRateLimits, setShowRateLimits] = useState<Record<string, boolean>>({});
+   155→  const [showSuccess, setShowSuccess] = useState(false);
+   156→  const [successPlan, setSuccessPlan] = useState<PlanData | null>(null);
+   157→
+   158→  const fetchPlans = useCallback(async () => {
+   159→    setLoading(true);
+   160→    try {
+   161→      const res = await api.get('/plans');
+   162→      if (res.success) {
+   163→        setPlansData(res.data);
+   164→      }
+   165→    } catch (err) {
+   166→      console.error('Failed to fetch plans:', err);
+   167→    } finally {
+   168→      setLoading(false);
+   169→    }
+   170→  }, []);
+   171→
+   172→  useEffect(() => { fetchPlans(); }, [fetchPlans]);
+   173→
+   174→  const handleUpgrade = async (planId: string) => {
+   175→    setUpgrading(planId);
+   176→    try {
+   177→      const res = await api.post('/plans', { plan: planId });
+   178→      if (res.success) {
+   179→        // Refresh user data and plans
+   180→        await useAuthStore.getState().fetchMe();
+   181→        await fetchPlans();
+   182→
+   183→        // Find the plan we just upgraded to
+   184→        const upgradedPlan = allPlans.find(p => p.id === planId);
+   185→        setSuccessPlan(upgradedPlan || null);
+   186→        setShowSuccess(true);
+   187→        setConfirmDialog({ open: false, plan: null });
+   188→
+   189→        // Show toast notification
+   190→        toast.success('Plan upgraded successfully!', {
+   191→          description: planId === 'free'
+   192→            ? 'You are now on the Free plan.'
+   193→            : `You are now on the ${upgradedPlan?.name || planId} plan at $${upgradedPlan?.price || 0}/${upgradedPlan?.billingCycle || 'monthly'}.`,
+   194→          icon: planId === 'free' ? <Rocket className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />,
+   195→          duration: 5000,
+   196→        });
+   197→
+   198→        // Auto-hide success banner after 6 seconds
+   199→        setTimeout(() => setShowSuccess(false), 6000);
+   200→      } else {
+   201→        toast.error('Upgrade failed', {
+   202→          description: res.error || 'Something went wrong. Please try again.',
+   203→          duration: 4000,
+   204→        });
+   205→      }
+   206→    } catch (err) {
+   207→      console.error('Failed to upgrade plan:', err);
+   208→      toast.error('Upgrade failed', {
+   209→        description: 'Network error. Please check your connection and try again.',
+   210→        duration: 4000,
+   211→      });
+   212→    } finally {
+   213→      setUpgrading(null);
+   214→    }
+   215→  };
+   216→
+   217→  if (loading && !plansData) {
+   218→    return (
+   219→      <div className="flex items-center justify-center h-64">
+   220→        <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+   221→      </div>
+   222→    );
+   223→  }
+   224→
+   225→  const currentPlanName = plansData?.planName || 'free';
+   226→  const currentPlan = plansData?.currentPlan || null;
+   227→  const allPlans = plansData?.allPlans || [];
+   228→  const usage = plansData?.usage || [];
+   229→  const subscription = plansData?.subscription;
+   230→
+   231→  const faqItems = [
+   232→    {
+   233→      q: 'Can I upgrade my plan at any time?',
+   234→      a: 'Yes! You can upgrade instantly from this page. Your new limits and features activate immediately. In production, you would be redirected to a Stripe checkout page.',
+   235→    },
+   236→    {
+   237→      q: 'What happens if I hit my rate limit?',
+   238→      a: 'You\'ll receive a 429 Too Many Requests response with a Retry-After header telling you when you can make your next request. The dashboard also shows real-time usage so you can monitor your limits.',
+   239→    },
+   240→    {
+   241→      q: 'Can I downgrade from Pro/Enterprise to Free?',
+   242→      a: 'Yes, you can downgrade at any time. Your current subscription period will remain active until it expires, then your plan will revert to Free tier limits.',
+   243→    },
+   244→    {
+   245→      q: 'Is there a trial period for paid plans?',
+   246→      a: 'Pro and Enterprise plans come with a 14-day free trial. You won\'t be charged until the trial ends, and you can cancel anytime before that.',
+   247→    },
+   248→    {
+   249→      q: 'What payment methods are accepted?',
+   250→      a: 'We accept credit/debit cards via Stripe. Enterprise customers can also pay via bank transfer or purchase annual licenses with custom invoicing.',
+   251→    },
+   252→  ];
+   253→
+   254→  const comparisonRows = [
+   255→    { label: 'Tender browsing & search', free: true, pro: true, enterprise: true },
+   256→    { label: 'Max bids per month', free: '3', pro: '20', enterprise: '∞' },
+   257→    { label: 'Max tenders visible', free: '10', pro: '50', enterprise: '∞' },
+   258→    { label: 'Max documents stored', free: '5', pro: '50', enterprise: '∞' },
+   259→    { label: 'Max team members', free: '1', pro: '5', enterprise: '∞' },
+   260→    { label: 'Max projects', free: '1', pro: '10', enterprise: '∞' },
+   261→    { label: 'AI calls per day', free: '10', pro: '100', enterprise: '∞' },
+   262→    { label: 'AI bid preparation', free: false, pro: true, enterprise: true },
+   263→    { label: 'AI document studio', free: false, pro: true, enterprise: true },
+   264→    { label: 'AI tender analysis', free: false, pro: true, enterprise: true },
+   265→    { label: 'Custom AI prompts', free: false, pro: true, enterprise: true },
+   266→    { label: 'Export PDF/Excel', free: false, pro: true, enterprise: true },
+   267→    { label: 'API access', free: false, pro: true, enterprise: true },
+   268→    { label: 'Priority support', free: false, pro: true, enterprise: true },
+   269→    { label: '24/7 dedicated support', free: false, pro: false, enterprise: true },
+   270→    { label: 'Custom integrations', free: false, pro: false, enterprise: true },
+   271→    { label: 'SSO & advanced security', free: false, pro: false, enterprise: true },
+   272→    { label: 'White-label options', free: false, pro: false, enterprise: true },
+   273→  ];
+   274→
+   275→  return (
+   276→    <div className="space-y-8 max-w-6xl mx-auto">
+   277→      {/* ── Success Banner ─────────────────────────────────────────── */}
+   278→      {showSuccess && successPlan && (
+   279→        <div className={`rounded-xl p-4 border-2 transition-all duration-500 ${
+   280→          successPlan.id === 'pro'
+   281→            ? 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-300 dark:from-orange-950/40 dark:to-amber-950/30 dark:border-orange-700'
+   282→            : successPlan.id === 'enterprise'
+   283→            ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-violet-300 dark:from-violet-950/40 dark:to-purple-950/30 dark:border-violet-700'
+   284→            : 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 dark:from-emerald-950/40 dark:to-teal-950/30 dark:border-emerald-700'
+   285→        }`}>
+   286→          <div className="flex items-center gap-3">
+   287→            <div className={`p-2 rounded-full ${
+   288→              successPlan.id === 'pro' ? 'bg-orange-100 dark:bg-orange-900' :
+   289→              successPlan.id === 'enterprise' ? 'bg-violet-100 dark:bg-violet-900' :
+   290→              'bg-emerald-100 dark:bg-emerald-900'
+   291→            }`}>
+   292→              {successPlan.id === 'free' ? (
+   293→                <CircleCheckBig className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+   294→              ) : (
+   295→                <PartyPopper className={`h-5 w-5 ${
+   296→                  successPlan.id === 'pro' ? 'text-orange-600 dark:text-orange-400' : 'text-violet-600 dark:text-violet-400'
+   297→                }`} />
+   298→              )}
+   299→            </div>
+   300→            <div className="flex-1">
+   301→              <h3 className="font-bold text-lg">
+   302→                {successPlan.id === 'free' ? 'Switched to Free Plan' : `Welcome to ${successPlan.name}! 🎉`}
+   303→              </h3>
+   304→              <p className="text-sm text-muted-foreground">
+   305→                {successPlan.id === 'free'
+   306→                  ? 'Your account is now on the Free tier. Premium features have been deactivated.'
+   307→                  : `Your ${successPlan.name} plan is now active. You have access to all ${successPlan.name} features and higher limits starting now.`
+   308→                }
+   309→              </p>
+   310→            </div>
+   311→            <Button variant="ghost" size="sm" onClick={() => setShowSuccess(false)} className="shrink-0">
+   312→              <X className="h-4 w-4" />
+   313→            </Button>
+   314→          </div>
+   315→        </div>
+   316→      )}
+   317→
+   318→      {/* ── Hero Header ───────────────────────────────────────────── */}
+   319→      <div className="text-center space-y-3 pt-2">
+   320→        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
+   321→          <Sparkles className="h-4 w-4" />
+   322→          {currentPlan?.name || 'Free'} Plan Active
+   323→        </div>
+   324→        <h2 className="text-3xl font-bold tracking-tight">
+   325→          Scale Your Procurement Power
+   326→        </h2>
+   327→        <p className="text-muted-foreground max-w-lg mx-auto">
+   328→          Choose the plan that fits your needs. Upgrade anytime to unlock more AI tools, higher limits, and premium features.
+   329→        </p>
+   330→      </div>
+   331→
+   332→      {/* ── Current Plan Overview ─────────────────────────────────── */}
+   333→      <Card className="overflow-hidden border-0 shadow-md">
+   334→        <div className={`bg-gradient-to-r ${PLAN_THEMES[currentPlanName]?.gradient || PLAN_THEMES.free.gradient} px-6 py-5`}>
+   335→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   336→            <div className="flex items-center gap-4">
+   337→              <div className={`p-3 rounded-2xl ${PLAN_THEMES[currentPlanName]?.iconBg || PLAN_THEMES.free.iconBg}`}>
+   338→                <span className={PLAN_THEMES[currentPlanName]?.iconText || PLAN_THEMES.free.iconText}>
+   339→                  {PLAN_ICONS[currentPlanName]}
+   340→                </span>
+   341→              </div>
+   342→              <div>
+   343→                <h3 className="text-xl font-bold">{currentPlan?.name || 'Free'} Plan</h3>
+   344→                <p className="text-sm text-muted-foreground mt-0.5">{currentPlan?.description}</p>
+   345→              </div>
+   346→            </div>
+   347→            <div className="flex items-center gap-3">
+   348→              {currentPlan?.price > 0 && (
+   349→                <div className="text-right">
+   350→                  <div className="text-2xl font-bold">${currentPlan.price}<span className="text-sm font-normal text-muted-foreground">/{currentPlan.billingCycle}</span></div>
+   351→                </div>
+   352→              )}
+   353→              {subscription && (
+   354→                <div className="flex flex-wrap items-center gap-2">
+   355→                  <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 dark:border-green-700 dark:text-green-400 dark:bg-green-950/50">
+   356→                    <Check className="h-3 w-3 mr-1" />
+   357→                    {subscription.status}
+   358→                  </Badge>
+   359→                  {subscription.endDate && (
+   360→                    <Badge variant="outline" className="text-muted-foreground">
+   361→                      <Calendar className="h-3 w-3 mr-1" />
+   362→                      Renews {new Date(subscription.endDate).toLocaleDateString()}
+   363→                    </Badge>
+   364→                  )}
+   365→                </div>
+   366→              )}
+   367→            </div>
+   368→          </div>
+   369→
+   370→          {/* Quick Stats */}
+   371→          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+   372→            {[
+   373→              { label: 'AI Calls', value: currentPlan?.aiCallsPerDay === -1 ? '∞' : currentPlan?.aiCallsPerDay || 10, unit: '/day', icon: <Bot className="h-4 w-4" /> },
+   374→              { label: 'Tenders', value: currentPlan?.maxTenders === -1 ? '∞' : currentPlan?.maxTenders || 10, unit: '', icon: <Globe2 className="h-4 w-4" /> },
+   375→              { label: 'Bids', value: currentPlan?.maxBids === -1 ? '∞' : currentPlan?.maxBids || 3, unit: '/mo', icon: <Gavel className="h-4 w-4" /> },
+   376→              { label: 'Team', value: currentPlan?.maxTeamMembers === -1 ? '∞' : currentPlan?.maxTeamMembers || 1, unit: 'members', icon: <Users className="h-4 w-4" /> },
+   377→            ].map((stat) => (
+   378→              <div key={stat.label} className="bg-white/60 dark:bg-black/20 rounded-xl px-3 py-2.5 backdrop-blur-sm">
+   379→                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+   380→                  {stat.icon}
+   381→                  <span className="text-xs font-medium">{stat.label}</span>
+   382→                </div>
+   383→                <div className="flex items-baseline gap-1">
+   384→                  <span className="text-lg font-bold">{stat.value}</span>
+   385→                  {stat.unit && <span className="text-xs text-muted-foreground">{stat.unit}</span>}
+   386→                </div>
+   387→              </div>
+   388→            ))}
+   389→          </div>
+   390→        </div>
+   391→
+   392→        {/* Usage Section */}
+   393→        {usage.length > 0 && (
+   394→          <div className="px-6 py-4">
+   395→            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   396→              <TrendingUp className="h-4 w-4 text-primary" />
+   397→              Rate Limit Usage (Last Minute)
+   398→            </h4>
+   399→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+   400→              {usage.filter(u => CATEGORY_LABELS[u.category]).map((u) => {
+   401→                const catInfo = CATEGORY_LABELS[u.category];
+   402→                return (
+   403→                  <div key={u.category} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30">
+   404→                    <span className={catInfo.color}>{catInfo.icon}</span>
+   405→                    <div className="flex-1 min-w-0">
+   406→                      <div className="flex items-center justify-between mb-1">
+   407→                        <span className="text-xs font-medium truncate">{catInfo.label}</span>
+   408→                        <span className="text-xs font-semibold ml-2 whitespace-nowrap">
+   409→                          {u.used}/{u.unlimited ? '∞' : u.limit}
+   410→                        </span>
+   411→                      </div>
+   412→                      {!u.unlimited && (
+   413→                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+   414→                          <div
+   415→                            className={`h-full rounded-full transition-all ${
+   416→                              u.percentage > 80 ? 'bg-red-500' : u.percentage > 50 ? 'bg-amber-500' : 'bg-emerald-500'
+   417→                            }`}
+   418→                            style={{ width: `${Math.min(u.percentage, 100)}%` }}
+   419→                          />
+   420→                        </div>
+   421→                      )}
+   422→                    </div>
+   423→                  </div>
+   424→                );
+   425→              })}
+   426→            </div>
+   427→          </div>
+   428→        )}
+   429→      </Card>
+   430→
+   431→      {/* ── Pricing Cards ─────────────────────────────────────────── */}
+   432→      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+   433→        {allPlans.map((plan) => {
+   434→          const theme = PLAN_THEMES[plan.id] || PLAN_THEMES.free;
+   435→          const isCurrent = plan.id === currentPlanName;
+   436→          const isExpanded = showRateLimits[plan.id] || false;
+   437→          const isUpgradingThis = upgrading === plan.id;
+   438→
+   439→          return (
+   440→            <Card
+   441→              key={plan.id}
+   442→              className={`relative overflow-hidden transition-all duration-300 ${theme.cardShadow} ${theme.cardBorder} ${isCurrent ? 'opacity-95' : ''}`}
+   443→            >
+   444→              {/* Popular badge */}
+   445→              {plan.highlight && (
+   446→                <div className="absolute top-0 right-0 z-10">
+   447→                  <div className={`${theme.badgeBg} ${theme.badgeText} text-xs font-bold px-4 py-1.5 rounded-bl-xl shadow-sm`}>
+   448→                    ★ MOST POPULAR
+   449→                  </div>
+   450→                </div>
+   451→              )}
+   452→
+   453→              {/* Card Header with Plan Identity */}
+   454→              <div className={`${theme.headerBg} px-6 pt-6 pb-5`}>
+   455→                <div className="flex items-center gap-3 mb-4">
+   456→                  <div className={`p-2.5 rounded-xl ${theme.iconBg}`}>
+   457→                    <span className={theme.iconText}>{PLAN_ICONS[plan.id]}</span>
+   458→                  </div>
+   459→                  <div className="min-w-0">
+   460→                    <h3 className="text-lg font-bold truncate">{plan.name}</h3>
+   461→                    <p className="text-xs text-muted-foreground line-clamp-2">{plan.description}</p>
+   462→                  </div>
+   463→                </div>
+   464→
+   465→                {/* Price */}
+   466→                <div className="flex items-baseline gap-1">
+   467→                  {plan.price === 0 ? (
+   468→                    <span className="text-4xl font-extrabold tracking-tight">Free</span>
+   469→                  ) : (
+   470→                    <>
+   471→                      <span className="text-4xl font-extrabold tracking-tight">${plan.price}</span>
+   472→                      <span className="text-sm text-muted-foreground font-medium">/ {plan.billingCycle}</span>
+   473→                    </>
+   474→                  )}
+   475→                </div>
+   476→              </div>
+   477→
+   478→              <CardContent className="pt-5 px-6 pb-6">
+   479→                {/* Key Limits */}
+   480→                <div className="grid grid-cols-2 gap-2.5 mb-5">
+   481→                  {[
+   482→                    { icon: <Globe2 className="h-3.5 w-3.5" />, value: plan.maxTenders === -1 ? '∞' : plan.maxTenders, label: 'Tenders' },
+   483→                    { icon: <Gavel className="h-3.5 w-3.5" />, value: plan.maxBids === -1 ? '∞' : plan.maxBids, label: 'Bids' },
+   484→                    { icon: <Bot className="h-3.5 w-3.5" />, value: plan.aiCallsPerDay === -1 ? '∞' : plan.aiCallsPerDay, label: 'AI calls/day' },
+   485→                    { icon: <Users className="h-3.5 w-3.5" />, value: plan.maxTeamMembers === -1 ? '∞' : plan.maxTeamMembers, label: 'Members' },
+   486→                  ].map((item) => (
+   487→                    <div key={item.label} className="flex items-center gap-2 p-2 rounded-lg bg-muted/40">
+   488→                      <span className="text-muted-foreground">{item.icon}</span>
+   489→                      <span className="text-sm">
+   490→                        <span className="font-semibold">{item.value}</span>{' '}
+   491→                        <span className="text-muted-foreground">{item.label}</span>
+   492→                      </span>
+   493→                    </div>
+   494→                  ))}
+   495→                </div>
+   496→
+   497→                <Separator className="mb-5" />
+   498→
+   499→                {/* Features */}
+   500→                <ul className="space-y-2.5 mb-5">
+   501→                  {plan.features.map((feature, idx) => (
+   502→                    <li key={idx} className="flex items-start gap-2.5 text-sm">
+   503→                      <Check className={`h-4 w-4 mt-0.5 ${theme.checkColor} shrink-0`} />
+   504→                      <span className="leading-snug">{feature}</span>
+   505→                    </li>
+   506→                  ))}
+   507→                </ul>
+   508→
+   509→                {/* Rate Limits Toggle */}
+   510→                <button
+   511→                  onClick={() => setShowRateLimits(prev => ({ ...prev, [plan.id]: !prev[plan.id] }))}
+   512→                  className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 hover:text-foreground transition-colors"
+   513→                >
+   514→                  <span>Rate Limits (req/min)</span>
+   515→                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+   516→                </button>
+   517→                {isExpanded && (
+   518→                  <div className="grid grid-cols-2 gap-1.5 mt-2 mb-4">
+   519→                    {Object.entries(plan.limits).map(([cat, limit]) => {
+   520→                      const catLabel = CATEGORY_LABELS[cat]?.label || cat;
+   521→                      return (
+   522→                        <div key={cat} className="flex items-center justify-between p-2 rounded-md bg-muted/30 text-xs">
+   523→                          <span className="text-muted-foreground truncate mr-1">{catLabel}</span>
+   524→                          <span className="font-bold shrink-0">{limit === -1 ? '∞' : limit}</span>
+   525→                        </div>
+   526→                      );
+   527→                    })}
+   528→                  </div>
+   529→                )}
+   530→
+   531→                {/* Action Button */}
+   532→                <div className="mt-5">
+   533→                  {isCurrent ? (
+   534→                    <Button variant="outline" className="w-full h-11" disabled>
+   535→                      <CircleCheckBig className="h-4 w-4 mr-2" />
+   536→                      Current Plan
+   537→                    </Button>
+   538→                  ) : plan.price === 0 ? (
+   539→                    <Button
+   540→                      variant="outline"
+   541→                      className="w-full h-11"
+   542→                      onClick={() => setConfirmDialog({ open: true, plan })}
+   543→                      disabled={isUpgradingThis}
+   544→                    >
+   545→                      {isUpgradingThis ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+   546→                      Switch to Free
+   547→                    </Button>
+   548→                  ) : (
+   549→                    <Button
+   550→                      className={`w-full h-11 text-white font-semibold ${theme.buttonBg}`}
+   551→                      onClick={() => setConfirmDialog({ open: true, plan })}
+   552→                      disabled={isUpgradingThis}
+   553→                    >
+   554→                      {isUpgradingThis ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+   555→                      Upgrade to {plan.name}
+   556→                    </Button>
+   557→                  )}
+   558→                </div>
+   559→              </CardContent>
+   560→            </Card>
+   561→          );
+   562→        })}
+   563→      </div>
+   564→
+   565→      {/* ── Feature Comparison ────────────────────────────────────── */}
+   566→      <Card className="overflow-hidden border-0 shadow-md">
+   567→        <CardHeader className="bg-muted/30 pb-4">
+   568→          <CardTitle className="text-lg flex items-center gap-2">
+   569→            <BarChart3 className="h-5 w-5 text-primary" />
+   570→            Detailed Feature Comparison
+   571→          </CardTitle>
+   572→          <CardDescription>See exactly what each plan includes at a glance</CardDescription>
+   573→        </CardHeader>
+   574→        <CardContent className="p-0">
+   575→          <ScrollArea className="max-h-[500px]">
+   576→            <table className="w-full text-sm">
+   577→              <thead>
+   578→                <tr className="border-b bg-muted/20">
+   579→                  <th className="py-3 px-5 text-left font-semibold text-muted-foreground w-[40%]">Feature</th>
+   580→                  {allPlans.map(p => (
+   581→                    <th key={p.id} className={`py-3 px-4 text-center font-bold ${p.id === currentPlanName ? PLAN_THEMES[p.id]?.accent : ''}`}>
+   582→                      {p.name}
+   583→                    </th>
+   584→                  ))}
+   585→                </tr>
+   586→              </thead>
+   587→              <tbody>
+   588→                {comparisonRows.map((row, idx) => (
+   589→                  <tr key={idx} className={`border-b border-muted/50 ${idx % 2 === 0 ? 'bg-muted/10' : ''}`}>
+   590→                    <td className="py-2.5 px-5 font-medium">{row.label}</td>
+   591→                    {[row.free, row.pro, row.enterprise].map((val, colIdx) => {
+   592→                      const planId = ['free', 'pro', 'enterprise'][colIdx];
+   593→                      const isCurrent = planId === currentPlanName;
+   594→                      return (
+   595→                        <td key={colIdx} className={`py-2.5 px-4 text-center ${isCurrent ? 'font-semibold ' + PLAN_THEMES[planId]?.accent : ''}`}>
+   596→                          {val === true ? (
+   597→                            <Check className="h-4 w-4 text-emerald-500 mx-auto" />
+   598→                          ) : val === false ? (
+   599→                            <X className="h-4 w-4 text-red-300 mx-auto" />
+   600→                          ) : (
+   601→                            <span>{val}</span>
+   602→                          )}
+   603→                        </td>
+   604→                      );
+   605→                    })}
+   606→                  </tr>
+   607→                ))}
+   608→              </tbody>
+   609→            </table>
+   610→          </ScrollArea>
+   611→        </CardContent>
+   612→      </Card>
+   613→
+   614→      {/* ── FAQ Section ──────────────────────────────────────────── */}
+   615→      <Card className="overflow-hidden border-0 shadow-md">
+   616→        <CardHeader className="bg-muted/30 pb-4">
+   617→          <CardTitle className="text-lg flex items-center gap-2">
+   618→            <Star className="h-5 w-5 text-primary" />
+   619→            Frequently Asked Questions
+   620→          </CardTitle>
+   621→        </CardHeader>
+   622→        <CardContent className="p-0 divide-y divide-muted/50">
+   623→          {faqItems.map((faq, idx) => (
+   624→            <div key={idx}>
+   625→              <button
+   626→                onClick={() => setExpandedFaq(expandedFaq === idx ? null : idx)}
+   627→                className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-muted/20 transition-colors"
+   628→              >
+   629→                <span className="font-medium text-sm pr-4">{faq.q}</span>
+   630→                {expandedFaq === idx ? (
+   631→                  <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+   632→                ) : (
+   633→                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+   634→                )}
+   635→              </button>
+   636→              {expandedFaq === idx && (
+   637→                <div className="px-6 pb-4 -mt-1">
+   638→                  <p className="text-sm text-muted-foreground leading-relaxed">{faq.a}</p>
+   639→                </div>
+   640→              )}
+   641→            </div>
+   642→          ))}
+   643→        </CardContent>
+   644→      </Card>
+   645→
+   646→      {/* ── Upgrade Confirmation Dialog ──────────────────────────── */}
+   647→      <Dialog open={confirmDialog.open} onOpenChange={(open) => !upgrading && setConfirmDialog({ open, plan: open ? confirmDialog.plan : null })}>
+   648→        <DialogContent className="sm:max-w-lg">
+   649→          <DialogHeader>
+   650→            <DialogTitle className="flex items-center gap-2.5 text-xl">
+   651→              {confirmDialog.plan && (
+   652→                <div className={`p-2 rounded-xl ${PLAN_THEMES[confirmDialog.plan.id]?.iconBg || PLAN_THEMES.free.iconBg}`}>
+   653→                  <span className={PLAN_THEMES[confirmDialog.plan.id]?.iconText || PLAN_THEMES.free.iconText}>
+   654→                    {PLAN_ICONS[confirmDialog.plan.id]}
+   655→                  </span>
+   656→                </div>
+   657→              )}
+   658→              {confirmDialog.plan?.price === 0
+   659→                ? 'Switch to Free Plan'
+   660→                : `Upgrade to ${confirmDialog.plan?.name}`}
+   661→            </DialogTitle>
+   662→            <DialogDescription className="text-sm mt-2 leading-relaxed">
+   663→              {confirmDialog.plan?.price === 0
+   664→                ? 'You will lose access to premium features and your limits will be reduced to the Free tier. Are you sure you want to downgrade?'
+   665→                : `This will upgrade your account to the ${confirmDialog.plan?.name} plan at $${confirmDialog.plan?.price}/${confirmDialog.plan?.billingCycle}. Your new limits and features activate immediately.`}
+   666→            </DialogDescription>
+   667→          </DialogHeader>
+   668→
+   669→          {/* Upgrade benefits preview */}
+   670→          {confirmDialog.plan && confirmDialog.plan.price > 0 && (
+   671→            <div className="space-y-3 py-3">
+   672→              <div className="flex items-center gap-2">
+   673→                <Sparkles className="h-4 w-4 text-primary" />
+   674→                <h4 className="text-sm font-semibold">What you&apos;ll unlock:</h4>
+   675→              </div>
+   676→              <div className="bg-muted/30 rounded-xl p-4">
+   677→                <ul className="space-y-2">
+   678→                  {confirmDialog.plan.features.slice(0, 5).map((f, i) => (
+   679→                    <li key={i} className="flex items-center gap-2 text-sm">
+   680→                      <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+   681→                      <span>{f}</span>
+   682→                    </li>
+   683→                  ))}
+   684→                  {confirmDialog.plan.features.length > 5 && (
+   685→                    <li className="text-xs text-muted-foreground pl-6">
+   686→                      + {confirmDialog.plan.features.length - 5} more features
+   687→                    </li>
+   688→                  )}
+   689→                </ul>
+   690→              </div>
+   691→
+   692→              {/* Key limit improvements */}
+   693→              <div className="grid grid-cols-2 gap-2">
+   694→                {[
+   695→                  { label: 'AI calls', value: confirmDialog.plan.aiCallsPerDay === -1 ? '∞' : confirmDialog.plan.aiCallsPerDay },
+   696→                  { label: 'Bids', value: confirmDialog.plan.maxBids === -1 ? '∞' : confirmDialog.plan.maxBids },
+   697→                  { label: 'Tenders', value: confirmDialog.plan.maxTenders === -1 ? '∞' : confirmDialog.plan.maxTenders },
+   698→                  { label: 'Team', value: confirmDialog.plan.maxTeamMembers === -1 ? '∞' : confirmDialog.plan.maxTeamMembers },
+   699→                ].map((item) => (
+   700→                  <div key={item.label} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+   701→                    <span className="text-sm text-muted-foreground">{item.label}</span>
+   702→                    <span className="text-sm font-bold">{item.value}</span>
+   703→                  </div>
+   704→                ))}
+   705→              </div>
+   706→            </div>
+   707→          )}
+   708→
+   709→          {/* Downgrade warning */}
+   710→          {confirmDialog.plan && confirmDialog.plan.price === 0 && currentPlanName !== 'free' && (
+   711→            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+   712→              <div className="flex items-start gap-2">
+   713→                <Shield className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+   714→                <div>
+   715→                  <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-400">Please note</h4>
+   716→                  <p className="text-xs text-muted-foreground mt-1">
+   717→                    Downgrading will immediately reduce your limits. Any data exceeding Free tier limits (e.g., more than 5 documents) will remain accessible but you won&apos;t be able to add new items until you&apos;re within limits.
+   718→                  </p>
+   719→                </div>
+   720→              </div>
+   721→            </div>
+   722→          )}
+   723→
+   724→          <DialogFooter className="gap-2 sm:gap-2 mt-2">
+   725→            <Button
+   726→              variant="outline"
+   727→              onClick={() => setConfirmDialog({ open: false, plan: null })}
+   728→              disabled={upgrading !== null}
+   729→            >
+   730→              Cancel
+   731→            </Button>
+   732→            <Button
+   733→              onClick={() => confirmDialog.plan && handleUpgrade(confirmDialog.plan.id)}
+   734→              disabled={upgrading !== null}
+   735→              className={
+   736→                confirmDialog.plan?.id === 'pro'
+   737→                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600'
+   738→                  : confirmDialog.plan?.id === 'enterprise'
+   739→                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:from-violet-700 hover:to-purple-700'
+   740→                  : ''
+   741→              }
+   742→            >
+   743→              {upgrading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : null}
+   744→              {confirmDialog.plan?.price === 0 ? 'Switch to Free' : `Upgrade to ${confirmDialog.plan?.name}`}
+   745→            </Button>
+   746→          </DialogFooter>
+   747→        </DialogContent>
+   748→      </Dialog>
+   749→    </div>
+   750→  );
+   751→}
+   752→

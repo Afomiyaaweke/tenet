@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/store';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -17,6 +17,7 @@ import {
   RefreshCw, Sparkles, Star, TrendingUp, Lock,
   BarChart3, Bot, Users, FileText, Gavel,
   MessageSquare, Globe2, Award, Calendar, ChevronDown, ChevronUp,
+  PartyPopper, CircleCheckBig,
 } from 'lucide-react';
 
 // ─── Plan Data Types ──────────────────────────────────────────────────
@@ -64,15 +65,15 @@ interface SubscriptionData {
 
 // ─── Category display labels ───────────────────────────────────────────
 
-const CATEGORY_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string; barColor: string }> = {
-  api_general: { label: 'General API', icon: <BarChart3 className="h-4 w-4" />, color: 'text-slate-500', barColor: 'bg-slate-500' },
-  ai: { label: 'AI & Intelligence', icon: <Bot className="h-4 w-4" />, color: 'text-violet-500', barColor: 'bg-violet-500' },
-  documents: { label: 'Documents', icon: <FileText className="h-4 w-4" />, color: 'text-sky-500', barColor: 'bg-sky-500' },
-  bids: { label: 'Bids', icon: <Gavel className="h-4 w-4" />, color: 'text-emerald-500', barColor: 'bg-emerald-500' },
-  tenders: { label: 'Tenders', icon: <Globe2 className="h-4 w-4" />, color: 'text-teal-500', barColor: 'bg-teal-500' },
-  chat: { label: 'Chat & Messaging', icon: <MessageSquare className="h-4 w-4" />, color: 'text-cyan-500', barColor: 'bg-cyan-500' },
-  social: { label: 'Social Circle', icon: <Users className="h-4 w-4" />, color: 'text-amber-500', barColor: 'bg-amber-500' },
-  auth: { label: 'Auth & Security', icon: <Shield className="h-4 w-4" />, color: 'text-rose-500', barColor: 'bg-rose-500' },
+const CATEGORY_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  api_general: { label: 'General API', icon: <BarChart3 className="h-4 w-4" />, color: 'text-slate-500' },
+  ai: { label: 'AI & Intelligence', icon: <Bot className="h-4 w-4" />, color: 'text-violet-500' },
+  documents: { label: 'Documents', icon: <FileText className="h-4 w-4" />, color: 'text-sky-500' },
+  bids: { label: 'Bids', icon: <Gavel className="h-4 w-4" />, color: 'text-emerald-500' },
+  tenders: { label: 'Tenders', icon: <Globe2 className="h-4 w-4" />, color: 'text-teal-500' },
+  chat: { label: 'Chat & Messaging', icon: <MessageSquare className="h-4 w-4" />, color: 'text-cyan-500' },
+  social: { label: 'Social Circle', icon: <Users className="h-4 w-4" />, color: 'text-amber-500' },
+  auth: { label: 'Auth & Security', icon: <Shield className="h-4 w-4" />, color: 'text-rose-500' },
 };
 
 const PLAN_ICONS: Record<string, React.ReactNode> = {
@@ -90,7 +91,6 @@ const PLAN_THEMES: Record<string, {
   iconBg: string;
   iconText: string;
   buttonBg: string;
-  buttonHover: string;
   accent: string;
   checkColor: string;
   headerBg: string;
@@ -104,7 +104,6 @@ const PLAN_THEMES: Record<string, {
     iconBg: 'bg-slate-100 dark:bg-slate-800',
     iconText: 'text-slate-600 dark:text-slate-400',
     buttonBg: 'bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600',
-    buttonHover: '',
     accent: 'text-slate-700 dark:text-slate-300',
     checkColor: 'text-slate-500',
     headerBg: 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800',
@@ -118,7 +117,6 @@ const PLAN_THEMES: Record<string, {
     iconBg: 'bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900 dark:to-amber-900',
     iconText: 'text-orange-600 dark:text-orange-400',
     buttonBg: 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600',
-    buttonHover: '',
     accent: 'text-orange-700 dark:text-orange-400',
     checkColor: 'text-orange-500',
     headerBg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/30',
@@ -132,7 +130,6 @@ const PLAN_THEMES: Record<string, {
     iconBg: 'bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900 dark:to-purple-900',
     iconText: 'text-violet-600 dark:text-violet-400',
     buttonBg: 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700',
-    buttonHover: '',
     accent: 'text-violet-700 dark:text-violet-400',
     checkColor: 'text-violet-500',
     headerBg: 'bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/30',
@@ -155,6 +152,8 @@ export function PricingPlansView() {
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; plan: PlanData | null }>({ open: false, plan: null });
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showRateLimits, setShowRateLimits] = useState<Record<string, boolean>>({});
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successPlan, setSuccessPlan] = useState<PlanData | null>(null);
 
   const fetchPlans = useCallback(async () => {
     setLoading(true);
@@ -177,14 +176,41 @@ export function PricingPlansView() {
     try {
       const res = await api.post('/plans', { plan: planId });
       if (res.success) {
+        // Refresh user data and plans
         await useAuthStore.getState().fetchMe();
         await fetchPlans();
+
+        // Find the plan we just upgraded to
+        const upgradedPlan = allPlans.find(p => p.id === planId);
+        setSuccessPlan(upgradedPlan || null);
+        setShowSuccess(true);
+        setConfirmDialog({ open: false, plan: null });
+
+        // Show toast notification
+        toast.success('Plan upgraded successfully!', {
+          description: planId === 'free'
+            ? 'You are now on the Free plan.'
+            : `You are now on the ${upgradedPlan?.name || planId} plan at $${upgradedPlan?.price || 0}/${upgradedPlan?.billingCycle || 'monthly'}.`,
+          icon: planId === 'free' ? <Rocket className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />,
+          duration: 5000,
+        });
+
+        // Auto-hide success banner after 6 seconds
+        setTimeout(() => setShowSuccess(false), 6000);
+      } else {
+        toast.error('Upgrade failed', {
+          description: res.error || 'Something went wrong. Please try again.',
+          duration: 4000,
+        });
       }
     } catch (err) {
       console.error('Failed to upgrade plan:', err);
+      toast.error('Upgrade failed', {
+        description: 'Network error. Please check your connection and try again.',
+        duration: 4000,
+      });
     } finally {
       setUpgrading(null);
-      setConfirmDialog({ open: false, plan: null });
     }
   };
 
@@ -248,7 +274,48 @@ export function PricingPlansView() {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
-      {/* ── Hero Header ───────────────────────────────────────────────── */}
+      {/* ── Success Banner ─────────────────────────────────────────── */}
+      {showSuccess && successPlan && (
+        <div className={`rounded-xl p-4 border-2 transition-all duration-500 ${
+          successPlan.id === 'pro'
+            ? 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-300 dark:from-orange-950/40 dark:to-amber-950/30 dark:border-orange-700'
+            : successPlan.id === 'enterprise'
+            ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-violet-300 dark:from-violet-950/40 dark:to-purple-950/30 dark:border-violet-700'
+            : 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 dark:from-emerald-950/40 dark:to-teal-950/30 dark:border-emerald-700'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-full ${
+              successPlan.id === 'pro' ? 'bg-orange-100 dark:bg-orange-900' :
+              successPlan.id === 'enterprise' ? 'bg-violet-100 dark:bg-violet-900' :
+              'bg-emerald-100 dark:bg-emerald-900'
+            }`}>
+              {successPlan.id === 'free' ? (
+                <CircleCheckBig className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <PartyPopper className={`h-5 w-5 ${
+                  successPlan.id === 'pro' ? 'text-orange-600 dark:text-orange-400' : 'text-violet-600 dark:text-violet-400'
+                }`} />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-lg">
+                {successPlan.id === 'free' ? 'Switched to Free Plan' : `Welcome to ${successPlan.name}! 🎉`}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {successPlan.id === 'free'
+                  ? 'Your account is now on the Free tier. Premium features have been deactivated.'
+                  : `Your ${successPlan.name} plan is now active. You have access to all ${successPlan.name} features and higher limits starting now.`
+                }
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowSuccess(false)} className="shrink-0">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Hero Header ───────────────────────────────────────────── */}
       <div className="text-center space-y-3 pt-2">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
           <Sparkles className="h-4 w-4" />
@@ -262,7 +329,7 @@ export function PricingPlansView() {
         </p>
       </div>
 
-      {/* ── Current Plan Overview ─────────────────────────────────────── */}
+      {/* ── Current Plan Overview ─────────────────────────────────── */}
       <Card className="overflow-hidden border-0 shadow-md">
         <div className={`bg-gradient-to-r ${PLAN_THEMES[currentPlanName]?.gradient || PLAN_THEMES.free.gradient} px-6 py-5`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -361,12 +428,13 @@ export function PricingPlansView() {
         )}
       </Card>
 
-      {/* ── Pricing Cards ─────────────────────────────────────────────── */}
+      {/* ── Pricing Cards ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         {allPlans.map((plan) => {
           const theme = PLAN_THEMES[plan.id] || PLAN_THEMES.free;
           const isCurrent = plan.id === currentPlanName;
           const isExpanded = showRateLimits[plan.id] || false;
+          const isUpgradingThis = upgrading === plan.id;
 
           return (
             <Card
@@ -388,9 +456,9 @@ export function PricingPlansView() {
                   <div className={`p-2.5 rounded-xl ${theme.iconBg}`}>
                     <span className={theme.iconText}>{PLAN_ICONS[plan.id]}</span>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold">{plan.name}</h3>
-                    <p className="text-xs text-muted-foreground">{plan.description}</p>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold truncate">{plan.name}</h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{plan.description}</p>
                   </div>
                 </div>
 
@@ -464,7 +532,7 @@ export function PricingPlansView() {
                 <div className="mt-5">
                   {isCurrent ? (
                     <Button variant="outline" className="w-full h-11" disabled>
-                      <Check className="h-4 w-4 mr-2" />
+                      <CircleCheckBig className="h-4 w-4 mr-2" />
                       Current Plan
                     </Button>
                   ) : plan.price === 0 ? (
@@ -472,18 +540,18 @@ export function PricingPlansView() {
                       variant="outline"
                       className="w-full h-11"
                       onClick={() => setConfirmDialog({ open: true, plan })}
-                      disabled={upgrading === plan.id}
+                      disabled={isUpgradingThis}
                     >
-                      {upgrading === plan.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+                      {isUpgradingThis ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
                       Switch to Free
                     </Button>
                   ) : (
                     <Button
                       className={`w-full h-11 text-white font-semibold ${theme.buttonBg}`}
                       onClick={() => setConfirmDialog({ open: true, plan })}
-                      disabled={upgrading === plan.id}
+                      disabled={isUpgradingThis}
                     >
-                      {upgrading === plan.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                      {isUpgradingThis ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
                       Upgrade to {plan.name}
                     </Button>
                   )}
@@ -494,7 +562,7 @@ export function PricingPlansView() {
         })}
       </div>
 
-      {/* ── Feature Comparison ────────────────────────────────────────── */}
+      {/* ── Feature Comparison ────────────────────────────────────── */}
       <Card className="overflow-hidden border-0 shadow-md">
         <CardHeader className="bg-muted/30 pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -543,7 +611,7 @@ export function PricingPlansView() {
         </CardContent>
       </Card>
 
-      {/* ── FAQ Section ──────────────────────────────────────────────── */}
+      {/* ── FAQ Section ──────────────────────────────────────────── */}
       <Card className="overflow-hidden border-0 shadow-md">
         <CardHeader className="bg-muted/30 pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -575,43 +643,90 @@ export function PricingPlansView() {
         </CardContent>
       </Card>
 
-      {/* ── Confirmation Dialog ──────────────────────────────────────── */}
-      <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ open, plan: open ? confirmDialog.plan : null })}>
-        <DialogContent className="sm:max-w-md">
+      {/* ── Upgrade Confirmation Dialog ──────────────────────────── */}
+      <Dialog open={confirmDialog.open} onOpenChange={(open) => !upgrading && setConfirmDialog({ open, plan: open ? confirmDialog.plan : null })}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
+            <DialogTitle className="flex items-center gap-2.5 text-xl">
               {confirmDialog.plan && (
-                <span className={PLAN_THEMES[confirmDialog.plan.id]?.iconText}>
-                  {PLAN_ICONS[confirmDialog.plan.id]}
-                </span>
+                <div className={`p-2 rounded-xl ${PLAN_THEMES[confirmDialog.plan.id]?.iconBg || PLAN_THEMES.free.iconBg}`}>
+                  <span className={PLAN_THEMES[confirmDialog.plan.id]?.iconText || PLAN_THEMES.free.iconText}>
+                    {PLAN_ICONS[confirmDialog.plan.id]}
+                  </span>
+                </div>
               )}
               {confirmDialog.plan?.price === 0
                 ? 'Switch to Free Plan'
                 : `Upgrade to ${confirmDialog.plan?.name}`}
             </DialogTitle>
-            <DialogDescription className="text-sm mt-2">
+            <DialogDescription className="text-sm mt-2 leading-relaxed">
               {confirmDialog.plan?.price === 0
-                ? 'You will lose access to premium features and your limits will be reduced to the Free tier.'
-                : `This will upgrade your account to the ${confirmDialog.plan?.name} plan at $${confirmDialog.plan?.price}/${confirmDialog.plan?.billingCycle}. In production, you would be redirected to Stripe for payment.`}
+                ? 'You will lose access to premium features and your limits will be reduced to the Free tier. Are you sure you want to downgrade?'
+                : `This will upgrade your account to the ${confirmDialog.plan?.name} plan at $${confirmDialog.plan?.price}/${confirmDialog.plan?.billingCycle}. Your new limits and features activate immediately.`}
             </DialogDescription>
           </DialogHeader>
 
+          {/* Upgrade benefits preview */}
           {confirmDialog.plan && confirmDialog.plan.price > 0 && (
             <div className="space-y-3 py-3">
-              <h4 className="text-sm font-semibold">You&apos;ll unlock:</h4>
-              <ul className="space-y-1.5">
-                {confirmDialog.plan.features.slice(0, 5).map((f, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>{f}</span>
-                  </li>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <h4 className="text-sm font-semibold">What you&apos;ll unlock:</h4>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-4">
+                <ul className="space-y-2">
+                  {confirmDialog.plan.features.slice(0, 5).map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                  {confirmDialog.plan.features.length > 5 && (
+                    <li className="text-xs text-muted-foreground pl-6">
+                      + {confirmDialog.plan.features.length - 5} more features
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Key limit improvements */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'AI calls', value: confirmDialog.plan.aiCallsPerDay === -1 ? '∞' : confirmDialog.plan.aiCallsPerDay },
+                  { label: 'Bids', value: confirmDialog.plan.maxBids === -1 ? '∞' : confirmDialog.plan.maxBids },
+                  { label: 'Tenders', value: confirmDialog.plan.maxTenders === -1 ? '∞' : confirmDialog.plan.maxTenders },
+                  { label: 'Team', value: confirmDialog.plan.maxTeamMembers === -1 ? '∞' : confirmDialog.plan.maxTeamMembers },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                    <span className="text-sm text-muted-foreground">{item.label}</span>
+                    <span className="text-sm font-bold">{item.value}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setConfirmDialog({ open: false, plan: null })}>
+          {/* Downgrade warning */}
+          {confirmDialog.plan && confirmDialog.plan.price === 0 && currentPlanName !== 'free' && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <Shield className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-400">Please note</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Downgrading will immediately reduce your limits. Any data exceeding Free tier limits (e.g., more than 5 documents) will remain accessible but you won&apos;t be able to add new items until you&apos;re within limits.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2 mt-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDialog({ open: false, plan: null })}
+              disabled={upgrading !== null}
+            >
               Cancel
             </Button>
             <Button
