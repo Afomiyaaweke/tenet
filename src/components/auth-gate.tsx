@@ -96,17 +96,17 @@ function FeatureHighlight({ icon, title, delay }: { icon: React.ReactNode; title
 /* ───────────────────────── Password Strength Meter ───────────────────────── */
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
   let score = 0;
-  if (password.length >= 8) score += 20;
+  if (password.length >= 8) score += 25;
   if (password.length >= 12) score += 10;
-  if (/[A-Z]/.test(password)) score += 15;
-  if (/[a-z]/.test(password)) score += 15;
-  if (/[0-9]/.test(password)) score += 15;
-  if (/[^A-Za-z0-9]/.test(password)) score += 15;
-  if (new Set(password.toLowerCase()).size >= 8) score += 10;
+  if (/[A-Z]/.test(password)) score += 20;
+  if (/[a-z]/.test(password)) score += 20;
+  if (/[0-9]/.test(password)) score += 20;
+  if (/[^A-Za-z0-9]/.test(password)) score += 5;  // bonus only
+  if (new Set(password.toLowerCase()).size >= 8) score += 5;
 
-  if (score >= 80) return { score, label: 'Strong', color: 'bg-green-500' };
-  if (score >= 60) return { score, label: 'Good', color: 'bg-blue-500' };
-  if (score >= 40) return { score, label: 'Fair', color: 'bg-yellow-500' };
+  if (score >= 70) return { score, label: 'Strong', color: 'bg-green-500' };
+  if (score >= 50) return { score, label: 'Good', color: 'bg-blue-500' };
+  if (score >= 30) return { score, label: 'Fair', color: 'bg-yellow-500' };
   return { score, label: 'Weak', color: 'bg-red-500' };
 }
 
@@ -139,7 +139,7 @@ function PasswordRequirements({ password }: { password: string }) {
     { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
     { label: 'One lowercase letter', met: /[a-z]/.test(password) },
     { label: 'One number', met: /[0-9]/.test(password) },
-    { label: 'One special character', met: /[^A-Za-z0-9]/.test(password) },
+    { label: 'One special character (optional)', met: /[^A-Za-z0-9]/.test(password) },
   ];
   return (
     <div className="space-y-1 mt-2">
@@ -305,8 +305,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       toast.error('Password must be at least 8 characters');
       return;
     }
-    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
-      toast.error('Password must include uppercase, lowercase, number, and special character');
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      toast.error('Password must include uppercase, lowercase, and number');
       return;
     }
     setLoading(true);
@@ -339,7 +339,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           /[A-Z]/.test(regData.password) &&
           /[a-z]/.test(regData.password) &&
           /[0-9]/.test(regData.password) &&
-          /[^A-Za-z0-9]/.test(regData.password) &&
           !!regConfirmPassword &&
           regData.password === regConfirmPassword;
       case 2:
@@ -900,7 +899,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           <div className="relative">
                             <Input
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="Min 8 chars with uppercase, lowercase, number, special"
+                              placeholder="Min 8 chars with uppercase, lowercase, number"
                               required
                               value={regData.password}
                               onChange={e => setRegData(d => ({ ...d, password: e.target.value }))}
