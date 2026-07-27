@@ -52,7 +52,7 @@ function buildConcerns(healthData: Record<string, unknown> | null, metricsData: 
   return [
     { id: 'authentication', label: 'Authentication', icon: Shield, tab: 'security',
       status: s('authentication'), metrics: [
-        { label: 'Provider', value: 'JWT + bcrypt' }, { label: 'Min Password', value: '12 chars' },
+        { label: 'Provider', value: 'JWT + bcrypt' }, { label: 'Min Password', value: '8 chars' },
         { label: '2FA', value: 'Configured' }, { label: 'Sessions', value: String(m.activeSessions || 0) },
       ]},
     { id: 'analytics', label: 'Analytics', icon: BarChart3, tab: 'data',
