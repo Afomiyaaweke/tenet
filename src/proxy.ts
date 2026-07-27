@@ -230,9 +230,11 @@ function findRateLimitConfig(pathname: string): { config: RateLimitConfig; match
   return null;
 }
 
-// ── Middleware ──────────────────────────────────────────────────────────────
+// ── Proxy (Next.js 16 convention) ────────────────────────────────────────────
+// In Next.js 16, "middleware" is deprecated. Use "proxy" instead.
+// See: https://nextjs.org/docs/messages/middleware-to-proxy
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── Handle CORS preflight ──
