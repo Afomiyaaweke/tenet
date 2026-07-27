@@ -8,12 +8,11 @@
 # the parent bash to exit quickly, allowing tini to adopt the orphaned
 # process. Direct children of tini stay alive indefinitely.
 #
-# Strategy:
-# 1. Ensure dependencies are installed
-# 2. Build production bundle (more memory-efficient at runtime)
-# 3. Use 'next start' (production server) which uses less memory than dev
-# 4. Start server as a direct child of tini using the disown pattern
-# 5. Monitor and restart the server if it dies
+# NOTE: We use the dev server (bun run dev) instead of production (next start)
+# because Next.js 16 has a build bug where a page component chunk is
+# referenced in the RSC payload but not written to disk, causing a 500 error
+# and client-side hydration failure. The dev server generates chunks on demand
+# and works correctly.
 
 cd /home/z/my-project
 
@@ -32,17 +31,13 @@ bun install 2>&1 || true
 echo "[DEV] Setting up database..."
 bun run db:push 2>&1 || true
 
-# Build production bundle (more memory-efficient at runtime)
-echo "[DEV] Building production bundle..."
-NODE_OPTIONS="--max-old-space-size=768" npx next build 2>&1 | tail -5 || NODE_OPTIONS="--max-old-space-size=768" bun run build 2>&1 | tail -5 || true
-
-# Auto-restart loop: start server using the disown pattern
+# Auto-restart loop: start dev server using the disown pattern
 # that makes it a direct child of tini (PID 1)
 RESTART_COUNT=0
 MAX_RESTARTS=100
 
 while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
-  echo "[DEV] Starting production server (attempt $((RESTART_COUNT + 1))/$MAX_RESTARTS)..."
+  echo "[DEV] Starting dev server (attempt $((RESTART_COUNT + 1))/$MAX_RESTARTS)..."
 
   # Kill any existing process on port 3000
   fuser -k 3000/tcp 2>/dev/null
@@ -54,11 +49,11 @@ while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
     bun install 2>&1 || true
   fi
 
-  # Start the server using the disown pattern
+  # Start the dev server using the disown pattern
   # bash -c creates a subshell that starts the server in background and disowns it
   # When the subshell exits, the server becomes orphaned and is adopted by tini (PID 1)
   # This is the ONLY way to keep background processes alive in this sandbox
-  bash -c 'nohup env NODE_OPTIONS="--max-old-space-size=256" /home/z/my-project/node_modules/.bin/next start -p 3000 -H 0.0.0.0 >> /home/z/my-project/dev.log 2>&1 & disown'
+  bash -c 'nohup env NODE_OPTIONS="--max-old-space-size=512" bun run dev >> /home/z/my-project/dev.log 2>&1 & disown'
 
   # Wait for the server to start
   sleep 5

@@ -33,7 +33,6 @@ const MIN_LENGTH = 8;
  * - Uppercase letter
  * - Lowercase letter
  * - Number
- * - Special character
  * - Not a common password
  */
 export function validatePassword(password: string): PasswordValidationResult {
@@ -69,10 +68,8 @@ export function validatePassword(password: string): PasswordValidationResult {
     score += 15;
   }
 
-  // Special character
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password)) {
-    errors.push('Password must contain at least one special character');
-  } else {
+  // Special character (optional - bonus score only, not required)
+  if (/[^A-Za-z0-9]/.test(password)) {
     score += 15;
   }
 
@@ -88,9 +85,9 @@ export function validatePassword(password: string): PasswordValidationResult {
 
   // Determine strength
   let strength: PasswordValidationResult['strength'] = 'weak';
-  if (score >= 80) strength = 'strong';
-  else if (score >= 60) strength = 'good';
-  else if (score >= 40) strength = 'fair';
+  if (score >= 70) strength = 'strong';
+  else if (score >= 50) strength = 'good';
+  else if (score >= 30) strength = 'fair';
 
   return {
     valid: errors.length === 0,
