@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { enforceRateLimit, getRateLimitHeaders } from '@/lib/rate-limiter';
 import ZAI from 'z-ai-web-dev-sdk';
 
 const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Bid Proposal Generator. You create professional, compelling bid proposals based on tender requirements and user capabilities.
@@ -41,6 +42,10 @@ export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
+
+    // ── Rate limit check ──
+    const rateLimitResponse = await enforceRateLimit(request, user!.id, user!.plan || 'free');
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
     const {

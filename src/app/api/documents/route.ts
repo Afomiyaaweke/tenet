@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rate-limiter';
 import { uploadFile } from '@/lib/storage';
 import path from 'path';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -33,6 +34,10 @@ export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
+
+    // ── Rate limit check ──
+    const rateLimitResponse = await enforceRateLimit(request, user!.id, user!.plan || 'free');
+    if (rateLimitResponse) return rateLimitResponse;
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;

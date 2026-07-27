@@ -99,6 +99,7 @@ export interface User {
   role: 'super_admin' | 'team_admin' | 'user';
   companyId?: string;
   status: string;
+  plan: string;
   emailVerified: boolean;
   company?: Company;
   profile?: Profile;
