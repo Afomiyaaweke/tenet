@@ -52,6 +52,7 @@ const allowedDevOrigins = [
   "localhost",
   "localhost:3000",
   appUrlHost, // e.g. "tenet.space-z.ai" or "localhost:3000"
+  "tenet.space-z.ai", // explicitly allow the custom domain
 ];
 
 const nextConfig: NextConfig = {
