@@ -1,0 +1,637 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api } from '@/lib/api';
+     6→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Button } from '@/components/ui/button';
+     8→import { Badge } from '@/components/ui/badge';
+     9→import { Progress } from '@/components/ui/progress';
+    10→import { Separator } from '@/components/ui/separator';
+    11→import { ScrollArea } from '@/components/ui/scroll-area';
+    12→import {
+    13→  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    14→} from '@/components/ui/dialog';
+    15→import {
+    16→  Check, X, Crown, Zap, Rocket, ArrowRight, Shield,
+    17→  RefreshCw, Sparkles, Star, TrendingUp, Lock,
+    18→  BarChart3, Bot, Users, FileText, Gavel,
+    19→  MessageSquare, Globe2, Award, Calendar, ChevronDown, ChevronUp,
+    20→} from 'lucide-react';
+    21→
+    22→// ─── Plan Data Types ──────────────────────────────────────────────────
+    23→
+    24→interface PlanData {
+    25→  id: string;
+    26→  name: string;
+    27→  price: number;
+    28→  currency: string;
+    29→  billingCycle: string;
+    30→  description: string;
+    31→  features: string[];
+    32→  limits: Record<string, number>;
+    33→  aiCallsPerDay: number;
+    34→  maxTenders: number;
+    35→  maxBids: number;
+    36→  maxProjects: number;
+    37→  maxDocuments: number;
+    38→  maxTeamMembers: number;
+    39→  prioritySupport: boolean;
+    40→  customAiPrompts: boolean;
+    41→  apiAccess: boolean;
+    42→  highlight: boolean;
+    43→  badge: string;
+    44→  badgeColor: string;
+    45→}
+    46→
+    47→interface UsageItem {
+    48→  category: string;
+    49→  used: number;
+    50→  limit: number;
+    51→  percentage: number;
+    52→  unlimited: boolean;
+    53→}
+    54→
+    55→interface SubscriptionData {
+    56→  id: string;
+    57→  plan: string;
+    58→  status: string;
+    59→  startDate: string;
+    60→  endDate?: string;
+    61→  amount: number;
+    62→  billingCycle: string;
+    63→}
+    64→
+    65→// ─── Category display labels ───────────────────────────────────────────
+    66→
+    67→const CATEGORY_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string; barColor: string }> = {
+    68→  api_general: { label: 'General API', icon: <BarChart3 className="h-4 w-4" />, color: 'text-slate-500', barColor: 'bg-slate-500' },
+    69→  ai: { label: 'AI & Intelligence', icon: <Bot className="h-4 w-4" />, color: 'text-violet-500', barColor: 'bg-violet-500' },
+    70→  documents: { label: 'Documents', icon: <FileText className="h-4 w-4" />, color: 'text-sky-500', barColor: 'bg-sky-500' },
+    71→  bids: { label: 'Bids', icon: <Gavel className="h-4 w-4" />, color: 'text-emerald-500', barColor: 'bg-emerald-500' },
+    72→  tenders: { label: 'Tenders', icon: <Globe2 className="h-4 w-4" />, color: 'text-teal-500', barColor: 'bg-teal-500' },
+    73→  chat: { label: 'Chat & Messaging', icon: <MessageSquare className="h-4 w-4" />, color: 'text-cyan-500', barColor: 'bg-cyan-500' },
+    74→  social: { label: 'Social Circle', icon: <Users className="h-4 w-4" />, color: 'text-amber-500', barColor: 'bg-amber-500' },
+    75→  auth: { label: 'Auth & Security', icon: <Shield className="h-4 w-4" />, color: 'text-rose-500', barColor: 'bg-rose-500' },
+    76→};
+    77→
+    78→const PLAN_ICONS: Record<string, React.ReactNode> = {
+    79→  free: <Rocket className="h-6 w-6" />,
+    80→  pro: <Zap className="h-6 w-6" />,
+    81→  enterprise: <Crown className="h-6 w-6" />,
+    82→};
+    83→
+    84→const PLAN_THEMES: Record<string, {
+    85→  gradient: string;
+    86→  cardBorder: string;
+    87→  cardShadow: string;
+    88→  badgeBg: string;
+    89→  badgeText: string;
+    90→  iconBg: string;
+    91→  iconText: string;
+    92→  buttonBg: string;
+    93→  buttonHover: string;
+    94→  accent: string;
+    95→  checkColor: string;
+    96→  headerBg: string;
+    97→}> = {
+    98→  free: {
+    99→    gradient: 'from-slate-50 to-slate-100/50 dark:from-slate-950 dark:to-slate-900/50',
+   100→    cardBorder: 'border-slate-200 dark:border-slate-800',
+   101→    cardShadow: 'shadow-sm hover:shadow-md',
+   102→    badgeBg: 'bg-slate-100 dark:bg-slate-800',
+   103→    badgeText: 'text-slate-700 dark:text-slate-300',
+   104→    iconBg: 'bg-slate-100 dark:bg-slate-800',
+   105→    iconText: 'text-slate-600 dark:text-slate-400',
+   106→    buttonBg: 'bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600',
+   107→    buttonHover: '',
+   108→    accent: 'text-slate-700 dark:text-slate-300',
+   109→    checkColor: 'text-slate-500',
+   110→    headerBg: 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800',
+   111→  },
+   112→  pro: {
+   113→    gradient: 'from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/30',
+   114→    cardBorder: 'border-orange-300 dark:border-orange-700',
+   115→    cardShadow: 'shadow-lg hover:shadow-xl ring-2 ring-orange-400/60 dark:ring-orange-600/60',
+   116→    badgeBg: 'bg-gradient-to-r from-orange-500 to-amber-500',
+   117→    badgeText: 'text-white',
+   118→    iconBg: 'bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900 dark:to-amber-900',
+   119→    iconText: 'text-orange-600 dark:text-orange-400',
+   120→    buttonBg: 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600',
+   121→    buttonHover: '',
+   122→    accent: 'text-orange-700 dark:text-orange-400',
+   123→    checkColor: 'text-orange-500',
+   124→    headerBg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/30',
+   125→  },
+   126→  enterprise: {
+   127→    gradient: 'from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/30',
+   128→    cardBorder: 'border-violet-300 dark:border-violet-700',
+   129→    cardShadow: 'shadow-lg hover:shadow-xl ring-2 ring-violet-400/60 dark:ring-violet-600/60',
+   130→    badgeBg: 'bg-gradient-to-r from-violet-600 to-purple-600',
+   131→    badgeText: 'text-white',
+   132→    iconBg: 'bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900 dark:to-purple-900',
+   133→    iconText: 'text-violet-600 dark:text-violet-400',
+   134→    buttonBg: 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700',
+   135→    buttonHover: '',
+   136→    accent: 'text-violet-700 dark:text-violet-400',
+   137→    checkColor: 'text-violet-500',
+   138→    headerBg: 'bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/30',
+   139→  },
+   140→};
+   141→
+   142→// ─── Component ────────────────────────────────────────────────────────
+   143→
+   144→export function PricingPlansView() {
+   145→  const { user } = useAuthStore();
+   146→  const [plansData, setPlansData] = useState<{
+   147→    currentPlan: PlanData;
+   148→    allPlans: PlanData[];
+   149→    usage: UsageItem[];
+   150→    subscription: SubscriptionData | null;
+   151→    planName: string;
+   152→  } | null>(null);
+   153→  const [loading, setLoading] = useState(true);
+   154→  const [upgrading, setUpgrading] = useState<string | null>(null);
+   155→  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; plan: PlanData | null }>({ open: false, plan: null });
+   156→  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+   157→  const [showRateLimits, setShowRateLimits] = useState<Record<string, boolean>>({});
+   158→
+   159→  const fetchPlans = useCallback(async () => {
+   160→    setLoading(true);
+   161→    try {
+   162→      const res = await api.get('/plans');
+   163→      if (res.success) {
+   164→        setPlansData(res.data);
+   165→      }
+   166→    } catch (err) {
+   167→      console.error('Failed to fetch plans:', err);
+   168→    } finally {
+   169→      setLoading(false);
+   170→    }
+   171→  }, []);
+   172→
+   173→  useEffect(() => { fetchPlans(); }, [fetchPlans]);
+   174→
+   175→  const handleUpgrade = async (planId: string) => {
+   176→    setUpgrading(planId);
+   177→    try {
+   178→      const res = await api.post('/plans', { plan: planId });
+   179→      if (res.success) {
+   180→        await useAuthStore.getState().fetchMe();
+   181→        await fetchPlans();
+   182→      }
+   183→    } catch (err) {
+   184→      console.error('Failed to upgrade plan:', err);
+   185→    } finally {
+   186→      setUpgrading(null);
+   187→      setConfirmDialog({ open: false, plan: null });
+   188→    }
+   189→  };
+   190→
+   191→  if (loading && !plansData) {
+   192→    return (
+   193→      <div className="flex items-center justify-center h-64">
+   194→        <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+   195→      </div>
+   196→    );
+   197→  }
+   198→
+   199→  const currentPlanName = plansData?.planName || 'free';
+   200→  const currentPlan = plansData?.currentPlan || null;
+   201→  const allPlans = plansData?.allPlans || [];
+   202→  const usage = plansData?.usage || [];
+   203→  const subscription = plansData?.subscription;
+   204→
+   205→  const faqItems = [
+   206→    {
+   207→      q: 'Can I upgrade my plan at any time?',
+   208→      a: 'Yes! You can upgrade instantly from this page. Your new limits and features activate immediately. In production, you would be redirected to a Stripe checkout page.',
+   209→    },
+   210→    {
+   211→      q: 'What happens if I hit my rate limit?',
+   212→      a: 'You\'ll receive a 429 Too Many Requests response with a Retry-After header telling you when you can make your next request. The dashboard also shows real-time usage so you can monitor your limits.',
+   213→    },
+   214→    {
+   215→      q: 'Can I downgrade from Pro/Enterprise to Free?',
+   216→      a: 'Yes, you can downgrade at any time. Your current subscription period will remain active until it expires, then your plan will revert to Free tier limits.',
+   217→    },
+   218→    {
+   219→      q: 'Is there a trial period for paid plans?',
+   220→      a: 'Pro and Enterprise plans come with a 14-day free trial. You won\'t be charged until the trial ends, and you can cancel anytime before that.',
+   221→    },
+   222→    {
+   223→      q: 'What payment methods are accepted?',
+   224→      a: 'We accept credit/debit cards via Stripe. Enterprise customers can also pay via bank transfer or purchase annual licenses with custom invoicing.',
+   225→    },
+   226→  ];
+   227→
+   228→  const comparisonRows = [
+   229→    { label: 'Tender browsing & search', free: true, pro: true, enterprise: true },
+   230→    { label: 'Max bids per month', free: '3', pro: '20', enterprise: '∞' },
+   231→    { label: 'Max tenders visible', free: '10', pro: '50', enterprise: '∞' },
+   232→    { label: 'Max documents stored', free: '5', pro: '50', enterprise: '∞' },
+   233→    { label: 'Max team members', free: '1', pro: '5', enterprise: '∞' },
+   234→    { label: 'Max projects', free: '1', pro: '10', enterprise: '∞' },
+   235→    { label: 'AI calls per day', free: '10', pro: '100', enterprise: '∞' },
+   236→    { label: 'AI bid preparation', free: false, pro: true, enterprise: true },
+   237→    { label: 'AI document studio', free: false, pro: true, enterprise: true },
+   238→    { label: 'AI tender analysis', free: false, pro: true, enterprise: true },
+   239→    { label: 'Custom AI prompts', free: false, pro: true, enterprise: true },
+   240→    { label: 'Export PDF/Excel', free: false, pro: true, enterprise: true },
+   241→    { label: 'API access', free: false, pro: true, enterprise: true },
+   242→    { label: 'Priority support', free: false, pro: true, enterprise: true },
+   243→    { label: '24/7 dedicated support', free: false, pro: false, enterprise: true },
+   244→    { label: 'Custom integrations', free: false, pro: false, enterprise: true },
+   245→    { label: 'SSO & advanced security', free: false, pro: false, enterprise: true },
+   246→    { label: 'White-label options', free: false, pro: false, enterprise: true },
+   247→  ];
+   248→
+   249→  return (
+   250→    <div className="space-y-8 max-w-6xl mx-auto">
+   251→      {/* ── Hero Header ───────────────────────────────────────────────── */}
+   252→      <div className="text-center space-y-3 pt-2">
+   253→        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
+   254→          <Sparkles className="h-4 w-4" />
+   255→          {currentPlan?.name || 'Free'} Plan Active
+   256→        </div>
+   257→        <h2 className="text-3xl font-bold tracking-tight">
+   258→          Scale Your Procurement Power
+   259→        </h2>
+   260→        <p className="text-muted-foreground max-w-lg mx-auto">
+   261→          Choose the plan that fits your needs. Upgrade anytime to unlock more AI tools, higher limits, and premium features.
+   262→        </p>
+   263→      </div>
+   264→
+   265→      {/* ── Current Plan Overview ─────────────────────────────────────── */}
+   266→      <Card className="overflow-hidden border-0 shadow-md">
+   267→        <div className={`bg-gradient-to-r ${PLAN_THEMES[currentPlanName]?.gradient || PLAN_THEMES.free.gradient} px-6 py-5`}>
+   268→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   269→            <div className="flex items-center gap-4">
+   270→              <div className={`p-3 rounded-2xl ${PLAN_THEMES[currentPlanName]?.iconBg || PLAN_THEMES.free.iconBg}`}>
+   271→                <span className={PLAN_THEMES[currentPlanName]?.iconText || PLAN_THEMES.free.iconText}>
+   272→                  {PLAN_ICONS[currentPlanName]}
+   273→                </span>
+   274→              </div>
+   275→              <div>
+   276→                <h3 className="text-xl font-bold">{currentPlan?.name || 'Free'} Plan</h3>
+   277→                <p className="text-sm text-muted-foreground mt-0.5">{currentPlan?.description}</p>
+   278→              </div>
+   279→            </div>
+   280→            <div className="flex items-center gap-3">
+   281→              {currentPlan?.price > 0 && (
+   282→                <div className="text-right">
+   283→                  <div className="text-2xl font-bold">${currentPlan.price}<span className="text-sm font-normal text-muted-foreground">/{currentPlan.billingCycle}</span></div>
+   284→                </div>
+   285→              )}
+   286→              {subscription && (
+   287→                <div className="flex flex-wrap items-center gap-2">
+   288→                  <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 dark:border-green-700 dark:text-green-400 dark:bg-green-950/50">
+   289→                    <Check className="h-3 w-3 mr-1" />
+   290→                    {subscription.status}
+   291→                  </Badge>
+   292→                  {subscription.endDate && (
+   293→                    <Badge variant="outline" className="text-muted-foreground">
+   294→                      <Calendar className="h-3 w-3 mr-1" />
+   295→                      Renews {new Date(subscription.endDate).toLocaleDateString()}
+   296→                    </Badge>
+   297→                  )}
+   298→                </div>
+   299→              )}
+   300→            </div>
+   301→          </div>
+   302→
+   303→          {/* Quick Stats */}
+   304→          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+   305→            {[
+   306→              { label: 'AI Calls', value: currentPlan?.aiCallsPerDay === -1 ? '∞' : currentPlan?.aiCallsPerDay || 10, unit: '/day', icon: <Bot className="h-4 w-4" /> },
+   307→              { label: 'Tenders', value: currentPlan?.maxTenders === -1 ? '∞' : currentPlan?.maxTenders || 10, unit: '', icon: <Globe2 className="h-4 w-4" /> },
+   308→              { label: 'Bids', value: currentPlan?.maxBids === -1 ? '∞' : currentPlan?.maxBids || 3, unit: '/mo', icon: <Gavel className="h-4 w-4" /> },
+   309→              { label: 'Team', value: currentPlan?.maxTeamMembers === -1 ? '∞' : currentPlan?.maxTeamMembers || 1, unit: 'members', icon: <Users className="h-4 w-4" /> },
+   310→            ].map((stat) => (
+   311→              <div key={stat.label} className="bg-white/60 dark:bg-black/20 rounded-xl px-3 py-2.5 backdrop-blur-sm">
+   312→                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+   313→                  {stat.icon}
+   314→                  <span className="text-xs font-medium">{stat.label}</span>
+   315→                </div>
+   316→                <div className="flex items-baseline gap-1">
+   317→                  <span className="text-lg font-bold">{stat.value}</span>
+   318→                  {stat.unit && <span className="text-xs text-muted-foreground">{stat.unit}</span>}
+   319→                </div>
+   320→              </div>
+   321→            ))}
+   322→          </div>
+   323→        </div>
+   324→
+   325→        {/* Usage Section */}
+   326→        {usage.length > 0 && (
+   327→          <div className="px-6 py-4">
+   328→            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   329→              <TrendingUp className="h-4 w-4 text-primary" />
+   330→              Rate Limit Usage (Last Minute)
+   331→            </h4>
+   332→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+   333→              {usage.filter(u => CATEGORY_LABELS[u.category]).map((u) => {
+   334→                const catInfo = CATEGORY_LABELS[u.category];
+   335→                return (
+   336→                  <div key={u.category} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30">
+   337→                    <span className={catInfo.color}>{catInfo.icon}</span>
+   338→                    <div className="flex-1 min-w-0">
+   339→                      <div className="flex items-center justify-between mb-1">
+   340→                        <span className="text-xs font-medium truncate">{catInfo.label}</span>
+   341→                        <span className="text-xs font-semibold ml-2 whitespace-nowrap">
+   342→                          {u.used}/{u.unlimited ? '∞' : u.limit}
+   343→                        </span>
+   344→                      </div>
+   345→                      {!u.unlimited && (
+   346→                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+   347→                          <div
+   348→                            className={`h-full rounded-full transition-all ${
+   349→                              u.percentage > 80 ? 'bg-red-500' : u.percentage > 50 ? 'bg-amber-500' : 'bg-emerald-500'
+   350→                            }`}
+   351→                            style={{ width: `${Math.min(u.percentage, 100)}%` }}
+   352→                          />
+   353→                        </div>
+   354→                      )}
+   355→                    </div>
+   356→                  </div>
+   357→                );
+   358→              })}
+   359→            </div>
+   360→          </div>
+   361→        )}
+   362→      </Card>
+   363→
+   364→      {/* ── Pricing Cards ─────────────────────────────────────────────── */}
+   365→      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+   366→        {allPlans.map((plan) => {
+   367→          const theme = PLAN_THEMES[plan.id] || PLAN_THEMES.free;
+   368→          const isCurrent = plan.id === currentPlanName;
+   369→          const isExpanded = showRateLimits[plan.id] || false;
+   370→
+   371→          return (
+   372→            <Card
+   373→              key={plan.id}
+   374→              className={`relative overflow-hidden transition-all duration-300 ${theme.cardShadow} ${theme.cardBorder} ${isCurrent ? 'opacity-95' : ''}`}
+   375→            >
+   376→              {/* Popular badge */}
+   377→              {plan.highlight && (
+   378→                <div className="absolute top-0 right-0 z-10">
+   379→                  <div className={`${theme.badgeBg} ${theme.badgeText} text-xs font-bold px-4 py-1.5 rounded-bl-xl shadow-sm`}>
+   380→                    ★ MOST POPULAR
+   381→                  </div>
+   382→                </div>
+   383→              )}
+   384→
+   385→              {/* Card Header with Plan Identity */}
+   386→              <div className={`${theme.headerBg} px-6 pt-6 pb-5`}>
+   387→                <div className="flex items-center gap-3 mb-4">
+   388→                  <div className={`p-2.5 rounded-xl ${theme.iconBg}`}>
+   389→                    <span className={theme.iconText}>{PLAN_ICONS[plan.id]}</span>
+   390→                  </div>
+   391→                  <div>
+   392→                    <h3 className="text-lg font-bold">{plan.name}</h3>
+   393→                    <p className="text-xs text-muted-foreground">{plan.description}</p>
+   394→                  </div>
+   395→                </div>
+   396→
+   397→                {/* Price */}
+   398→                <div className="flex items-baseline gap-1">
+   399→                  {plan.price === 0 ? (
+   400→                    <span className="text-4xl font-extrabold tracking-tight">Free</span>
+   401→                  ) : (
+   402→                    <>
+   403→                      <span className="text-4xl font-extrabold tracking-tight">${plan.price}</span>
+   404→                      <span className="text-sm text-muted-foreground font-medium">/ {plan.billingCycle}</span>
+   405→                    </>
+   406→                  )}
+   407→                </div>
+   408→              </div>
+   409→
+   410→              <CardContent className="pt-5 px-6 pb-6">
+   411→                {/* Key Limits */}
+   412→                <div className="grid grid-cols-2 gap-2.5 mb-5">
+   413→                  {[
+   414→                    { icon: <Globe2 className="h-3.5 w-3.5" />, value: plan.maxTenders === -1 ? '∞' : plan.maxTenders, label: 'Tenders' },
+   415→                    { icon: <Gavel className="h-3.5 w-3.5" />, value: plan.maxBids === -1 ? '∞' : plan.maxBids, label: 'Bids' },
+   416→                    { icon: <Bot className="h-3.5 w-3.5" />, value: plan.aiCallsPerDay === -1 ? '∞' : plan.aiCallsPerDay, label: 'AI calls/day' },
+   417→                    { icon: <Users className="h-3.5 w-3.5" />, value: plan.maxTeamMembers === -1 ? '∞' : plan.maxTeamMembers, label: 'Members' },
+   418→                  ].map((item) => (
+   419→                    <div key={item.label} className="flex items-center gap-2 p-2 rounded-lg bg-muted/40">
+   420→                      <span className="text-muted-foreground">{item.icon}</span>
+   421→                      <span className="text-sm">
+   422→                        <span className="font-semibold">{item.value}</span>{' '}
+   423→                        <span className="text-muted-foreground">{item.label}</span>
+   424→                      </span>
+   425→                    </div>
+   426→                  ))}
+   427→                </div>
+   428→
+   429→                <Separator className="mb-5" />
+   430→
+   431→                {/* Features */}
+   432→                <ul className="space-y-2.5 mb-5">
+   433→                  {plan.features.map((feature, idx) => (
+   434→                    <li key={idx} className="flex items-start gap-2.5 text-sm">
+   435→                      <Check className={`h-4 w-4 mt-0.5 ${theme.checkColor} shrink-0`} />
+   436→                      <span className="leading-snug">{feature}</span>
+   437→                    </li>
+   438→                  ))}
+   439→                </ul>
+   440→
+   441→                {/* Rate Limits Toggle */}
+   442→                <button
+   443→                  onClick={() => setShowRateLimits(prev => ({ ...prev, [plan.id]: !prev[plan.id] }))}
+   444→                  className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 hover:text-foreground transition-colors"
+   445→                >
+   446→                  <span>Rate Limits (req/min)</span>
+   447→                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+   448→                </button>
+   449→                {isExpanded && (
+   450→                  <div className="grid grid-cols-2 gap-1.5 mt-2 mb-4">
+   451→                    {Object.entries(plan.limits).map(([cat, limit]) => {
+   452→                      const catLabel = CATEGORY_LABELS[cat]?.label || cat;
+   453→                      return (
+   454→                        <div key={cat} className="flex items-center justify-between p-2 rounded-md bg-muted/30 text-xs">
+   455→                          <span className="text-muted-foreground truncate mr-1">{catLabel}</span>
+   456→                          <span className="font-bold shrink-0">{limit === -1 ? '∞' : limit}</span>
+   457→                        </div>
+   458→                      );
+   459→                    })}
+   460→                  </div>
+   461→                )}
+   462→
+   463→                {/* Action Button */}
+   464→                <div className="mt-5">
+   465→                  {isCurrent ? (
+   466→                    <Button variant="outline" className="w-full h-11" disabled>
+   467→                      <Check className="h-4 w-4 mr-2" />
+   468→                      Current Plan
+   469→                    </Button>
+   470→                  ) : plan.price === 0 ? (
+   471→                    <Button
+   472→                      variant="outline"
+   473→                      className="w-full h-11"
+   474→                      onClick={() => setConfirmDialog({ open: true, plan })}
+   475→                      disabled={upgrading === plan.id}
+   476→                    >
+   477→                      {upgrading === plan.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+   478→                      Switch to Free
+   479→                    </Button>
+   480→                  ) : (
+   481→                    <Button
+   482→                      className={`w-full h-11 text-white font-semibold ${theme.buttonBg}`}
+   483→                      onClick={() => setConfirmDialog({ open: true, plan })}
+   484→                      disabled={upgrading === plan.id}
+   485→                    >
+   486→                      {upgrading === plan.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+   487→                      Upgrade to {plan.name}
+   488→                    </Button>
+   489→                  )}
+   490→                </div>
+   491→              </CardContent>
+   492→            </Card>
+   493→          );
+   494→        })}
+   495→      </div>
+   496→
+   497→      {/* ── Feature Comparison ────────────────────────────────────────── */}
+   498→      <Card className="overflow-hidden border-0 shadow-md">
+   499→        <CardHeader className="bg-muted/30 pb-4">
+   500→          <CardTitle className="text-lg flex items-center gap-2">
+   501→            <BarChart3 className="h-5 w-5 text-primary" />
+   502→            Detailed Feature Comparison
+   503→          </CardTitle>
+   504→          <CardDescription>See exactly what each plan includes at a glance</CardDescription>
+   505→        </CardHeader>
+   506→        <CardContent className="p-0">
+   507→          <ScrollArea className="max-h-[500px]">
+   508→            <table className="w-full text-sm">
+   509→              <thead>
+   510→                <tr className="border-b bg-muted/20">
+   511→                  <th className="py-3 px-5 text-left font-semibold text-muted-foreground w-[40%]">Feature</th>
+   512→                  {allPlans.map(p => (
+   513→                    <th key={p.id} className={`py-3 px-4 text-center font-bold ${p.id === currentPlanName ? PLAN_THEMES[p.id]?.accent : ''}`}>
+   514→                      {p.name}
+   515→                    </th>
+   516→                  ))}
+   517→                </tr>
+   518→              </thead>
+   519→              <tbody>
+   520→                {comparisonRows.map((row, idx) => (
+   521→                  <tr key={idx} className={`border-b border-muted/50 ${idx % 2 === 0 ? 'bg-muted/10' : ''}`}>
+   522→                    <td className="py-2.5 px-5 font-medium">{row.label}</td>
+   523→                    {[row.free, row.pro, row.enterprise].map((val, colIdx) => {
+   524→                      const planId = ['free', 'pro', 'enterprise'][colIdx];
+   525→                      const isCurrent = planId === currentPlanName;
+   526→                      return (
+   527→                        <td key={colIdx} className={`py-2.5 px-4 text-center ${isCurrent ? 'font-semibold ' + PLAN_THEMES[planId]?.accent : ''}`}>
+   528→                          {val === true ? (
+   529→                            <Check className="h-4 w-4 text-emerald-500 mx-auto" />
+   530→                          ) : val === false ? (
+   531→                            <X className="h-4 w-4 text-red-300 mx-auto" />
+   532→                          ) : (
+   533→                            <span>{val}</span>
+   534→                          )}
+   535→                        </td>
+   536→                      );
+   537→                    })}
+   538→                  </tr>
+   539→                ))}
+   540→              </tbody>
+   541→            </table>
+   542→          </ScrollArea>
+   543→        </CardContent>
+   544→      </Card>
+   545→
+   546→      {/* ── FAQ Section ──────────────────────────────────────────────── */}
+   547→      <Card className="overflow-hidden border-0 shadow-md">
+   548→        <CardHeader className="bg-muted/30 pb-4">
+   549→          <CardTitle className="text-lg flex items-center gap-2">
+   550→            <Star className="h-5 w-5 text-primary" />
+   551→            Frequently Asked Questions
+   552→          </CardTitle>
+   553→        </CardHeader>
+   554→        <CardContent className="p-0 divide-y divide-muted/50">
+   555→          {faqItems.map((faq, idx) => (
+   556→            <div key={idx}>
+   557→              <button
+   558→                onClick={() => setExpandedFaq(expandedFaq === idx ? null : idx)}
+   559→                className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-muted/20 transition-colors"
+   560→              >
+   561→                <span className="font-medium text-sm pr-4">{faq.q}</span>
+   562→                {expandedFaq === idx ? (
+   563→                  <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+   564→                ) : (
+   565→                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+   566→                )}
+   567→              </button>
+   568→              {expandedFaq === idx && (
+   569→                <div className="px-6 pb-4 -mt-1">
+   570→                  <p className="text-sm text-muted-foreground leading-relaxed">{faq.a}</p>
+   571→                </div>
+   572→              )}
+   573→            </div>
+   574→          ))}
+   575→        </CardContent>
+   576→      </Card>
+   577→
+   578→      {/* ── Confirmation Dialog ──────────────────────────────────────── */}
+   579→      <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ open, plan: open ? confirmDialog.plan : null })}>
+   580→        <DialogContent className="sm:max-w-md">
+   581→          <DialogHeader>
+   582→            <DialogTitle className="flex items-center gap-2 text-xl">
+   583→              {confirmDialog.plan && (
+   584→                <span className={PLAN_THEMES[confirmDialog.plan.id]?.iconText}>
+   585→                  {PLAN_ICONS[confirmDialog.plan.id]}
+   586→                </span>
+   587→              )}
+   588→              {confirmDialog.plan?.price === 0
+   589→                ? 'Switch to Free Plan'
+   590→                : `Upgrade to ${confirmDialog.plan?.name}`}
+   591→            </DialogTitle>
+   592→            <DialogDescription className="text-sm mt-2">
+   593→              {confirmDialog.plan?.price === 0
+   594→                ? 'You will lose access to premium features and your limits will be reduced to the Free tier.'
+   595→                : `This will upgrade your account to the ${confirmDialog.plan?.name} plan at $${confirmDialog.plan?.price}/${confirmDialog.plan?.billingCycle}. In production, you would be redirected to Stripe for payment.`}
+   596→            </DialogDescription>
+   597→          </DialogHeader>
+   598→
+   599→          {confirmDialog.plan && confirmDialog.plan.price > 0 && (
+   600→            <div className="space-y-3 py-3">
+   601→              <h4 className="text-sm font-semibold">You&apos;ll unlock:</h4>
+   602→              <ul className="space-y-1.5">
+   603→                {confirmDialog.plan.features.slice(0, 5).map((f, i) => (
+   604→                  <li key={i} className="flex items-center gap-2 text-sm">
+   605→                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+   606→                    <span>{f}</span>
+   607→                  </li>
+   608→                ))}
+   609→              </ul>
+   610→            </div>
+   611→          )}
+   612→
+   613→          <DialogFooter className="gap-2 sm:gap-2">
+   614→            <Button variant="outline" onClick={() => setConfirmDialog({ open: false, plan: null })}>
+   615→              Cancel
+   616→            </Button>
+   617→            <Button
+   618→              onClick={() => confirmDialog.plan && handleUpgrade(confirmDialog.plan.id)}
+   619→              disabled={upgrading !== null}
+   620→              className={
+   621→                confirmDialog.plan?.id === 'pro'
+   622→                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600'
+   623→                  : confirmDialog.plan?.id === 'enterprise'
+   624→                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:from-violet-700 hover:to-purple-700'
+   625→                  : ''
+   626→              }
+   627→            >
+   628→              {upgrading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : null}
+   629→              {confirmDialog.plan?.price === 0 ? 'Switch to Free' : `Upgrade to ${confirmDialog.plan?.name}`}
+   630→            </Button>
+   631→          </DialogFooter>
+   632→        </DialogContent>
+   633→      </Dialog>
+   634→    </div>
+   635→  );
+   636→}
+   637→
