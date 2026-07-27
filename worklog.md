@@ -1,46 +1,67 @@
+# TenetBid Project Worklog
+
 ---
 Task ID: 1
 Agent: Main
-Task: Implement rate limiter with 3-tier premium plan system (Free, Pro, Enterprise) and include it on dashboard
+Task: Diagnose and fix why tenet.space-z.ai is not working
 
 Work Log:
-- Explored full codebase structure (Prisma schema, dashboard, app-shell, API routes, store, auth)
-- Designed 3-tier plan system: Free ($0), Pro ($29/mo), Enterprise ($99/mo) with differentiated rate limits
-- Updated Prisma schema: added `plan` field to User model, created Subscription and UsageRecord models
-- Ran `prisma db push` to sync schema with SQLite database
-- Created `src/lib/rate-limiter.ts` with:
-  - PLAN definitions (limits, features, pricing for each tier)
-  - Per-plan rate limit enforcement (checkRateLimit, enforceRateLimit)
-  - Rate limit headers generation (X-RateLimit-Limit, X-RateLimit-Remaining, etc.)
-  - Usage summary tracking for dashboard display
-  - Endpoint categorization (ai, documents, bids, tenders, chat, social, auth, api_general)
-- Created API routes:
-  - `src/app/api/plans/route.ts` (GET: fetch plans + usage, POST: upgrade/downgrade)
-  - `src/app/api/plans/usage/route.ts` (GET: current usage stats)
-- Created pricing plans view component `src/components/modules/pricing-plans.tsx` with:
-  - Current plan summary card with usage bars
-  - 3 pricing cards (Free, Pro, Enterprise) with features and rate limits
-  - Feature comparison table
-  - FAQ section
-  - Upgrade confirmation dialog
-- Added plan card to dashboard (`src/components/modules/dashboard.tsx`) showing current plan and upgrade button
-- Updated app-shell sidebar: added "Subscription" nav item with Star icon (visible for all users)
-- Added dynamic import for PricingPlansView, View type, and case rendering
-- Updated auth store View type to include 'pricing-plans'
-- Updated User interface in api.ts to include `plan` field
-- Updated AuthUser type in auth.ts to include `plan` field
-- Added auth cache invalidation after plan upgrade (invalidateAuthCache)
-- Integrated rate limiting into key API routes:
-  - `/api/ai/bid-prep/route.ts` (AI calls)
-  - `/api/tenders/route.ts` (tender creation)
-  - `/api/bids/route.ts` (bid submission)
-  - `/api/documents/route.ts` (document upload)
-- Lint check: 0 errors, 5 warnings (pre-existing unused eslint-disable directives)
-- Browser verification: Dashboard shows "Free Plan" card with "Upgrade to Pro" button, Subscription page shows all 3 plans with feature comparison and rate limits
+- Investigated dev server instability - server keeps dying after ~15 seconds
+- Discovered sandbox environment kills background processes after Bash tool session ends
+- Found that the boot script (`/start.sh`) starts `bun run dev` during boot, but it also dies
+- The Caddy gateway on port 81 returns 502 when the Next.js server on port 3000 is down
+- Tested multiple approaches: `nohup`, `disown`, `setsid`, `timeout` - all background processes die
+- Solution: foreground watchdog loop keeps server alive (verified for 90+ seconds)
 
 Stage Summary:
-- Complete 3-tier subscription plan system implemented with Free, Pro ($29/mo), Enterprise ($99/mo)
-- Per-plan rate limiting enforced on AI, tender, bid, and document API routes
-- Dashboard shows current plan card with upgrade CTA
-- Pricing Plans page with full comparison, usage tracking, and upgrade flow
-- Sidebar "Subscription" nav item visible for all user roles
+- Root cause: sandbox process management kills background processes not in boot script's process tree
+- The server works correctly when running (HTTP 200, app renders properly)
+- Caddy gateway works (HTTP 200 via port 81 when server is alive on port 3000)
+- Agent browser verification confirms: landing page renders, Get Started button works, auth gate appears, footer sticks to bottom, no console errors
+
+---
+Task ID: 2
+Agent: Main
+Task: Update .zscripts/dev.sh for proper server startup during boot
+
+Work Log:
+- Updated .zscripts/dev.sh with auto-restart loop (up to 50 restarts)
+- Added signal trapping (SIGTERM, SIGINT, SIGHUP) for debugging
+- Script runs `bun run dev` with `NODE_OPTIONS="--max-old-space-size=512"` for memory limits
+- Uses `tee` to log to dev.log for visibility
+- Includes 5-second delay between restarts and port cleanup
+
+Stage Summary:
+- .zscripts/dev.sh now includes robust auto-restart mechanism
+- Will keep server alive during boot process even if server crashes periodically
+- Set ownership to z:z for proper user context
+
+---
+Task ID: 3
+Agent: Main
+Task: Fix vercel.json maxDuration and buildCommand for deployment
+
+Work Log:
+- Reduced all maxDuration values from 60/30/15 to 10 (Vercel Hobby plan limit)
+- Updated buildCommand to include `bun install` step
+- Kept `prisma generate --schema=prisma/schema.prod.prisma` for PostgreSQL production schema
+- Kept regions and headers configuration
+
+Stage Summary:
+- vercel.json maxDuration values now compatible with Vercel Hobby (free) plan
+- Build command includes dependency installation
+- Deployment should succeed on Vercel without maxDuration errors
+
+---
+Task ID: 4
+Agent: Main
+Task: Fix CSP and security headers consistency in proxy.ts
+
+Work Log:
+- Updated proxy.ts CSP `connect-src` to include `https:` directive
+- Previously missing `https:` caused potential blocking of legitimate API calls
+- Now consistent with next.config.ts CSP headers
+
+Stage Summary:
+- proxy.ts CSP now matches next.config.ts CSP
+- `connect-src` includes: 'self', ws:, wss:, https:, clarity.ms, blob.vercel-storage.com
