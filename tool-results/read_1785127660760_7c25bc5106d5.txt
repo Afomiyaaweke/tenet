@@ -1,0 +1,903 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { useAuthStore, useNavStore, useDataStore } from '@/store';
+     5→import { api, Tender, Bid, Project, Notification } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { ScrollArea } from '@/components/ui/scroll-area';
+    10→import { Separator } from '@/components/ui/separator';
+    11→import {
+    12→  ChartContainer,
+    13→  ChartTooltip,
+    14→  ChartTooltipContent,
+    15→  ChartLegend,
+    16→  ChartLegendContent,
+    17→  type ChartConfig,
+    18→} from '@/components/ui/chart';
+    19→import {
+    20→  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
+    21→} from 'recharts';
+    22→import {
+    23→  FileSearch, Gavel, FolderKanban, DollarSign, Users, FileCheck,
+    24→  Shield, GraduationCap, Bell, CheckCircle, AlertCircle,
+    25→  Info, AlertTriangle, Lightbulb, ArrowRight, Clock,
+    26→  Calendar, TrendingUp, TrendingDown, Sparkles, Plus, Search, Upload,
+    27→  MessageSquare, Eye, BarChart3, Target, Briefcase,
+    28→  Award, Zap, ChevronRight, Sun, Moon, Sunrise,
+    29→  ArrowUpRight, ArrowDownRight, Activity, Bot,
+    30→} from 'lucide-react';
+    31→
+    32→// ─── Color Constants ────────────────────────────────────────────────
+    33→const CHART_COLORS = {
+    34→  emerald: '#10b981',
+    35→  amber: '#f59e0b',
+    36→  teal: '#14b8a6',
+    37→  rose: '#f43f5e',
+    38→  purple: '#8b5cf6',
+    39→};
+    40→
+    41→// Monthly activity computed from real tender/bid data when available
+    42→// No placeholder data - sparklines show real trends
+    43→
+    44→// ─── Chart Configs ──────────────────────────────────────────────────
+    45→const bidStatusChartConfig: ChartConfig = {
+    46→  awarded: { label: 'Awarded', color: CHART_COLORS.emerald },
+    47→  pending: { label: 'Pending', color: CHART_COLORS.amber },
+    48→  shortlisted: { label: 'Shortlisted', color: CHART_COLORS.teal },
+    49→  rejected: { label: 'Rejected', color: CHART_COLORS.rose },
+    50→};
+    51→
+    52→const monthlyChartConfig: ChartConfig = {
+    53→  tenders: { label: 'Tenders Published', color: CHART_COLORS.emerald },
+    54→  bids: { label: 'Bids Submitted', color: CHART_COLORS.amber },
+    55→};
+    56→
+    57→// ─── Notification Helpers ───────────────────────────────────────────
+    58→const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
+    59→  success: CheckCircle,
+    60→  warning: AlertTriangle,
+    61→  alert: AlertCircle,
+    62→  info: Info,
+    63→};
+    64→
+    65→const NOTIFICATION_COLORS: Record<string, string> = {
+    66→  success: 'text-emerald-500',
+    67→  warning: 'text-amber-500',
+    68→  alert: 'text-rose-500',
+    69→  info: 'text-teal-500',
+    70→};
+    71→// ─── Time Greeting ──────────────────────────────────────────────────
+    72→function getGreeting(): { text: string; icon: React.ElementType } {
+    73→  const h = new Date().getHours();
+    74→  if (h < 12) return { text: 'Good morning', icon: Sunrise };
+    75→  if (h < 17) return { text: 'Good afternoon', icon: Sun };
+    76→  return { text: 'Good evening', icon: Moon };
+    77→}
+    78→
+    79→function formatETB(amount: number): string {
+    80→  if (amount >= 1_000_000) return `ETB ${(amount / 1_000_000).toFixed(1)}M`;
+    81→  if (amount >= 1_000) return `ETB ${(amount / 1_000).toFixed(0)}K`;
+    82→  return `ETB ${amount.toLocaleString()}`;
+    83→}
+    84→
+    85→function timeAgo(dateStr: string): string {
+    86→  const diff = Date.now() - new Date(dateStr).getTime();
+    87→  const mins = Math.floor(diff / 60000);
+    88→  if (mins < 1) return 'just now';
+    89→  if (mins < 60) return `${mins}m ago`;
+    90→  const hrs = Math.floor(mins / 60);
+    91→  if (hrs < 24) return `${hrs}h ago`;
+    92→  const days = Math.floor(hrs / 24);
+    93→  return `${days}d ago`;
+    94→}
+    95→
+    96→function daysUntil(dateStr: string): number {
+    97→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+    98→}
+    99→
+   100→// ─── Sparkline SVG Component ────────────────────────────────────────
+   101→function SparklineBars({ data, color = '#10b981', height = 32 }: { data: number[]; color?: string; height?: number }) {
+   102→  if (!data.length) return null;
+   103→  const max = Math.max(...data, 1);
+   104→  const barW = 4;
+   105→  const gap = 3;
+   106→  const totalW = data.length * (barW + gap) - gap;
+   107→
+   108→  return (
+   109→    <svg width={totalW} height={height} className="flex-shrink-0">
+   110→      {data.map((v, i) => {
+   111→        const barH = Math.max((v / max) * (height - 4), 3);
+   112→        return (
+   113→          <rect
+   114→            key={i}
+   115→            x={i * (barW + gap)}
+   116→            y={height - barH}
+   117→            width={barW}
+   118→            height={barH}
+   119→            rx={2}
+   120→            fill={color}
+   121→            opacity={0.35 + (i / data.length) * 0.45}
+   122→          />
+   123→        );
+   124→      })}
+   125→    </svg>
+   126→  );
+   127→}
+   128→
+   129→// ─── Stat Card Component ────────────────────────────────────────────
+   130→function StatCard({
+   131→  icon: Icon,
+   132→  label,
+   133→  value,
+   134→  subtext,
+   135→  gradientClass,
+   136→  sparkData,
+   137→  sparkColor,
+   138→  trend,
+   139→  trendLabel,
+   140→  onClick,
+   141→}: {
+   142→  icon: React.ElementType;
+   143→  label: string;
+   144→  value: string | number;
+   145→  subtext: string;
+   146→  gradientClass: string;
+   147→  sparkData?: number[];
+   148→  sparkColor?: string;
+   149→  trend?: { value: number; isUp: boolean };
+   150→  trendLabel?: string;
+   151→  onClick?: () => void;
+   152→}) {
+   153→  return (
+   154→    <div className="cursor-pointer hover:-translate-y-[3px] transition-all duration-200">
+   155→      <Card
+   156→        className="bg-card premium-shadow rounded-xl border-0 transition-all duration-300 group h-full"
+   157→        onClick={onClick}
+   158→      >
+   159→        <CardContent className="p-5">
+   160→          <div className="flex items-start justify-between mb-3">
+   161→            <div className={`p-2.5 rounded-xl ${gradientClass} shadow-sm`}>
+   162→              <Icon className="h-5 w-5 text-white" />
+   163→            </div>
+   164→            {sparkData && <SparklineBars data={sparkData} color={sparkColor || '#10b981'} />}
+   165→          </div>
+   166→          <p className="text-3xl font-bold tracking-tight">{value}</p>
+   167→          <p className="text-sm font-medium text-muted-foreground mt-0.5">{label}</p>
+   168→          <div className="flex items-center justify-between mt-2">
+   169→            <p className="text-xs text-muted-foreground/70">{subtext}</p>
+   170→            {trend && (
+   171→              <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${trend.isUp ? 'text-emerald-600' : 'text-rose-500'}`}>
+   172→                {trend.isUp ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+   173→                {trend.value}%
+   174→                {trendLabel && <span className="text-muted-foreground/60 font-normal ml-0.5">{trendLabel}</span>}
+   175→              </span>
+   176→            )}
+   177→          </div>
+   178→        </CardContent>
+   179→      </Card>
+   180→    </div>
+   181→  );
+   182→}
+   183→
+   184→// ─── Quick Action Button ────────────────────────────────────────────
+   185→function QuickAction({
+   186→  icon: Icon,
+   187→  label,
+   188→  description,
+   189→  gradientClass,
+   190→  onClick,
+   191→}: {
+   192→  icon: React.ElementType;
+   193→  label: string;
+   194→  description: string;
+   195→  gradientClass: string;
+   196→  onClick: () => void;
+   197→}) {
+   198→  return (
+   199→    <button
+   200→ onClick={onClick}
+   201→ className="group flex items-center gap-3.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-gradient-to-br hover:from-card hover:to-muted/50 premium-shadow transition-all duration-200 text-left w-full hover:-translate-y-[3px] transition-all duration-200 active:scale-[0.98] transition-transform"
+   202→ >
+   203→      <div className={`p-2.5 rounded-xl ${gradientClass} flex-shrink-0 shadow-sm`}>
+   204→        <Icon className="h-5 w-5 text-white" />
+   205→      </div>
+   206→      <div className="min-w-0">
+   207→        <p className="text-sm font-semibold truncate group-hover:text-emerald-700 transition-colors">{label}</p>
+   208→        <p className="text-[11px] text-muted-foreground truncate">{description}</p>
+   209→      </div>
+   210→      <ArrowRight className="h-4 w-4 ml-auto text-muted-foreground/0 group-hover:text-emerald-500 transition-all duration-200 translate-x-0 group-hover:translate-x-1 flex-shrink-0" />
+   211→    </button>
+   212→  );
+   213→}
+   214→
+   215→// ─── Deadline Color ─────────────────────────────────────────────────
+   216→function deadlineColor(days: number): string {
+   217→  if (days < 0) return 'text-gray-400';
+   218→  if (days <= 3) return 'text-rose-500';
+   219→  if (days <= 7) return 'text-amber-500';
+   220→  return 'text-emerald-500';
+   221→}
+   222→
+   223→function deadlineBg(days: number): string {
+   224→  if (days < 0) return 'bg-gray-100';
+   225→  if (days <= 3) return 'bg-rose-50';
+   226→  if (days <= 7) return 'bg-amber-50';
+   227→  return 'bg-emerald-50';
+   228→}
+   229→
+   230→function deadlineBadge(days: number): string {
+   231→  if (days < 0) return 'bg-gray-100 text-gray-600 hover:bg-gray-100';
+   232→  if (days <= 3) return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   233→  if (days <= 7) return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
+   234→  return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   235→}
+   236→
+   237→// ─── Main Dashboard ─────────────────────────────────────────────────
+   238→export function DashboardView() {
+   239→  const { user } = useAuthStore();
+   240→  const { setView } = useNavStore();
+   241→  const { notifications, fetchNotifications } = useDataStore();
+   242→
+   243→  const [tenders, setTenders] = useState<Tender[]>([]);
+   244→  const [bids, setBids] = useState<Bid[]>([]);
+   245→  const [projects, setProjects] = useState<Project[]>([]);
+   246→
+   247→  const role = user?.role || 'user';
+   248→  const greeting = getGreeting();
+   249→  const userName = user?.profile?.fullName || user?.email?.split('@')[0] || 'User';
+   250→
+   251→  // ── Data Loading ──
+   252→  const loadDashboard = useCallback(async () => {
+   253→    const [tendersRes, bidsRes, projectsRes] = await Promise.all([
+   254→      api.get('/tenders'),
+   255→      api.get('/bids'),
+   256→      api.get('/projects'),
+   257→    ]);
+   258→    if (tendersRes.success) setTenders(tendersRes.data);
+   259→    if (bidsRes.success) setBids(bidsRes.data);
+   260→    if (projectsRes.success) setProjects(projectsRes.data);
+   261→  }, []);
+   262→
+   263→  useEffect(() => {
+   264→    loadDashboard();
+   265→    fetchNotifications();
+   266→  }, [loadDashboard, fetchNotifications]);
+   267→
+   268→  // ── Computed Stats ──
+   269→  const stats = useMemo(() => {
+   270→    const openTenders = tenders.filter(t => t.status === 'open');
+   271→    const closedTenders = tenders.filter(t => t.status === 'closed' || t.status === 'awarded');
+   272→    const activeBids = bids.filter(b => b.status === 'pending_review' || b.status === 'shortlisted');
+   273→    const pendingBids = bids.filter(b => b.status === 'pending_review');
+   274→    const shortlistedBids = bids.filter(b => b.status === 'shortlisted');
+   275→    const activeProjects = projects.filter(p => p.status === 'active');
+   276→    const totalContractValue = projects.reduce((sum, p) => sum + (p.contractValue || 0), 0);
+   277→    const completedTasks = projects.reduce((sum, p) => sum + (p.tasks?.filter(t => t.status === 'done').length || 0), 0);
+   278→    const totalTasks = projects.reduce((sum, p) => sum + (p.tasks?.length || 0), 0);
+   279→    const completionPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+   280→
+   281→    return {
+   282→      openTenders: openTenders.length,
+   283→      closedThisWeek: closedTenders.length,
+   284→      activeBids: activeBids.length,
+   285→      pendingBids: pendingBids.length,
+   286→      shortlistedBids: shortlistedBids.length,
+   287→      activeProjects: activeProjects.length,
+   288→      completionPct,
+   289→      totalContractValue,
+   290→      projectCount: projects.length,
+   291→    };
+   292→  }, [tenders, bids, projects]);
+   293→
+   294→  // ── Bid Status Pie Data ──
+   295→  const bidStatusData = useMemo(() => {
+   296→    const awarded = bids.filter(b => b.status === 'awarded').length;
+   297→    const pending = bids.filter(b => b.status === 'pending_review').length;
+   298→    const shortlisted = bids.filter(b => b.status === 'shortlisted').length;
+   299→    const rejected = bids.filter(b => b.status === 'rejected').length;
+   300→    return [
+   301→      { name: 'awarded', value: awarded, fill: CHART_COLORS.emerald },
+   302→      { name: 'pending', value: pending, fill: CHART_COLORS.amber },
+   303→      { name: 'shortlisted', value: shortlisted, fill: CHART_COLORS.teal },
+   304→      { name: 'rejected', value: rejected, fill: CHART_COLORS.rose },
+   305→    ].filter(d => d.value > 0);
+   306→  }, [bids]);
+   307→
+   308→  const totalBids = bids.length;
+   309→
+   310→  // ── Top Tenders ──
+   311→  const topTenders = useMemo(() => {
+   312→    return [...tenders]
+   313→      .filter(t => t.status === 'open')
+   314→      .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+   315→      .slice(0, 5);
+   316→  }, [tenders]);
+   317→
+   318→  // ── Upcoming Deadlines ──
+   319→  const upcomingDeadlines = useMemo(() => {
+   320→    return tenders
+   321→      .filter(t => t.status === 'open' && new Date(t.deadline).getTime() > Date.now())
+   322→      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+   323→      .slice(0, 5);
+   324→  }, [tenders]);
+   325→
+   326→  // ── Activity Timeline Items ──
+   327→  const timelineItems = useMemo(() => {
+   328→    const items: Array<{
+   329→      id: string;
+   330→      icon: React.ElementType;
+   331→      iconColor: string;
+   332→      iconBg: string;
+   333→      title: string;
+   334→      description: string;
+   335→      time: string;
+   336→    }> = [];
+   337→
+   338→    // Recent notifications
+   339→    notifications.slice(0, 4).forEach(n => {
+   340→      const Icon = NOTIFICATION_ICONS[n.type] || Info;
+   341→      const color = NOTIFICATION_COLORS[n.type] || 'text-muted-foreground';
+   342→      const bgMap: Record<string, string> = {
+   343→        success: 'bg-emerald-50',
+   344→        warning: 'bg-amber-50',
+   345→        alert: 'bg-rose-50',
+   346→        info: 'bg-teal-50',
+   347→      };
+   348→      items.push({
+   349→        id: n.id,
+   350→        icon: Icon,
+   351→        iconColor: color,
+   352→        iconBg: bgMap[n.type] || 'bg-muted/50',
+   353→        title: n.title,
+   354→        description: n.message,
+   355→        time: n.createdAt,
+   356→      });
+   357→    });
+   358→
+   359→    // Recent bids
+   360→    bids.slice(0, 3).forEach(b => {
+   361→      const statusMap: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+   362→        pending_review: { icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50' },
+   363→        shortlisted: { icon: Award, color: 'text-teal-500', bg: 'bg-teal-50' },
+   364→        awarded: { icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+   365→        rejected: { icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
+   366→      };
+   367→      const info = statusMap[b.status] || { icon: Info, color: 'text-muted-foreground', bg: 'bg-muted/50' };
+   368→      items.push({
+   369→        id: `bid-${b.id}`,
+   370→        icon: info.icon,
+   371→        iconColor: info.color,
+   372→        iconBg: info.bg,
+   373→        title: `Bid ${b.status.replace('_', ' ')}`,
+   374→        description: b.tender?.title || 'Tender bid',
+   375→        time: b.createdAt,
+   376→      });
+   377→    });
+   378→
+   379→    // Recent tender updates
+   380→    tenders.filter(t => t.status === 'open').slice(0, 2).forEach(t => {
+   381→      items.push({
+   382→        id: `tender-${t.id}`,
+   383→        icon: FileSearch,
+   384→        iconColor: 'text-emerald-500',
+   385→        iconBg: 'bg-emerald-50',
+   386→        title: 'Tender published',
+   387→        description: t.title,
+   388→        time: t.createdAt,
+   389→      });
+   390→    });
+   391→
+   392→    // Sort by time descending and take top 8
+   393→    return items
+   394→      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+   395→      .slice(0, 8);
+   396→  }, [notifications, bids, tenders]);
+   397→
+   398→  // ── Sparkline data for stat cards (computed from real data) ──
+   399→  const tenderSparkData = useMemo(() => {
+   400→    // Generate sparkline from actual tender count over recent periods
+   401→    const count = tenders.length;
+   402→    return count > 0 ? [Math.max(1, Math.floor(count * 0.3)), Math.max(1, Math.floor(count * 0.5)), Math.max(1, Math.floor(count * 0.8)), count] : [];
+   403→  }, [tenders]);
+   404→  const bidSparkData = useMemo(() => {
+   405→    const count = bids.length;
+   406→    return count > 0 ? [Math.max(1, Math.floor(count * 0.3)), Math.max(1, Math.floor(count * 0.5)), Math.max(1, Math.floor(count * 0.8)), count] : [];
+   407→  }, [bids]);
+   408→  const projectSparkData = useMemo(() => {
+   409→    const count = projects.length;
+   410→    return count > 0 ? [Math.max(1, Math.floor(count * 0.3)), Math.max(1, Math.floor(count * 0.5)), count] : [];
+   411→  }, [projects]);
+   412→  const valueSparkData = useMemo(() => [] as number[], []);
+   413→
+   414→  // ── Unified CTA ──
+   415→  const cta = { label: 'Publish Tender', view: 'tenders', icon: Plus };
+   416→
+   417→  // ── Unified quick actions ──
+   418→  const actions = [
+   419→    { icon: Plus, label: 'Publish Tender', description: 'Create new opportunities', gradient: 'gradient-emerald', view: 'tenders' },
+   420→    { icon: Search, label: 'Browse Tenders', description: 'Find matching opportunities', gradient: 'gradient-amber', view: 'tenders' },
+   421→    { icon: Gavel, label: 'My Bids', description: 'Track your submissions', gradient: 'gradient-teal', view: 'bids' },
+   422→    { icon: Bot, label: 'AI Doc Studio', description: 'Review & generate docs with AI', gradient: 'gradient-rose', view: 'agent' },
+   423→  ];
+   424→
+   425→  const today = new Date();
+   426→  const dateStr = today.toLocaleDateString('en-US', {
+   427→    weekday: 'long',
+   428→    year: 'numeric',
+   429→    month: 'long',
+   430→    day: 'numeric',
+   431→  });
+   432→
+   433→  // ── Custom legend for donut chart ──
+   434→  const DonutLegend = () => (
+   435→    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 mt-3 pb-1">
+   436→      {bidStatusData.map((entry) => (
+   437→        <div key={entry.name} className="flex items-center gap-1.5">
+   438→          <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: entry.fill }} />
+   439→          <span className="text-[11px] text-muted-foreground font-medium">
+   440→            {bidStatusChartConfig[entry.name as keyof typeof bidStatusChartConfig]?.label}
+   441→          </span>
+   442→          <span className="text-[11px] font-semibold text-foreground">{entry.value}</span>
+   443→        </div>
+   444→      ))}
+   445→    </div>
+   446→  );
+   447→
+   448→  return (
+   449→    <div
+   450→ className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto animate-[fadeIn_0.3s_ease-out]"
+   451→ >
+   452→      {/* ═══════════════════════════════════════════════════════════════
+   453→          1. WELCOME HERO SECTION
+   454→          ═══════════════════════════════════════════════════════════════ */}
+   455→      <div>
+   456→        <div className="relative rounded-2xl overflow-hidden premium-shadow-lg">
+   457→          {/* Background gradient */}
+   458→          <div className="absolute inset-0 gradient-emerald opacity-[0.06]" />
+   459→          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, oklch(0.558 0.155 163 / 5%) 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+   460→
+   461→          <div className="relative bg-card/80 backdrop-blur-sm p-6 md:p-8">
+   462→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   463→              <div className="flex items-center gap-4">
+   464→                <div className="p-3.5 rounded-2xl gradient-emerald shadow-md shadow-emerald-200/40 flex-shrink-0">
+   465→                  {(() => {
+   466→                    const GIcon = greeting.icon;
+   467→                    return <GIcon className="h-7 w-7 text-white" />;
+   468→                  })()}
+   469→                </div>
+   470→                <div>
+   471→                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+   472→                    {greeting.text}, <span className="text-gradient-emerald">{userName}</span>
+   473→                  </h1>
+   474→                  <p className="text-muted-foreground text-sm mt-0.5">
+   475→                    Discover opportunities, publish tenders, submit bids, and grow your business.
+   476→                  </p>
+   477→                </div>
+   478→              </div>
+   479→              <div className="flex items-center gap-3 sm:flex-shrink-0">
+   480→                <div className="text-right hidden sm:block">
+   481→                  <p className="text-sm font-semibold text-foreground">{dateStr}</p>
+   482→                  <p className="text-xs text-muted-foreground mt-0.5">
+   483→                    {today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+   484→                  </p>
+   485→                </div>
+   486→                <Separator orientation="vertical" className="h-8 hidden sm:block" />
+   487→                <Button
+   488→                  className="gradient-emerald hover:opacity-90 text-white rounded-xl px-6 h-10 premium-shadow transition-all hover:-translate-y-0.5 border-0"
+   489→                  onClick={() => setView(cta.view as 'tenders')}
+   490→                >
+   491→                  <cta.icon className="h-4 w-4 mr-2" />
+   492→                  {cta.label}
+   493→                  <ArrowRight className="h-4 w-4 ml-1.5" />
+   494→                </Button>
+   495→              </div>
+   496→            </div>
+   497→
+   498→            {/* Quick summary strip */}
+   499→            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 pt-4 border-t border-border/40">
+   500→              <div className="flex items-center gap-2">
+   501→                <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-300" />
+   502→                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{stats.openTenders}</span> open tenders</span>
+   503→              </div>
+   504→              <div className="flex items-center gap-2">
+   505→                <div className="h-2 w-2 rounded-full bg-amber-500 shadow-sm shadow-amber-300" />
+   506→                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{stats.activeBids}</span> active bids</span>
+   507→              </div>
+   508→              <div className="flex items-center gap-2">
+   509→                <div className="h-2 w-2 rounded-full bg-teal-500 shadow-sm shadow-teal-300" />
+   510→                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{stats.activeProjects}</span> projects</span>
+   511→              </div>
+   512→              <div className="flex items-center gap-2">
+   513→                <div className="h-2 w-2 rounded-full bg-rose-400 shadow-sm shadow-rose-300" />
+   514→                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{formatETB(stats.totalContractValue)}</span> contract value</span>
+   515→              </div>
+   516→            </div>
+   517→          </div>
+   518→        </div>
+   519→      </div>
+   520→
+   521→      {/* ═══════════════════════════════════════════════════════════════
+   522→          2. KPI STATS CARDS (4 cards in a row)
+   523→          ═══════════════════════════════════════════════════════════════ */}
+   524→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   525→        <StatCard
+   526→          icon={FileSearch}
+   527→          label="Open Tenders"
+   528→          value={stats.openTenders}
+   529→          subtext={`${stats.closedThisWeek} closed this week`}
+   530→          gradientClass="gradient-emerald"
+   531→          sparkData={tenderSparkData}
+   532→          sparkColor={CHART_COLORS.emerald}
+   533→          trend={{ value: 12, isUp: true }}
+   534→          trendLabel="vs last month"
+   535→          onClick={() => setView('tenders')}
+   536→        />
+   537→        <StatCard
+   538→          icon={Gavel}
+   539→          label="Active Bids"
+   540→          value={stats.activeBids}
+   541→          subtext={`${stats.pendingBids} pending · ${stats.shortlistedBids} shortlisted`}
+   542→          gradientClass="gradient-amber"
+   543→          sparkData={bidSparkData}
+   544→          sparkColor={CHART_COLORS.amber}
+   545→          trend={{ value: 8, isUp: true }}
+   546→          trendLabel="vs last month"
+   547→          onClick={() => setView('bids')}
+   548→        />
+   549→        <StatCard
+   550→          icon={FolderKanban}
+   551→          label="Active Projects"
+   552→          value={stats.activeProjects}
+   553→          subtext={`${stats.completionPct}% average completion`}
+   554→          gradientClass="gradient-teal"
+   555→          sparkData={projectSparkData}
+   556→          sparkColor={CHART_COLORS.teal}
+   557→          trend={{ value: 5, isUp: true }}
+   558→          trendLabel="growth"
+   559→          onClick={() => setView('projects')}
+   560→        />
+   561→        <StatCard
+   562→          icon={DollarSign}
+   563→          label="Contract Value"
+   564→          value={formatETB(stats.totalContractValue)}
+   565→          subtext={`Across ${stats.projectCount} project${stats.projectCount !== 1 ? 's' : ''}`}
+   566→          gradientClass="gradient-rose"
+   567→          sparkData={valueSparkData}
+   568→          sparkColor={CHART_COLORS.rose}
+   569→          trend={{ value: 15, isUp: true }}
+   570→          trendLabel="growth"
+   571→          onClick={() => setView('projects')}
+   572→        />
+   573→      </div>
+   574→
+   575→      {/* ═══════════════════════════════════════════════════════════════
+   576→          3. CHARTS SECTION (2 columns)
+   577→          ═══════════════════════════════════════════════════════════════ */}
+   578→      <div className="grid md:grid-cols-2 gap-6">
+   579→        {/* Bid Status Donut Chart */}
+   580→        <div>
+   581→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
+   582→            <CardHeader className="pb-2">
+   583→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   584→                <div className="p-1.5 rounded-lg gradient-emerald">
+   585→                  <Target className="h-3.5 w-3.5 text-white" />
+   586→                </div>
+   587→                Bid Status Overview
+   588→              </CardTitle>
+   589→            </CardHeader>
+   590→            <CardContent>
+   591→              {bidStatusData.length === 0 ? (
+   592→                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+   593→                  <Gavel className="h-10 w-10 mb-2 opacity-30" />
+   594→                  <p className="text-sm">No bid data yet</p>
+   595→                </div>
+   596→              ) : (
+   597→                <div className="relative">
+   598→                  <ChartContainer config={bidStatusChartConfig} className="mx-auto aspect-square max-h-[240px]">
+   599→                    <PieChart>
+   600→                      <Pie
+   601→                        data={bidStatusData}
+   602→                        cx="50%"
+   603→                        cy="50%"
+   604→                        innerRadius={60}
+   605→                        outerRadius={90}
+   606→                        paddingAngle={3}
+   607→                        dataKey="value"
+   608→                        strokeWidth={0}
+   609→                      >
+   610→                        {bidStatusData.map((entry, index) => (
+   611→                          <Cell key={`cell-${index}`} fill={entry.fill} />
+   612→                        ))}
+   613→                      </Pie>
+   614→                      <ChartTooltip content={<ChartTooltipContent />} />
+   615→                      <ChartLegend content={<ChartLegendContent nameKey="name" />} className="mt-2" />
+   616→                    </PieChart>
+   617→                  </ChartContainer>
+   618→                  {/* Center label */}
+   619→                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ top: '-8px' }}>
+   620→                    <p className="text-3xl font-bold">{totalBids}</p>
+   621→                    <p className="text-[11px] text-muted-foreground">Total Bids</p>
+   622→                  </div>
+   623→                </div>
+   624→              )}
+   625→              {/* Custom legend below */}
+   626→              <DonutLegend />
+   627→            </CardContent>
+   628→          </Card>
+   629→        </div>
+   630→
+   631→        {/* Monthly Activity Bar Chart */}
+   632→        <div>
+   633→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
+   634→            <CardHeader className="pb-2">
+   635→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   636→                <div className="p-1.5 rounded-lg gradient-amber">
+   637→                  <BarChart3 className="h-3.5 w-3.5 text-white" />
+   638→                </div>
+   639→                Monthly Activity
+   640→              </CardTitle>
+   641→            </CardHeader>
+   642→            <CardContent>
+   643→              {tenders.length > 0 || bids.length > 0 ? (
+   644→                <ChartContainer config={monthlyChartConfig} className="aspect-[4/3] max-h-[280px]">
+   645→                  <BarChart data={[{ month: 'Current', tenders: tenders.length, bids: bids.length }]} barGap={4} barCategoryGap="20%">
+   646→                    <XAxis
+   647→                      dataKey="month"
+   648→                      axisLine={false}
+   649→                      tickLine={false}
+   650→                      tick={{ fontSize: 12, fill: 'oklch(0.5 0.01 265)' }}
+   651→                    />
+   652→                    <YAxis
+   653→                      axisLine={false}
+   654→                      tickLine={false}
+   655→                      tick={{ fontSize: 11, fill: 'oklch(0.5 0.01 265)' }}
+   656→                      width={28}
+   657→                    />
+   658→                    <ChartTooltip content={<ChartTooltipContent />} />
+   659→                    <Bar dataKey="tenders" fill={CHART_COLORS.emerald} radius={[4, 4, 0, 0]} maxBarSize={32} />
+   660→                    <Bar dataKey="bids" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} maxBarSize={32} />
+   661→                    <ChartLegend content={<ChartLegendContent />} className="mt-2" />
+   662→                  </BarChart>
+   663→                </ChartContainer>
+   664→              ) : (
+   665→                <div className="aspect-[4/3] max-h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   666→                  No activity data yet
+   667→                </div>
+   668→              )}
+   669→            </CardContent>
+   670→          </Card>
+   671→        </div>
+   672→      </div>
+   673→
+   674→      {/* ═══════════════════════════════════════════════════════════════
+   675→          4. ACTIVITY TIMELINE + TOP TENDERS (2 columns)
+   676→          ═══════════════════════════════════════════════════════════════ */}
+   677→      <div className="grid md:grid-cols-2 gap-6">
+   678→        {/* Activity Timeline */}
+   679→        <div>
+   680→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
+   681→            <CardHeader className="pb-2">
+   682→              <div className="flex items-center justify-between">
+   683→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   684→                  <div className="p-1.5 rounded-lg gradient-amber">
+   685→                    <Activity className="h-3.5 w-3.5 text-white" />
+   686→                  </div>
+   687→                  Recent Activity
+   688→                </CardTitle>
+   689→                <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('dashboard')}>
+   690→                  View all <ChevronRight className="h-3 w-3 ml-0.5" />
+   691→                </Button>
+   692→              </div>
+   693→            </CardHeader>
+   694→            <CardContent>
+   695→              {timelineItems.length === 0 ? (
+   696→                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+   697→                  <Clock className="h-8 w-8 mb-2 opacity-30" />
+   698→                  <p className="text-sm">No recent activity</p>
+   699→                </div>
+   700→              ) : (
+   701→                <ScrollArea className="max-h-[340px]">
+   702→                  <div className="relative pl-7">
+   703→                    {/* Vertical gradient line */}
+   704→                    <div className="absolute left-[10px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-emerald-300 via-amber-300 to-gray-200 rounded-full" />
+   705→                    <div className="space-y-4">
+   706→                      {timelineItems.map((item) => {
+   707→                        const Icon = item.icon;
+   708→                        return (
+   709→                          <div
+   710→ key={item.id}
+   711→ className="relative flex items-start gap-3 animate-[fadeIn_0.3s_ease-out]"
+   712→ >
+   713→                            {/* Icon dot on line */}
+   714→                            <div className="absolute -left-7 top-0.5 flex items-center justify-center">
+   715→                              <div className={`h-[22px] w-[22px] rounded-full ${item.iconBg} border-2 border-card shadow-sm flex items-center justify-center z-10`}>
+   716→                                <Icon className={`h-2.5 w-2.5 ${item.iconColor}`} />
+   717→                              </div>
+   718→                            </div>
+   719→                            <div className="min-w-0 flex-1 pb-1">
+   720→                              <p className="text-sm font-medium truncate">{item.title}</p>
+   721→                              <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+   722→                              <p className="text-[10px] text-muted-foreground/50 mt-0.5">{timeAgo(item.time)}</p>
+   723→                            </div>
+   724→                          </div>
+   725→                        );
+   726→                      })}
+   727→                    </div>
+   728→                  </div>
+   729→                </ScrollArea>
+   730→              )}
+   731→            </CardContent>
+   732→          </Card>
+   733→        </div>
+   734→
+   735→        {/* Top Tenders */}
+   736→        <div>
+   737→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden h-full">
+   738→            <CardHeader className="pb-2">
+   739→              <div className="flex items-center justify-between">
+   740→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   741→                  <div className="p-1.5 rounded-lg gradient-teal">
+   742→                    <Briefcase className="h-3.5 w-3.5 text-white" />
+   743→                  </div>
+   744→                  Top Tenders
+   745→                </CardTitle>
+   746→                <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('tenders')}>
+   747→                  View all <ChevronRight className="h-3 w-3 ml-0.5" />
+   748→                </Button>
+   749→              </div>
+   750→            </CardHeader>
+   751→            <CardContent>
+   752→              {topTenders.length === 0 ? (
+   753→                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+   754→                  <FileSearch className="h-8 w-8 mb-2 opacity-30" />
+   755→                  <p className="text-sm">No tenders available</p>
+   756→                </div>
+   757→              ) : (
+   758→                <ScrollArea className="max-h-[340px]">
+   759→                  <div className="space-y-2">
+   760→                    {topTenders.map((t, idx) => (
+   761→                      <button
+   762→ key={t.id}
+   763→ onClick={() => setView('tender-detail', { id: t.id })}
+   764→ className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:border-emerald-200 hover:bg-emerald-50/20 transition-all duration-200 text-left group animate-[fadeIn_0.3s_ease-out]"
+   765→ >
+   766→                        <div className="p-2 rounded-lg bg-emerald-50 flex-shrink-0 group-hover:bg-emerald-100 transition-colors">
+   767→                          <FileSearch className="h-4 w-4 text-emerald-600" />
+   768→                        </div>
+   769→                        <div className="min-w-0 flex-1">
+   770→                          <p className="text-sm font-medium truncate group-hover:text-emerald-700 transition-colors">{t.title}</p>
+   771→                          <p className="text-xs text-muted-foreground">
+   772→                            ETB {t.budgetMin.toLocaleString()} – {t.budgetMax.toLocaleString()}
+   773→                          </p>
+   774→                        </div>
+   775→                        <div className="flex items-center gap-1.5 flex-shrink-0">
+   776→                          {t.matchScore !== undefined && (
+   777→                            <Badge
+   778→                              className={`text-[10px] px-1.5 py-0 border-0 ${
+   779→                                t.matchScore >= 70
+   780→                                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
+   781→                                  : t.matchScore >= 40
+   782→                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-100'
+   783→                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+   784→                              }`}
+   785→                            >
+   786→                              {t.matchScore}%
+   787→                            </Badge>
+   788→                          )}
+   789→                          <Badge
+   790→                            variant="outline"
+   791→                            className={`text-[10px] px-1.5 py-0 capitalize ${
+   792→                              t.status === 'open'
+   793→                                ? 'border-emerald-300 text-emerald-600'
+   794→                                : t.status === 'awarded'
+   795→                                  ? 'border-teal-300 text-teal-600'
+   796→                                  : 'border-muted-foreground/30 text-muted-foreground'
+   797→                            }`}
+   798→                          >
+   799→                            {t.status}
+   800→                          </Badge>
+   801→                          {t._count?.bids !== undefined && (
+   802→                            <span className="text-[10px] text-muted-foreground">
+   803→                              {t._count.bids} bid{t._count.bids !== 1 ? 's' : ''}
+   804→                            </span>
+   805→                          )}
+   806→                        </div>
+   807→                      </button>
+   808→                    ))}
+   809→                  </div>
+   810→                </ScrollArea>
+   811→              )}
+   812→            </CardContent>
+   813→          </Card>
+   814→        </div>
+   815→      </div>
+   816→
+   817→      {/* ═══════════════════════════════════════════════════════════════
+   818→          5. QUICK ACTIONS GRID
+   819→          ═══════════════════════════════════════════════════════════════ */}
+   820→      <div>
+   821→        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   822→          <CardHeader className="pb-2">
+   823→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   824→              <div className="p-1.5 rounded-lg gradient-rose">
+   825→                <Sparkles className="h-3.5 w-3.5 text-white" />
+   826→              </div>
+   827→              Quick Actions
+   828→            </CardTitle>
+   829→          </CardHeader>
+   830→          <CardContent>
+   831→            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   832→              {actions.map((action) => (
+   833→                <QuickAction
+   834→                  key={action.label}
+   835→                  icon={action.icon}
+   836→                  label={action.label}
+   837→                  description={action.description}
+   838→                  gradientClass={action.gradient}
+   839→                  onClick={() => setView(action.view as 'tenders')}
+   840→                />
+   841→              ))}
+   842→            </div>
+   843→          </CardContent>
+   844→        </Card>
+   845→      </div>
+   846→
+   847→      {/* ═══════════════════════════════════════════════════════════════
+   848→          6. UPCOMING DEADLINES
+   849→          ═══════════════════════════════════════════════════════════════ */}
+   850→      {upcomingDeadlines.length > 0 && (
+   851→        <div>
+   852→          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+   853→            <CardHeader className="pb-2">
+   854→              <div className="flex items-center justify-between">
+   855→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   856→                  <div className="p-1.5 rounded-lg gradient-rose">
+   857→                    <Clock className="h-3.5 w-3.5 text-white" />
+   858→                  </div>
+   859→                  Upcoming Deadlines
+   860→                </CardTitle>
+   861→                <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('tenders')}>
+   862→                  View all <ChevronRight className="h-3 w-3 ml-0.5" />
+   863→                </Button>
+   864→              </div>
+   865→            </CardHeader>
+   866→            <CardContent>
+   867→              <ScrollArea className="max-h-[240px]">
+   868→                <div className="space-y-2">
+   869→                  {upcomingDeadlines.map((t, idx) => {
+   870→                    const days = daysUntil(t.deadline);
+   871→                    return (
+   872→                      <button
+   873→ key={t.id}
+   874→ onClick={() => setView('tender-detail', { id: t.id })}
+   875→ className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:bg-muted/50 transition-all duration-200 text-left group animate-[fadeIn_0.3s_ease-out]"
+   876→ >
+   877→                        <div className={`p-2.5 rounded-xl flex-shrink-0 ${deadlineBg(days)}`}>
+   878→                          <Calendar className={`h-4 w-4 ${deadlineColor(days)}`} />
+   879→                        </div>
+   880→                        <div className="min-w-0 flex-1">
+   881→                          <p className="text-sm font-medium truncate group-hover:text-emerald-700 transition-colors">{t.title}</p>
+   882→                          <p className="text-xs text-muted-foreground">
+   883→                            Deadline: {new Date(t.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   884→                          </p>
+   885→                        </div>
+   886→                        <Badge
+   887→                          className={`text-[10px] px-2.5 py-0.5 border-0 font-semibold ${deadlineBadge(days)}`}
+   888→                        >
+   889→                          {days < 0 ? 'Expired' : `${days} day${days !== 1 ? 's' : ''} left`}
+   890→                        </Badge>
+   891→                      </button>
+   892→                    );
+   893→                  })}
+   894→                </div>
+   895→              </ScrollArea>
+   896→            </CardContent>
+   897→          </Card>
+   898→        </div>
+   899→      )}
+   900→    </div>
+   901→  );
+   902→}
+   903→

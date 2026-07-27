@@ -16,7 +16,7 @@ import {
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
-  PenTool, BarChart3, FileCode, Shield,
+  PenTool, BarChart3, FileCode, Shield, Star,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
@@ -43,6 +43,7 @@ const ContactUsView = dynamic(() => import('@/components/modules/contact-us').th
 const PrivacyPolicyView = dynamic(() => import('@/components/modules/privacy-policy').then(m => ({ default: m.PrivacyPolicyView })), { ssr: false });
 const SocialCircleView = dynamic(() => import('@/components/modules/social-circle').then(m => ({ default: m.SocialCircleView })), { ssr: false });
 const RateLimitsView = dynamic(() => import('@/components/modules/rate-limits').then(m => ({ default: m.RateLimitsView })), { ssr: false });
+const PricingPlansView = dynamic(() => import('@/components/modules/pricing-plans').then(m => ({ default: m.PricingPlansView })), { ssr: false });
 const AIDocStudioView = dynamic(() => import('@/components/modules/ai-doc-studio').then(m => ({ default: m.AIDocStudio })), { ssr: false });
 const DocBuilderView = dynamic(() => import('@/components/modules/doc-builder').then(m => ({ default: m.DocBuilderView })), { ssr: false });
 const TenderAnalyzerView = dynamic(() => import('@/components/modules/tender-analyzer').then(m => ({ default: m.TenderAnalyzerView })), { ssr: false });
@@ -137,12 +138,20 @@ function getNavItemsForRole(role: string): NavSection[] {
     ],
   };
 
+  const plans: NavSection = {
+    label: 'PLAN',
+    items: [
+      { id: 'pricing-plans', label: 'Subscription', icon: Star },
+    ],
+  };
+
   if (role === 'team_admin') {
     return [
       main,
       manage,
       tools,
       support,
+      plans,
       {
         label: 'TEAM',
         items: [
@@ -155,7 +164,7 @@ function getNavItemsForRole(role: string): NavSection[] {
   }
 
   // Regular user
-  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support];
+  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support, plans];
 }
 
 /* ──────────────────── Role badge config ──────────────────── */
@@ -171,7 +180,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio' | 'doc-builder' | 'tender-analyzer' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'social-circle' | 'rate-limits';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio' | 'doc-builder' | 'tender-analyzer' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'social-circle' | 'rate-limits' | 'pricing-plans';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -550,6 +559,8 @@ export function AppShell() {
         return <SocialCircleView />;
       case 'rate-limits':
         return <RateLimitsView />;
+      case 'pricing-plans':
+        return <PricingPlansView />;
       default:
         return <DashboardView />;
     }

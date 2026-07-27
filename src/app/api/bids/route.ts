@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rate-limiter';
 
 /**
  * POST /api/bids
@@ -10,6 +11,10 @@ export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
+
+    // ── Rate limit check ──
+    const rateLimitResponse = await enforceRateLimit(request, user!.id, user!.plan || 'free');
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
     const { tenderId, technicalProposal, financialProposal, timeline, attachments, status: requestedStatus } = body;

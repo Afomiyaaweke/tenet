@@ -28,6 +28,7 @@ export type AuthUser = {
   role: string;
   companyId: string | null;
   status: string;
+  plan: string;
   emailVerified: boolean;
   tokenVersion: number;
   createdAt: Date;

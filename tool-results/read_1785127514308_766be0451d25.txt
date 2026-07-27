@@ -1,0 +1,677 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useMemo, Suspense } from 'react';
+     4→import dynamic from 'next/dynamic';
+     5→import { useAuthStore, useNavStore, useDataStore } from '@/store';
+     6→import { api } from '@/lib/api';
+     7→import { Button } from '@/components/ui/button';
+     8→import { Badge } from '@/components/ui/badge';
+     9→import { ScrollArea } from '@/components/ui/scroll-area';
+    10→import { Separator } from '@/components/ui/separator';
+    11→import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+    12→import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+    13→import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+    14→import {
+    15→  LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
+    16→  GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
+    17→  ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
+    18→  Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
+    19→  PenTool, BarChart3, FileCode, Shield,
+    20→} from 'lucide-react';
+    21→import { ThemeToggle } from '@/components/theme-toggle';
+    22→import { TenetLogo } from '@/components/logo';
+    23→
+    24→/* ──────────────────────────── Dynamic imports (lazy load modules) ──────────────────────────── */
+    25→
+    26→const DashboardView = dynamic(() => import('@/components/modules/dashboard').then(m => ({ default: m.DashboardView })), { ssr: false });
+    27→const TendersView = dynamic(() => import('@/components/modules/tenders').then(m => ({ default: m.TendersView })), { ssr: false });
+    28→const LiveTendersView = dynamic(() => import('@/components/modules/live-tenders').then(m => ({ default: m.LiveTendersView })), { ssr: false });
+    29→const TenderDetailView = dynamic(() => import('@/components/modules/tender-detail').then(m => ({ default: m.TenderDetailView })), { ssr: false });
+    30→const TenderCompareView = dynamic(() => import('@/components/modules/tender-compare').then(m => ({ default: m.TenderCompareView })), { ssr: false });
+    31→const BidCompareView = dynamic(() => import('@/components/modules/tender-compare').then(m => ({ default: m.BidCompareView })), { ssr: false });
+    32→const BidsView = dynamic(() => import('@/components/modules/bids').then(m => ({ default: m.BidsView })), { ssr: false });
+    33→const ApplicantsView = dynamic(() => import('@/components/modules/applicants').then(m => ({ default: m.ApplicantsView })), { ssr: false });
+    34→const ProjectsView = dynamic(() => import('@/components/modules/projects').then(m => ({ default: m.ProjectsView })), { ssr: false });
+    35→const ProjectDetailView = dynamic(() => import('@/components/modules/project-detail').then(m => ({ default: m.ProjectDetailView })), { ssr: false });
+    36→const ChatView = dynamic(() => import('@/components/modules/chat').then(m => ({ default: m.ChatView })), { ssr: false });
+    37→const EventsView = dynamic(() => import('@/components/modules/events').then(m => ({ default: m.EventsView })), { ssr: false });
+    38→const ProfileView = dynamic(() => import('@/components/modules/profile').then(m => ({ default: m.ProfileView })), { ssr: false });
+    39→const DocumentsView = dynamic(() => import('@/components/modules/documents').then(m => ({ default: m.DocumentsView })), { ssr: false });
+    40→const AgentView = dynamic(() => import('@/components/modules/agent').then(m => ({ default: m.AgentView })), { ssr: false });
+    41→const StaffView = dynamic(() => import('@/components/modules/staff').then(m => ({ default: m.StaffView })), { ssr: false });
+    42→const ContactUsView = dynamic(() => import('@/components/modules/contact-us').then(m => ({ default: m.ContactUsView })), { ssr: false });
+    43→const PrivacyPolicyView = dynamic(() => import('@/components/modules/privacy-policy').then(m => ({ default: m.PrivacyPolicyView })), { ssr: false });
+    44→const SocialCircleView = dynamic(() => import('@/components/modules/social-circle').then(m => ({ default: m.SocialCircleView })), { ssr: false });
+    45→const RateLimitsView = dynamic(() => import('@/components/modules/rate-limits').then(m => ({ default: m.RateLimitsView })), { ssr: false });
+    46→const AIDocStudioView = dynamic(() => import('@/components/modules/ai-doc-studio').then(m => ({ default: m.AIDocStudio })), { ssr: false });
+    47→const DocBuilderView = dynamic(() => import('@/components/modules/doc-builder').then(m => ({ default: m.DocBuilderView })), { ssr: false });
+    48→const TenderAnalyzerView = dynamic(() => import('@/components/modules/tender-analyzer').then(m => ({ default: m.TenderAnalyzerView })), { ssr: false });
+    49→
+    50→/* ──────────────────────────── Loading spinner ──────────────────────────── */
+    51→
+    52→function ViewLoader() {
+    53→  return (
+    54→    <div className="flex items-center justify-center h-64">
+    55→      <div className="flex flex-col items-center gap-3">
+    56→        <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+    57→        <p className="text-xs text-muted-foreground">Loading...</p>
+    58→      </div>
+    59→    </div>
+    60→  );
+    61→}
+    62→
+    63→/* ──────────────────────────── constants ──────────────────────────── */
+    64→
+    65→const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
+    66→  success: CheckCircle,
+    67→  warning: AlertTriangle,
+    68→  alert: AlertCircle,
+    69→  info: Info,
+    70→};
+    71→
+    72→const NOTIFICATION_COLORS: Record<string, string> = {
+    73→  success: 'text-orange-500',
+    74→  warning: 'text-amber-500',
+    75→  alert: 'text-red-500',
+    76→  info: 'text-orange-500',
+    77→};
+    78→
+    79→const NOTIFICATION_BG: Record<string, string> = {
+    80→  success: 'bg-orange-50 dark:bg-orange-950/30',
+    81→  warning: 'bg-amber-50 dark:bg-amber-950/30',
+    82→  alert: 'bg-red-50 dark:bg-red-950/30',
+    83→  info: 'bg-orange-50 dark:bg-orange-950/30',
+    84→};
+    85→
+    86→interface NavItem {
+    87→  id: string;
+    88→  label: string;
+    89→  icon: React.ComponentType<{ className?: string }>;
+    90→}
+    91→
+    92→interface NavSection {
+    93→  label: string;
+    94→  items: NavItem[];
+    95→}
+    96→
+    97→/* ──────────────────── Role-aware navigation ──────────────────── */
+    98→
+    99→function getNavItemsForRole(role: string): NavSection[] {
+   100→  const main: NavSection = {
+   101→    label: 'MAIN',
+   102→    items: [
+   103→      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+   104→      { id: 'tenders', label: 'Tenders', icon: FileSearch },
+   105→      { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
+   106→      { id: 'bids', label: 'Bids', icon: Gavel },
+   107→      { id: 'applicants', label: 'Published Tenders', icon: ClipboardList },
+   108→    ],
+   109→  };
+   110→
+   111→  const manage: NavSection = {
+   112→    label: 'MANAGE',
+   113→    items: [
+   114→      { id: 'projects', label: 'Projects', icon: FolderKanban },
+   115→      { id: 'chat', label: 'Messages', icon: MessageSquare },
+   116→      { id: 'events', label: 'Workshops', icon: GraduationCap },
+   117→      { id: 'social-circle', label: 'Social Circle', icon: Users },
+   118→    ],
+   119→  };
+   120→
+   121→  const tools: NavSection = {
+   122→    label: 'TOOLS',
+   123→    items: [
+   124→      { id: 'profile', label: 'Profile', icon: User },
+   125→      { id: 'documents', label: 'Documents', icon: FileText },
+   126→      { id: 'ai-doc-studio', label: 'AI Doc Studio', icon: Bot },
+   127→      { id: 'doc-builder', label: 'Doc Builder', icon: PenTool },
+   128→      { id: 'tender-analyzer', label: 'Tender Analyzer', icon: BarChart3 },
+   129→    ],
+   130→  };
+   131→
+   132→  const support: NavSection = {
+   133→    label: 'SUPPORT',
+   134→    items: [
+   135→      { id: 'contact-us', label: 'Contact Us', icon: Mail },
+   136→      { id: 'privacy-policy', label: 'Privacy Policy', icon: Lock },
+   137→    ],
+   138→  };
+   139→
+   140→  if (role === 'team_admin') {
+   141→    return [
+   142→      main,
+   143→      manage,
+   144→      tools,
+   145→      support,
+   146→      {
+   147→        label: 'TEAM',
+   148→        items: [
+   149→          { id: 'staff', label: 'Staff', icon: Users },
+   150→          { id: 'company-settings', label: 'Company Settings', icon: Building2 },
+   151→          { id: 'rate-limits', label: 'Rate Limits', icon: Shield },
+   152→        ],
+   153→      },
+   154→    ];
+   155→  }
+   156→
+   157→  // Regular user
+   158→  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support];
+   159→}
+   160→
+   161→/* ──────────────────── Role badge config ──────────────────── */
+   162→
+   163→const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = {
+   164→  team_admin: {
+   165→    label: 'Team Admin',
+   166→    className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+   167→  },
+   168→  user: {
+   169→    label: 'User',
+   170→    className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+   171→  },
+   172→};
+   173→
+   174→type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio' | 'doc-builder' | 'tender-analyzer' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'social-circle' | 'rate-limits';
+   175→
+   176→/* ──────────────────────────── helpers ──────────────────────────── */
+   177→
+   178→function relativeTime(dateStr: string): string {
+   179→  const now = Date.now();
+   180→  const then = new Date(dateStr).getTime();
+   181→  const diff = Math.max(0, now - then);
+   182→  const seconds = Math.floor(diff / 1000);
+   183→  if (seconds < 60) return 'just now';
+   184→  const minutes = Math.floor(seconds / 60);
+   185→  if (minutes < 60) return `${minutes}m ago`;
+   186→  const hours = Math.floor(minutes / 60);
+   187→  if (hours < 24) return `${hours}h ago`;
+   188→  const days = Math.floor(hours / 24);
+   189→  if (days < 7) return `${days}d ago`;
+   190→  return new Date(dateStr).toLocaleDateString();
+   191→}
+   192→
+   193→function getUserInitial(user: { profile?: { fullName?: string }; email?: string } | null): string {
+   194→  return (user?.profile?.fullName || user?.email || 'U')[0].toUpperCase();
+   195→}
+   196→
+   197→function getCompanyInitial(company: { name?: string } | null): string {
+   198→  return (company?.name || 'C')[0].toUpperCase();
+   199→}
+   200→
+   201→/* ──────────────────────── SidebarContent ──────────────────────── */
+   202→
+   203→function SidebarContent({
+   204→  user,
+   205→  role,
+   206→  company,
+   207→  navSections,
+   208→  view,
+   209→  setView,
+   210→  unreadCount,
+   211→  logout,
+   212→}: {
+   213→  user: { profile?: { fullName?: string; verified?: boolean }; email?: string; role?: string; companyId?: string; company?: { name?: string } } | null;
+   214→  role: string;
+   215→  company: { name?: string; verified?: boolean } | null;
+   216→  navSections: NavSection[];
+   217→  view: string;
+   218→  setView: (view: View, params?: Record<string, string>) => void;
+   219→  unreadCount: number;
+   220→  logout: () => void;
+   221→}) {
+   222→  const displayName = user?.profile?.fullName || user?.email || 'User';
+   223→  const isVerified = (user?.profile as { verified?: boolean })?.verified ?? false;
+   224→  const companyName = company?.name || user?.company?.name;
+   225→  const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
+   226→
+   227→  return (
+   228→    <div className="flex flex-col h-full bg-card">
+   229→      {/* ── Logo ── */}
+   230→      <div className="px-5 pt-5 pb-4">
+   231→        <div className="flex items-center gap-3">
+   232→          <TenetLogo size="sm" />
+   233→        </div>
+   234→      </div>
+   235→
+   236→      <Separator className="opacity-60" />
+   237→
+   238→      {/* ── User Profile Card ── */}
+   239→      <div className="px-4 py-4">
+   240→        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors">
+   241→          <div className="relative flex-shrink-0">
+   242→            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center shadow-sm shadow-slate-200 dark:shadow-slate-900/30">
+   243→              <span className="text-white font-bold text-sm">{getUserInitial(user)}</span>
+   244→            </div>
+   245→            {isVerified && (
+   246→              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-orange-500 rounded-full border-2 border-card flex items-center justify-center">
+   247→                <Check className="w-2 h-2 text-white" strokeWidth={3} />
+   248→              </span>
+   249→            )}
+   250→            {companyName && (
+   251→              <span className="absolute -bottom-1 -left-1 w-4 h-4 bg-orange-600 rounded-full border-2 border-card flex items-center justify-center" title={companyName}>
+   252→                <span className="text-white font-bold text-[7px]">{getCompanyInitial({ name: companyName })}</span>
+   253→              </span>
+   254→            )}
+   255→          </div>
+   256→          <div className="min-w-0 flex-1">
+   257→            <p className="text-sm font-semibold truncate text-foreground">{displayName}</p>
+   258→            {companyName && (
+   259→              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{companyName}</p>
+   260→            )}
+   261→            <div className="flex items-center gap-1.5 mt-0.5">
+   262→              <Badge
+   263→                variant="secondary"
+   264→                className={`text-[10px] px-1.5 py-0 font-semibold border-0 ${badgeConfig.className}`}
+   265→              >
+   266→                {badgeConfig.label}
+   267→              </Badge>
+   268→              {isVerified && (
+   269→                <span className="flex items-center gap-0.5 text-[10px] text-orange-600 font-medium">
+   270→                  <Verified className="w-3 h-3" /> Verified
+   271→                </span>
+   272→              )}
+   273→            </div>
+   274→          </div>
+   275→        </div>
+   276→      </div>
+   277→
+   278→      <Separator className="opacity-40" />
+   279→
+   280→      {/* ── Navigation ── */}
+   281→      <ScrollArea className="flex-1 px-3 py-2">
+   282→        <nav className="space-y-5">
+   283→          {navSections.map((section) => (
+   284→            <div key={section.label}>
+   285→              <p className="px-3 mb-1.5 text-[10px] font-bold tracking-[0.12em] text-muted-foreground/70 uppercase select-none">
+   286→                {section.label}
+   287→              </p>
+   288→              <div className="space-y-0.5">
+   289→                {section.items.map((item) => {
+   290→                  const Icon = item.icon;
+   291→                  const isActive =
+   292→                    view === item.id ||
+   293→                    (item.id === 'tenders' && (view === 'tender-detail' || view === 'tender-compare' || view === 'bid-compare' || view === 'bid-analysis')) ||
+   294→                    (item.id === 'projects' && view === 'project-detail');
+   295→
+   296→                  return (
+   297→                    <button
+   298→                      key={item.id}
+   299→                      onClick={() => {
+   300→                        setView(item.id as View);
+   301→                      }}
+   302→                      className={`
+   303→                        group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
+   304→                        transition-all duration-150 relative
+   305→                        ${
+   306→                          isActive
+   307→                            ? 'bg-primary/10 text-primary border-l-[3px] border-primary pl-[9px] font-semibold'
+   308→                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border-l-[3px] border-transparent pl-[9px]'
+   309→                        }
+   310→                      `}
+   311→                    >
+   312→                      <Icon
+   313→                        className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
+   314→                          isActive ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-primary'
+   315→                        }`}
+   316→                      />
+   317→                      <span className="truncate flex-1 text-left">{item.label}</span>
+   318→                      {item.id === 'chat' && unreadCount > 0 && (
+   319→                        <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-red-200">
+   320→                          {unreadCount > 99 ? '99+' : unreadCount}
+   321→                        </span>
+   322→                      )}
+   323→                      {isActive && (
+   324→                        <ChevronRight className="h-3.5 w-3.5 ml-auto flex-shrink-0 text-primary" />
+   325→                      )}
+   326→                    </button>
+   327→                  );
+   328→                })}
+   329→              </div>
+   330→            </div>
+   331→          ))}
+   332→        </nav>
+   333→      </ScrollArea>
+   334→
+   335→      {/* ── Bottom Section ── */}
+   336→      <div className="px-4 pb-4 pt-2 space-y-3">
+   337→        {/* Sign Out */}
+   338→        <Button
+   339→          variant="ghost"
+   340→          size="sm"
+   341→          className="w-full justify-start text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+   342→          onClick={logout}
+   343→        >
+   344→          <LogOut className="h-4 w-4 mr-2" />
+   345→          Sign Out
+   346→        </Button>
+   347→      </div>
+   348→    </div>
+   349→  );
+   350→}
+   351→
+   352→/* ──────────────────── NotificationDropdown ──────────────────── */
+   353→
+   354→function NotificationDropdown({
+   355→  notifications,
+   356→  onMarkAsRead,
+   357→  onMarkAllRead,
+   358→}: {
+   359→  notifications: { id: string; title: string; message: string; type: string; read: boolean; createdAt: string }[];
+   360→  onMarkAsRead: (id: string) => void;
+   361→  onMarkAllRead: () => void;
+   362→}) {
+   363→  const [open, setOpen] = useState(false);
+   364→  const unread = useMemo(() => notifications.filter((n) => !n.read), [notifications]);
+   365→  const displayItems = useMemo(() => unread.slice(0, 6), [unread]);
+   366→
+   367→  return (
+   368→    <Popover open={open} onOpenChange={setOpen}>
+   369→      <PopoverTrigger asChild>
+   370→        <Button variant="ghost" size="icon" className="relative h-9 w-9 hover:bg-muted/80 transition-colors">
+   371→          <Bell className="h-[18px] w-[18px] text-muted-foreground" />
+   372→          {unread.length > 0 && (
+   373→            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm shadow-red-200 animate-in zoom-in-50 duration-200">
+   374→              {unread.length > 99 ? '99+' : unread.length}
+   375→            </span>
+   376→          )}
+   377→        </Button>
+   378→      </PopoverTrigger>
+   379→      <PopoverContent
+   380→        className="w-80 p-0 glass-card rounded-xl overflow-hidden animate-in slide-in-from-top-2 fade-in-0 duration-200"
+   381→        align="end"
+   382→        sideOffset={8}
+   383→      >
+   384→        {/* Header */}
+   385→        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+   386→          <div className="flex items-center gap-2">
+   387→            <h4 className="text-sm font-bold text-foreground">Notifications</h4>
+   388→            {unread.length > 0 && (
+   389→              <Badge className="text-[10px] px-1.5 py-0 bg-red-500 text-white font-bold border-0">
+   390→                {unread.length}
+   391→              </Badge>
+   392→            )}
+   393→          </div>
+   394→          {unread.length > 0 && (
+   395→            <Button
+   396→              variant="ghost"
+   397→              size="sm"
+   398→              className="text-[11px] h-7 px-2 text-primary hover:text-primary/80 hover:bg-primary/10 font-semibold"
+   399→              onClick={onMarkAllRead}
+   400→            >
+   401→              <Check className="h-3 w-3 mr-1" /> Mark all read
+   402→            </Button>
+   403→          )}
+   404→        </div>
+   405→
+   406→        {/* Items */}
+   407→        <ScrollArea className="max-h-[340px]">
+   408→          {displayItems.length === 0 ? (
+   409→            <div className="py-8 text-center">
+   410→              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center">
+   411→                <CheckCircle className="h-6 w-6 text-orange-400" />
+   412→              </div>
+   413→              <p className="text-sm font-medium text-muted-foreground">All caught up!</p>
+   414→              <p className="text-xs text-muted-foreground/60 mt-0.5">No new notifications</p>
+   415→            </div>
+   416→          ) : (
+   417→            <div className="divide-y divide-border/40">
+   418→              {displayItems.map((n, i) => {
+   419→                const Icon = NOTIFICATION_ICONS[n.type] || Info;
+   420→                const colorClass = NOTIFICATION_COLORS[n.type] || 'text-gray-500';
+   421→                const bgClass = NOTIFICATION_BG[n.type] || 'bg-gray-50';
+   422→                return (
+   423→                  <button
+   424→                    key={n.id}
+   425→                    onClick={() => {
+   426→                      onMarkAsRead(n.id);
+   427→                      setOpen(false);
+   428→                    }}
+   429→                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left group"
+   430→                    style={{ animationDelay: `${i * 40}ms` }}
+   431→                  >
+   432→                    <div
+   433→                      className={`w-8 h-8 rounded-lg ${bgClass} flex items-center justify-center flex-shrink-0 mt-0.5 transition-transform group-hover:scale-110`}
+   434→                    >
+   435→                      <Icon className={`h-4 w-4 ${colorClass}`} />
+   436→                    </div>
+   437→                    <div className="min-w-0 flex-1">
+   438→                      <p className="text-[13px] font-semibold truncate text-foreground">{n.title}</p>
+   439→                      <p className="text-[11px] text-muted-foreground truncate mt-0.5 leading-relaxed">{n.message}</p>
+   440→                      <p className="text-[10px] text-muted-foreground/50 mt-1 font-medium">{relativeTime(n.createdAt)}</p>
+   441→                    </div>
+   442→                    <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 mt-2 ring-2 ring-orange-100 dark:ring-orange-900/40" />
+   443→                  </button>
+   444→                );
+   445→              })}
+   446→            </div>
+   447→          )}
+   448→        </ScrollArea>
+   449→
+   450→        {/* Footer */}
+   451→        {notifications.length > 6 && (
+   452→          <div className="px-3 py-2 border-t border-border/40">
+   453→            <Button
+   454→              variant="ghost"
+   455→              size="sm"
+   456→              className="w-full text-[11px] text-muted-foreground hover:text-foreground font-medium"
+   457→              onClick={() => setOpen(false)}
+   458→            >
+   459→              View all notifications
+   460→            </Button>
+   461→          </div>
+   462→        )}
+   463→      </PopoverContent>
+   464→    </Popover>
+   465→  );
+   466→}
+   467→
+   468→/* ──────────────────────────── AppShell ──────────────────────────── */
+   469→
+   470→export function AppShell() {
+   471→  const { user, company, logout } = useAuthStore();
+   472→  const { view, viewParams, setView } = useNavStore();
+   473→  const { fetchNotifications, notifications } = useDataStore();
+   474→  const role = user?.role || 'user';
+   475→  const navSections = useMemo(() => getNavItemsForRole(role), [role]);
+   476→  const unreadCount = notifications.filter((n) => !n.read).length;
+   477→
+   478→  // Flat list for title lookup
+   479→  const allNavItems = useMemo(
+   480→    () => navSections.flatMap((s) => s.items),
+   481→    [navSections]
+   482→  );
+   483→
+   484→  useEffect(() => {
+   485→    fetchNotifications();
+   486→  }, [fetchNotifications]);
+   487→
+   488→  const handleMarkAsRead = async (id: string) => {
+   489→    await api.patch(`/notifications/${id}`, { read: true });
+   490→    fetchNotifications();
+   491→  };
+   492→
+   493→  const handleMarkAllRead = async () => {
+   494→    const unread = notifications.filter((n) => !n.read);
+   495→    await Promise.all(unread.map((n) => api.patch(`/notifications/${n.id}`, { read: true })));
+   496→    fetchNotifications();
+   497→  };
+   498→
+   499→  const renderView = () => {
+   500→    switch (view) {
+   501→      case 'dashboard':
+   502→        return <DashboardView />;
+   503→      case 'tenders':
+   504→        return <TendersView />;
+   505→      case 'live-tenders':
+   506→        return <LiveTendersView />;
+   507→      case 'tender-detail':
+   508→        return <TenderDetailView tenderId={viewParams.id} initialTab={viewParams.tab as any} />;
+   509→      case 'tender-compare':
+   510→        return <TenderCompareView tenderIds={viewParams.ids} />;
+   511→      case 'bid-compare':
+   512→        return <BidCompareView tenderId={viewParams.tenderId} />;
+   513→      case 'bid-analysis':
+   514→        return <BidsView />;
+   515→      case 'bids':
+   516→        return <BidsView />;
+   517→      case 'applicants':
+   518→        return <ApplicantsView />;
+   519→      case 'projects':
+   520→        return <ProjectsView />;
+   521→      case 'project-detail':
+   522→        return <ProjectDetailView projectId={viewParams.id} />;
+   523→      case 'chat':
+   524→        return <ChatView chatId={viewParams.id} />;
+   525→      case 'finance':
+   526→        return <ProjectDetailView projectId={viewParams.id} />;
+   527→      case 'events':
+   528→        return <EventsView />;
+   529→      case 'profile':
+   530→        return <ProfileView />;
+   531→      case 'company-settings':
+   532→        return <ProfileView />;
+   533→      case 'documents':
+   534→        return <DocumentsView />;
+   535→      case 'ai-doc-studio':
+   536→        return <AIDocStudioView />;
+   537→      case 'doc-builder':
+   538→        return <DocBuilderView />;
+   539→      case 'tender-analyzer':
+   540→        return <TenderAnalyzerView />;
+   541→      case 'agent':
+   542→        return <AgentView />;
+   543→      case 'staff':
+   544→        return <StaffView />;
+   545→      case 'contact-us':
+   546→        return <ContactUsView />;
+   547→      case 'privacy-policy':
+   548→        return <PrivacyPolicyView />;
+   549→      case 'social-circle':
+   550→        return <SocialCircleView />;
+   551→      case 'rate-limits':
+   552→        return <RateLimitsView />;
+   553→      default:
+   554→        return <DashboardView />;
+   555→    }
+   556→  };
+   557→
+   558→  const pageTitle = allNavItems.find((i) => i.id === view)?.label
+   559→    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : 'Dashboard');
+   560→  const breadcrumb = view === 'tender-detail' || view === 'bid-compare' || view === 'bid-analysis' ? 'Tenders' : view === 'tender-compare' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
+   561→
+   562→  const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
+   563→  const companyName = company?.name || user?.company?.name;
+   564→
+   565→  const sidebarProps = { user, role, company, navSections, view, setView, unreadCount, logout };
+   566→
+   567→  return (
+   568→    <div className="min-h-screen flex bg-background">
+   569→      {/* ── Desktop Sidebar ── */}
+   570→      <aside className="hidden md:flex w-[260px] bg-card border-r border-border/50 flex-col flex-shrink-0 sidebar-shadow">
+   571→        <SidebarContent {...sidebarProps} />
+   572→      </aside>
+   573→
+   574→      {/* ── Main Area ── */}
+   575→      <div className="flex-1 flex flex-col min-w-0">
+   576→        {/* ── Top Bar ── */}
+   577→        <header className="h-14 bg-background/80 backdrop-blur-md border-b border-border/50 flex items-center px-4 gap-3 flex-shrink-0 sticky top-0 z-30">
+   578→          {/* Mobile hamburger */}
+   579→          <Sheet>
+   580→            <SheetTrigger asChild>
+   581→              <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 hover:bg-muted/80">
+   582→                <Menu className="h-5 w-5 text-muted-foreground" />
+   583→              </Button>
+   584→            </SheetTrigger>
+   585→            <SheetContent side="left" className="p-0 w-[260px]">
+   586→              <SidebarContent {...sidebarProps} />
+   587→            </SheetContent>
+   588→          </Sheet>
+   589→
+   590→          {/* Page Title & Breadcrumb */}
+   591→          <div className="flex-1 min-w-0 flex items-center gap-1.5">
+   592→            {breadcrumb && (
+   593→              <>
+   594→                <span className="text-sm text-muted-foreground/60 font-medium hidden sm:inline">
+   595→                  {breadcrumb}
+   596→                </span>
+   597→                <ChevronRight className="h-3 w-3 text-muted-foreground/40 hidden sm:inline" />
+   598→              </>
+   599→            )}
+   600→            <h1 className="text-base font-bold truncate text-foreground">{pageTitle}</h1>
+   601→          </div>
+   602→
+   603→          {/* Right Actions */}
+   604→          <div className="flex items-center gap-1">
+   605→            {/* Search */}
+   606→            <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted/80 transition-colors">
+   607→              <Search className="h-[18px] w-[18px] text-muted-foreground" />
+   608→            </Button>
+   609→
+   610→            {/* Theme Toggle */}
+   611→            <ThemeToggle />
+   612→
+   613→            {/* Notifications */}
+   614→            <NotificationDropdown
+   615→              notifications={notifications}
+   616→              onMarkAsRead={handleMarkAsRead}
+   617→              onMarkAllRead={handleMarkAllRead}
+   618→            />
+   619→
+   620→            {/* User Avatar Dropdown */}
+   621→            <DropdownMenu>
+   622→              <DropdownMenuTrigger asChild>
+   623→                <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted/80 transition-colors ml-0.5">
+   624→                  <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shadow-sm shadow-slate-200">
+   625→                    <span className="text-white font-bold text-[11px]">{getUserInitial(user)}</span>
+   626→                  </div>
+   627→                </Button>
+   628→              </DropdownMenuTrigger>
+   629→              <DropdownMenuContent align="end" className="w-56">
+   630→                <DropdownMenuLabel className="font-normal">
+   631→                  <div className="flex flex-col space-y-1">
+   632→                    <div className="flex items-center gap-2">
+   633→                      <p className="text-sm font-medium leading-none">{user?.profile?.fullName || user?.email || 'User'}</p>
+   634→                      <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 font-semibold border-0 ${badgeConfig.className}`}>
+   635→                        {badgeConfig.label}
+   636→                      </Badge>
+   637→                    </div>
+   638→                    <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+   639→                    {companyName && (
+   640→                      <p className="text-[11px] leading-none text-muted-foreground/70 flex items-center gap-1">
+   641→                        <Building2 className="w-3 h-3" /> {companyName}
+   642→                      </p>
+   643→                    )}
+   644→                  </div>
+   645→                </DropdownMenuLabel>
+   646→                <DropdownMenuSeparator />
+   647→                <DropdownMenuItem onClick={() => setView('profile' as View)} className="cursor-pointer">
+   648→                  <User className="mr-2 h-4 w-4" />
+   649→                  <span>Profile</span>
+   650→                </DropdownMenuItem>
+   651→                <DropdownMenuItem onClick={() => setView('documents' as View)} className="cursor-pointer">
+   652→                  <FileText className="mr-2 h-4 w-4" />
+   653→                  <span>Documents</span>
+   654→                </DropdownMenuItem>
+   655→                <DropdownMenuSeparator />
+   656→                <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30">
+   657→                  <LogOut className="mr-2 h-4 w-4" />
+   658→                  <span>Sign Out</span>
+   659→                </DropdownMenuItem>
+   660→              </DropdownMenuContent>
+   661→            </DropdownMenu>
+   662→          </div>
+   663→        </header>
+   664→
+   665→        {/* ── Content Area ── */}
+   666→        <main className="flex-1 overflow-auto">
+   667→          <div key={view} className="view-enter">
+   668→            <Suspense fallback={<ViewLoader />}>
+   669→              {renderView()}
+   670→            </Suspense>
+   671→          </div>
+   672→        </main>
+   673→      </div>
+   674→    </div>
+   675→  );
+   676→}
+   677→

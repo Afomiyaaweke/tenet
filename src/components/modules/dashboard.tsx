@@ -26,7 +26,7 @@ import {
   Calendar, TrendingUp, TrendingDown, Sparkles, Plus, Search, Upload,
   MessageSquare, Eye, BarChart3, Target, Briefcase,
   Award, Zap, ChevronRight, Sun, Moon, Sunrise,
-  ArrowUpRight, ArrowDownRight, Activity, Bot,
+  ArrowUpRight, ArrowDownRight, Activity, Bot, Star, Crown,
 } from 'lucide-react';
 
 // ─── Color Constants ────────────────────────────────────────────────
@@ -232,6 +232,119 @@ function deadlineBadge(days: number): string {
   if (days <= 3) return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
   if (days <= 7) return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
   return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+}
+
+// ─── Plan Card ─────────────────────────────────────────────────────────
+const PLAN_CONFIG: Record<string, {
+  name: string;
+  price: string;
+  color: string;
+  bg: string;
+  border: string;
+  gradient: string;
+  icon: React.ElementType;
+  features: string[];
+  limits: { label: string; value: string }[];
+}> = {
+  free: {
+    name: 'Free',
+    price: '$0',
+    color: 'text-gray-700',
+    bg: 'bg-gray-50 dark:bg-gray-950/50',
+    border: 'border-gray-200 dark:border-gray-800',
+    gradient: 'gradient-gray',
+    icon: Star,
+    features: ['Browse tenders', '3 bids/month', '5 documents', 'Community support'],
+    limits: [
+      { label: 'AI calls/day', value: '10' },
+      { label: 'API req/min', value: '60' },
+      { label: 'Team members', value: '1' },
+    ],
+  },
+  pro: {
+    name: 'Pro',
+    price: '$29/mo',
+    color: 'text-orange-600 dark:text-orange-400',
+    bg: 'bg-orange-50 dark:bg-orange-950/30',
+    border: 'border-orange-200 dark:border-orange-800',
+    gradient: 'gradient-orange',
+    icon: Zap,
+    features: ['Unlimited browsing', '20 bids/month', 'AI bid prep', 'Export PDF/Excel', 'Priority support'],
+    limits: [
+      { label: 'AI calls/day', value: '100' },
+      { label: 'API req/min', value: '120' },
+      { label: 'Team members', value: '5' },
+    ],
+  },
+  enterprise: {
+    name: 'Enterprise',
+    price: '$99/mo',
+    color: 'text-purple-600 dark:text-purple-400',
+    bg: 'bg-purple-50 dark:bg-purple-950/30',
+    border: 'border-purple-200 dark:border-purple-800',
+    gradient: 'gradient-purple',
+    icon: Crown,
+    features: ['Unlimited everything', 'Dedicated support', 'Custom AI', 'SSO', 'White-label'],
+    limits: [
+      { label: 'AI calls/day', value: '∞' },
+      { label: 'API req/min', value: '300' },
+      { label: 'Team members', value: '∞' },
+    ],
+  },
+};
+
+function PlanCard({ userPlan, setView }: { userPlan: string; setView: (view: any) => void }) {
+  const config = PLAN_CONFIG[userPlan] || PLAN_CONFIG.free;
+  const isFree = userPlan === 'free';
+
+  return (
+    <Card className={`premium-shadow rounded-xl border ${config.border} ${config.bg} overflow-hidden`}>
+      <CardContent className="p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className={`p-2.5 rounded-xl ${config.gradient} shadow-md flex-shrink-0`}>
+              <config.icon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold">{config.name} Plan</h3>
+                <Badge className={`${config.bg} ${config.color} border-0 text-xs px-2 py-0.5`}>
+                  {config.price}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
+                {config.limits.map((l) => (
+                  <span key={l.label} className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{l.value}</span> {l.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:flex-shrink-0">
+            {isFree ? (
+              <Button
+                className="gradient-orange hover:opacity-90 text-white rounded-xl px-5 h-9 premium-shadow transition-all hover:-translate-y-0.5 border-0"
+                onClick={() => setView('pricing-plans')}
+              >
+                <Zap className="h-4 w-4 mr-1.5" />
+                Upgrade to Pro
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="rounded-xl px-5 h-9"
+                onClick={() => setView('pricing-plans')}
+              >
+                <Star className="h-4 w-4 mr-1.5" />
+                Manage Plan
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 // ─── Main Dashboard ─────────────────────────────────────────────────
@@ -571,6 +684,11 @@ export function DashboardView() {
           onClick={() => setView('projects')}
         />
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          2b. YOUR PLAN CARD
+          ═══════════════════════════════════════════════════════════════ */}
+      <PlanCard userPlan={user?.plan || 'free'} setView={setView} />
 
       {/* ═══════════════════════════════════════════════════════════════
           3. CHARTS SECTION (2 columns)

@@ -48,6 +48,7 @@ model User {
   role          String    @default("user") // team_admin, user
   companyId     String?
   status        String    @default("active") // active, suspended, banned
+  plan          String    @default("free") // free, pro, enterprise
   emailVerified Boolean   @default(false)
   tokenVersion  Int      @default(0)    // Incremented on password reset to invalidate existing JWTs
   createdAt     DateTime  @default(now())
@@ -73,6 +74,10 @@ model User {
   endorsementsReceived Endorsement[] @relation("UserReceivedEndorsements")
   passwordResetTokens PasswordResetToken[]
   passwordHistory PasswordHistory[]
+  subscription Subscription?
+  usageRecords UsageRecord[]
+
+  @@index([plan])
 }
 
 // ==========================================
@@ -528,6 +533,53 @@ model PasswordHistory {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// ==========================================
+// SUBSCRIPTION & PLAN MANAGEMENT
+// ==========================================
+
+model Subscription {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  plan            String   @default("free") // free, pro, enterprise
+  status          String   @default("active") // active, cancelled, expired, past_due
+  startDate       DateTime @default(now())
+  endDate         DateTime? // null = ongoing, set when cancelled/expiring
+  trialEndsAt     DateTime? // trial period end date
+  paymentMethod   String?  // stripe, paypal, manual, etc.
+  billingCycle    String   @default("monthly") // monthly, yearly
+  amount          Float    @default(0) // amount paid in USD
+  currency        String   @default("USD")
+  stripeSessionId String?  // Stripe checkout session ID
+  cancelledAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([plan])
+  @@index([status])
+  @@index([endDate])
+}
+
+// ==========================================
+// USAGE TRACKING (Per-plan rate limit enforcement)
+// ==========================================
+
+model UsageRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  category    String   // api_general, ai, documents, bids, tenders, chat, social
+  count       Int      @default(0) // requests in current window
+  windowStart DateTime @default(now()) // start of current rate limit window
+  resetAt     DateTime // when the window resets
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@index([userId])
+  @@index([resetAt])
 }
 
 // ==========================================
