@@ -345,7 +345,7 @@ export function PricingPlansView() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {currentPlan?.price > 0 && (
+              {currentPlan && currentPlan.price > 0 && (
                 <div className="text-right">
                   <div className="text-2xl font-bold">${currentPlan.price}<span className="text-sm font-normal text-muted-foreground">/{currentPlan.billingCycle}</span></div>
                 </div>
