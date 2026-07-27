@@ -19,6 +19,13 @@ interface RateLimitEntry {
   resetTime: number;
 }
 
+// PRODUCTION NOTE (2000 concurrent users):
+// This in-memory Map is suitable for dev and single-instance deployments.
+// For production with 2000+ users on serverless/edge (e.g. Vercel), replace
+// this store with Upstash Redis rate limiting (@upstash/ratelimit) so that
+// rate limits persist across serverless invocations and are enforced
+// consistently across all instances. Without a persistent store, each cold
+// start resets the Map and rate limiting is effectively bypassed.
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
 // Stats tracking for the rate limit dashboard
@@ -132,34 +139,38 @@ interface RateLimitConfig {
   strategy: string; // sliding_window, fixed_window, token_bucket
 }
 
+// Rate limits are tuned for ~2000 concurrent users on tenet.space-z.ai.
+// These limits balance legitimate high-frequency usage (messaging, AI queries)
+// against abuse prevention. Adjust based on actual usage patterns observed
+// in production — monitor the /api/rate-limit-stats endpoint for real data.
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  // Auth routes — strict
+  // Auth routes — strict (security-sensitive, keep low regardless of user count)
   '/api/auth/login': { limit: 5, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/auth/register': { limit: 3, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/auth/forgot-password': { limit: 3, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/auth/reset-password': { limit: 3, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/auth/validate-reset-token': { limit: 10, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/auth/cleanup-tokens': { limit: 2, windowMs: 60 * 1000, strategy: 'fixed_window' },
-  // AI routes — moderate (expensive operations)
-  '/api/ai/': { limit: 10, windowMs: 60 * 1000, strategy: 'token_bucket' },
+  // AI routes — increased from 10/min to 30/min (2000 users means more legitimate AI usage)
+  '/api/ai/': { limit: 30, windowMs: 60 * 1000, strategy: 'token_bucket' },
   '/api/agent': { limit: 15, windowMs: 60 * 1000, strategy: 'token_bucket' },
-  // Document operations
-  '/api/documents/generate': { limit: 5, windowMs: 60 * 1000, strategy: 'sliding_window' },
-  '/api/documents/ai-extract': { limit: 8, windowMs: 60 * 1000, strategy: 'sliding_window' },
-  '/api/document-ocr/': { limit: 5, windowMs: 60 * 1000, strategy: 'sliding_window' },
-  '/api/bid-analysis': { limit: 5, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  // Document operations — increased from 5-8/min to 15/min
+  '/api/documents/generate': { limit: 15, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  '/api/documents/ai-extract': { limit: 15, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  '/api/document-ocr/': { limit: 15, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  '/api/bid-analysis': { limit: 15, windowMs: 60 * 1000, strategy: 'sliding_window' },
   // Bid & tender submissions
   '/api/bids': { limit: 20, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/tenders': { limit: 30, windowMs: 60 * 1000, strategy: 'sliding_window' },
-  // Communication
-  '/api/chats/': { limit: 30, windowMs: 60 * 1000, strategy: 'sliding_window' },
-  '/api/conversations': { limit: 30, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  // Communication — increased from 30/min to 60/min (messaging is high-frequency)
+  '/api/chats/': { limit: 60, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  '/api/conversations': { limit: 60, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/social/': { limit: 20, windowMs: 60 * 1000, strategy: 'fixed_window' },
   // Public routes
   '/api/contact': { limit: 3, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/comments': { limit: 10, windowMs: 60 * 1000, strategy: 'sliding_window' },
-  // General API — catch-all default
-  '/api/': { limit: 60, windowMs: 60 * 1000, strategy: 'sliding_window' },
+  // General API — catch-all default increased from 60/min to 120/min
+  '/api/': { limit: 120, windowMs: 60 * 1000, strategy: 'sliding_window' },
 };
 
 // Expose config globally for the API route to read
@@ -178,13 +189,69 @@ globalThis.__rateLimitConfig = RATE_LIMITS;
 // Falls back to localhost for development if no env vars are set.
 
 function getAllowedOrigins(requestUrl: string): string[] {
-  const requestOrigin = new URL(requestUrl).origin;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const extraOrigins = process.env.CORS_EXTRA_ORIGINS
-    ? process.env.CORS_EXTRA_ORIGINS.split(',').map((o: string) => o.trim())
-    : [];
+  const origins: string[] = [];
 
-  return [requestOrigin, appUrl, ...extraOrigins];
+  // 1. Primary production origin — the canonical domain for tenet.space-z.ai
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) {
+    origins.push(appUrl);
+  } else {
+    // Fallback for local development when NEXT_PUBLIC_APP_URL is not set
+    origins.push('http://localhost:3000');
+  }
+
+  // 2. Request origin — always allow the origin of the incoming request
+  //    (handles cases where the app is accessed via an alias or proxy)
+  try {
+    const requestOrigin = new URL(requestUrl).origin;
+    if (!origins.includes(requestOrigin)) {
+      origins.push(requestOrigin);
+    }
+  } catch {
+    // Invalid URL — skip
+  }
+
+  // 3. Local development origins
+  origins.push('http://localhost:3000');
+  origins.push('http://127.0.0.1:3000');
+
+  // 4. Sandbox preview origins — used by the space-z.ai platform for
+  //    preview deployments (e.g. preview-chat-abc123.space-z.ai)
+  origins.push('https://preview-chat-*.space-z.ai');
+
+  // 5. Extra origins from environment variable (comma-separated)
+  if (process.env.CORS_EXTRA_ORIGINS) {
+    for (const origin of process.env.CORS_EXTRA_ORIGINS.split(',')) {
+      const trimmed = origin.trim();
+      if (trimmed && !origins.includes(trimmed)) {
+        origins.push(trimmed);
+      }
+    }
+  }
+
+  return origins;
+}
+
+/**
+ * Checks whether a given request origin matches any entry in the allowed
+ * origins list, supporting wildcard subdomains (e.g. preview-chat-*.space-z.ai).
+ */
+function isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
+  for (const allowed of allowedOrigins) {
+    if (allowed === origin) return true;
+    // Support wildcard patterns like https://preview-chat-*.space-z.ai
+    if (allowed.includes('*')) {
+      const pattern = allowed
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&') // escape regex special chars except *
+        .replace(/\*/g, '.*');                    // replace * with .*
+      try {
+        if (new RegExp(`^${pattern}$`).test(origin)) return true;
+      } catch {
+        continue;
+      }
+    }
+  }
+  return false;
 }
 
 // ── Security headers ───────────────────────────────────────────────────────
@@ -243,7 +310,7 @@ export function proxy(request: NextRequest) {
     const origin = request.headers.get('origin');
     if (origin) {
       const allowedOrigins = getAllowedOrigins(request.url);
-      if (allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin, allowedOrigins)) {
         response.headers.set('Access-Control-Allow-Origin', origin);
         response.headers.set('Access-Control-Allow-Credentials', 'true');
       }
@@ -307,7 +374,7 @@ export function proxy(request: NextRequest) {
       const origin = request.headers.get('origin');
       if (origin) {
         const allowedOrigins = getAllowedOrigins(request.url);
-        if (allowedOrigins.includes(origin)) {
+        if (isOriginAllowed(origin, allowedOrigins)) {
           response.headers.set('Access-Control-Allow-Origin', origin);
           response.headers.set('Access-Control-Allow-Credentials', 'true');
         }
@@ -324,7 +391,7 @@ export function proxy(request: NextRequest) {
     const origin = request.headers.get('origin');
     if (origin) {
       const allowedOrigins = getAllowedOrigins(request.url);
-      if (allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin, allowedOrigins)) {
         response.headers.set('Access-Control-Allow-Origin', origin);
         response.headers.set('Access-Control-Allow-Credentials', 'true');
       }

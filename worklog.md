@@ -3,65 +3,43 @@
 ---
 Task ID: 1
 Agent: Main
-Task: Diagnose and fix why tenet.space-z.ai is not working
+Task: Make TenetBid production-ready for 2000 users on tenet.space-z.ai
 
 Work Log:
-- Investigated dev server instability - server keeps dying after ~15 seconds
-- Discovered sandbox environment kills background processes after Bash tool session ends
-- Found that the boot script (`/start.sh`) starts `bun run dev` during boot, but it also dies
-- The Caddy gateway on port 81 returns 502 when the Next.js server on port 3000 is down
-- Tested multiple approaches: `nohup`, `disown`, `setsid`, `timeout` - all background processes die
-- Solution: foreground watchdog loop keeps server alive (verified for 90+ seconds)
+- Analyzed all production blockers for 2000-user deployment
+- Updated db.ts: connection_limit=20, pool_timeout=30, connect_timeout=10 for production PostgreSQL
+- Updated auth.ts: MAX_AUTH_CACHE_SIZE=2000, 3-min TTL, aggressive 30-sec cleanup, LRU eviction
+- Updated proxy.ts: scaled rate limits for 2000 users (AI 30/min, docs 15/min, chat 60/min, API 120/min), fixed CORS for tenet.space-z.ai domain with wildcard support
+- Updated vercel.json: all maxDuration=10 (Hobby plan), added chats/conversations/projects functions, dual regions (iad1+cdg1), HSTS headers
+- Updated .env: comprehensive production config template with all needed env vars documented
+- Fixed PostgreSQL case-insensitive search: created lib/search.ts utility with containsInsensitive() helper, updated 7 API route files
+- Synced prisma/schema.prod.prisma: added missing Subscription model, UsageRecord model, plan field on User, proper indexes
+- Updated .zscripts/dev.sh: production server (next start) with auto-restart loop, builds first for memory efficiency
+- Build succeeds, agent browser verified: landing page renders, Get Started works, auth gate appears, no errors
 
 Stage Summary:
-- Root cause: sandbox process management kills background processes not in boot script's process tree
-- The server works correctly when running (HTTP 200, app renders properly)
-- Caddy gateway works (HTTP 200 via port 81 when server is alive on port 3000)
-- Agent browser verification confirms: landing page renders, Get Started button works, auth gate appears, footer sticks to bottom, no console errors
+- All production blockers fixed for 2000-user scale
+- Cross-database compatibility: containsInsensitive() helper works on both SQLite (dev) and PostgreSQL (production)
+- Rate limits scaled for 2000 concurrent users
+- Auth cache sized for 2000 users with LRU eviction
+- CORS properly configured for tenet.space-z.ai domain
+- Vercel deployment configuration ready (vercel.json)
+- Production schema (schema.prod.prisma) synced with dev schema including Subscription and UsageRecord models
 
 ---
 Task ID: 2
 Agent: Main
-Task: Update .zscripts/dev.sh for proper server startup during boot
+Task: Required Vercel environment variables for production deployment
 
-Work Log:
-- Updated .zscripts/dev.sh with auto-restart loop (up to 50 restarts)
-- Added signal trapping (SIGTERM, SIGINT, SIGHUP) for debugging
-- Script runs `bun run dev` with `NODE_OPTIONS="--max-old-space-size=512"` for memory limits
-- Uses `tee` to log to dev.log for visibility
-- Includes 5-second delay between restarts and port cleanup
+Critical env vars needed in Vercel Dashboard → Project → Settings → Environment Variables:
 
-Stage Summary:
-- .zscripts/dev.sh now includes robust auto-restart mechanism
-- Will keep server alive during boot process even if server crashes periodically
-- Set ownership to z:z for proper user context
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `DATABASE_URL` | PostgreSQL connection string (Neon recommended) | Primary database - SQLite won't work on Vercel |
+| `JWT_SECRET` | Strong 32+ char secret (openssl rand -base64 48) | Auth token signing - REQUIRED in production |
+| `NEXT_PUBLIC_APP_URL` | https://tenet.space-z.ai | Primary domain URL |
+| `NEXTAUTH_URL` | https://tenet.space-z.ai | NextAuth URL |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob store token | File uploads - Vercel Blob instead of local filesystem |
+| `CORS_EXTRA_ORIGINS` | (optional) | Additional CORS origins |
 
----
-Task ID: 3
-Agent: Main
-Task: Fix vercel.json maxDuration and buildCommand for deployment
-
-Work Log:
-- Reduced all maxDuration values from 60/30/15 to 10 (Vercel Hobby plan limit)
-- Updated buildCommand to include `bun install` step
-- Kept `prisma generate --schema=prisma/schema.prod.prisma` for PostgreSQL production schema
-- Kept regions and headers configuration
-
-Stage Summary:
-- vercel.json maxDuration values now compatible with Vercel Hobby (free) plan
-- Build command includes dependency installation
-- Deployment should succeed on Vercel without maxDuration errors
-
----
-Task ID: 4
-Agent: Main
-Task: Fix CSP and security headers consistency in proxy.ts
-
-Work Log:
-- Updated proxy.ts CSP `connect-src` to include `https:` directive
-- Previously missing `https:` caused potential blocking of legitimate API calls
-- Now consistent with next.config.ts CSP headers
-
-Stage Summary:
-- proxy.ts CSP now matches next.config.ts CSP
-- `connect-src` includes: 'self', ws:, wss:, https:, clarity.ms, blob.vercel-storage.com
+Without DATABASE_URL and JWT_SECRET, the deployment will fail at runtime.

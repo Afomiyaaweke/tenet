@@ -18,7 +18,15 @@ function getSecret(): string {
 // ── Lightweight auth cache ────────────────────────────────────────────────
 // Avoids a 3-table JOIN on every authenticated request.
 // In production, replace with Redis. This in-process cache works for single-instance.
-const AUTH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+//
+// IMPORTANT: For multi-instance production deployments with 2000+ concurrent users,
+// this in-memory cache will NOT be shared across Vercel serverless invocations.
+// Each cold start gets a fresh empty cache. Use Redis-backed caching (Upstash Redis
+// or Vercel KV) for distributed, persistent session/auth caching in production.
+// This in-process cache is kept as a per-invocation optimization to reduce DB
+// load within a single serverless function lifetime.
+const AUTH_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes — shorter TTL clears stale data faster at scale
+const MAX_AUTH_CACHE_SIZE = 2000; // Cap cache size for 2000 concurrent users, prevent unbounded growth
 
 // Explicit type for the auth user with includes
 export type AuthUser = {
@@ -78,7 +86,32 @@ interface CachedAuthUser {
 }
 const authCache = new Map<string, CachedAuthUser>();
 
-// Periodic cleanup of expired entries
+/**
+ * Evict entries when the cache exceeds MAX_AUTH_CACHE_SIZE.
+ * Strategy: remove expired entries first, then evict the oldest (LRU-like).
+ */
+function evictCacheIfNeeded(): void {
+  if (authCache.size <= MAX_AUTH_CACHE_SIZE) return;
+
+  // First pass: remove all expired entries
+  const now = Date.now();
+  for (const [key, entry] of authCache.entries()) {
+    if (now - entry.cachedAt > AUTH_CACHE_TTL_MS) {
+      authCache.delete(key);
+    }
+  }
+
+  // If still over limit after clearing expired, remove oldest entries (LRU-like)
+  if (authCache.size > MAX_AUTH_CACHE_SIZE) {
+    const entries = [...authCache.entries()].sort((a, b) => a[1].cachedAt - b[1].cachedAt);
+    const excess = authCache.size - MAX_AUTH_CACHE_SIZE;
+    for (let i = 0; i < excess; i++) {
+      authCache.delete(entries[i][0]);
+    }
+  }
+}
+
+// Periodic cleanup of expired entries — every 30s for 2000-user scale
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
     const now = Date.now();
@@ -87,7 +120,9 @@ if (typeof setInterval !== 'undefined') {
         authCache.delete(key);
       }
     }
-  }, 60 * 1000);
+    // Also enforce size limit during periodic cleanup
+    evictCacheIfNeeded();
+  }, 30 * 1000);
 }
 
 export interface JwtPayload {
@@ -130,8 +165,8 @@ export function extractBearerToken(request: NextRequest): string | null {
 /**
  * Get the current authenticated user from the request.
  * Returns the user with profile and company, or null if not authenticated.
- * Uses an in-process cache (5-min TTL) to avoid DB queries on every request.
- * For multi-instance deployments, replace with Redis-backed cache.
+ * Uses an in-process cache (3-min TTL) to avoid DB queries on every request.
+ * For multi-instance deployments, replace with Redis-backed cache (Upstash/Vercel KV).
  */
 export async function getAuthUser(request: NextRequest): Promise<AuthUser | null> {
   const token = extractBearerToken(request);
@@ -167,6 +202,7 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
 
   // Update cache (cast to AuthUser since we know the shape matches)
   authCache.set(cacheKey, { user: user as AuthUser, cachedAt: Date.now() });
+  evictCacheIfNeeded();
 
   return user as AuthUser;
 }

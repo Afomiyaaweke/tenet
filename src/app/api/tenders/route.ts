@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { enforceRateLimit, getRateLimitHeaders } from '@/lib/rate-limiter';
+import { containsInsensitive } from '@/lib/search';
 
 /**
  * POST /api/tenders
@@ -127,9 +128,9 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       const searchConditions = [
-        { title: { contains: search } },
-        { scope: { contains: search } },
-        { location: { contains: search } },
+        { title: containsInsensitive(search) },
+        { scope: containsInsensitive(search) },
+        { location: containsInsensitive(search) },
       ];
       // If we already have an OR (from company filter), we need to combine with AND
       if (orConditions) {
@@ -145,7 +146,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (category) {
-      where.categoryTags = { contains: category };
+      where.categoryTags = containsInsensitive(category);
     }
 
     if (status) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { containsInsensitive } from '@/lib/search';
 
 /**
  * GET /api/applicants
@@ -106,11 +107,11 @@ export async function GET(request: NextRequest) {
     if (search) {
       const searchFilter = {
         OR: [
-          { user: { profile: { fullName: { contains: search } } } },
-          { user: { email: { contains: search } } },
-          { user: { company: { name: { contains: search } } } },
-          { tender: { title: { contains: search } } },
-          { technicalProposal: { contains: search } },
+          { user: { profile: { fullName: containsInsensitive(search) } } },
+          { user: { email: containsInsensitive(search) } },
+          { user: { company: { name: containsInsensitive(search) } } },
+          { tender: { title: containsInsensitive(search) } },
+          { technicalProposal: containsInsensitive(search) },
         ],
       };
       // Merge search into where using AND

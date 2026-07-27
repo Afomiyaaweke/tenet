@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireTeamAdmin } from '@/lib/auth';
+import { containsInsensitive } from '@/lib/search';
 
 /**
  * GET /api/staff
@@ -41,8 +42,8 @@ export async function GET(request: NextRequest) {
     // Search filter (name or email)
     if (search) {
       where.OR = [
-        { email: { contains: search } },
-        { profile: { fullName: { contains: search } } },
+        { email: containsInsensitive(search) },
+        { profile: { fullName: containsInsensitive(search) } },
       ];
     }
 
