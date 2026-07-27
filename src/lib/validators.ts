@@ -25,11 +25,11 @@ export interface PasswordValidationResult {
   score: number; // 0-100
 }
 
-const MIN_LENGTH = 12;
+const MIN_LENGTH = 8;
 
 /**
  * Validate a password against all security requirements:
- * - Minimum 12 characters
+ * - Minimum 8 characters
  * - Uppercase letter
  * - Lowercase letter
  * - Number
@@ -45,7 +45,7 @@ export function validatePassword(password: string): PasswordValidationResult {
     errors.push(`Password must be at least ${MIN_LENGTH} characters`);
   } else {
     score += 20;
-    if (password.length >= 16) score += 10;
+    if (password.length >= 12) score += 10;
   }
 
   // Uppercase

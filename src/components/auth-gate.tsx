@@ -96,8 +96,8 @@ function FeatureHighlight({ icon, title, delay }: { icon: React.ReactNode; title
 /* ───────────────────────── Password Strength Meter ───────────────────────── */
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
   let score = 0;
-  if (password.length >= 12) score += 20;
-  if (password.length >= 16) score += 10;
+  if (password.length >= 8) score += 20;
+  if (password.length >= 12) score += 10;
   if (/[A-Z]/.test(password)) score += 15;
   if (/[a-z]/.test(password)) score += 15;
   if (/[0-9]/.test(password)) score += 15;
@@ -135,7 +135,7 @@ function PasswordStrengthMeter({ password }: { password: string }) {
 
 function PasswordRequirements({ password }: { password: string }) {
   const checks = [
-    { label: 'At least 12 characters', met: password.length >= 12 },
+    { label: 'At least 8 characters', met: password.length >= 8 },
     { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
     { label: 'One lowercase letter', met: /[a-z]/.test(password) },
     { label: 'One number', met: /[0-9]/.test(password) },
@@ -301,8 +301,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       toast.error('Passwords do not match');
       return;
     }
-    if (newPassword.length < 12) {
-      toast.error('Password must be at least 12 characters');
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
       return;
     }
     if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
@@ -335,7 +335,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       case 1:
         return !!regData.email &&
           !!regData.password &&
-          regData.password.length >= 12 &&
+          regData.password.length >= 8 &&
           /[A-Z]/.test(regData.password) &&
           /[a-z]/.test(regData.password) &&
           /[0-9]/.test(regData.password) &&
@@ -900,7 +900,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           <div className="relative">
                             <Input
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="Min 12 chars with uppercase, lowercase, number, special"
+                              placeholder="Min 8 chars with uppercase, lowercase, number, special"
                               required
                               value={regData.password}
                               onChange={e => setRegData(d => ({ ...d, password: e.target.value }))}
