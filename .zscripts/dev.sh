@@ -1,13 +1,18 @@
 #!/bin/bash
-# Custom dev script for TenetBid — Production-Ready for 2000 Users
-# This is executed by the sandbox's boot script (/start.sh)
-# The boot script runs this in a background subshell:
-#   (sudo -u z bash dev.sh) &
+# Custom dev script for TenetBid
+# Executed by the sandbox's boot script (/start.sh) as:
+#   ( sudo -u z bash dev.sh ) &
 #
-# Strategy for this memory-constrained sandbox:
-# 1. Build production bundle first (more memory-efficient than dev server)
-# 2. Use 'next start' instead of 'next dev' (production server uses much less memory)
-# 3. Auto-restart loop to keep server alive when it periodically dies
+# KEY INSIGHT: Background processes die in this sandbox unless they are
+# direct children of PID 1 (tini). Using 'bash -c "... & disown"' forces
+# the parent bash to exit quickly, allowing tini to adopt the orphaned
+# process. Direct children of tini stay alive indefinitely.
+#
+# Strategy:
+# 1. Build production bundle first (more memory-efficient at runtime)
+# 2. Use 'next start' (production server) which uses less memory than dev
+# 3. Start server as a direct child of tini using the disown pattern
+# 4. Monitor and restart the server if it dies
 
 cd /home/z/my-project
 
@@ -18,11 +23,6 @@ trap 'echo "[DEV] Received signal, shutting down..."; exit 0' SIGTERM SIGINT SIG
 fuser -k 3000/tcp 2>/dev/null
 sleep 2
 
-# Generate PostgreSQL Prisma client for TypeScript compatibility
-# (mode: 'insensitive' is only in PostgreSQL client types)
-echo "[DEV] Generating Prisma client..."
-prisma generate --schema=prisma/schema.prod.prisma 2>&1 || true
-
 # Push dev schema (SQLite) for local database
 echo "[DEV] Setting up database..."
 bun run db:push 2>&1 || true
@@ -31,17 +31,42 @@ bun run db:push 2>&1 || true
 echo "[DEV] Building production bundle..."
 NODE_OPTIONS="--max-old-space-size=768" node_modules/.bin/next build 2>&1 | tail -5
 
-# Auto-restart loop: use production server (next start) which uses less memory
+# Auto-restart loop: start server using the disown pattern
+# that makes it a direct child of tini (PID 1)
 RESTART_COUNT=0
 MAX_RESTARTS=50
 
 while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
   echo "[DEV] Starting production server (attempt $((RESTART_COUNT + 1))/$MAX_RESTARTS)..."
+
+  # Kill any existing process on port 3000
   fuser -k 3000/tcp 2>/dev/null
-  sleep 1
-  NODE_OPTIONS="--max-old-space-size=256" node_modules/.bin/next start -p 3000 -H 0.0.0.0 2>&1 | tee /home/z/my-project/dev.log
-  EXIT_CODE=${PIPESTATUS[0]}
-  echo "[DEV] Server exited with code $EXIT_CODE"
+  sleep 2
+
+  # Start the server using the disown pattern
+  # bash -c creates a subshell that starts the server in background and disowns it
+  # When the subshell exits, the server becomes orphaned and is adopted by tini (PID 1)
+  # This is the ONLY way to keep background processes alive in this sandbox
+  bash -c 'nohup env NODE_OPTIONS="--max-old-space-size=256" /home/z/my-project/node_modules/.bin/next start -p 3000 -H 0.0.0.0 >> /home/z/my-project/dev.log 2>&1 & disown'
+
+  # Wait for the server to start
+  sleep 5
+
+  # Check if the server is still alive
+  if curl -s -o /dev/null -w "" http://localhost:3000/ 2>/dev/null; then
+    echo "[DEV] Server is running and responding."
+    # Server is alive - monitor it periodically
+    while true; do
+      sleep 30
+      if ! curl -s -o /dev/null http://localhost:3000/ 2>/dev/null; then
+        echo "[DEV] Server died, will restart..."
+        break
+      fi
+    done
+  else
+    echo "[DEV] Server failed to start or died immediately."
+  fi
+
   RESTART_COUNT=$((RESTART_COUNT + 1))
 
   if [ $RESTART_COUNT -lt $MAX_RESTARTS ]; then

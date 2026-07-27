@@ -43,3 +43,27 @@ Critical env vars needed in Vercel Dashboard → Project → Settings → Enviro
 | `CORS_EXTRA_ORIGINS` | (optional) | Additional CORS origins |
 
 Without DATABASE_URL and JWT_SECRET, the deployment will fail at runtime.
+
+---
+Task ID: 3
+Agent: Main
+Task: Fix preview not working - dev server keeps dying in sandbox
+
+Work Log:
+- Diagnosed that background processes die in sandbox after ~15-60 seconds
+- Tested multiple approaches: nohup, disown, setsid, script, timeout, foreground watchdog - all failed
+- Key discovery: background processes that become children of tini (PID 1) via the `bash -c "... & disown"` pattern stay alive indefinitely
+- Tested production server (next start) with various configurations - all died when started normally
+- Found that processes with PPID=1 (adopted by tini) survive, but processes with intermediate PPIDs die
+- Solution: use `bash -c 'nohup env ... next start ... & disown'` which forces parent bash to exit quickly, making the server a direct orphan adopted by tini
+- Verified server stays alive for over 5 minutes with this pattern
+- Updated .zscripts/dev.sh with new pattern: starts server using disown, monitors with periodic health checks, auto-restarts on failure
+- Agent browser verified: landing page renders, Get Started works, auth gate appears, mobile responsive, no console errors
+- Server running for 5+ minutes continuously
+
+Stage Summary:
+- Fixed the root cause of preview not working: sandbox kills non-tini-adopted background processes
+- Solution: `bash -c 'nohup ... & disown'` pattern makes server a direct child of tini (PID 1)
+- Production server (next start) is stable when properly adopted by tini
+- Updated .zscripts/dev.sh with robust auto-restart loop using this pattern
+- Preview is now fully working and stable
