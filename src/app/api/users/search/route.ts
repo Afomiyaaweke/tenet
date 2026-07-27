@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { containsInsensitive } from '@/lib/search';
 
 /**
  * GET /api/users/search?q=...
@@ -20,15 +21,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    // SQLite Prisma contains is case-insensitive by default for LIKE queries
-    // when using mode: 'insensitive' - but SQLite doesn't natively support
-    // insensitive mode for all column types. We use a manual OR with contains.
+    // Use containsInsensitive for cross-database compatibility (SQLite + PostgreSQL).
     const users = await db.user.findMany({
       where: {
         id: { not: user!.id },
         OR: [
-          { email: { contains: q } },
-          { profile: { fullName: { contains: q } } },
+          { email: containsInsensitive(q) },
+          { profile: { fullName: containsInsensitive(q) } },
         ],
       },
       take: 10,

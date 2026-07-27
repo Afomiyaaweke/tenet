@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { containsInsensitive } from '@/lib/search';
 
 /**
  * GET /api/social/posts
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (tags) {
-      where.tags = { contains: tags };
+      where.tags = containsInsensitive(tags);
     }
 
     // Only show public posts or posts from connections or own posts

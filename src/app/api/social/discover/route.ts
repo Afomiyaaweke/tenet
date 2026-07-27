@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { containsInsensitive } from '@/lib/search';
 
 /**
  * GET /api/social/discover
@@ -33,10 +34,10 @@ export async function GET(request: NextRequest) {
     // Search filter: match against fullName, jobTitle, or company name
     if (search) {
       where.OR = [
-        { fullName: { contains: search } },
-        { jobTitle: { contains: search } },
-        { bio: { contains: search } },
-        { company: { name: { contains: search } } },
+        { fullName: containsInsensitive(search) },
+        { jobTitle: containsInsensitive(search) },
+        { bio: containsInsensitive(search) },
+        { company: { name: containsInsensitive(search) } },
       ];
     }
 
@@ -44,13 +45,13 @@ export async function GET(request: NextRequest) {
     if (industry) {
       where.company = {
         ...(where.company as Record<string, unknown> || {}),
-        industry: { contains: industry },
+        industry: containsInsensitive(industry),
       };
     }
 
     // Skills filter
     if (skills) {
-      where.skillTags = { contains: skills };
+      where.skillTags = containsInsensitive(skills);
     }
 
     // Only show profiles of active users

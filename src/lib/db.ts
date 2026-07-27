@@ -5,17 +5,23 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 /**
- * Prisma client configuration optimized for Vercel serverless deployment.
+ * Prisma client configuration optimized for Vercel serverless deployment
+ * targeting 2000+ concurrent users with PostgreSQL (Neon).
  *
- * - In production (Vercel): uses connection pooling with `connection_limit` and `pool_timeout`
- *   to prevent exhausting PostgreSQL connections in serverless functions.
- *   Each serverless invocation gets a PrismaClient from the global singleton,
- *   and connection limits ensure we don't overwhelm the database.
+ * - In production (Vercel + Neon PostgreSQL): uses connection pooling with
+ *   `connection_limit=20`, `pool_timeout=30`, `connect_timeout=10`, and
+ *   `pooled=true` (Neon's PgBouncer) to handle high concurrency in serverless
+ *   functions without exhausting database connections.
  *
  * - In development: uses standard SQLite with error/warning logging.
  *
  * Connection pooling parameters are appended to the DATABASE_URL at runtime
  * only when running in production with a PostgreSQL connection string.
+ *
+ * NOTE: For future rate-limit caching at scale (2000+ users), consider
+ * integrating Upstash Redis as a caching layer alongside this database
+ * configuration. Upstash is Vercel-native and ideal for serverless rate
+ * limiting, session caching, and ephemeral data that doesn't need DB persistence.
  */
 
 function createPrismaClient(): PrismaClient {
@@ -26,26 +32,50 @@ function createPrismaClient(): PrismaClient {
   if (isProduction && databaseUrl && databaseUrl.startsWith('postgresql')) {
     // Parse the URL and append connection pooling parameters if not already present
     const url = new URL(databaseUrl)
+
+    // connection_limit=20: Vercel serverless can have many concurrent function
+    // invocations; 20 connections per client allows adequate throughput at scale.
     if (!url.searchParams.has('connection_limit')) {
-      url.searchParams.set('connection_limit', '5')
+      url.searchParams.set('connection_limit', '20')
     }
+
+    // pool_timeout=30: more patient waiting for a connection from the pool
+    // under heavy load, reducing premature "connection not available" errors.
     if (!url.searchParams.has('pool_timeout')) {
-      url.searchParams.set('pool_timeout', '10')
+      url.searchParams.set('pool_timeout', '30')
     }
-    // For Neon PostgreSQL: enable pipelining for serverless performance
+
+    // connect_timeout=10: prevent hanging on unreachable DB hosts; fail fast
+    // so serverless functions don't burn time waiting on network issues.
+    if (!url.searchParams.has('connect_timeout')) {
+      url.searchParams.set('connect_timeout', '10')
+    }
+
+    // For Neon PostgreSQL: enable pooled connection (PgBouncer) for serverless
+    // performance — this is critical for avoiding connection exhaustion on Neon.
     if (databaseUrl.includes('neon.tech') && !url.searchParams.has('pooled')) {
       url.searchParams.set('pooled', 'true')
     }
 
+    const datasourceUrl = url.toString()
+
     return new PrismaClient({
-      datasourceUrl: url.toString(),
-      log: [],
+      datasourceUrl,
+      log: [
+        { level: 'error', emit: 'stdout' },
+        {
+          level: 'warn',
+          emit: 'stdout',
+        },
+      ],
     })
   }
 
   // Development mode: use DATABASE_URL as-is (SQLite or local PostgreSQL)
   return new PrismaClient({
-    log: isProduction ? [] : ['error', 'warn'],
+    log: isProduction
+      ? [{ level: 'error', emit: 'stdout' }]
+      : ['error', 'warn', 'query'],
   })
 }
 
