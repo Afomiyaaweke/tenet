@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       bufferPages: true, // needed for footer pagination
       info: {
         Title: `Original Tender Requirements - ${pageTitle}`,
-        Author: 'Tenets Tender Ecosystem',
+        Author: 'TenetBid',
         Subject: 'Downloaded Tender Requirements Document',
       },
     });
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       .fillColor('#fb923c')
       .fontSize(10)
       .font('Helvetica')
-      .text('Tenets Tender Ecosystem', 50, 58, { width: pageWidth });
+      .text('TenetBid', 50, 58, { width: pageWidth });
     doc
       .fillColor('#ffffff')
       .fontSize(10)
@@ -308,7 +308,7 @@ export async function POST(request: NextRequest) {
       doc.save();
       doc.fillColor('#94a3b8').fontSize(7).font('Helvetica');
       doc.text(
-        `Tenets Tender Ecosystem - Downloaded from ${hostname} - Generated ${generatedDateTime} - Page ${i + 1} of ${pages.count}`,
+        `TenetBid - Downloaded from ${hostname} - Generated ${generatedDateTime} - Page ${i + 1} of ${pages.count}`,
         50,
         doc.page.height - 30,
         { width: pageWidth, align: 'center' },

@@ -67,3 +67,27 @@ Stage Summary:
 - Production server (next start) is stable when properly adopted by tini
 - Updated .zscripts/dev.sh with robust auto-restart loop using this pattern
 - Preview is now fully working and stable
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix ZIP code to match the current preview
+
+Work Log:
+- Checked dev server status - running correctly
+- Identified that old ZIP (afomiya-tender.zip) was created from an older version of the project
+- Old ZIP included unnecessary files: skills/, .git/, node_modules from mini-services
+- Old ZIP was missing the latest branding changes (Tenets → TenetBid)
+- Fixed .env file to use relative database path (file:./db/custom.db instead of absolute path)
+- Created .env.example with proper placeholder values for deployment
+- Fixed all remaining "Tenets" branding to "TenetBid" across 11 files
+- Recreated clean ZIP (tenetbid.zip) excluding: node_modules, .next, .git, skills, tool-results, screenshots, etc.
+- Verified the full flow works: Landing → Sign In → Registration → Dashboard
+- Verified ZIP contains all key files: .env, .env.example, package.json, prisma schema/seed, db/custom.db, all components
+
+Stage Summary:
+- New ZIP file: /home/z/my-project/tenetbid.zip (5.1MB, 432 files)
+- All branding changed from "Tenets" to "TenetBid"
+- Database path is now relative (works on any machine)
+- .env.example includes deployment instructions
+- No hardcoded credentials or absolute paths in the project
