@@ -255,7 +255,7 @@ export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<bo
               <tr>
                 <td style="background:#fafafa;padding:20px 40px;border-top:1px solid #eee;">
                   <p style="margin:0;font-size:12px;color:#999;text-align:center;">
-                    TenetBid — Transforming Procurement Through Technology<br>
+                    TenetBid<br>
                     This is an automated message. Please do not reply to this email.
                   </p>
                 </td>
