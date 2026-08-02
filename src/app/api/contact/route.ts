@@ -136,7 +136,7 @@ Call: tel:+251956140291
                   <p style="margin:20px 0 0;font-size:13px;color:#777;line-height:1.6;">Need immediate help? Call us at <a href="tel:+251956140291" style="color:#f97316;">+251 956 140 291</a> or email <a href="mailto:support@tenetbid.com" style="color:#f97316;">support@tenetbid.com</a></p>
                 </td></tr>
                 <tr><td style="background:#fafafa;padding:16px 40px;border-top:1px solid #eee;">
-                  <p style="margin:0;font-size:12px;color:#999;text-align:center;">TenetBid — Transforming Procurement Through Technology</p>
+                  <p style="margin:0;font-size:12px;color:#999;text-align:center;">TenetBid</p>
                 </td></tr>
               </table>
             </td></tr>

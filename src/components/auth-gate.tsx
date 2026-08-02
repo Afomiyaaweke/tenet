@@ -1363,7 +1363,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           {/* Footer inside right panel on desktop, or below on mobile */}
           <footer className="px-6 py-4 text-center border-t border-border lg:border-t lg:py-5">
             <p className="text-xs text-muted-foreground">
-              © 2026 Tenets · Transforming Procurement Through Technology
+              © 2026 TenetBid
             </p>
           </footer>
         </div>
