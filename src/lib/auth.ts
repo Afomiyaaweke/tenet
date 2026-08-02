@@ -5,11 +5,7 @@ import { NextRequest } from 'next/server';
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('FATAL: JWT_SECRET must be set in production. Generate one with: openssl rand -base64 48');
-    }
-    console.warn('WARNING: JWT_SECRET not set. Using development-only secret. This MUST be set in production!');
-    return 'dev-only-secret-do-not-use-in-production-environment-32ch';
+    throw new Error('FATAL: JWT_SECRET must be set. Generate one with: openssl rand -base64 48');
   }
   if (secret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters long');
   return secret;
