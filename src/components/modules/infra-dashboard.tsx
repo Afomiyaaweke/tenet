@@ -63,7 +63,7 @@ function buildConcerns(healthData: Record<string, unknown> | null, metricsData: 
     { id: 'dns', label: 'DNS', icon: Globe, tab: 'integration',
       status: s('dns'), metrics: [
         { label: 'Primary', value: '1.1.1.1' }, { label: 'Secondary', value: '8.8.8.8' },
-        { label: 'Domain', value: 'tenet.space-z.ai' },
+        { label: 'Domain', value: process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '') || 'localhost:3000' },
       ]},
     { id: 'stress_testing', label: 'Stress Testing', icon: Bug, tab: 'reliability',
       status: s('stress_testing'), metrics: [

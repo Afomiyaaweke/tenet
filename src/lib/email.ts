@@ -146,7 +146,7 @@ interface ResetEmailContext {
  */
 export async function sendPasswordResetEmail(ctx: ResetEmailContext): Promise<boolean> {
   // Enforce HTTPS in production for reset links
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://tenet.space-z.ai').replace(/^http:/, 'https:');
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/^http:/, 'https:');
   const resetLink = `${appUrl}?token=${ctx.rawToken}`;
   const expiresMinutes = 15;
   const requestTime = ctx.requestTime || new Date();
