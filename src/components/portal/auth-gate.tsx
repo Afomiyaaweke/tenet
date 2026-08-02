@@ -71,7 +71,7 @@ export function AuthGate({ onAuth }: { onAuth: (user: User) => void }) {
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl gradient-emerald mb-4">
               <Building2 className="size-7 text-white" />
             </div>
-            <h1 className="text-2xl font-bold">Tenets</h1>
+            <h1 className="text-2xl font-bold">TenetBid</h1>
             <p className="text-sm text-muted-foreground mt-1">Transforming procurement through technology</p>
           </div>
 

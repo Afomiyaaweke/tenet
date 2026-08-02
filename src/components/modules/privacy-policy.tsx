@@ -567,7 +567,7 @@ export function PrivacyPolicyView() {
               <Separator className="my-8 opacity-40" />
               <div className="pl-10">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  This privacy policy is effective as of June 23, 2026 and applies to all users of the Tenets platform.
+                  This privacy policy is effective as of June 23, 2026 and applies to all users of the TenetBid platform.
                   For questions about this policy, please contact us at{' '}
                   <a
                     href="mailto:contact@tenetbid.com"

@@ -46,7 +46,7 @@ export async function GET(
       margins: { top: 50, bottom: 50, left: 50, right: 50 },
       info: {
         Title: `Tender Requirements - ${tender.title}`,
-        Author: 'Tenets Tender Ecosystem',
+        Author: 'TenetBid',
         Subject: 'Tender Requirements Document',
       },
     });
@@ -61,7 +61,7 @@ export async function GET(
     doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold')
       .text('TENDER REQUIREMENTS', 50, 28, { width: pageWidth });
     doc.fillColor('#fb923c').fontSize(10).font('Helvetica')
-      .text('Tenets Tender Ecosystem', 50, 58, { width: pageWidth });
+      .text('TenetBid', 50, 58, { width: pageWidth });
     doc.fillColor('#ffffff').fontSize(10)
       .text(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), 50, 58, { width: pageWidth, align: 'right' });
 
@@ -208,7 +208,7 @@ export async function GET(
       doc.save();
       doc.fillColor('#94a3b8').fontSize(7).font('Helvetica');
       doc.text(
-        `Tenets Tender Ecosystem - Generated ${new Date().toLocaleString('en-GB')} - Page ${i + 1} of ${pages.count}`,
+        `TenetBid - Generated ${new Date().toLocaleString('en-GB')} - Page ${i + 1} of ${pages.count}`,
         50,
         doc.page.height - 30,
         { width: pageWidth, align: 'center' },
