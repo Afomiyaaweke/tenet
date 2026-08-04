@@ -43,13 +43,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run build
 
 # --- Bake the SQLite database into the image ---
-# This ensures no network calls or schema-engine downloads are needed
-# at container startup — db push + seed happen once, here, at build time.
 ENV DATABASE_URL="file:./db/custom.db"
 RUN mkdir -p ./db && \
     bunx prisma db push --skip-generate --accept-data-loss && \
-    bun run prisma/seed.ts
-
+    bun run prisma/seed.ts && \
+    echo "PRAGMA wal_checkpoint(TRUNCATE);" | bunx prisma db execute --stdin && \
+    echo "🔍 Verifying baked database..." && \
+    test -s ./db/custom.db && echo "✅ custom.db exists and is non-empty" || (echo "❌ custom.db missing or empty — aborting build" && exit 1) && \
+    ls -la ./db
 # --- Stage 3: Production ---
 FROM oven/bun:1.2 AS runner
 
