@@ -1,16 +1,14 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
-echo "🚀 Starting TenetBid — Transforming Procurement Through Technology..."
+echo "Starting application..."
 
-if [ ! -f ./db/custom.db ]; then
-  echo "⚠️ Database not found — falling back to runtime init..."
-  mkdir -p ./db
-  timeout 60 ./node_modules/.bin/prisma db push --skip-generate --accept-data-loss
-  timeout 60 bun run prisma/seed.ts
-else
-  echo "✅ Database found (baked into image)."
-fi
+# Fall back to the baked-in SQLite database if no DATABASE_URL was supplied
+# at deploy time (e.g. no persistent volume/managed DB configured yet).
+export DATABASE_URL="${DATABASE_URL:-file:./db/custom.db}"
 
-echo "🌐 Starting server..."
+echo "Applying database schema..."
+bunx prisma db push --skip-generate --accept-data-loss
+
+echo "Starting Next.js application..."
 exec bun server.js
