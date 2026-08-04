@@ -89,5 +89,13 @@ const nextConfig: NextConfig = {
     ];
   },
 };
+// next.config.ts
+import type { NextConfig } from 'next';
 
+const nextConfig: NextConfig = {
+  output: 'standalone',
+  // ...other options
+};
+
+export default nextConfig;
 export default nextConfig;
