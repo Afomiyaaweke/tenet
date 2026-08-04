@@ -42,6 +42,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Build the Next.js standalone output
 RUN bun run build
 
+# --- Bake the SQLite database into the image ---
+# This ensures no network calls or schema-engine downloads are needed
+# at container startup — db push + seed happen once, here, at build time.
+ENV DATABASE_URL="file:./db/custom.db"
+RUN mkdir -p ./db && \
+    bunx prisma db push --skip-generate --accept-data-loss && \
+    bun run prisma/seed.ts
+
 # --- Stage 3: Production ---
 FROM oven/bun:1.2 AS runner
 
@@ -53,6 +61,7 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="file:./db/custom.db"
 
 # Don't run as root
 RUN addgroup --system --gid 1001 nodejs && \
@@ -63,17 +72,18 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma schema, engine, and CLI for runtime DB operations
+# Copy Prisma schema, engine, and CLI for runtime DB operations (fallback use)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
-# Copy the seed file for DB initialization
+# Copy the seed file (fallback use, in case image db is missing/reset)
 COPY --from=builder /app/prisma/seed.ts ./prisma/seed.ts
 
-# Create db directory and set ownership
-RUN mkdir -p ./db && chown -R nextjs:nodejs ./db
+# Copy the pre-built SQLite database baked in the builder stage
+COPY --from=builder /app/db ./db
+RUN chown -R nextjs:nodejs ./db
 
 # Create uploads directory and set ownership
 RUN mkdir -p ./uploads && chown -R nextjs:nodejs ./uploads
