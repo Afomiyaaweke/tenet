@@ -1,13 +1,33 @@
-cat > next.config.mjs << 'EOF'
 /** @type {import('next').NextConfig} */
 const securityHeaders = [
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "X-DNS-Prefetch-Control", value: "on" },
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  { key: "X-XSS-Protection", value: "1; mode=block" },
+  {
+    key: "X-Frame-Options",
+    value: "DENY",
+  },
+  {
+    key: "X-Content-Type-Options",
+    value: "nosniff",
+  },
+  {
+    key: "Referrer-Policy",
+    value: "strict-origin-when-cross-origin",
+  },
+  {
+    key: "X-DNS-Prefetch-Control",
+    value: "on",
+  },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
+  },
+  {
+    key: "X-XSS-Protection",
+    value: "1; mode=block",
+  },
   {
     key: "Content-Security-Policy",
     value: [
@@ -22,29 +42,53 @@ const securityHeaders = [
   },
 ];
 
+// Build allowedDevOrigins dynamically from environment
+// Include all domains that may serve the app:
+// - localhost for local dev
+// - tenet.space-z.ai for the custom domain
+// - preview-chat-*.space-z.ai for the sandbox preview panel
+// - *.space-z.ai for any other platform subdomains
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const appUrlHost = appUrl.replace(/^https?:\/\//, "");
 const allowedDevOrigins = [
   "127.0.0.1",
   "localhost",
   "localhost:3000",
-  appUrlHost,
+  appUrlHost, // e.g. "tenet.space-z.ai" from NEXT_PUBLIC_APP_URL
   "tenet.space-z.ai",
-  "preview-chat.space-z.ai",
+  "preview-chat.space-z.ai", // sandbox preview chat panel
 ];
 
 const nextConfig = {
+  // Needed for Docker-based deploys (Railway/Render/etc.) so the
+  // Dockerfile's `COPY --from=builder /app/.next/standalone` step works.
   output: "standalone",
   reactStrictMode: true,
   allowedDevOrigins,
+  // Turbopack serverExternalPackages: packages that should NOT be bundled
+  // by Turbopack and should be resolved at runtime instead.
+  // xlsx (SheetJS) has known Turbopack resolution issues — exclude it.
   serverExternalPackages: ["xlsx"],
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      {
+        source: "/(.*)",
+        headers: securityHeaders,
+      },
+    ];
   },
+  // Rewrite /uploads/* to the API route that serves local files.
+  // This is needed for local dev where uploaded files are stored on the filesystem.
+  // In production (Vercel), files are stored in Vercel Blob with absolute URLs,
+  // so these rewrites won't be triggered (Blob URLs bypass Next.js routing).
   async rewrites() {
-    return [{ source: "/uploads/:path*", destination: "/api/uploads/:path*" }];
+    return [
+      {
+        source: "/uploads/:path*",
+        destination: "/api/uploads/:path*",
+      },
+    ];
   },
 };
 
 export default nextConfig;
-EOF
