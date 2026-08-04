@@ -8,7 +8,6 @@
 
 # --- Stage 1: Dependencies ---
 FROM oven/bun:1.2 AS deps
-
 WORKDIR /app
 
 # Install curl for health checks
@@ -26,7 +25,6 @@ RUN bun run db:generate
 
 # --- Stage 2: Build ---
 FROM oven/bun:1.2 AS builder
-
 WORKDIR /app
 
 # Copy dependencies from deps stage
@@ -47,13 +45,13 @@ ENV DATABASE_URL="file:./db/custom.db"
 RUN mkdir -p ./db && \
     bunx prisma db push --skip-generate --accept-data-loss && \
     bun run prisma/seed.ts && \
-    echo "PRAGMA wal_checkpoint(TRUNCATE);" | bunx prisma db execute --stdin && \
+    echo "PRAGMA wal_checkpoint(TRUNCATE);" | bunx prisma db execute --stdin --schema=./prisma/schema.prisma && \
     echo "🔍 Verifying baked database..." && \
     test -s ./db/custom.db && echo "✅ custom.db exists and is non-empty" || (echo "❌ custom.db missing or empty — aborting build" && exit 1) && \
     ls -la ./db
+
 # --- Stage 3: Production ---
 FROM oven/bun:1.2 AS runner
-
 WORKDIR /app
 
 # Install curl for health checks and runtime needs
