@@ -55,12 +55,21 @@ export async function POST(request: NextRequest) {
     if (tenderId) {
       const tender = await db.tender.findUnique({ where: { id: tenderId } });
       if (tender) {
-        // Company isolation: non-team_admin can only access their own company's tenders or open tenders
-        if (user!.role !== 'team_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
-          return NextResponse.json(
-            { success: false, error: 'Forbidden: You do not have access to this tender' },
-            { status: 403 }
-          );
+        // Company isolation: non-team_admin can only access their own company's tenders or open tenders.
+        // Tender has no companyId column — ownership is derived from its creator
+        // (createdBy -> User.companyId), so we look that up separately.
+        if (user!.role !== 'team_admin' && user!.companyId && tender.status !== 'open') {
+          const tenderCreator = await db.user.findUnique({
+            where: { id: tender.createdBy },
+            select: { companyId: true },
+          });
+
+          if (!tenderCreator || tenderCreator.companyId !== user!.companyId) {
+            return NextResponse.json(
+              { success: false, error: 'Forbidden: You do not have access to this tender' },
+              { status: 403 }
+            );
+          }
         }
         tenderContext = `
 **Tender Details (from database):**
