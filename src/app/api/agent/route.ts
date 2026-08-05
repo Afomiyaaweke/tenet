@@ -173,17 +173,38 @@ export async function POST(request: NextRequest) {
           }
         }
       } else if (user!.role === 'team_admin') {
-        // Company isolation: team_admin only sees their own company's data
-        const companyFilter = user!.companyId ? { companyId: user!.companyId } : {};
-        const tenderCompanyFilter = user!.companyId ? { tender: { companyId: user!.companyId } } : {};
-        const docCompanyFilter = user!.companyId ? { companyId: user!.companyId } : {};
+        // Company isolation: team_admin only sees their own company's data.
+        // NOTE: Tender/Document/Project don't store companyId directly in the
+        // schema, so we scope through the relations that actually exist:
+        //   - Tender links to a company only via its creator (createdBy -> User.companyId)
+        //   - Document links to a company via its owning user (userId -> User.companyId)
+        //   - Project links to a company via its Tender's creator
+        let companyUserIds: string[] = [];
+        if (user!.companyId) {
+          const companyUsers = await db.user.findMany({
+            where: { companyId: user!.companyId },
+            select: { id: true },
+          });
+          companyUserIds = companyUsers.map((u) => u.id);
+        }
+
+        const userCountFilter = user!.companyId ? { companyId: user!.companyId } : undefined;
+        const tenderCompanyFilter = user!.companyId
+          ? { tender: { createdBy: { in: companyUserIds } } }
+          : {};
+        const docCompanyFilter = user!.companyId
+          ? { user: { companyId: user!.companyId } }
+          : {};
+        const projectCompanyFilter = user!.companyId
+          ? { tender: { createdBy: { in: companyUserIds } } }
+          : {};
 
         const [userCount, pendingBids, pendingDocs, openTenders, activeProjects] = await Promise.all([
-          db.user.count({ where: user!.companyId ? { companyId: user!.companyId } : undefined }),
+          db.user.count({ where: userCountFilter }),
           db.bid.count({ where: { status: 'pending_review', ...tenderCompanyFilter } }),
           db.document.count({ where: { status: 'pending', ...docCompanyFilter } }),
           db.tender.count({ where: { status: 'open' } }),
-          db.project.count({ where: { status: 'active', ...companyFilter } }),
+          db.project.count({ where: { status: 'active', ...projectCompanyFilter } }),
         ]);
         contextPrompt += `\n\n## Platform Stats (Live)`;
         contextPrompt += `\n- Total users: ${userCount}`;
