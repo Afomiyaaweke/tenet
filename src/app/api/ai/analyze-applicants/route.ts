@@ -81,12 +81,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Company isolation: only the tender owner's company or team_admin can analyze applicants
-    if (user!.role !== 'team_admin' && user!.companyId && tender.companyId !== user!.companyId) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden: You can only analyze applicants for your own company\'s tenders' },
-        { status: 403 }
-      );
+    // Company isolation: only the tender owner's company or team_admin can analyze applicants.
+    // Tender has no companyId column — ownership is derived from its creator
+    // (createdBy -> User.companyId), so we look that up separately.
+    if (user!.role !== 'team_admin' && user!.companyId) {
+      const tenderCreator = await db.user.findUnique({
+        where: { id: tender.createdBy },
+        select: { companyId: true },
+      });
+
+      if (!tenderCreator || tenderCreator.companyId !== user!.companyId) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: You can only analyze applicants for your own company\'s tenders' },
+          { status: 403 }
+        );
+      }
     }
 
     if (tender.bids.length === 0) {
