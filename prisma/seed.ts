@@ -1,9 +1,9 @@
-import { db } from '../src/lib/db.ts';
+import { db } from '../src/lib/db';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log ('🌱 Seeding database...');
 
   // Read admin credentials from environment or generate secure defaults
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@tenet.app').trim().toLowerCase();
