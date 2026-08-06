@@ -49,7 +49,7 @@ RUN npm run build
 ENV DATABASE_URL="file:./db/custom.db"
 RUN mkdir -p ./db && \
     npx prisma db push --skip-generate --accept-data-loss && \
-    node --experimental-strip-types --experimental-default-type=module prisma/seed.ts && \
+    npx tsx prisma/seed.ts && \
     echo "🔍 Verifying baked database..." && \
     test -s ./db/custom.db && echo "✅ custom.db exists and is non-empty" || (echo "❌ custom.db missing or empty — aborting build" && exit 1) && \
     ls -la ./db
