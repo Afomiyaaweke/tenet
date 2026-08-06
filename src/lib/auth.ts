@@ -3,9 +3,16 @@ import { db } from '@/lib/db';
 import { NextRequest } from 'next/server';
 
 function getSecret(): string {
-  const secret = process.env.JWT_SECRET;
+  // In development, use a stable fallback secret so the app works even if
+  // Prisma's `db push` overwrites .env and removes JWT_SECRET.
+  // In production, JWT_SECRET MUST be set via environment variables.
+  let secret = process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV !== 'production') {
+    secret = 'dev-only-fallback-secret-change-in-production-min32chars!!';
+    console.warn('⚠️  JWT_SECRET not set — using dev fallback. Set JWT_SECRET in .env for production.');
+  }
   if (!secret) {
-    throw new Error('FATAL: JWT_SECRET must be set. Generate one with: openssl rand -base64 48');
+    throw new Error('FATAL: JWT_SECRET must be set in production. Generate one with: openssl rand -base64 48');
   }
   if (secret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters long');
   return secret;
