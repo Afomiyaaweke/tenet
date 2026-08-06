@@ -67,12 +67,12 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV DATABASE_URL="file:./db/custom.db"
 
-RUN apt-get update && \
-    apt-get install -y \
-    openssl \
-    libssl3 \
-    ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+RUN mkdir -p ./db && \
+    npx prisma db push --skip-generate --accept-data-loss && \
+    npx tsx prisma/seed.ts && \
+    echo "🔍 Verifying baked database..." && \
+    ls -la ./db && \
+    test -s ./db/custom.db && echo "✅ custom.db exists and is non-empty" || (echo "❌ custom.db missing or empty — aborting build" && ls -la ./db && exit 1)
 
 RUN groupadd --system nodejs
 RUN useradd --system --gid nodejs nextjs
