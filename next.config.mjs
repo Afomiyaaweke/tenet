@@ -1,4 +1,5 @@
-/** @type {import('next').NextConfig} */
+import type { NextConfig } from "next";
+
 const securityHeaders = [
   {
     key: "X-Frame-Options",
@@ -42,33 +43,27 @@ const securityHeaders = [
   },
 ];
 
-// Build allowedDevOrigins dynamically from environment
-// Include all domains that may serve the app:
-// - localhost for local dev
-// - tenet.space-z.ai for the custom domain
-// - preview-chat-*.space-z.ai for the sandbox preview panel
-// - *.space-z.ai for any other platform subdomains
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const appUrlHost = appUrl.replace(/^https?:\/\//, "");
+
 const allowedDevOrigins = [
   "127.0.0.1",
   "localhost",
   "localhost:3000",
-  appUrlHost, // e.g. "tenet.space-z.ai" from NEXT_PUBLIC_APP_URL
+  appUrlHost,
   "tenet.space-z.ai",
-  "preview-chat.space-z.ai", // sandbox preview chat panel
+  "preview-chat.space-z.ai",
 ];
 
-const nextConfig = {
-  // Needed for Docker-based deploys (Railway/Render/etc.) so the
-  // Dockerfile's `COPY --from=builder /app/.next/standalone` step works.
+const nextConfig: NextConfig = {
   output: "standalone",
+
   reactStrictMode: true,
+
   allowedDevOrigins,
-  // Turbopack serverExternalPackages: packages that should NOT be bundled
-  // by Turbopack and should be resolved at runtime instead.
-  // xlsx (SheetJS) has known Turbopack resolution issues — exclude it.
+
   serverExternalPackages: ["xlsx"],
+
   async headers() {
     return [
       {
@@ -77,10 +72,7 @@ const nextConfig = {
       },
     ];
   },
-  // Rewrite /uploads/* to the API route that serves local files.
-  // This is needed for local dev where uploaded files are stored on the filesystem.
-  // In production (Vercel), files are stored in Vercel Blob with absolute URLs,
-  // so these rewrites won't be triggered (Blob URLs bypass Next.js routing).
+
   async rewrites() {
     return [
       {

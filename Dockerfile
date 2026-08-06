@@ -1,108 +1,87 @@
-# ──────────────────────────────────────────────────────────────
-# TenetBid — Production Dockerfile (Node.js Server)
-# ──────────────────────────────────────────────────────────────
-# This is a Node.js SERVER application, NOT a static site.
-# Next.js requires a running Node.js process for SSR, API routes,
-# and dynamic rendering. Do NOT deploy as a static/nginx site.
-# ──────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Stage 1: Dependencies
+# -----------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS deps
 
-# --- Stage 1: Dependencies ---
-FROM oven/bun:1.2 AS deps
 WORKDIR /app
 
-# Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y \
+    openssl \
+    libssl-dev \
+    ca-certificates \
+    curl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy all source files needed for dependency installation
-COPY package.json bun.lock ./
-COPY prisma/ ./prisma/
+COPY package*.json ./
 
-# Install all dependencies
-RUN bun install
+RUN npm ci
 
-# Generate Prisma client
-RUN bun run db:generate
+COPY prisma ./prisma
 
-# --- Stage 2: Build ---
-FROM oven/bun:1.2 AS builder
+RUN npx prisma generate
+
+
+# -----------------------------------------------------------------------------
+# Stage 2: Builder
+# -----------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS builder
+
 WORKDIR /app
 
-# Copy dependencies from deps stage
+ENV NODE_ENV=production
+
+RUN apt-get update && \
+    apt-get install -y \
+    openssl \
+    libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy ALL source code (includes prisma/, src/, public/, etc.)
 COPY . .
 
-# Set production environment for build
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+RUN npx prisma generate
 
-# Build the Next.js standalone output
-RUN bun run build
+RUN npm run build
 
-# --- Bake the SQLite database into the image ---
-ENV DATABASE_URL="file:./db/custom.db"
-RUN mkdir -p ./db && \
-    bunx prisma db push --skip-generate --accept-data-loss && \
-    bun run prisma/seed.ts && \
-    echo "PRAGMA wal_checkpoint(TRUNCATE);" | bunx prisma db execute --stdin --schema=./prisma/schema.prisma && \
-    echo "🔍 Verifying baked database..." && \
-    test -s ./db/custom.db && echo "✅ custom.db exists and is non-empty" || (echo "❌ custom.db missing or empty — aborting build" && exit 1) && \
-    ls -la ./db
 
-# --- Stage 3: Production ---
-FROM oven/bun:1.2 AS runner
+# -----------------------------------------------------------------------------
+# Stage 3: Production Runner
+# -----------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS runner
+
 WORKDIR /app
 
-# Install curl for health checks and runtime needs
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
-# Set production environment
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="file:./db/custom.db"
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-# Don't run as root
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+RUN apt-get update && \
+    apt-get install -y \
+    openssl \
+    libssl3 \
+    ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy standalone build output
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+RUN groupadd --system nodejs
+RUN useradd --system --gid nodejs nextjs
+
 COPY --from=builder /app/public ./public
 
-# Copy Prisma schema, engine, and CLI for runtime DB operations (fallback use)
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
-# Copy the seed file (fallback use, in case image db is missing/reset)
-COPY --from=builder /app/prisma/seed.ts ./prisma/seed.ts
+COPY --from=builder /app/data ./data
 
-# Copy the pre-built SQLite database baked in the builder stage
-COPY --from=builder /app/db ./db
-RUN chown -R nextjs:nodejs ./db
+RUN chown -R nextjs:nodejs /app
 
-# Create uploads directory and set ownership
-RUN mkdir -p ./uploads && chown -R nextjs:nodejs ./uploads
-
-# Copy entrypoint script
-COPY --chmod=755 docker-entrypoint.sh ./docker-entrypoint.sh
-
-# Switch to non-root user
 USER nextjs
 
-# Expose port
 EXPOSE 3000
 
-# Set hostname
-ENV HOSTNAME="0.0.0.0"
-ENV PORT=3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:3000/api || exit 1
-
-# Start with entrypoint
-ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "server.js"]
