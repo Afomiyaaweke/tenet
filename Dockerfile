@@ -15,7 +15,7 @@ RUN apt-get update && \
 
 COPY package*.json ./
 
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 COPY prisma ./prisma
 
@@ -45,6 +45,15 @@ RUN npx prisma generate
 
 RUN npm run build
 
+# --- Bake the SQLite database into the image ---
+ENV DATABASE_URL="file:./db/custom.db"
+RUN mkdir -p ./db && \
+    npx prisma db push --skip-generate --accept-data-loss && \
+    node --experimental-strip-types --experimental-default-type=module prisma/seed.ts && \
+    echo "🔍 Verifying baked database..." && \
+    test -s ./db/custom.db && echo "✅ custom.db exists and is non-empty" || (echo "❌ custom.db missing or empty — aborting build" && exit 1) && \
+    ls -la ./db
+
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Runner
@@ -56,6 +65,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV DATABASE_URL="file:./db/custom.db"
 
 RUN apt-get update && \
     apt-get install -y \
@@ -76,8 +86,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-COPY --from=builder /app/data ./data
-
+COPY --from=builder /app/db ./db
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs
