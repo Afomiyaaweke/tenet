@@ -61,7 +61,7 @@ RUN mkdir -p ./db && \
 FROM node:22-bookworm-slim AS runner
 
 WORKDIR /app
-
+ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
