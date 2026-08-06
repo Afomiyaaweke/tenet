@@ -83,6 +83,8 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-  await db.$executeRawUnsafe('PRAGMA wal_checkpoint(TRUNCATE);');
-  await db.$disconnect();
-});
+    // Force WAL data to merge into the main .db file before the container
+    // process exits, so the baked SQLite file is non-empty and complete
+    await db.$queryRawUnsafe('PRAGMA wal_checkpoint(TRUNCATE);');
+    await db.$disconnect();
+  });
