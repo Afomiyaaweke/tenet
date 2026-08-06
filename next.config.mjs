@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+/** @type {import('next').NextConfig} */
 
 const securityHeaders = [
   {
@@ -55,7 +55,7 @@ const allowedDevOrigins = [
   "preview-chat.space-z.ai",
 ];
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   output: "standalone",
 
   reactStrictMode: true,
