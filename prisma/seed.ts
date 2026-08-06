@@ -3,7 +3,12 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 async function main() {
-  console.log ('🌱 Seeding database...');
+  console.log('🌱 Seeding database...');
+
+  // Disable WAL mode — this DB is written once and baked into the image,
+  // not used by multiple concurrent connections, so we want everything
+  // written directly to the main file with nothing left in sidecar files.
+  await db.$queryRawUnsafe('PRAGMA journal_mode = DELETE;');
 
   // Read admin credentials from environment or generate secure defaults
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@tenet.app').trim().toLowerCase();
@@ -83,8 +88,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    // Force WAL data to merge into the main .db file before the container
-    // process exits, so the baked SQLite file is non-empty and complete
-    await db.$queryRawUnsafe('PRAGMA wal_checkpoint(TRUNCATE);');
     await db.$disconnect();
   });
