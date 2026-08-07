@@ -3,13 +3,18 @@ import { User, Company, Tender, Bid, Project, EventItem, Chat, Notification, Doc
 import { api } from '@/lib/api';
 
 // Auth Store
+interface AuthResult {
+  success: boolean;
+  error?: string;
+}
+
 interface AuthState {
   user: User | null;
   company: Company | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (data: Record<string, string>) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (data: Record<string, string>) => Promise<AuthResult>;
   logout: () => void;
   fetchMe: () => Promise<void>;
   setUser: (user: User) => void;
@@ -26,9 +31,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (res.success) {
       localStorage.setItem('tenet_token', res.data.token);
       set({ user: res.data.user, token: res.data.token });
-      return true;
+      return { success: true };
     }
-    return false;
+    return { success: false, error: res.error || 'Invalid email or password' };
   },
 
   register: async (data) => {
@@ -36,9 +41,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (res.success) {
       localStorage.setItem('tenet_token', res.data.token);
       set({ user: res.data.user, token: res.data.token });
-      return true;
+      return { success: true };
     }
-    return false;
+    return { success: false, error: res.error || 'Registration failed' };
   },
 
   logout: () => {
