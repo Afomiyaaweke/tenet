@@ -15,7 +15,10 @@ RUN apt-get update && \
 
 COPY package*.json ./
 
-RUN npm ci --legacy-peer-deps
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm ci --legacy-peer-deps
 
 COPY prisma ./prisma
 
