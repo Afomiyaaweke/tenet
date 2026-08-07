@@ -364,7 +364,14 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     setLoading(true);
     try {
       const ok = await register(regData);
-      if (!ok) toast.error('Registration failed. Email may already exist.');
+      if (!ok) {
+        toast.error('This email is already registered. Please sign in instead.', {
+          action: {
+            label: 'Sign In',
+            onClick: () => { setActiveTab('login'); setRegStep(1); },
+          },
+        });
+      }
       else toast.success('Welcome to TenetBid!');
     } catch {
       toast.error('Registration failed. Please check your connection and try again.');

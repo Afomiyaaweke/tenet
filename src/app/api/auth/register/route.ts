@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return NextResponse.json(
-        { success: false, error: 'A user with this email already exists' },
+        { success: false, error: 'This email is already registered. Please sign in instead.' },
         { status: 409 },
       );
     }
