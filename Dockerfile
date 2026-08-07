@@ -46,13 +46,13 @@ RUN npx prisma generate
 RUN npm run build
 
 # --- Bake the SQLite database into the image ---
-ENV DATABASE_URL="file:./db/custom.db"
-RUN mkdir -p ./db && \
+ENV DATABASE_URL="file:/app/db/custom.db"
+RUN mkdir -p /app/db && \
     npx prisma db push --skip-generate --accept-data-loss && \
     npx tsx prisma/seed.ts && \
     echo "🔍 Verifying baked database..." && \
-    ls -la ./db && \
-    test -s ./db/custom.db && echo "✅ custom.db exists and is non-empty" || (echo "❌ custom.db missing or empty — aborting build" && exit 1)
+    ls -la /app/db && \
+    test -s /app/db/custom.db && echo "✅ custom.db exists and is non-empty" || (echo "❌ custom.db missing or empty — aborting build" && exit 1)
 
 
 # -----------------------------------------------------------------------------
@@ -65,7 +65,7 @@ ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-ENV DATABASE_URL="file:./db/custom.db"
+ENV DATABASE_URL="file:/app/db/custom.db"
 
 RUN apt-get update && \
     apt-get install -y \
