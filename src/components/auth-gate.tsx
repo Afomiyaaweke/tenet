@@ -261,9 +261,9 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     if (!loginData.email || !loginData.password) return;
     setLoading(true);
     try {
-      const ok = await login(loginData.email, loginData.password);
-      if (!ok) {
-        toast.error('Invalid email or password. Please try again.');
+      const result = await login(loginData.email, loginData.password);
+      if (!result.success) {
+        toast.error(result.error || 'Invalid email or password. Please try again.');
       }
     } catch {
       toast.error('Login failed. Please check your connection and try again.');
@@ -363,14 +363,19 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const handleRegister = async () => {
     setLoading(true);
     try {
-      const ok = await register(regData);
-      if (!ok) {
-        toast.error('This email is already registered. Please sign in instead.', {
-          action: {
-            label: 'Sign In',
-            onClick: () => { setActiveTab('login'); setRegStep(1); },
-          },
-        });
+      const result = await register(regData);
+      if (!result.success) {
+        // If the email is already registered, auto-switch to login form
+        if (result.error?.toLowerCase().includes('already') || result.error?.toLowerCase().includes('registered')) {
+          toast.info('This email is already registered. Switching to Sign In...', {
+            duration: 3000,
+          });
+          setActiveTab('login');
+          setLoginData(d => ({ ...d, email: regData.email || d.email }));
+          setRegStep(1);
+        } else {
+          toast.error(result.error || 'Registration failed. Please try again.');
+        }
       }
       else toast.success('Welcome to TenetBid!');
     } catch {
