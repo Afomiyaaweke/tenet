@@ -351,8 +351,23 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     }
   };
 
-  const goNext = () => {
+  const goNext = async () => {
     if (!canGoNext()) return;
+    // At Step 1, check if email is already registered → auto-switch to login
+    if (regStep === 1 && regData.email) {
+      try {
+        const { api } = await import('@/lib/api');
+        const res = await api.post('/auth/check-email', { email: regData.email });
+        if (res.success && res.exists) {
+          toast.info('This email is already registered. Switching to Sign In...', { duration: 3000 });
+          setActiveTab('login');
+          setLoginData(d => ({ ...d, email: regData.email }));
+          return;
+        }
+      } catch {
+        // If check fails, just proceed — the register endpoint will catch it later
+      }
+    }
     if (regStep < 4) setRegStep((regStep + 1) as RegStep);
   };
 
