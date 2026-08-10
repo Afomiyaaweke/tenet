@@ -26,7 +26,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  UserCircle,
   Building2,
   Globe,
   Hash,
@@ -204,8 +203,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
     companyName: '', companyIndustry: '', companyTinNumber: '',
     companyRegistrationNo: '', companyPhone: '', companyCity: '',
     companyCountry: '', companyEmail: '', companyWebsite: '',
-    // Role
-    role: 'user' as string,
+
   });
   const [loading, setLoading] = useState(false);
   const [emailChecking, setEmailChecking] = useState(false);
@@ -1353,23 +1351,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           </div>
                         </div>
 
-                        {/* Account Type */}
-                        <div className="p-3 rounded-xl border border-border bg-card/50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <UserCircle className="w-3.5 h-3.5 text-orange-500" />
-                            <span className="text-xs font-semibold text-foreground">Account Type</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg gradient-orange flex items-center justify-center text-white">
-                              <UserCircle className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-foreground">User</p>
-                              <p className="text-xs text-muted-foreground">Submit bids, view tenders, manage your profile</p>
-                            </div>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-2 ml-10">You can be promoted to Team Admin by your company admin later.</p>
-                        </div>
+
                       </div>
 
                       <Button
