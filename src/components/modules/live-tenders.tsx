@@ -2063,6 +2063,9 @@ export function LiveTendersView() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [lastRefreshedText, setLastRefreshedText] = useState<string>('');
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('');
@@ -2173,6 +2176,7 @@ export function LiveTendersView() {
           setHasMore(apiHasMore);
         }
         if (res.meta?.totalAvailable) setTotalAvailable(res.meta.totalAvailable);
+        setLastRefreshed(new Date());
       } else {
         toast.error(res.error || 'Failed to load live tenders');
       }
@@ -2187,6 +2191,52 @@ export function LiveTendersView() {
     const t = setTimeout(() => load(), 250);
     return () => clearTimeout(t);
   }, [load]);
+
+  // Auto-refresh polling with smart tab visibility pause
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const POLL_INTERVAL = 60_000; // 60 seconds
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        load(true);
+      }
+    }, POLL_INTERVAL);
+
+    const handleVisibilityChange = () => {
+      // When tab becomes visible again, refresh immediately if data is stale
+      if (document.visibilityState === 'visible' && lastRefreshed) {
+        const staleMs = Date.now() - lastRefreshed.getTime();
+        if (staleMs > POLL_INTERVAL) {
+          load(true);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [autoRefresh, load, lastRefreshed]);
+
+  // "Last refreshed" timer display
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (!lastRefreshed) { setLastRefreshedText(''); return; }
+    const update = () => {
+      const seconds = Math.floor((Date.now() - lastRefreshed.getTime()) / 1000);
+      if (seconds < 5) setLastRefreshedText('just now');
+      else if (seconds < 60) setLastRefreshedText(`${seconds}s ago`);
+      else setLastRefreshedText(`${Math.floor(seconds / 60)}m ago`);
+    };
+    update();
+    /* eslint-enable react-hooks/set-state-in-effect */
+    const id = setInterval(update, 10_000);
+    return () => clearInterval(id);
+  }, [lastRefreshed]);
 
   // Check saved status for visible tenders
   useEffect(() => {
@@ -2490,6 +2540,33 @@ export function LiveTendersView() {
               My Bids ({savedCount})
             </Button>
           )}
+          {lastRefreshedText && (
+            <span className="text-[10px] text-muted-foreground/70 hidden sm:inline-block">
+              Updated {lastRefreshedText}
+            </span>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`gap-1 shadow-lg backdrop-blur-sm ${autoRefresh ? 'bg-emerald-50/90 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-white/90 dark:bg-gray-800/90'}`}
+            title={autoRefresh ? 'Auto-refresh every 60s — click to pause' : 'Auto-refresh paused — click to resume'}
+          >
+            {autoRefresh ? (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                Live
+              </>
+            ) : (
+              <>
+                <span className="inline-flex rounded-full h-2 w-2 bg-gray-400" />
+                Paused
+              </>
+            )}
+          </Button>
           <Button
             variant="secondary"
             size="sm"
