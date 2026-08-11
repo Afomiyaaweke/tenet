@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import ZAI from 'z-ai-web-dev-sdk';
 
-// POST /api/tenders/live/review - Generate inline AI review for a live tender
+// POST /api/tenders/live/review - Generate deep, multi-dimensional AI review for a live tender
 export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
     const body = await request.json();
-    const { title, scope, budgetMin, budgetMax, deadline, location, categoryTags, source, currency, borrower, contractType } = body;
+    const {
+      title, scope, budgetMin, budgetMax, deadline, location,
+      categoryTags, source, currency, borrower, contractType, region,
+      externalUrl,
+    } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -26,37 +30,143 @@ export async function POST(request: NextRequest) {
       budgetMin || budgetMax ? `Budget: ${currency || 'USD'} ${budgetMin?.toLocaleString() || 'N/A'} - ${budgetMax?.toLocaleString() || 'N/A'}` : '',
       deadline ? `Deadline: ${new Date(deadline).toLocaleDateString()}` : '',
       location ? `Location: ${location}` : '',
-      categoryTags ? `Category: ${categoryTags}` : '',
+      region ? `Region: ${region}` : '',
+      categoryTags ? `Category/Tags: ${categoryTags}` : '',
       source ? `Source: ${source}` : '',
       borrower ? `Borrower/Organization: ${borrower}` : '',
       contractType ? `Contract Type: ${contractType}` : '',
+      externalUrl ? `External URL: ${externalUrl}` : '',
     ].filter(Boolean).join('\n');
 
     const completion = await zai.chat.completions.create({
       messages: [
         {
           role: 'assistant',
-          content: `You are an expert procurement analyst for the Tenet Tender Ecosystem platform. Analyze tenders and provide actionable insights for contractors and bidders. Always respond with valid JSON matching the exact schema requested.`
+          content: `You are a senior procurement strategist and tender analyst with 20+ years of experience across government, multilateral (World Bank, UN, AfDB, ADB), private sector, and healthcare procurement. You have deep expertise in bid strategy, compliance, risk management, financial modeling, and competitive positioning. Always respond with valid JSON matching the exact schema requested. Be thorough, specific, and actionable.`
         },
         {
           role: 'user',
-          content: `Analyze this tender opportunity and return a JSON object with these exact fields:
+          content: `Perform a comprehensive, multi-dimensional deep analysis of this tender opportunity. Return a JSON object with these exact fields:
+
 {
-  "summary": "2-3 sentence executive summary of this tender",
-  "keyRequirements": ["requirement1", "requirement2", ...],
-  "eligibilityCheck": {"likely": true/false, "reasons": ["reason1", "reason2"]},
-  "riskAssessment": {"level": "low/medium/high", "factors": ["factor1", "factor2"]},
-  "recommendedApproach": "2-3 sentence strategy recommendation",
-  "competitiveLandscape": "1-2 sentence assessment of competition level",
-  "bidReadiness": {"score": 1-10, "checklist": ["item1", "item2"]},
-  "estimatedTimeline": "realistic timeline suggestion",
-  "tips": ["tip1", "tip2", "tip3"]
+  "executiveSummary": "3-4 sentence strategic executive summary covering the opportunity, key challenge, and strategic recommendation",
+  "opportunityScore": 1-100,
+  "winProbability": 1-100,
+
+  "strategicAnalysis": {
+    "swot": {
+      "strengths": ["strength1", "strength2", "strength3"],
+      "weaknesses": ["weakness1", "weakness2"],
+      "opportunities": ["opportunity1", "opportunity2", "opportunity3"],
+      "threats": ["threat1", "threat2"]
+    },
+    "strategicFit": "high/medium/low",
+    "strategicFitReasoning": "1-2 sentence explanation",
+    "marketPositioning": "1-2 sentence advice on how to position for this tender"
+  },
+
+  "financialAnalysis": {
+    "budgetFit": "well_within/within/above/significantly_above",
+    "budgetFitReasoning": "1-2 sentence explanation of budget alignment",
+    "estimatedROI": "low/medium/high/very_high",
+    "roiReasoning": "1-2 sentence explanation",
+    "paymentTermsRisk": "low/medium/high",
+    "paymentTermsNote": "1 sentence on typical payment terms for this type",
+    "costStructureBreakdown": ["item1: %", "item2: %", "item3: %"],
+    "financialRisks": ["risk1", "risk2"],
+    "marginPotential": "thin/moderate/healthy/strong"
+  },
+
+  "technicalComplexity": {
+    "level": "low/medium/high/very_high",
+    "reasoning": "1-2 sentence explanation",
+    "keyTechnologies": ["tech1", "tech2"],
+    "expertiseRequired": ["expertise1", "expertise2", "expertise3"],
+    "implementationRisks": ["risk1", "risk2"],
+    "estimatedDuration": "e.g. 6-12 months"
+  },
+
+  "complianceAnalysis": {
+    "overallCompliance": "fully_compliant/partially_compliant/non_compliant/unclear",
+    "regulatoryFramework": "1 sentence on relevant regulations",
+    "mandatoryCertifications": ["cert1", "cert2"],
+    "voluntaryCertifications": ["cert1", "cert2"],
+    "complianceGaps": ["gap1", "gap2"],
+    "documentationRequirements": ["doc1", "doc2", "doc3", "doc4"],
+    "complianceScore": 1-100
+  },
+
+  "eligibilityDeepDive": {
+    "overallEligible": true/false,
+    "confidenceLevel": "high/medium/low",
+    "criteria": [
+      {"criterion": "name", "met": true/false, "partial": true/false, "note": "explanation", "severity": "blocker/warning/info"}
+    ],
+    "blockers": ["blocker1"],
+    "warnings": ["warning1"]
+  },
+
+  "riskMatrix": {
+    "overallRiskLevel": "low/medium/high/critical",
+    "overallRiskScore": 1-100,
+    "dimensions": {
+      "financial": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"},
+      "technical": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"},
+      "legal": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"},
+      "operational": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"},
+      "reputational": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"}
+    },
+    "criticalRisks": ["risk1"],
+    "dealBreakers": ["dealbreaker1"]
+  },
+
+  "competitiveIntelligence": {
+    "estimatedBidders": "low(1-3)/medium(4-8)/high(9+)/very_high(15+)",
+    "competitionLevel": "low/medium/high/very_high",
+    "typicalCompetitors": ["type1", "type2", "type3"],
+    "differentiationStrategies": ["strategy1", "strategy2", "strategy3"],
+    "incumbentAdvantage": true/false,
+    "incumbentNote": "1 sentence if relevant",
+    "pricingStrategy": "aggressive/competitive/premium/value_based",
+    "pricingNote": "1 sentence explanation"
+  },
+
+  "bidStrategy": {
+    "recommendedApproach": "2-3 sentence strategic recommendation",
+    "priorityLevel": "must_win/high/medium/low/monitor",
+    "keyWinFactors": ["factor1", "factor2", "factor3"],
+    "differentiationPoints": ["point1", "point2"],
+    "partnershipOpportunities": ["partner1", "partner2"],
+    "proposalHighlights": ["highlight1", "highlight2", "highlight3"],
+    "estimatedPrepTime": "e.g. 2-4 weeks",
+    "resourceRequirements": "1 sentence on team/resources needed"
+  },
+
+  "timelineAnalysis": {
+    "deadlineAssessment": "comfortable/tight/very_tight/already_passed",
+    "daysToDeadline": estimated_number,
+    "recommendedStartDaysBefore": recommended_number,
+    "milestones": [
+      {"phase": "name", "duration": "e.g. 1 week", "deadline": "relative date"}
+    ],
+    "criticalPathItems": ["item1", "item2"]
+  },
+
+  "valueAddOpportunities": [
+    {"opportunity": "description", "impact": "low/medium/high", "effort": "low/medium/high"}
+  ],
+
+  "redFlags": ["flag1", "flag2"],
+
+  "actionableRecommendations": [
+    {"action": "description", "priority": "critical/high/medium/low", "category": "compliance/financial/technical/strategy", "timeline": "e.g. within 48h"}
+  ]
 }
 
 Tender details:
 ${tenderInfo}
 
-Provide practical, specific advice. Be concise but thorough.`
+Provide practical, specific, expert-level advice. Think like a senior bid manager at a top consulting firm. Be concise but comprehensive. Each field should contain genuinely useful insights, not generic filler.`
         }
       ],
       thinking: { type: 'disabled' },
@@ -72,17 +182,95 @@ Provide practical, specific advice. Be concise but thorough.`
       const jsonStr = jsonMatch ? jsonMatch[1].trim() : responseText.trim();
       review = JSON.parse(jsonStr);
     } catch {
-      // If parsing fails, return the raw text as summary
+      // If parsing fails, return a basic fallback structure
       review = {
-        summary: responseText.slice(0, 500),
-        keyRequirements: [],
-        eligibilityCheck: { likely: true, reasons: ['Unable to parse full analysis'] },
-        riskAssessment: { level: 'medium', factors: ['Analysis incomplete'] },
-        recommendedApproach: 'Review the tender details carefully before bidding.',
-        competitiveLandscape: 'Unable to assess',
-        bidReadiness: { score: 5, checklist: ['Review tender documents', 'Verify eligibility'] },
-        estimatedTimeline: '30-60 days',
-        tips: ['Review all requirements carefully', 'Prepare documentation early'],
+        executiveSummary: responseText.slice(0, 500),
+        opportunityScore: 50,
+        winProbability: 40,
+        strategicAnalysis: {
+          swot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+          strategicFit: 'medium',
+          strategicFitReasoning: 'Unable to complete full analysis',
+          marketPositioning: 'Review tender details carefully',
+        },
+        financialAnalysis: {
+          budgetFit: 'within',
+          budgetFitReasoning: 'Unable to analyze',
+          estimatedROI: 'medium',
+          roiReasoning: 'Analysis incomplete',
+          paymentTermsRisk: 'medium',
+          paymentTermsNote: 'Standard terms expected',
+          costStructureBreakdown: [],
+          financialRisks: [],
+          marginPotential: 'moderate',
+        },
+        technicalComplexity: {
+          level: 'medium',
+          reasoning: 'Unable to assess',
+          keyTechnologies: [],
+          expertiseRequired: [],
+          implementationRisks: [],
+          estimatedDuration: 'TBD',
+        },
+        complianceAnalysis: {
+          overallCompliance: 'unclear',
+          regulatoryFramework: 'Review applicable regulations',
+          mandatoryCertifications: [],
+          voluntaryCertifications: [],
+          complianceGaps: [],
+          documentationRequirements: [],
+          complianceScore: 50,
+        },
+        eligibilityDeepDive: {
+          overallEligible: true,
+          confidenceLevel: 'low',
+          criteria: [],
+          blockers: [],
+          warnings: ['Full analysis could not be completed'],
+        },
+        riskMatrix: {
+          overallRiskLevel: 'medium',
+          overallRiskScore: 50,
+          dimensions: {
+            financial: { score: 5, factors: [], mitigation: '' },
+            technical: { score: 5, factors: [], mitigation: '' },
+            legal: { score: 5, factors: [], mitigation: '' },
+            operational: { score: 5, factors: [], mitigation: '' },
+            reputational: { score: 5, factors: [], mitigation: '' },
+          },
+          criticalRisks: [],
+          dealBreakers: [],
+        },
+        competitiveIntelligence: {
+          estimatedBidders: 'medium',
+          competitionLevel: 'medium',
+          typicalCompetitors: [],
+          differentiationStrategies: [],
+          incumbentAdvantage: false,
+          incumbentNote: '',
+          pricingStrategy: 'competitive',
+          pricingNote: 'Standard competitive pricing',
+        },
+        bidStrategy: {
+          recommendedApproach: 'Review the tender documents carefully before bidding.',
+          priorityLevel: 'medium',
+          keyWinFactors: [],
+          differentiationPoints: [],
+          partnershipOpportunities: [],
+          proposalHighlights: [],
+          estimatedPrepTime: '2-4 weeks',
+          resourceRequirements: 'Standard bid team',
+        },
+        timelineAnalysis: {
+          deadlineAssessment: 'comfortable',
+          daysToDeadline: 30,
+          recommendedStartDaysBefore: 45,
+          milestones: [],
+          criticalPathItems: [],
+        },
+        valueAddOpportunities: [],
+        redFlags: [],
+        actionableRecommendations: [],
       };
     }
 

@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { useAuthStore, useNavStore } from '@/store';
+     5→import { api, Tender, Bid, BidAnalysis, BidAnalysisResult } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Label } from '@/components/ui/label';
+    10→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    11→import {
+    12→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    13→} from '@/components/ui/table';
+    14→import { toast } from 'sonner';
+    15→import {
+    16→  ArrowLeft, MapPin, Calendar, DollarSign, Tag, FileText, Gavel, Clock, Users,
+    17→  ChevronDown, ChevronUp, Award, AlertCircle, CheckCircle, X, ArrowRight,
+    18→  Briefcase, TrendingUp, Timer, CircleDot, Eye, Building2,
+    19→  ListChecks, FileStack, CircleCheck, Target, Ban, GitCompareArrows,
+    20→  Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion,
+    21→  TrendingDown, Loader2, BrainCircuit, AlertTriangle, Lightbulb,
+    22→  FileCheck, Wallet, Clock3, ClipboardCheck, Stamp, FileSignature, Languages, Upload,
+    23→  Download, FileDown, ExternalLink, Globe2, FileSpreadsheet, Copy,
+    24→} from 'lucide-react';
+    25→import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
+    26→import { InlineTranslator, TranslatorPanel } from '@/components/translator';
+    27→
+    28→type DetailTab = 'overview' | 'bids' | 'documents' | 'ai-overview' | 'analysis';
+    29→
+    30→function daysUntil(dateStr: string): number {
+    31→  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    32→}
+    33→
+    34→function parseBidAnalysis(analysis: BidAnalysis): BidAnalysisResult | null {
+    35→  try {
+    36→    return {
+    37→      summary: JSON.parse(analysis.summary || '{}'),
+    38→      applicants: JSON.parse(analysis.rankings || '[]'),
+    39→      budgetAnalysis: analysis.budgetAnalysis || '',
+    40→      riskSummary: analysis.riskSummary || '',
+    41→      finalRecommendation: analysis.recommendation || '',
+    42→    };
+    43→  } catch {
+    44→    return null;
+    45→  }
+    46→}
+    47→
+    48→function ScoreBar({ score, label }: { score: number; label?: string }) {
+    49→  const colorClass = score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500';
+    50→  const textColor = score >= 80 ? 'text-emerald-700' : score >= 60 ? 'text-amber-700' : 'text-red-700';
+    51→  return (
+    52→    <div className="flex items-center gap-2 min-w-[120px]">
+    53→      {label && <span className="text-[10px] text-muted-foreground w-12 shrink-0">{label}</span>}
+    54→      <div className="flex-1 h-2 bg-muted/50 rounded-full overflow-hidden">
+    55→        <div
+    56→ className={`h-full rounded-full ${colorClass} transition-[width] duration-700`} style={{ width: `${Math.min(score, 100)}%` }}
+    57→ />
+    58→      </div>
+    59→      <span className={`text-xs font-semibold ${textColor} w-8 text-right`}>{score}</span>
+    60→    </div>
+    61→  );
+    62→}
+    63→
+    64→function RiskBadge({ level }: { level: 'low' | 'medium' | 'high' }) {
+    65→  const config = {
+    66→    low: { className: 'bg-emerald-100 text-emerald-700', icon: ShieldCheck },
+    67→    medium: { className: 'bg-amber-100 text-amber-700', icon: ShieldQuestion },
+    68→    high: { className: 'bg-red-100 text-red-700', icon: ShieldAlert },
+    69→  };
+    70→  const c = config[level];
+    71→  const Icon = c.icon;
+    72→  return (
+    73→    <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${c.className}`}>
+    74→      <Icon className="h-3 w-3 mr-1" />
+    75→      {level.charAt(0).toUpperCase() + level.slice(1)}
+    76→    </Badge>
+    77→  );
+    78→}
+    79→
+    80→export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; initialTab?: DetailTab }) {
+    81→  const { user } = useAuthStore();
+    82→  const { setView } = useNavStore();
+    83→  const [tender, setTender] = useState<Tender | null>(null);
+    84→  const [bids, setBids] = useState<Bid[]>([]);
+    85→  const [loading, setLoading] = useState(true);
+    86→  const [showBid, setShowBid] = useState(false);
+    87→  const [createdBidId, setCreatedBidId] = useState<string | null>(null);
+    88→  const [bidDocFiles, setBidDocFiles] = useState<{
+    89→    technical: File | null;
+    90→    financial: File | null;
+    91→    timeline: File | null;
+    92→  }>({ technical: null, financial: null, timeline: null });
+    93→  const [uploadProgress, setUploadProgress] = useState<{
+    94→    technical: 'idle' | 'uploading' | 'done' | 'error';
+    95→    financial: 'idle' | 'uploading' | 'done' | 'error';
+    96→    timeline: 'idle' | 'uploading' | 'done' | 'error';
+    97→  }>({ technical: 'idle', financial: 'idle', timeline: 'idle' });
+    98→  const [submittingBid, setSubmittingBid] = useState(false);
+    99→  const [hasBid, setHasBid] = useState(false);
+   100→  const [activeTab, setActiveTab] = useState<DetailTab>(initialTab && initialTab !== 'overview' ? initialTab : 'overview');
+   101→  const [stampSelectorOpen, setStampSelectorOpen] = useState(false);
+   102→  const [appliedStamps, setAppliedStamps] = useState<SavedSignature[]>([]);
+   103→  const stampSigHook = useStampSignature();
+   104→
+   105→  // Bid Analysis state (for tender creators)
+   106→  const [analyses, setAnalyses] = useState<BidAnalysis[]>([]);
+   107→  const [analysisLoading, setAnalysisLoading] = useState(false);
+   108→  const [analysesLoading, setAnalysesLoading] = useState(false);
+   109→  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
+   110→
+   111→  // Requirements Analysis state (for applicants)
+   112→  const [reqAnalysis, setReqAnalysis] = useState<any>(null);
+   113→  const [reqAnalysisLoading, setReqAnalysisLoading] = useState(false);
+   114→
+   115→  // AI Overview state (for all users)
+   116→  const [aiOverview, setAiOverview] = useState<any>(null);
+   117→  const [aiOverviewLoading, setAiOverviewLoading] = useState(false);
+   118→
+   119→  // Source document state (download from original site)
+   120→  const [sourceContent, setSourceContent] = useState<any>(null);
+   121→  const [sourceLoading, setSourceLoading] = useState(false);
+   122→  const [sourceExportingPdf, setSourceExportingPdf] = useState(false);
+   123→  const [sourceExportingCsv, setSourceExportingCsv] = useState(false);
+   124→  const [sourceExpanded, setSourceExpanded] = useState(false);
+   125→
+   126→  // Extract external URL from requiredDocs (format: "Source: ... | External ID: ... | URL: https://...")
+   127→  const externalSourceUrl = useMemo(() => {
+   128→    if (!tender?.requiredDocs) return null;
+   129→    const urlMatch = tender.requiredDocs.match(/URL:\s*(https?:\/\/[^\s|]+)/i);
+   130→    if (urlMatch) return urlMatch[1];
+   131→    // Also check if requiredDocs itself is a URL
+   132→    if (tender.requiredDocs.startsWith('http')) return tender.requiredDocs;
+   133→    return null;
+   134→  }, [tender?.requiredDocs]);
+   135→
+   136→  const isAdminOrCreator = user?.role === 'team_admin' && tender?.createdBy === user.id;
+   137→  const isCreatorOrAdmin = tender?.createdBy === user?.id || (user?.role === 'team_admin' && tender?.createdBy === user.id);
+   138→  const isApplicant = !isCreatorOrAdmin;
+   139→
+   140→  const loadTender = useCallback(async () => {
+   141→    setLoading(true);
+   142→    const res = await api.get(`/tenders/${tenderId}`);
+   143→    if (res.success) setTender(res.data);
+   144→    // Load bids for this tender
+   145→    const bidsRes = await api.get('/bids', { tenderId: tenderId! });
+   146→    if (bidsRes.success) {
+   147→      setBids(bidsRes.data);
+   148→      setHasBid(bidsRes.data.some((b: Bid) => b.userId === user?.id));
+   149→    }
+   150→    setLoading(false);
+   151→  }, [tenderId, user?.id]);
+   152→
+   153→  const loadAnalyses = useCallback(async () => {
+   154→    if (!tenderId) return;
+   155→    setAnalysesLoading(true);
+   156→    const res = await api.get('/bid-analysis', { tenderId });
+   157→    if (res.success) {
+   158→      setAnalyses(res.data);
+   159→      // Auto-select the latest analysis
+   160→      if (res.data.length > 0 && !selectedAnalysisId) {
+   161→        setSelectedAnalysisId(res.data[0].id);
+   162→      }
+   163→    }
+   164→    setAnalysesLoading(false);
+   165→  }, [tenderId, selectedAnalysisId]);
+   166→
+   167→  /* eslint-disable react-hooks/set-state-in-effect */
+   168→  useEffect(() => {
+   169→    if (tenderId) void loadTender();
+   170→  }, [tenderId, loadTender]);
+   171→
+   172→  /* eslint-disable react-hooks/set-state-in-effect */
+   173→  useEffect(() => {
+   174→    if (tenderId && activeTab === 'analysis') void loadAnalyses();
+   175→  }, [tenderId, activeTab, loadAnalyses]);
+   176→  /* eslint-enable react-hooks/set-state-in-effect */
+   177→
+   178→  const handleRunAnalysis = async () => {
+   179→    if (!tenderId) return;
+   180→    setAnalysisLoading(true);
+   181→    try {
+   182→      const res = await api.post('/bid-analysis', { tenderId });
+   183→      if (res.success) {
+   184→        toast.success('AI analysis completed successfully!');
+   185→        const analysesRes = await api.get('/bid-analysis', { tenderId });
+   186→        if (analysesRes.success) {
+   187→          setAnalyses(analysesRes.data);
+   188→          if (analysesRes.data.length > 0) {
+   189→            setSelectedAnalysisId(analysesRes.data[0].id);
+   190→          }
+   191→        }
+   192→      } else {
+   193→        toast.error(res.error || 'Failed to run analysis');
+   194→      }
+   195→    } catch {
+   196→      toast.error('Failed to run AI analysis. Please try again.');
+   197→    }
+   198→    setAnalysisLoading(false);
+   199→  };
+   200→
+   201→  const handleAnalyzeRequirements = async () => {
+   202→    if (!tenderId) return;
+   203→    setReqAnalysisLoading(true);
+   204→    try {
+   205→      const res = await api.post('/ai/analyze-requirements', {
+   206→        tenderId,
+   207→        userName: user?.profile?.fullName || '',
+   208→        userSkills: user?.profile?.skillTags || '',
+   209→      });
+   210→      if (res.success) {
+   211→        setReqAnalysis(res.data);
+   212→        toast.success('Requirements analyzed!');
+   213→      } else {
+   214→        toast.error(res.error || 'Failed to analyze requirements');
+   215→      }
+   216→    } catch {
+   217→      toast.error('Failed to analyze requirements. Please try again.');
+   218→    }
+   219→    setReqAnalysisLoading(false);
+   220→  };
+   221→
+   222→  // Export requirements as PDF
+   223→  const [exportingPdf, setExportingPdf] = useState(false);
+   224→  const handleExportPdf = async () => {
+   225→    if (!tenderId) return;
+   226→    setExportingPdf(true);
+   227→    try {
+   228→      const token = useAuthStore.getState().token;
+   229→      const res = await fetch(`/api/tenders/${tenderId}/export-pdf`, {
+   230→        headers: { Authorization: `Bearer ${token}` },
+   231→      });
+   232→      if (!res.ok) throw new Error('Export failed');
+   233→      const blob = await res.blob();
+   234→      const url = window.URL.createObjectURL(blob);
+   235→      const a = document.createElement('a');
+   236→      a.href = url;
+   237→      a.download = `Tender_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Requirements'}_Export.pdf`;
+   238→      document.body.appendChild(a);
+   239→      a.click();
+   240→      document.body.removeChild(a);
+   241→      window.URL.revokeObjectURL(url);
+   242→      toast.success('PDF exported successfully!');
+   243→    } catch {
+   244→      toast.error('Failed to export PDF. Please try again.');
+   245→    }
+   246→    setExportingPdf(false);
+   247→  };
+   248→
+   249→  // Fetch original requirements from source site
+   250→  const handleFetchSourceContent = async () => {
+   251→    if (!externalSourceUrl) return;
+   252→    setSourceLoading(true);
+   253→    try {
+   254→      const res = await api.post('/tenders/fetch-doc', { url: externalSourceUrl });
+   255→      if (res.success && res.data) {
+   256→        setSourceContent(res.data);
+   257→        setSourceExpanded(true);
+   258→        toast.success('Original requirements fetched from source!');
+   259→      } else {
+   260→        toast.error(res.error || 'Failed to fetch from source site');
+   261→      }
+   262→    } catch {
+   263→      toast.error('Failed to fetch from source site. Please try again.');
+   264→    }
+   265→    setSourceLoading(false);
+   266→  };
+   267→
+   268→  // Export source content as PDF
+   269→  const handleExportSourcePdf = async () => {
+   270→    if (!externalSourceUrl) return;
+   271→    setSourceExportingPdf(true);
+   272→    try {
+   273→      const token = useAuthStore.getState().token;
+   274→      const res = await fetch('/api/tenders/fetch-doc/export-pdf', {
+   275→        method: 'POST',
+   276→        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   277→        body: JSON.stringify({ url: externalSourceUrl, title: tender?.title }),
+   278→      });
+   279→      if (!res.ok) throw new Error('Export failed');
+   280→      const blob = await res.blob();
+   281→      const url = window.URL.createObjectURL(blob);
+   282→      const a = document.createElement('a');
+   283→      a.href = url;
+   284→      a.download = `Original_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Requirements'}_Source.pdf`;
+   285→      document.body.appendChild(a);
+   286→      a.click();
+   287→      document.body.removeChild(a);
+   288→      window.URL.revokeObjectURL(url);
+   289→      toast.success('Original requirements PDF exported!');
+   290→    } catch {
+   291→      toast.error('Failed to export PDF from source. Please try again.');
+   292→    }
+   293→    setSourceExportingPdf(false);
+   294→  };
+   295→
+   296→  // Export source content as CSV
+   297→  const handleExportSourceCsv = async () => {
+   298→    if (!externalSourceUrl) return;
+   299→    setSourceExportingCsv(true);
+   300→    try {
+   301→      const token = useAuthStore.getState().token;
+   302→      const res = await fetch('/api/tenders/fetch-doc/export-csv', {
+   303→        method: 'POST',
+   304→        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   305→        body: JSON.stringify({ url: externalSourceUrl, title: tender?.title }),
+   306→      });
+   307→      if (!res.ok) throw new Error('Export failed');
+   308→      const blob = await res.blob();
+   309→      const url = window.URL.createObjectURL(blob);
+   310→      const a = document.createElement('a');
+   311→      a.href = url;
+   312→      a.download = `Original_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Requirements'}_Source.csv`;
+   313→      document.body.appendChild(a);
+   314→      a.click();
+   315→      document.body.removeChild(a);
+   316→      window.URL.revokeObjectURL(url);
+   317→      toast.success('Original requirements CSV exported!');
+   318→    } catch {
+   319→      toast.error('Failed to export CSV from source. Please try again.');
+   320→    }
+   321→    setSourceExportingCsv(false);
+   322→  };
+   323→
+   324→  // Download requirements data as JSON
+   325→  const [downloadingReq, setDownloadingReq] = useState(false);
+   326→  const handleDownloadRequirements = async () => {
+   327→    if (!tenderId) return;
+   328→    setDownloadingReq(true);
+   329→    try {
+   330→      const res = await api.get(`/tenders/${tenderId}/requirements`);
+   331→      if (res.success) {
+   332→        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+   333→        const url = window.URL.createObjectURL(blob);
+   334→        const a = document.createElement('a');
+   335→        a.href = url;
+   336→        a.download = `Tender_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Requirements'}_Data.json`;
+   337→        document.body.appendChild(a);
+   338→        a.click();
+   339→        document.body.removeChild(a);
+   340→        window.URL.revokeObjectURL(url);
+   341→        toast.success('Requirements data downloaded!');
+   342→      } else {
+   343→        toast.error(res.error || 'Failed to download requirements');
+   344→      }
+   345→    } catch {
+   346→      toast.error('Failed to download requirements. Please try again.');
+   347→    }
+   348→    setDownloadingReq(false);
+   349→  };
+   350→
+   351→  const handleGetAIOverview = async () => {
+   352→    if (!tenderId) return;
+   353→    setAiOverviewLoading(true);
+   354→    try {
+   355→      const res = await api.get(`/tenders/${tenderId}/overview-ai`);
+   356→      if (res.success) {
+   357→        setAiOverview(res.data);
+   358→        toast.success('AI Overview generated!');
+   359→      } else {
+   360→        toast.error(res.error || 'Failed to generate AI overview');
+   361→      }
+   362→    } catch {
+   363→      toast.error('Failed to generate AI overview. Please try again.');
+   364→    }
+   365→    setAiOverviewLoading(false);
+   366→  };
+   367→
+   368→  const handleSubmitBid = useCallback(async () => {
+   369→    if (!tender) return;
+   370→    setSubmittingBid(true);
+   371→    try {
+   372→      // Create the bid record with placeholder values (real content will be in uploaded documents)
+   373→      const res = await api.post('/bids', {
+   374→        tenderId: tender.id,
+   375→        technicalProposal: '',
+   376→        financialProposal: 0,
+   377→        timeline: '',
+   378→      });
+   379→      if (!res.success) {
+   380→        toast.error(res.error || 'Failed to submit bid');
+   381→        setSubmittingBid(false);
+   382→        return;
+   383→      }
+   384→      // Bid created - now show the upload area
+   385→      setCreatedBidId(res.data.id);
+   386→      setSubmittingBid(false);
+   387→      toast.success('Bid record created! Now upload your documents.');
+   388→    } catch {
+   389→      toast.error('Failed to submit bid');
+   390→      setSubmittingBid(false);
+   391→    }
+   392→  }, [tender]);
+   393→
+   394→  const handleUploadDoc = useCallback(async (
+   395→    file: File,
+   396→    docType: string,
+   397→    key: 'technical' | 'financial' | 'timeline'
+   398→  ) => {
+   399→    if (!createdBidId) return;
+   400→    setUploadProgress(prev => ({ ...prev, [key]: 'uploading' }));
+   401→    const formData = new FormData();
+   402→    formData.append('file', file);
+   403→    formData.append('docType', docType);
+   404→    formData.append('autoOcr', 'true');
+   405→    formData.append('autoReview', 'true');
+   406→    try {
+   407→      const uploadRes = await api.upload(`/bids/${createdBidId}/documents`, formData);
+   408→      if (uploadRes.success) {
+   409→        setUploadProgress(prev => ({ ...prev, [key]: 'done' }));
+   410→        toast.success(`${docType === 'technical_proposal' ? 'Technical Proposal' : docType === 'financial_proposal' ? 'Financial Proposal' : 'Timeline Document'} uploaded!`);
+   411→      } else {
+   412→        setUploadProgress(prev => ({ ...prev, [key]: 'error' }));
+   413→        toast.error(uploadRes.error || 'Upload failed');
+   414→      }
+   415→    } catch {
+   416→      setUploadProgress(prev => ({ ...prev, [key]: 'error' }));
+   417→      toast.error('Upload failed - please try again');
+   418→    }
+   419→  }, [createdBidId]);
+   420→
+   421→  const allUploadsDone = uploadProgress.technical === 'done' && uploadProgress.financial === 'done' && uploadProgress.timeline === 'done';
+   422→
+   423→  const handleCloseBidDialog = useCallback(() => {
+   424→    if (createdBidId) {
+   425→      // Bid was already created - mark as submitted
+   426→      setHasBid(true);
+   427→    }
+   428→    setShowBid(false);
+   429→    setCreatedBidId(null);
+   430→    setBidDocFiles({ technical: null, financial: null, timeline: null });
+   431→    setUploadProgress({ technical: 'idle', financial: 'idle', timeline: 'idle' });
+   432→    loadTender();
+   433→  }, [createdBidId, loadTender]);
+   434→
+   435→  const handleStatusChange = async (status: string) => {
+   436→    const res = await api.patch(`/tenders/${tenderId}/status`, { status });
+   437→    if (res.success) {
+   438→      toast.success(`Tender status updated to ${status}`);
+   439→      loadTender();
+   440→    } else {
+   441→      toast.error(res.error || 'Failed to update status');
+   442→    }
+   443→  };
+   444→
+   445→  const bidStats = useMemo(() => ({
+   446→    pending: bids.filter(b => b.status === 'pending_review').length,
+   447→    shortlisted: bids.filter(b => b.status === 'shortlisted').length,
+   448→    awarded: bids.filter(b => b.status === 'awarded').length,
+   449→    rejected: bids.filter(b => b.status === 'rejected').length,
+   450→    total: bids.length,
+   451→  }), [bids]);
+   452→
+   453→  const statusBadge = (status: string) => {
+   454→    switch (status) {
+   455→      case 'open': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100';
+   456→      case 'closed': return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
+   457→      case 'awarded': return 'bg-teal-100 text-teal-700 hover:bg-teal-100';
+   458→      case 'cancelled': return 'bg-muted text-muted-foreground hover:bg-muted';
+   459→      default: return 'bg-muted text-muted-foreground hover:bg-muted';
+   460→    }
+   461→  };
+   462→
+   463→  const statusDot = (status: string) => {
+   464→    switch (status) {
+   465→      case 'open': return 'bg-emerald-500';
+   466→      case 'closed': return 'bg-rose-500';
+   467→      case 'awarded': return 'bg-teal-500';
+   468→      case 'cancelled': return 'bg-muted-foreground/50';
+   469→      default: return 'bg-muted-foreground/50';
+   470→    }
+   471→  };
+   472→
+   473→  const statusAccent = (status: string) => {
+   474→    switch (status) {
+   475→      case 'open': return 'from-emerald-400 to-emerald-600';
+   476→      case 'closed': return 'from-rose-400 to-rose-600';
+   477→      case 'awarded': return 'from-teal-400 to-teal-600';
+   478→      case 'cancelled': return 'from-muted to-muted-foreground/50';
+   479→      default: return 'from-muted to-muted-foreground/50';
+   480→    }
+   481→  };
+   482→
+   483→  // Get the selected analysis data
+   484→  const selectedAnalysis = useMemo(() => {
+   485→    if (!selectedAnalysisId) return null;
+   486→    return analyses.find(a => a.id === selectedAnalysisId) || null;
+   487→  }, [selectedAnalysisId, analyses]);
+   488→
+   489→  const parsedAnalysis = useMemo(() => {
+   490→    if (!selectedAnalysis) return null;
+   491→    return parseBidAnalysis(selectedAnalysis);
+   492→  }, [selectedAnalysis]);
+   493→
+   494→  if (loading) {
+   495→    return (
+   496→      <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto view-enter">
+   497→        <div className="h-8 bg-muted/50 rounded-xl w-1/3 animate-pulse" />
+   498→        <div className="h-1.5 bg-muted/30 rounded-xl animate-pulse" />
+   499→        <div className="h-40 bg-muted/50 rounded-xl animate-pulse premium-shadow" />
+   500→        <div className="h-20 bg-muted/50 rounded-xl animate-pulse premium-shadow" />
+   501→      </div>
+   502→    );
+   503→  }
+   504→
+   505→  if (!tender) {
+   506→    return (
+   507→      <div className="p-6 text-center view-enter">
+   508→        <div className="relative w-20 h-20 mx-auto mb-6">
+   509→          <div className="absolute inset-0 rounded-2xl gradient-rose opacity-20" />
+   510→          <div className="absolute inset-2 rounded-xl gradient-rose flex items-center justify-center">
+   511→            <FileText className="h-8 w-8 text-white" />
+   512→          </div>
+   513→        </div>
+   514→        <h3 className="text-lg font-semibold">Tender not found</h3>
+   515→        <p className="text-muted-foreground text-sm mt-2">The tender you&apos;re looking for doesn&apos;t exist or has been removed</p>
+   516→        <Button variant="outline" onClick={() => setView('tenders')} className="mt-4 rounded-xl">
+   517→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
+   518→        </Button>
+   519→      </div>
+   520→    );
+   521→  }
+   522→
+   523→  const isOpen = tender.status === 'open';
+   524→  const deadlinePassed = new Date(tender.deadline) < new Date();
+   525→  const canBid = user?.role === 'user' && isOpen && !deadlinePassed && !hasBid;
+   526→  const days = daysUntil(tender.deadline);
+   527→
+   528→  const tabs: { key: DetailTab; label: string; icon: typeof ListChecks; count?: number }[] = [
+   529→    { key: 'overview', label: 'Overview', icon: ListChecks },
+   530→    { key: 'bids', label: 'Bids', icon: Gavel, count: bids.length },
+   531→    { key: 'documents', label: 'Documents', icon: FileStack },
+   532→    { key: 'ai-overview', label: 'AI Overview', icon: Sparkles },
+   533→    ...(isCreatorOrAdmin ? [{ key: 'analysis' as DetailTab, label: 'Analysis', icon: BrainCircuit, count: analyses.length || undefined }] : []),
+   534→  ];
+   535→
+   536→  return (
+   537→    <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto view-enter">
+   538→      {/* Back Button */}
+   539→      <div className="animate-[fadeIn_0.3s_ease-out]">
+   540→        <Button variant="ghost" onClick={() => setView('tenders')}
+   541→          className="hover:text-emerald-700 hover:bg-primary/10 transition-colors rounded-xl">
+   542→          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Tenders
+   543→        </Button>
+   544→      </div>
+   545→
+   546→      {/* Hero Section */}
+   547→      <div className="animate-[fadeIn_0.3s_ease-out]"
+   548→ >
+   549→        <Card className="premium-shadow-lg rounded-xl border-0 bg-card overflow-hidden">
+   550→          {/* Accent strip */}
+   551→          <div className={`h-2 bg-gradient-to-r ${statusAccent(tender.status)}`} />
+   552→
+   553→          <CardContent className="p-6 space-y-5">
+   554→            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+   555→              <div className="flex-1 space-y-3">
+   556→                <div className="flex items-start gap-3">
+   557→                  <div className={`p-2.5 rounded-xl flex-shrink-0 ${
+   558→                    tender.status === 'open' ? 'gradient-emerald' :
+   559→                    tender.status === 'awarded' ? 'gradient-teal' :
+   560→                    tender.status === 'cancelled' ? 'bg-muted' :
+   561→                    'gradient-rose'
+   562→                  }`}>
+   563→                    <FileText className="h-5 w-5 text-white" />
+   564→                  </div>
+   565→                  <div className="min-w-0">
+   566→                    <h2 className="text-2xl font-bold tracking-tight">{tender.title}</h2>
+   567→                    <div className="flex flex-wrap items-center gap-2 mt-2">
+   568→                      <div className="flex items-center gap-1.5">
+   569→                        <span className={`h-1.5 w-1.5 rounded-full ${statusDot(tender.status)}`} />
+   570→                        <Badge className={`text-xs px-2.5 py-0.5 border-0 rounded-lg ${statusBadge(tender.status)}`}>
+   571→                          {tender.status}
+   572→                        </Badge>
+   573→                      </div>
+   574→                      {tender.categoryTags.split(',').filter(Boolean).map(tag => (
+   575→                        <Badge key={tag} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-lg hover:bg-primary/10">
+   576→                          {tag.trim()}
+   577→                        </Badge>
+   578→                      ))}
+   579→                    </div>
+   580→                  </div>
+   581→                </div>
+   582→
+   583→                {/* Key Metrics */}
+   584→                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+   585→                  <div className="bg-emerald-50/60 rounded-xl p-3">
+   586→                    <div className="flex items-center gap-1.5 mb-1">
+   587→                      <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+   588→                      <span className="text-[10px] text-emerald-600 font-medium">Budget</span>
+   589→                    </div>
+   590→                    <p className="text-sm font-bold text-emerald-700">ETB {tender.budgetMin.toLocaleString()} – {tender.budgetMax.toLocaleString()}</p>
+   591→                  </div>
+   592→                  <div className="bg-amber-50/60 rounded-xl p-3">
+   593→                    <div className="flex items-center gap-1.5 mb-1">
+   594→                      <Timer className="h-3.5 w-3.5 text-amber-600" />
+   595→                      <span className="text-[10px] text-amber-600 font-medium">Deadline</span>
+   596→                    </div>
+   597→                    <p className="text-sm font-bold text-amber-700">{new Date(tender.deadline).toLocaleDateString()}</p>
+   598→                    <p className={`text-[10px] font-medium mt-0.5 ${days <= 0 ? 'text-rose-600' : days <= 3 ? 'text-rose-600' : days <= 7 ? 'text-amber-600' : 'text-emerald-600'}`}>
+   599→                      {days <= 0 ? 'Expired' : days === 1 ? '1 day left' : `${days} days left`}
+   600→                    </p>
+   601→                  </div>
+   602→                  <div className="bg-teal-50/60 rounded-xl p-3">
+   603→                    <div className="flex items-center gap-1.5 mb-1">
+   604→                      <MapPin className="h-3.5 w-3.5 text-teal-600" />
+   605→                      <span className="text-[10px] text-teal-600 font-medium">Location</span>
+   606→                    </div>
+   607→                    <p className="text-sm font-bold text-teal-700">{tender.location}</p>
+   608→                  </div>
+   609→                  <div className="bg-purple-50/60 rounded-xl p-3">
+   610→                    <div className="flex items-center gap-1.5 mb-1">
+   611→                      <Users className="h-3.5 w-3.5 text-purple-600" />
+   612→                      <span className="text-[10px] text-purple-600 font-medium">Bids</span>
+   613→                    </div>
+   614→                    <p className="text-sm font-bold text-purple-700">{tender._count?.bids || 0} received</p>
+   615→                  </div>
+   616→                </div>
+   617→
+   618→                {/* Requirements - always visible while viewing the tender */}
+   619→                <div className="rounded-xl border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 p-4 space-y-2.5">
+   620→                  <div className="flex items-center justify-between gap-2">
+   621→                    <div className="flex items-center gap-2">
+   622→                      <div className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-900/50">
+   623→                        <ListChecks className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+   624→                      </div>
+   625→                      <span className="text-sm font-semibold text-foreground">Tender Requirements</span>
+   626→                    </div>
+   627→                    <div className="flex items-center gap-1">
+   628→                      {tender.requiredDocs && (
+   629→                        <span className="text-[10px] font-medium text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/50 px-2 py-0.5 rounded-full">
+   630→                          {tender.requiredDocs.split(',').filter(Boolean).length} doc{tender.requiredDocs.split(',').filter(Boolean).length === 1 ? '' : 's'}
+   631→                        </span>
+   632→                      )}
+   633→                      <Button
+   634→                        variant="ghost"
+   635→                        size="sm"
+   636→                        className="h-6 w-6 p-0 text-teal-600 hover:text-teal-800 hover:bg-teal-100"
+   637→                        onClick={handleDownloadRequirements}
+   638→                        disabled={downloadingReq}
+   639→                        title="Download requirements data"
+   640→                      >
+   641→                        {downloadingReq ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+   642→                      </Button>
+   643→                      <Button
+   644→                        variant="ghost"
+   645→                        size="sm"
+   646→                        className="h-6 w-6 p-0 text-teal-600 hover:text-teal-800 hover:bg-teal-100"
+   647→                        onClick={handleExportPdf}
+   648→                        disabled={exportingPdf}
+   649→                        title="Export as PDF"
+   650→                      >
+   651→                        {exportingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+   652→                      </Button>
+   653→                    </div>
+   654→                  </div>
+   655→                  {tender.requiredDocs ? (
+   656→                    <div className="flex flex-wrap gap-1.5">
+   657→                      {tender.requiredDocs.split(',').filter(Boolean).map((doc, idx) => (
+   658→                        <span key={`${doc}-${idx}`} className="inline-flex items-center gap-1 text-xs font-medium bg-background dark:bg-card border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded-lg px-2.5 py-1">
+   659→                          <FileStack className="h-3 w-3 shrink-0" />
+   660→                          {doc.trim()}
+   661→                        </span>
+   662→                      ))}
+   663→                    </div>
+   664→                  ) : (
+   665→                    <p className="text-xs text-muted-foreground italic">No specific documents listed - contact the tender owner for eligibility details.</p>
+   666→                  )}
+   667→                  <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1.5 border-t border-teal-200/50 dark:border-teal-900/30">
+   668→                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+   669→                      <CircleDot className="h-3 w-3 text-teal-500" /> Eligibility verified at bid submission
+   670→                    </span>
+   671→                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+   672→                      <AlertCircle className="h-3 w-3 text-amber-500" /> Late or incomplete submissions are rejected
+   673→                    </span>
+   674→                  </div>
+   675→                </div>
+   676→
+   677→                {/* Download Original from Source */}
+   678→                {externalSourceUrl && (
+   679→                  <div className="rounded-xl border border-sky-200/60 dark:border-sky-900/40 bg-sky-50/50 dark:bg-sky-950/20 p-4 space-y-3">
+   680→                    <div className="flex items-center justify-between gap-2">
+   681→                      <div className="flex items-center gap-2">
+   682→                        <div className="p-1.5 rounded-lg bg-sky-100 dark:bg-sky-900/50">
+   683→                          <Globe2 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+   684→                        </div>
+   685→                        <div>
+   686→                          <span className="text-sm font-semibold text-foreground">Original Requirements from Source</span>
+   687→                          <p className="text-[10px] text-muted-foreground truncate max-w-[280px] sm:max-w-md">
+   688→                            {(() => { try { return new URL(externalSourceUrl).hostname; } catch { return externalSourceUrl; } })()}
+   689→                          </p>
+   690→                        </div>
+   691→                      </div>
+   692→                      <a
+   693→                        href={externalSourceUrl}
+   694→                        target="_blank"
+   695→                        rel="noopener noreferrer"
+   696→                        className="h-6 w-6 p-0 inline-flex items-center justify-center rounded-md text-sky-600 hover:text-sky-800 hover:bg-sky-100 transition-colors"
+   697→                        title="Open source site"
+   698→                      >
+   699→                        <ExternalLink className="h-3 w-3" />
+   700→                      </a>
+   701→                    </div>
+   702→
+   703→                    {/* Action Buttons */}
+   704→                    <div className="flex flex-wrap gap-2">
+   705→                      <Button
+   706→                        variant="outline"
+   707→                        size="sm"
+   708→                        className="rounded-xl text-xs border-sky-200 text-sky-700 hover:bg-sky-50 hover:text-sky-800 transition-all"
+   709→                        onClick={handleFetchSourceContent}
+   710→                        disabled={sourceLoading}
+   711→                      >
+   712→                        {sourceLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Globe2 className="h-3.5 w-3.5 mr-1.5" />}
+   713→                        {sourceContent ? 'Refresh from Source' : 'Fetch from Source'}
+   714→                      </Button>
+   715→                      <Button
+   716→                        variant="outline"
+   717→                        size="sm"
+   718→                        className="rounded-xl text-xs border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 transition-all"
+   719→                        onClick={handleExportSourcePdf}
+   720→                        disabled={sourceExportingPdf}
+   721→                      >
+   722→                        {sourceExportingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 mr-1.5" />}
+   723→                        Export PDF
+   724→                      </Button>
+   725→                      <Button
+   726→                        variant="outline"
+   727→                        size="sm"
+   728→                        className="rounded-xl text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-all"
+   729→                        onClick={handleExportSourceCsv}
+   730→                        disabled={sourceExportingCsv}
+   731→                      >
+   732→                        {sourceExportingCsv ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />}
+   733→                        Export CSV
+   734→                      </Button>
+   735→                    </div>
+   736→
+   737→                    {/* Fetched content preview */}
+   738→                    {sourceContent && sourceExpanded && (
+   739→                      <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+   740→                        <div className="flex items-center justify-between">
+   741→                          <span className="text-xs font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wider">Fetched Content</span>
+   742→                          <div className="flex items-center gap-1">
+   743→                            <Button
+   744→                              variant="ghost"
+   745→                              size="sm"
+   746→                              className="h-6 text-[10px] text-muted-foreground hover:text-foreground"
+   747→                              onClick={() => {
+   748→                                navigator.clipboard.writeText(sourceContent.content || '');
+   749→                                toast.success('Content copied to clipboard!');
+   750→                              }}
+   751→                            >
+   752→                              <Copy className="h-3 w-3 mr-1" /> Copy
+   753→                            </Button>
+   754→                            <Button
+   755→                              variant="ghost"
+   756→                              size="sm"
+   757→                              className="h-6 text-[10px] text-muted-foreground hover:text-foreground"
+   758→                              onClick={() => setSourceExpanded(false)}
+   759→                            >
+   760→                              <ChevronUp className="h-3 w-3" />
+   761→                            </Button>
+   762→                          </div>
+   763→                        </div>
+   764→
+   765→                        {sourceContent.title && (
+   766→                          <p className="text-sm font-semibold text-foreground">{sourceContent.title}</p>
+   767→                        )}
+   768→
+   769→                        {sourceContent.deadlines && sourceContent.deadlines.length > 0 && (
+   770→                          <div className="flex flex-wrap gap-1.5">
+   771→                            {sourceContent.deadlines.map((d: string, i: number) => (
+   772→                              <Badge key={i} className="text-[10px] bg-amber-50 text-amber-700 border-0 rounded-lg">
+   773→                                <Clock className="h-3 w-3 mr-1" /> {d}
+   774→                              </Badge>
+   775→                            ))}
+   776→                          </div>
+   777→                        )}
+   778→
+   779→                        {sourceContent.budgets && sourceContent.budgets.length > 0 && (
+   780→                          <div className="flex flex-wrap gap-1.5">
+   781→                            {sourceContent.budgets.map((b: string, i: number) => (
+   782→                              <Badge key={i} className="text-[10px] bg-emerald-50 text-emerald-700 border-0 rounded-lg">
+   783→                                <DollarSign className="h-3 w-3 mr-1" /> {b}
+   784→                              </Badge>
+   785→                            ))}
+   786→                          </div>
+   787→                        )}
+   788→
+   789→                        {sourceContent.sections && sourceContent.sections.length > 0 && (
+   790→                          <div className="space-y-2">
+   791→                            {sourceContent.sections.map((section: { heading: string; content: string }, i: number) => (
+   792→                              <div key={i} className="bg-background dark:bg-card rounded-lg p-3 border border-border/50">
+   793→                                <p className="text-xs font-semibold text-foreground mb-1">{section.heading}</p>
+   794→                                <p className="text-[11px] text-muted-foreground whitespace-pre-wrap leading-relaxed line-clamp-6">{section.content}</p>
+   795→                              </div>
+   796→                            ))}
+   797→                          </div>
+   798→                        )}
+   799→
+   800→                        <div className="bg-background dark:bg-card rounded-lg p-3 border border-border/50 max-h-80 overflow-y-auto">
+   801→                          <p className="text-[11px] text-muted-foreground whitespace-pre-wrap leading-relaxed">{sourceContent.content?.slice(0, 5000)}</p>
+   802→                          {sourceContent.content?.length > 5000 && (
+   803→                            <p className="text-[10px] text-sky-600 mt-2 italic">Content truncated. Export as PDF or CSV for the full document.</p>
+   804→                          )}
+   805→                        </div>
+   806→
+   807→                        <p className="text-[10px] text-muted-foreground italic">
+   808→                          Fetched at {new Date(sourceContent.fetchedAt).toLocaleString()} from {(() => { try { return new URL(externalSourceUrl).hostname; } catch { return externalSourceUrl; } })()}
+   809→                        </p>
+   810→                      </div>
+   811→                    )}
+   812→
+   813→                    {/* Collapsed indicator */}
+   814→                    {sourceContent && !sourceExpanded && (
+   815→                      <button
+   816→                        className="text-[10px] text-sky-600 hover:text-sky-800 flex items-center gap-1 transition-colors"
+   817→                        onClick={() => setSourceExpanded(true)}
+   818→                      >
+   819→                        <ChevronDown className="h-3 w-3" /> Show fetched content
+   820→                      </button>
+   821→                    )}
+   822→                  </div>
+   823→                )}
+   824→              </div>
+   825→
+   826→              {/* Action buttons */}
+   827→              <div className="flex items-center gap-2 flex-shrink-0 lg:flex-col lg:items-stretch">
+   828→                {canBid && (
+   829→                  <Dialog open={showBid} onOpenChange={(open) => {
+   830→                    if (!open) {
+   831→                      handleCloseBidDialog();
+   832→                    } else {
+   833→                      setShowBid(true);
+   834→                    }
+   835→                  }}>
+   836→                    <DialogTrigger asChild>
+   837→                      <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 w-full">
+   838→                        <Gavel className="h-4 w-4 mr-2" /> Submit Bid
+   839→                      </Button>
+   840→                    </DialogTrigger>
+   841→                    <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-xl">
+   842→                      <DialogHeader>
+   843→                        <DialogTitle className="text-xl font-bold">
+   844→                          <span className="text-gradient-emerald">Submit Bid</span> for {tender.title}
+   845→                        </DialogTitle>
+   846→                      </DialogHeader>
+   847→                      <div className="space-y-4">
+   848→                        {!createdBidId ? (
+   849→                          /* ── Step 1: Create bid record ── */
+   850→                          <div className="space-y-4">
+   851→                            <div className="flex items-center gap-3 p-4 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40">
+   852→                              <div className="p-2 rounded-xl gradient-emerald flex-shrink-0">
+   853→                                <Gavel className="h-5 w-5 text-white" />
+   854→                              </div>
+   855→                              <div className="space-y-1">
+   856→                                <p className="text-sm font-semibold text-foreground">Create your bid submission</p>
+   857→                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+   858→                                  Click the button below to create your bid record. After that, you&apos;ll be able to upload your Technical Proposal, Financial Proposal, and Timeline documents.
+   859→                                </p>
+   860→                              </div>
+   861→                            </div>
+   862→
+   863→                            {/* Document requirements preview */}
+   864→                            <div className="space-y-2">
+   865→                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Required Documents</p>
+   866→                              <div className="space-y-1.5">
+   867→                                <div className="flex items-center gap-2 p-2.5 bg-emerald-50/40 dark:bg-emerald-950/10 rounded-lg">
+   868→                                  <div className="p-1 rounded bg-emerald-100 dark:bg-emerald-900/50"><Briefcase className="h-3 w-3 text-emerald-600" /></div>
+   869→                                  <span className="text-xs font-medium text-foreground">Technical Proposal</span>
+   870→                                  <span className="text-[9px] text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full ml-auto">Required</span>
+   871→                                </div>
+   872→                                <div className="flex items-center gap-2 p-2.5 bg-amber-50/40 dark:bg-amber-950/10 rounded-lg">
+   873→                                  <div className="p-1 rounded bg-amber-100 dark:bg-amber-900/50"><DollarSign className="h-3 w-3 text-amber-600" /></div>
+   874→                                  <span className="text-xs font-medium text-foreground">Financial Proposal</span>
+   875→                                  <span className="text-[9px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full ml-auto">Required</span>
+   876→                                </div>
+   877→                                <div className="flex items-center gap-2 p-2.5 bg-sky-50/40 dark:bg-sky-950/10 rounded-lg">
+   878→                                  <div className="p-1 rounded bg-sky-100 dark:bg-sky-900/50"><Calendar className="h-3 w-3 text-sky-600" /></div>
+   879→                                  <span className="text-xs font-medium text-foreground">Timeline / Schedule</span>
+   880→                                  <span className="text-[9px] text-sky-600 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full ml-auto">Required</span>
+   881→                                </div>
+   882→                              </div>
+   883→                            </div>
+   884→
+   885→                            {/* Info Notice */}
+   886→                            <div className="flex items-start gap-2 p-3 bg-primary/5 rounded-xl border border-primary/10">
+   887→                              <Sparkles className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+   888→                              <div className="text-[11px] text-muted-foreground leading-relaxed">
+   889→                                Uploaded documents will be automatically processed via <strong>OCR</strong> for text extraction and <strong>AI Review</strong> for compliance analysis. Results appear in the Documents tab after processing.
+   890→                              </div>
+   891→                            </div>
+   892→
+   893→                            <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5"
+   894→                              onClick={handleSubmitBid}
+   895→                              disabled={submittingBid}>
+   896→                              {submittingBid ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Gavel className="h-4 w-4 mr-2" />}
+   897→                              {submittingBid ? 'Creating Bid...' : 'Submit Bid'}
+   898→                            </Button>
+   899→                          </div>
+   900→                        ) : (
+   901→                          /* ── Step 2: Upload documents ── */
+   902→                          <div className="space-y-4">
+   903→                            {/* Success banner */}
+   904→                            <div className="flex items-center gap-3 p-3 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40">
+   905→                              <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+   906→                              <div>
+   907→                                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Bid record created!</p>
+   908→                                <p className="text-[11px] text-muted-foreground">Now upload your documents to complete the submission.</p>
+   909→                              </div>
+   910→                            </div>
+   911→
+   912→                            {/* Technical Proposal Upload */}
+   913→                            <div className="space-y-1.5">
+   914→                              <Label className="text-xs font-medium flex items-center gap-1.5">
+   915→                                <div className="p-1 rounded bg-emerald-50"><Briefcase className="h-3 w-3 text-emerald-600" /></div>
+   916→                                Upload Technical Proposal *
+   917→                              </Label>
+   918→                              {uploadProgress.technical === 'done' ? (
+   919→                                <div className="flex items-center gap-2 p-3 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
+   920→                                  <CircleCheck className="h-4 w-4 text-emerald-600" />
+   921→                                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">{bidDocFiles.technical?.name}</span>
+   922→                                  <Badge className="text-[9px] bg-emerald-100 text-emerald-600 border-0 rounded-full px-1.5 py-0 ml-auto">Uploaded</Badge>
+   923→                                </div>
+   924→                              ) : uploadProgress.technical === 'uploading' ? (
+   925→                                <div className="flex items-center gap-2 p-3 bg-emerald-50/30 rounded-xl border border-emerald-200/50">
+   926→                                  <Loader2 className="h-4 w-4 text-emerald-600 animate-spin" />
+   927→                                  <span className="text-xs text-emerald-700">Uploading {bidDocFiles.technical?.name}...</span>
+   928→                                </div>
+   929→                              ) : uploadProgress.technical === 'error' ? (
+   930→                                <div className="space-y-1.5">
+   931→                                  <div className="flex items-center gap-2 p-3 bg-rose-50/30 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800">
+   932→                                    <AlertCircle className="h-4 w-4 text-rose-500" />
+   933→                                    <span className="text-xs text-rose-600">Upload failed - please try again</span>
+   934→                                  </div>
+   935→                                  <label className="cursor-pointer block">
+   936→                                    <Button variant="outline" size="sm" className="w-full rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs" asChild>
+   937→                                      <span><Upload className="h-3 w-3 mr-1.5" /> Retry Upload</span>
+   938→                                    </Button>
+   939→                                    <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
+   940→                                      onChange={(e) => {
+   941→                                        const file = e.target.files?.[0];
+   942→                                        if (file) {
+   943→                                          if (file.size > 10 * 1024 * 1024) { toast.error('File must be under 10MB'); return; }
+   944→                                          setBidDocFiles(prev => ({ ...prev, technical: file }));
+   945→                                          handleUploadDoc(file, 'technical_proposal', 'technical');
+   946→                                        }
+   947→                                      }} />
+   948→                                  </label>
+   949→                                </div>
+   950→                              ) : (
+   951→                                <label className="cursor-pointer block">
+   952→                                  <div className="p-4 border-2 border-dashed rounded-xl text-center transition-all border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/20">
+   953→                                    <Upload className="h-5 w-5 text-emerald-400 mx-auto mb-1.5" />
+   954→                                    <p className="text-xs font-medium text-emerald-700">Upload Technical Proposal</p>
+   955→                                    <p className="text-[10px] text-muted-foreground mt-1">PDF, DOCX, DOC, TXT, JPG, PNG (max 10MB)</p>
+   956→                                  </div>
+   957→                                  <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
+   958→                                    onChange={(e) => {
+   959→                                      const file = e.target.files?.[0];
+   960→                                      if (file) {
+   961→                                        if (file.size > 10 * 1024 * 1024) { toast.error('File must be under 10MB'); return; }
+   962→                                        setBidDocFiles(prev => ({ ...prev, technical: file }));
+   963→                                        handleUploadDoc(file, 'technical_proposal', 'technical');
+   964→                                      }
+   965→                                    }} />
+   966→                                </label>
+   967→                              )}
+   968→                            </div>
+   969→
+   970→                            {/* Financial Proposal Upload */}
+   971→                            <div className="space-y-1.5">
+   972→                              <Label className="text-xs font-medium flex items-center gap-1.5">
+   973→                                <div className="p-1 rounded bg-amber-50"><DollarSign className="h-3 w-3 text-amber-600" /></div>
+   974→                                Upload Financial Proposal *
+   975→                              </Label>
+   976→                              {uploadProgress.financial === 'done' ? (
+   977→                                <div className="flex items-center gap-2 p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800">
+   978→                                  <CircleCheck className="h-4 w-4 text-amber-600" />
+   979→                                  <span className="text-xs font-medium text-amber-700 dark:text-amber-400">{bidDocFiles.financial?.name}</span>
+   980→                                  <Badge className="text-[9px] bg-amber-100 text-amber-600 border-0 rounded-full px-1.5 py-0 ml-auto">Uploaded</Badge>
+   981→                                </div>
+   982→                              ) : uploadProgress.financial === 'uploading' ? (
+   983→                                <div className="flex items-center gap-2 p-3 bg-amber-50/30 rounded-xl border border-amber-200/50">
+   984→                                  <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+   985→                                  <span className="text-xs text-amber-700">Uploading {bidDocFiles.financial?.name}...</span>
+   986→                                </div>
+   987→                              ) : uploadProgress.financial === 'error' ? (
+   988→                                <div className="space-y-1.5">
+   989→                                  <div className="flex items-center gap-2 p-3 bg-rose-50/30 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800">
+   990→                                    <AlertCircle className="h-4 w-4 text-rose-500" />
+   991→                                    <span className="text-xs text-rose-600">Upload failed - please try again</span>
+   992→                                  </div>
+   993→                                  <label className="cursor-pointer block">
+   994→                                    <Button variant="outline" size="sm" className="w-full rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 text-xs" asChild>
+   995→                                      <span><Upload className="h-3 w-3 mr-1.5" /> Retry Upload</span>
+   996→                                    </Button>
+   997→                                    <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
+   998→                                      onChange={(e) => {
+   999→                                        const file = e.target.files?.[0];
+  1000→                                        if (file) {
+  1001→                                          if (file.size > 10 * 1024 * 1024) { toast.error('File must be under 10MB'); return; }
+  1002→                                          setBidDocFiles(prev => ({ ...prev, financial: file }));
+  1003→                                          handleUploadDoc(file, 'financial_proposal', 'financial');
+  1004→                                        }
+  1005→                                      }} />
+  1006→                                  </label>
+  1007→                                </div>
+  1008→                              ) : (
+  1009→                                <label className="cursor-pointer block">
+  1010→                                  <div className="p-4 border-2 border-dashed rounded-xl text-center transition-all border-amber-200 hover:border-amber-300 hover:bg-amber-50/20">
+  1011→                                    <Upload className="h-5 w-5 text-amber-400 mx-auto mb-1.5" />
+  1012→                                    <p className="text-xs font-medium text-amber-700">Upload Financial Proposal</p>
+  1013→                                    <p className="text-[10px] text-muted-foreground mt-1">PDF, DOCX, DOC, TXT, JPG, PNG (max 10MB)</p>
+  1014→                                  </div>
+  1015→                                  <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
+  1016→                                    onChange={(e) => {
+  1017→                                      const file = e.target.files?.[0];
+  1018→                                      if (file) {
+  1019→                                        if (file.size > 10 * 1024 * 1024) { toast.error('File must be under 10MB'); return; }
+  1020→                                        setBidDocFiles(prev => ({ ...prev, financial: file }));
+  1021→                                        handleUploadDoc(file, 'financial_proposal', 'financial');
+  1022→                                      }
+  1023→                                    }} />
+  1024→                                </label>
+  1025→                              )}
+  1026→                            </div>
+  1027→
+  1028→                            {/* Timeline Document Upload */}
+  1029→                            <div className="space-y-1.5">
+  1030→                              <Label className="text-xs font-medium flex items-center gap-1.5">
+  1031→                                <div className="p-1 rounded bg-sky-50"><Calendar className="h-3 w-3 text-sky-600" /></div>
+  1032→                                Upload Timeline / Schedule *
+  1033→                              </Label>
+  1034→                              {uploadProgress.timeline === 'done' ? (
+  1035→                                <div className="flex items-center gap-2 p-3 bg-sky-50/60 dark:bg-sky-950/20 rounded-xl border border-sky-200 dark:border-sky-800">
+  1036→                                  <CircleCheck className="h-4 w-4 text-sky-600" />
+  1037→                                  <span className="text-xs font-medium text-sky-700 dark:text-sky-400">{bidDocFiles.timeline?.name}</span>
+  1038→                                  <Badge className="text-[9px] bg-sky-100 text-sky-600 border-0 rounded-full px-1.5 py-0 ml-auto">Uploaded</Badge>
+  1039→                                </div>
+  1040→                              ) : uploadProgress.timeline === 'uploading' ? (
+  1041→                                <div className="flex items-center gap-2 p-3 bg-sky-50/30 rounded-xl border border-sky-200/50">
+  1042→                                  <Loader2 className="h-4 w-4 text-sky-600 animate-spin" />
+  1043→                                  <span className="text-xs text-sky-700">Uploading {bidDocFiles.timeline?.name}...</span>
+  1044→                                </div>
+  1045→                              ) : uploadProgress.timeline === 'error' ? (
+  1046→                                <div className="space-y-1.5">
+  1047→                                  <div className="flex items-center gap-2 p-3 bg-rose-50/30 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800">
+  1048→                                    <AlertCircle className="h-4 w-4 text-rose-500" />
+  1049→                                    <span className="text-xs text-rose-600">Upload failed - please try again</span>
+  1050→                                  </div>
+  1051→                                  <label className="cursor-pointer block">
+  1052→                                    <Button variant="outline" size="sm" className="w-full rounded-lg border-sky-200 text-sky-700 hover:bg-sky-50 text-xs" asChild>
+  1053→                                      <span><Upload className="h-3 w-3 mr-1.5" /> Retry Upload</span>
+  1054→                                    </Button>
+  1055→                                    <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
+  1056→                                      onChange={(e) => {
+  1057→                                        const file = e.target.files?.[0];
+  1058→                                        if (file) {
+  1059→                                          if (file.size > 10 * 1024 * 1024) { toast.error('File must be under 10MB'); return; }
+  1060→                                          setBidDocFiles(prev => ({ ...prev, timeline: file }));
+  1061→                                          handleUploadDoc(file, 'timeline_doc', 'timeline');
+  1062→                                        }
+  1063→                                      }} />
+  1064→                                  </label>
+  1065→                                </div>
+  1066→                              ) : (
+  1067→                                <label className="cursor-pointer block">
+  1068→                                  <div className="p-4 border-2 border-dashed rounded-xl text-center transition-all border-sky-200 hover:border-sky-300 hover:bg-sky-50/20">
+  1069→                                    <Upload className="h-5 w-5 text-sky-400 mx-auto mb-1.5" />
+  1070→                                    <p className="text-xs font-medium text-sky-700">Upload Timeline / Schedule</p>
+  1071→                                    <p className="text-[10px] text-muted-foreground mt-1">PDF, DOCX, DOC, TXT, JPG, PNG (max 10MB)</p>
+  1072→                                  </div>
+  1073→                                  <input type="file" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png" className="hidden"
+  1074→                                    onChange={(e) => {
+  1075→                                      const file = e.target.files?.[0];
+  1076→                                      if (file) {
+  1077→                                        if (file.size > 10 * 1024 * 1024) { toast.error('File must be under 10MB'); return; }
+  1078→                                        setBidDocFiles(prev => ({ ...prev, timeline: file }));
+  1079→                                        handleUploadDoc(file, 'timeline_doc', 'timeline');
+  1080→                                      }
+  1081→                                    }} />
+  1082→                                </label>
+  1083→                              )}
+  1084→                            </div>
+  1085→
+  1086→                            {/* Progress Summary */}
+  1087→                            <div className="space-y-2">
+  1088→                              <p className="text-xs font-semibold text-muted-foreground">Upload Progress</p>
+  1089→                              <div className="flex gap-2">
+  1090→                                <div className={`flex-1 h-1.5 rounded-full transition-all ${
+  1091→                                  uploadProgress.technical === 'done' ? 'bg-emerald-500' :
+  1092→                                  uploadProgress.technical === 'uploading' ? 'bg-emerald-300 animate-pulse' :
+  1093→                                  uploadProgress.technical === 'error' ? 'bg-rose-400' : 'bg-muted'
+  1094→                                }`} />
+  1095→                                <div className={`flex-1 h-1.5 rounded-full transition-all ${
+  1096→                                  uploadProgress.financial === 'done' ? 'bg-amber-500' :
+  1097→                                  uploadProgress.financial === 'uploading' ? 'bg-amber-300 animate-pulse' :
+  1098→                                  uploadProgress.financial === 'error' ? 'bg-rose-400' : 'bg-muted'
+  1099→                                }`} />
+  1100→                                <div className={`flex-1 h-1.5 rounded-full transition-all ${
+  1101→                                  uploadProgress.timeline === 'done' ? 'bg-sky-500' :
+  1102→                                  uploadProgress.timeline === 'uploading' ? 'bg-sky-300 animate-pulse' :
+  1103→                                  uploadProgress.timeline === 'error' ? 'bg-rose-400' : 'bg-muted'
+  1104→                                }`} />
+  1105→                              </div>
+  1106→                            </div>
+  1107→
+  1108→                            {/* Completion actions */}
+  1109→                            {allUploadsDone ? (
+  1110→                              <div className="space-y-3">
+  1111→                                <div className="flex items-center gap-2 p-3 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
+  1112→                                  <CheckCircle className="h-5 w-5 text-emerald-600" />
+  1113→                                  <div>
+  1114→                                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">All documents uploaded!</p>
+  1115→                                    <p className="text-[11px] text-muted-foreground">Your bid is complete. Documents are being processed via OCR & AI Review.</p>
+  1116→                                  </div>
+  1117→                                </div>
+  1118→                                <div className="flex gap-2">
+  1119→                                  <Button className="flex-1 gradient-emerald hover:opacity-90 text-white rounded-xl"
+  1120→                                    onClick={handleCloseBidDialog}>
+  1121→                                    <CheckCircle className="h-4 w-4 mr-2" /> Done
+  1122→                                  </Button>
+  1123→                                  <Button variant="outline" className="flex-1 rounded-xl"
+  1124→                                    onClick={() => { handleCloseBidDialog(); setView('bids'); }}>
+  1125→                                    <ArrowRight className="h-4 w-4 mr-2" /> Go to Bids
+  1126→                                  </Button>
+  1127→                                </div>
+  1128→                              </div>
+  1129→                            ) : (
+  1130→                              <div className="flex items-center justify-between gap-2">
+  1131→                                <Button variant="ghost" size="sm" className="text-muted-foreground text-xs rounded-lg"
+  1132→                                  onClick={handleCloseBidDialog}>
+  1133→                                  Upload later
+  1134→                                </Button>
+  1135→                                <Button variant="outline" size="sm" className="rounded-lg text-xs"
+  1136→                                  onClick={() => { handleCloseBidDialog(); setView('bids'); }}>
+  1137→                                  <ArrowRight className="h-3 w-3 mr-1" /> Go to Bids
+  1138→                                </Button>
+  1139→                              </div>
+  1140→                            )}
+  1141→                          </div>
+  1142→                        )}
+  1143→                      </div>
+  1144→                    </DialogContent>
+  1145→                  </Dialog>
+  1146→                )}
+  1147→                {hasBid && (
+  1148→                  <Badge className="bg-emerald-100 text-emerald-700 border-0 rounded-lg hover:bg-emerald-100 py-1.5 px-3 text-sm">
+  1149→                    <CheckCircle className="h-4 w-4 mr-1.5" /> Bid Submitted
+  1150→                  </Badge>
+  1151→                )}
+  1152→                <Button
+  1153→                  variant="outline"
+  1154→                  className="rounded-xl border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-all"
+  1155→                  onClick={() => setActiveTab('ai-overview')}
+  1156→                >
+  1157→                  <Sparkles className="h-4 w-4 mr-2" /> Review with AI
+  1158→                </Button>
+  1159→                {(user?.role === 'team_admin' && tender.createdBy === user.id) && (
+  1160→                  <div className="flex lg:flex-col gap-2">
+  1161→                    {tender.status === 'open' && (
+  1162→                      <Button variant="outline" size="sm" onClick={() => handleStatusChange('closed')}
+  1163→                        className="rounded-xl text-xs">
+  1164→                        <Ban className="h-3.5 w-3.5 mr-1.5" /> Close Tender
+  1165→                      </Button>
+  1166→                    )}
+  1167→                    {tender.status === 'closed' && (
+  1168→                      <Button variant="outline" size="sm" onClick={() => handleStatusChange('open')}
+  1169→                        className="rounded-xl text-xs">
+  1170→                        <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> Reopen
+  1171→                      </Button>
+  1172→                    )}
+  1173→                    <Button variant="outline" size="sm" onClick={() => handleStatusChange('cancelled')}
+  1174→                      className="rounded-xl text-xs border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700">
+  1175→                      <X className="h-3.5 w-3.5 mr-1.5" /> Cancel
+  1176→                    </Button>
+  1177→                  </div>
+  1178→                )}
+  1179→              </div>
+  1180→            </div>
+  1181→          </CardContent>
+  1182→        </Card>
+  1183→      </div>
+  1184→
+  1185→      {/* Tab Navigation */}
+  1186→      <div className="animate-[fadeIn_0.3s_ease-out]"
+  1187→ >
+  1188→        <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1189→          <CardContent className="p-1.5">
+  1190→            <div className="flex gap-1 overflow-x-auto">
+  1191→              {tabs.map(tab => (
+  1192→                <button
+  1193→                  key={tab.key}
+  1194→                  onClick={() => setActiveTab(tab.key)}
+  1195→                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+  1196→                    activeTab === tab.key
+  1197→                      ? 'gradient-emerald text-white premium-shadow'
+  1198→                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+  1199→                  }`}>
+  1200→                  <tab.icon className="h-3.5 w-3.5" />
+  1201→                  <span>{tab.label}</span>
+  1202→                  {tab.count !== undefined && (
+  1203→                    <span className={`text-[10px] px-1.5 py-0 rounded-full ${
+  1204→                      activeTab === tab.key
+  1205→                        ? 'bg-white/20 text-white'
+  1206→                        : 'bg-muted text-muted-foreground'
+  1207→                    }`}>
+  1208→                      {tab.count}
+  1209→                    </span>
+  1210→                  )}
+  1211→                </button>
+  1212→              ))}
+  1213→            </div>
+  1214→          </CardContent>
+  1215→        </Card>
+  1216→      </div>
+  1217→
+  1218→      {/* Tab Content */}
+  1219→      {activeTab === 'overview' && (
+  1220→          <div
+  1221→ key="overview"
+  1222→ className="space-y-6 animate-[fadeIn_0.3s_ease-out]"
+  1223→ >
+  1224→            {/* Scope of Work */}
+  1225→            <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1226→              <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+  1227→              <CardHeader className="pb-3">
+  1228→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1229→                  <div className="p-1.5 rounded-lg gradient-emerald">
+  1230→                    <Briefcase className="h-3.5 w-3.5 text-white" />
+  1231→                  </div>
+  1232→                  Scope of Work
+  1233→                </CardTitle>
+  1234→              </CardHeader>
+  1235→              <CardContent>
+  1236→                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm bg-muted/30 rounded-xl p-4 leading-relaxed">{tender.scope}</div>
+  1237→                <InlineTranslator text={tender.scope} className="mt-3" />
+  1238→              </CardContent>
+  1239→            </Card>
+  1240→
+  1241→            {/* Requirements & Details Grid */}
+  1242→            <div className="grid md:grid-cols-2 gap-4">
+  1243→              {/* Budget Details */}
+  1244→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1245→                <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
+  1246→                <CardHeader className="pb-3">
+  1247→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1248→                    <div className="p-1.5 rounded-lg bg-emerald-50">
+  1249→                      <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+  1250→                    </div>
+  1251→                    Budget Information
+  1252→                  </CardTitle>
+  1253→                </CardHeader>
+  1254→                <CardContent className="space-y-3">
+  1255→                  <div className="flex justify-between items-center">
+  1256→                    <span className="text-sm text-muted-foreground">Minimum Budget</span>
+  1257→                    <span className="text-sm font-semibold">ETB {tender.budgetMin.toLocaleString()}</span>
+  1258→                  </div>
+  1259→                  <div className="flex justify-between items-center">
+  1260→                    <span className="text-sm text-muted-foreground">Maximum Budget</span>
+  1261→                    <span className="text-sm font-semibold">ETB {tender.budgetMax.toLocaleString()}</span>
+  1262→                  </div>
+  1263→                  <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+  1264→                    <div
+  1265→ className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-[width] duration-700" style={{ width: '100%' }}
+  1266→ />
+  1267→                  </div>
+  1268→                  <p className="text-xs text-muted-foreground text-center">Budget range from minimum to maximum</p>
+  1269→                </CardContent>
+  1270→              </Card>
+  1271→
+  1272→              {/* Deadline & Location */}
+  1273→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1274→                <div className="h-1 bg-gradient-to-r from-amber-400 to-teal-400" />
+  1275→                <CardHeader className="pb-3">
+  1276→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1277→                    <div className="p-1.5 rounded-lg bg-amber-50">
+  1278→                      <Calendar className="h-3.5 w-3.5 text-amber-600" />
+  1279→                    </div>
+  1280→                    Timeline & Location
+  1281→                  </CardTitle>
+  1282→                </CardHeader>
+  1283→                <CardContent className="space-y-3">
+  1284→                  <div className="flex items-center gap-3">
+  1285→                    <div className="p-2 rounded-lg bg-amber-50">
+  1286→                      <Timer className="h-4 w-4 text-amber-600" />
+  1287→                    </div>
+  1288→                    <div>
+  1289→                      <p className="text-xs text-muted-foreground">Submission Deadline</p>
+  1290→                      <p className="text-sm font-semibold">{new Date(tender.deadline).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</p>
+  1291→                      <p className={`text-[10px] font-medium ${days <= 0 ? 'text-rose-600' : days <= 3 ? 'text-rose-600' : days <= 7 ? 'text-amber-600' : 'text-emerald-600'}`}>
+  1292→                        {days <= 0 ? 'Deadline has passed' : days === 1 ? '1 day remaining' : `${days} days remaining`}
+  1293→                      </p>
+  1294→                    </div>
+  1295→                  </div>
+  1296→                  <div className="flex items-center gap-3">
+  1297→                    <div className="p-2 rounded-lg bg-teal-50">
+  1298→                      <MapPin className="h-4 w-4 text-teal-600" />
+  1299→                    </div>
+  1300→                    <div>
+  1301→                      <p className="text-xs text-muted-foreground">Project Location</p>
+  1302→                      <p className="text-sm font-semibold">{tender.location}</p>
+  1303→                    </div>
+  1304→                  </div>
+  1305→                </CardContent>
+  1306→              </Card>
+  1307→            </div>
+  1308→
+  1309→            {/* Required Documents */}
+  1310→            {tender.requiredDocs && (
+  1311→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1312→                <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
+  1313→                <CardHeader className="pb-3">
+  1314→                  <div className="flex items-center justify-between">
+  1315→                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1316→                      <div className="p-1.5 rounded-lg bg-teal-50">
+  1317→                        <FileStack className="h-3.5 w-3.5 text-teal-600" />
+  1318→                      </div>
+  1319→                      Required Documents
+  1320→                    </CardTitle>
+  1321→                    <div className="flex items-center gap-1.5">
+  1322→                      <Button
+  1323→                        variant="outline"
+  1324→                        size="sm"
+  1325→                        className="h-7 text-[11px] gap-1.5 rounded-lg border-teal-200 text-teal-700 hover:bg-teal-50"
+  1326→                        onClick={handleDownloadRequirements}
+  1327→                        disabled={downloadingReq}
+  1328→                      >
+  1329→                        {downloadingReq ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+  1330→                        Download
+  1331→                      </Button>
+  1332→                      <Button
+  1333→                        variant="outline"
+  1334→                        size="sm"
+  1335→                        className="h-7 text-[11px] gap-1.5 rounded-lg border-teal-200 text-teal-700 hover:bg-teal-50"
+  1336→                        onClick={handleExportPdf}
+  1337→                        disabled={exportingPdf}
+  1338→                      >
+  1339→                        {exportingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+  1340→                        Export PDF
+  1341→                      </Button>
+  1342→                    </div>
+  1343→                  </div>
+  1344→                </CardHeader>
+  1345→                <CardContent>
+  1346→                  <div className="flex flex-wrap gap-2">
+  1347→                    {tender.requiredDocs.split(',').filter(Boolean).map(doc => (
+  1348→                      <Badge key={doc} className="text-xs bg-teal-50 text-teal-700 border-0 rounded-lg hover:bg-teal-50 py-1 px-2.5">
+  1349→                        <FileStack className="h-3 w-3 mr-1.5" /> {doc.trim()}
+  1350→                      </Badge>
+  1351→                    ))}
+  1352→                  </div>
+  1353→                </CardContent>
+  1354→              </Card>
+  1355→            )}
+  1356→
+  1357→            {/* AI Requirements Analyzer - only for applicants */}
+  1358→            {isApplicant && tender.status === 'open' && (
+  1359→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1360→                <div className="h-1 bg-gradient-to-r from-orange-400 to-amber-400" />
+  1361→                <CardHeader className="pb-3">
+  1362→                  <div className="flex items-center justify-between gap-3">
+  1363→                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1364→                      <div className="p-1.5 rounded-lg bg-orange-50">
+  1365→                        <Sparkles className="h-3.5 w-3.5 text-orange-600" />
+  1366→                      </div>
+  1367→                      AI Requirements Analyzer
+  1368→                    </CardTitle>
+  1369→                    <Button
+  1370→                      size="sm"
+  1371→                      className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl transition-all hover:-translate-y-0.5 text-xs"
+  1372→                      onClick={handleAnalyzeRequirements}
+  1373→                      disabled={reqAnalysisLoading}
+  1374→                    >
+  1375→                      {reqAnalysisLoading ? (
+  1376→                        <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Analyzing...</>
+  1377→                      ) : reqAnalysis ? (
+  1378→                        <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Re-Analyze</>
+  1379→                      ) : (
+  1380→                        <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Analyze Requirements</>
+  1381→                      )}
+  1382→                    </Button>
+  1383→                  </div>
+  1384→                  <p className="text-xs text-muted-foreground mt-1">Let AI break down the tender requirements, evaluate your fit, and give you preparation tips</p>
+  1385→                </CardHeader>
+  1386→                <CardContent>
+  1387→                  {reqAnalysisLoading && !reqAnalysis && (
+  1388→                    <div className="text-center py-8 space-y-4">
+  1389→                      <div className="relative w-14 h-14 mx-auto">
+  1390→                        <div className="absolute inset-0 rounded-2xl bg-orange-100 opacity-20 animate-pulse" />
+  1391→                        <div className="absolute inset-2 rounded-xl bg-orange-500 flex items-center justify-center">
+  1392→                          <Sparkles className="h-5 w-5 text-white animate-pulse" />
+  1393→                        </div>
+  1394→                      </div>
+  1395→                      <h3 className="text-sm font-semibold">Analyzing tender requirements...</h3>
+  1396→                      <p className="text-muted-foreground text-xs">AI is evaluating requirements, your skills match, and risk factors</p>
+  1397→                      <div className="flex items-center justify-center gap-1.5 pt-2">
+  1398→                        {[0, 1, 2].map(i => (
+  1399→                          <div
+  1400→ key={i}
+  1401→ className="h-2 w-2 rounded-full bg-orange-500"
+  1402→ />
+  1403→                        ))}
+  1404→                      </div>
+  1405→                    </div>
+  1406→                  )}
+  1407→                  {reqAnalysis && !reqAnalysisLoading && (
+  1408→                    <div
+  1409→ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+  1410→ >
+  1411→                      {/* Match Score + Competitiveness */}
+  1412→                      <div className="grid grid-cols-2 gap-3">
+  1413→                        <div className="bg-orange-50/60 rounded-xl p-4 text-center">
+  1414→                          <Target className="h-5 w-5 text-orange-600 mx-auto mb-1" />
+  1415→                          <p className={`text-2xl font-bold ${
+  1416→                            reqAnalysis.matchScore >= 70 ? 'text-emerald-700' : reqAnalysis.matchScore >= 40 ? 'text-amber-700' : 'text-red-700'
+  1417→                          }`}>{reqAnalysis.matchScore}</p>
+  1418→                          <p className="text-[10px] text-muted-foreground">Your Match Score</p>
+  1419→                        </div>
+  1420→                        <div className="bg-amber-50/60 rounded-xl p-4 text-center">
+  1421→                          <TrendingUp className="h-5 w-5 text-amber-600 mx-auto mb-1" />
+  1422→                          <p className={`text-lg font-bold ${
+  1423→                            reqAnalysis.competitivenessAssessment === 'High' ? 'text-red-700' : reqAnalysis.competitivenessAssessment === 'Medium' ? 'text-amber-700' : 'text-emerald-700'
+  1424→                          }`}>{reqAnalysis.competitivenessAssessment}</p>
+  1425→                          <p className="text-[10px] text-muted-foreground">Competition Level</p>
+  1426→                        </div>
+  1427→                      </div>
+  1428→
+  1429→                      {/* Requirements Summary */}
+  1430→                      {reqAnalysis.requirementSummary && (
+  1431→                        <div className="bg-muted/30 rounded-xl p-4">
+  1432→                          <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+  1433→                            <ListChecks className="h-3.5 w-3.5 text-orange-600" /> Requirements Summary
+  1434→                          </p>
+  1435→                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{String(reqAnalysis.requirementSummary)}</p>
+  1436→                        </div>
+  1437→                      )}
+  1438→
+  1439→                      {/* Mandatory Requirements */}
+  1440→                      {reqAnalysis.mandatoryRequirements && (
+  1441→                        <div className="bg-red-50/50 dark:bg-red-950/20 rounded-xl p-4">
+  1442→                          <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5 flex items-center gap-1.5">
+  1443→                            <ShieldAlert className="h-3.5 w-3.5" /> Mandatory Requirements
+  1444→                          </p>
+  1445→                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.mandatoryRequirements}</p>
+  1446→                        </div>
+  1447→                      )}
+  1448→
+  1449→                      {/* Preferred Qualifications */}
+  1450→                      {reqAnalysis.preferredQualifications && (
+  1451→                        <div className="bg-teal-50/50 dark:bg-teal-950/20 rounded-xl p-4">
+  1452→                          <p className="text-xs font-semibold text-teal-700 dark:text-teal-400 mb-1.5 flex items-center gap-1.5">
+  1453→                            <Award className="h-3.5 w-3.5" /> Preferred Qualifications
+  1454→                          </p>
+  1455→                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preferredQualifications}</p>
+  1456→                        </div>
+  1457→                      )}
+  1458→
+  1459→                      {/* Risk Factors */}
+  1460→                      {reqAnalysis.riskFactors && (
+  1461→                        <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl p-4">
+  1462→                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5 flex items-center gap-1.5">
+  1463→                            <AlertTriangle className="h-3.5 w-3.5" /> Risk Factors
+  1464→                          </p>
+  1465→                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.riskFactors}</p>
+  1466→                        </div>
+  1467→                      )}
+  1468→
+  1469→                      {/* Preparation Tips */}
+  1470→                      {reqAnalysis.preparationTips && (
+  1471→                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-4">
+  1472→                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5 flex items-center gap-1.5">
+  1473→                            <CheckCircle className="h-3.5 w-3.5" /> Preparation Tips
+  1474→                          </p>
+  1475→                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.preparationTips}</p>
+  1476→                        </div>
+  1477→                      )}
+  1478→
+  1479→                      {/* Recommended Actions */}
+  1480→                      {reqAnalysis.recommendedActions && (
+  1481→                        <div className="bg-orange-50/50 dark:bg-orange-950/20 rounded-xl p-4">
+  1482→                          <p className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-1.5 flex items-center gap-1.5">
+  1483→                            <Sparkles className="h-3.5 w-3.5" /> Recommended Actions
+  1484→                          </p>
+  1485→                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.recommendedActions}</p>
+  1486→                        </div>
+  1487→                      )}
+  1488→
+  1489→                      {/* Evaluation Breakdown */}
+  1490→                      {reqAnalysis.evaluationBreakdown && (
+  1491→                        <div className="bg-muted/30 rounded-xl p-4">
+  1492→                          <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+  1493→                            <BarChart3 className="h-3.5 w-3.5 text-orange-600" /> Evaluation Breakdown
+  1494→                          </p>
+  1495→                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.evaluationBreakdown}</p>
+  1496→                        </div>
+  1497→                      )}
+  1498→
+  1499→                      {/* Export Analysis */}
+  1500→                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+  1501→                        <Button
+  1502→                          variant="outline"
+  1503→                          size="sm"
+  1504→                          className="h-7 text-[11px] gap-1.5 rounded-lg"
+  1505→                          onClick={() => {
+  1506→                            const data = JSON.stringify(reqAnalysis, null, 2);
+  1507→                            const blob = new Blob([data], { type: 'application/json' });
+  1508→                            const url = window.URL.createObjectURL(blob);
+  1509→                            const a = document.createElement('a');
+  1510→                            a.href = url;
+  1511→                            a.download = `Tender_${tender?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Analysis'}_AI_Analysis.json`;
+  1512→                            document.body.appendChild(a);
+  1513→                            a.click();
+  1514→                            document.body.removeChild(a);
+  1515→                            window.URL.revokeObjectURL(url);
+  1516→                            toast.success('AI analysis exported!');
+  1517→                          }}
+  1518→                        >
+  1519→                          <Download className="h-3 w-3" /> Export Analysis
+  1520→                        </Button>
+  1521→                        <Button
+  1522→                          variant="outline"
+  1523→                          size="sm"
+  1524→                          className="h-7 text-[11px] gap-1.5 rounded-lg"
+  1525→                          onClick={handleExportPdf}
+  1526→                          disabled={exportingPdf}
+  1527→                        >
+  1528→                          {exportingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+  1529→                          Export PDF
+  1530→                        </Button>
+  1531→                      </div>
+  1532→                    </div>
+  1533→                  )}
+  1534→                  {!reqAnalysis && !reqAnalysisLoading && (
+  1535→                    <div className="text-center py-6">
+  1536→                      <div className="relative w-12 h-12 mx-auto mb-3">
+  1537→                        <div className="absolute inset-0 rounded-2xl bg-orange-100 opacity-30" />
+  1538→                        <div className="absolute inset-2 rounded-xl bg-orange-500/80 flex items-center justify-center">
+  1539→                          <BrainCircuit className="h-5 w-5 text-white" />
+  1540→                        </div>
+  1541→                      </div>
+  1542→                      <p className="text-sm font-medium text-foreground">Get AI-powered insights</p>
+  1543→                      <p className="text-xs text-muted-foreground mt-1">Analyze requirements, evaluate your match, and get preparation tips</p>
+  1544→                    </div>
+  1545→                  )}
+  1546→                </CardContent>
+  1547→              </Card>
+  1548→            )}
+  1549→          </div>
+  1550→        )}
+  1551→
+  1552→        {activeTab === 'bids' && (
+  1553→          <div
+  1554→ key="bids"
+  1555→ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+  1556→ >
+  1557→            {/* Bid Stats */}
+  1558→            {bids.length > 0 && (
+  1559→              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  1560→                {[
+  1561→                  { label: 'Pending', count: bidStats.pending, bg: 'bg-amber-50/60', text: 'text-amber-600', bold: 'text-amber-700', icon: Clock },
+  1562→                  { label: 'Shortlisted', count: bidStats.shortlisted, bg: 'bg-teal-50/60', text: 'text-teal-600', bold: 'text-teal-700', icon: Award },
+  1563→                  { label: 'Awarded', count: bidStats.awarded, bg: 'bg-emerald-50/60', text: 'text-emerald-600', bold: 'text-emerald-700', icon: CheckCircle },
+  1564→                  { label: 'Rejected', count: bidStats.rejected, bg: 'bg-rose-50/60', text: 'text-rose-600', bold: 'text-rose-700', icon: AlertCircle },
+  1565→                ].map(stat => (
+  1566→                  <div key={stat.label} className={`${stat.bg} rounded-xl p-3 text-center`}>
+  1567→                    <stat.icon className={`h-4 w-4 ${stat.text} mx-auto mb-1`} />
+  1568→                    <p className={`text-lg font-bold ${stat.bold}`}>{stat.count}</p>
+  1569→                    <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+  1570→                  </div>
+  1571→                ))}
+  1572→              </div>
+  1573→            )}
+  1574→
+  1575→            {user?.role === 'team_admin' && bids.length > 0 ? (
+  1576→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1577→                <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
+  1578→                <CardHeader className="pb-3">
+  1579→                  <div className="flex items-center justify-between flex-wrap gap-2">
+  1580→                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1581→                      <div className="p-1.5 rounded-lg gradient-amber">
+  1582→                        <Gavel className="h-3.5 w-3.5 text-white" />
+  1583→                      </div>
+  1584→                      Submitted Bids
+  1585→                      <Badge className="bg-amber-50 text-amber-700 border-0 rounded-lg text-[10px] hover:bg-amber-50">
+  1586→                        {bids.length}
+  1587→                      </Badge>
+  1588→                    </CardTitle>
+  1589→                    <div className="flex items-center gap-2">
+  1590→                      {/* Analyze Bids button for tender creators */}
+  1591→                      {isAdminOrCreator && (
+  1592→                        <Button
+  1593→                          size="sm"
+  1594→                          className="gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+  1595→                          onClick={() => setActiveTab('analysis')}
+  1596→                        >
+  1597→                          <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Analyze Bids
+  1598→                        </Button>
+  1599→                      )}
+  1600→                      {bids.length >= 2 && (
+  1601→                        <Button
+  1602→                          size="sm"
+  1603→                          className="gradient-teal hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+  1604→                          onClick={() => setView('bid-compare', { tenderId: tender.id })}
+  1605→                        >
+  1606→                          <GitCompareArrows className="h-3.5 w-3.5 mr-1.5" /> Compare Bids
+  1607→                        </Button>
+  1608→                      )}
+  1609→                    </div>
+  1610→                  </div>
+  1611→                </CardHeader>
+  1612→                <CardContent className="space-y-3">
+  1613→                  <div className="space-y-3 animate-[fadeIn_0.3s_ease-out]">
+  1614→                    {bids.map(bid => (
+  1615→                      <BidCard key={bid.id} bid={bid} onUpdate={loadTender} />
+  1616→                    ))}
+  1617→                  </div>
+  1618→                </CardContent>
+  1619→              </Card>
+  1620→            ) : bids.length > 0 ? (
+  1621→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1622→                <CardContent className="p-6">
+  1623→                  <div className="flex items-center gap-4 p-4 bg-emerald-50/50 rounded-xl">
+  1624→                    <div className="p-2 rounded-lg gradient-emerald">
+  1625→                      <CheckCircle className="h-5 w-5 text-white" />
+  1626→                    </div>
+  1627→                    <div>
+  1628→                      <p className="text-sm font-semibold text-emerald-700">Your bid has been submitted</p>
+  1629→                      <p className="text-xs text-emerald-600 mt-0.5">You&apos;ll be notified when the bid status changes</p>
+  1630→                    </div>
+  1631→                  </div>
+  1632→                </CardContent>
+  1633→              </Card>
+  1634→            ) : (
+  1635→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1636→                <CardContent className="p-12 text-center">
+  1637→                  <div className="relative w-16 h-16 mx-auto mb-4">
+  1638→                    <div className="absolute inset-0 rounded-2xl gradient-amber opacity-20" />
+  1639→                    <div className="absolute inset-2 rounded-xl gradient-amber flex items-center justify-center">
+  1640→                      <Gavel className="h-6 w-6 text-white" />
+  1641→                    </div>
+  1642→                  </div>
+  1643→                  <h3 className="text-lg font-semibold">No bids yet</h3>
+  1644→                  <p className="text-muted-foreground text-sm mt-1">Bids will appear here once users submit proposals</p>
+  1645→                </CardContent>
+  1646→              </Card>
+  1647→            )}
+  1648→          </div>
+  1649→        )}
+  1650→
+  1651→        {activeTab === 'documents' && (
+  1652→          <div className="animate-[fadeIn_0.3s_ease-out]"
+  1653→ key="documents"
+  1654→ >
+  1655→            <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1656→              <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
+  1657→              <CardHeader className="pb-3">
+  1658→                <div className="flex items-center justify-between gap-3">
+  1659→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1660→                    <div className="p-1.5 rounded-lg gradient-teal">
+  1661→                      <FileStack className="h-3.5 w-3.5 text-white" />
+  1662→                    </div>
+  1663→                    Tender Documents
+  1664→                  </CardTitle>
+  1665→                  <Button
+  1666→                    variant="outline"
+  1667→                    size="sm"
+  1668→                    className="rounded-xl text-xs border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 transition-all"
+  1669→                    onClick={() => setStampSelectorOpen(true)}
+  1670→                  >
+  1671→                    <Stamp className="h-3.5 w-3.5 mr-1.5" /> Add Stamp / Sign
+  1672→                  </Button>
+  1673→                </div>
+  1674→              </CardHeader>
+  1675→              <CardContent>
+  1676→                {tender.requiredDocs ? (
+  1677→                  <div className="space-y-3">
+  1678→                    {tender.requiredDocs.split(',').filter(Boolean).map((doc, idx) => (
+  1679→                      <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors">
+  1680→                        <div className="flex items-center gap-3">
+  1681→                          <div className="p-2 rounded-lg bg-teal-50">
+  1682→                            <FileText className="h-4 w-4 text-teal-600" />
+  1683→                          </div>
+  1684→                          <div>
+  1685→                            <p className="text-sm font-medium">{doc.trim()}</p>
+  1686→                            <p className="text-[10px] text-muted-foreground">Required document</p>
+  1687→                          </div>
+  1688→                        </div>
+  1689→                        <Badge className="text-[10px] bg-amber-50 text-amber-700 border-0 rounded-lg hover:bg-amber-50">
+  1690→                          Required
+  1691→                        </Badge>
+  1692→                      </div>
+  1693→                    ))}
+  1694→                  </div>
+  1695→                ) : (
+  1696→                  <div className="text-center py-8">
+  1697→                    <div className="p-3 rounded-2xl bg-muted/50 w-fit mx-auto mb-4">
+  1698→                      <FileStack className="h-8 w-8 text-muted-foreground" />
+  1699→                    </div>
+  1700→                    <h3 className="text-sm font-semibold">No documents specified</h3>
+  1701→                    <p className="text-muted-foreground text-xs mt-1">This tender has no specific document requirements</p>
+  1702→                  </div>
+  1703→                )}
+  1704→              </CardContent>
+  1705→            </Card>
+  1706→
+  1707→            {/* Applied Stamps & Signatures */}
+  1708→            {appliedStamps.length > 0 && (
+  1709→              <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+  1710→                <div className="h-1 bg-gradient-to-r from-orange-400 to-amber-500" />
+  1711→                <CardHeader className="pb-3">
+  1712→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1713→                    <div className="p-1.5 rounded-lg bg-orange-500/10">
+  1714→                      <FileSignature className="h-3.5 w-3.5 text-orange-600" />
+  1715→                    </div>
+  1716→                    Applied Stamps & Signatures
+  1717→                    <Badge className="text-[10px] px-1.5 py-0 bg-orange-50 text-orange-700 border-0 font-medium">
+  1718→                      {appliedStamps.length}
+  1719→                    </Badge>
+  1720→                  </CardTitle>
+  1721→                </CardHeader>
+  1722→                <CardContent>
+  1723→                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+  1724→                    {appliedStamps.map((item, idx) => (
+  1725→                      <div key={`${item.id}-${idx}`} className="flex flex-col items-center gap-2 p-3 border border-border/60 rounded-xl bg-muted/20">
+  1726→                        <div className="w-full h-16 flex items-center justify-center bg-white rounded-lg overflow-hidden p-1">
+  1727→                          <img src={item.dataUrl} alt={item.label} className="max-w-full max-h-full object-contain" />
+  1728→                        </div>
+  1729→                        <div className="text-center">
+  1730→                          <p className="text-xs font-medium">{item.label}</p>
+  1731→                          <Badge className={`text-[8px] px-1 py-0 border-0 rounded ${
+  1732→                            item.type === 'signature'
+  1733→                              ? 'bg-emerald-50 text-emerald-600'
+  1734→                              : 'bg-orange-50 text-orange-600'
+  1735→                          }`}>
+  1736→                            {item.type}
+  1737→                          </Badge>
+  1738→                        </div>
+  1739→                        <Button
+  1740→                          variant="ghost"
+  1741→                          size="sm"
+  1742→                          className="h-6 text-[10px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+  1743→                          onClick={() => setAppliedStamps(prev => prev.filter((_, i) => i !== idx))}
+  1744→                        >
+  1745→                          <X className="h-3 w-3 mr-1" /> Remove
+  1746→                        </Button>
+  1747→                      </div>
+  1748→                    ))}
+  1749→                  </div>
+  1750→                </CardContent>
+  1751→              </Card>
+  1752→            )}
+  1753→          </div>
+  1754→        )}
+  1755→
+  1756→        {/* AI Overview Tab - visible to ALL users */}
+  1757→        {activeTab === 'ai-overview' && (
+  1758→          <div
+  1759→ key="ai-overview"
+  1760→ className="space-y-4 animate-[fadeIn_0.3s_ease-out]"
+  1761→ >
+  1762→            {/* AI Overview Header */}
+  1763→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  1764→              <div className="flex items-center gap-3">
+  1765→                <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex-shrink-0">
+  1766→                  <Lightbulb className="h-5 w-5 text-white" />
+  1767→                </div>
+  1768→                <div>
+  1769→                  <h3 className="text-lg font-bold">AI Tender Overview</h3>
+  1770→                  <p className="text-xs text-muted-foreground">Powered by TenetBid AI - understand requirements &amp; prepare a winning bid</p>
+  1771→                </div>
+  1772→              </div>
+  1773→              <Button
+  1774→                size="sm"
+  1775→                className="bg-gradient-to-r from-violet-500 to-purple-600 hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5 text-xs"
+  1776→                onClick={handleGetAIOverview}
+  1777→                disabled={aiOverviewLoading}
+  1778→              >
+  1779→                {aiOverviewLoading ? (
+  1780→                  <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</>
+  1781→                ) : aiOverview ? (
+  1782→                  <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Regenerate</>
+  1783→                ) : (
+  1784→                  <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate AI Overview</>
+  1785→                )}
+  1786→              </Button>
+  1787→            </div>
+  1788→
+  1789→            {/* Loading State */}
+  1790→            {aiOverviewLoading && !aiOverview && (
+  1791→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1792→                <CardContent className="p-12 text-center space-y-4">
+  1793→                  <div className="relative w-16 h-16 mx-auto">
+  1794→                    <div className="absolute inset-0 rounded-2xl bg-violet-500 opacity-20 animate-pulse" />
+  1795→                    <div className="absolute inset-2 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+  1796→                      <Sparkles className="h-6 w-6 text-white animate-pulse" />
+  1797→                    </div>
+  1798→                  </div>
+  1799→                  <h3 className="text-lg font-semibold">Generating AI overview...</h3>
+  1800→                  <p className="text-muted-foreground text-sm">Our AI is analyzing the tender details, requirements, and providing actionable insights for your bid.</p>
+  1801→                  <div className="flex items-center justify-center gap-1.5 pt-2">
+  1802→                    {[0, 1, 2].map(i => (
+  1803→                      <div
+  1804→ key={i}
+  1805→ className="h-2 w-2 rounded-full bg-violet-500 animate-bounce"
+  1806→                        style={{ animationDelay: `${i * 0.15}s` }}
+  1807→                      />
+  1808→                    ))}
+  1809→                  </div>
+  1810→                </CardContent>
+  1811→              </Card>
+  1812→            )}
+  1813→
+  1814→            {/* AI Overview Results */}
+  1815→            {aiOverview && !aiOverviewLoading && (
+  1816→              <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
+  1817→                {/* Summary */}
+  1818→                {(aiOverview.summary) && (
+  1819→                  <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1820→                    <div className="h-1 bg-gradient-to-r from-violet-400 to-purple-500" />
+  1821→                    <CardHeader className="pb-3">
+  1822→                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1823→                        <div className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-900/50">
+  1824→                          <Lightbulb className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+  1825→                        </div>
+  1826→                        Summary
+  1827→                      </CardTitle>
+  1828→                    </CardHeader>
+  1829→                    <CardContent>
+  1830→                      <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-xl p-4">{aiOverview.summary}</p>
+  1831→                      <InlineTranslator text={String(aiOverview.summary || '')} className="mt-3" />
+  1832→                    </CardContent>
+  1833→                  </Card>
+  1834→                )}
+  1835→
+  1836→                {/* Translate entire AI Overview */}
+  1837→                <TranslatorPanel
+  1838→                  text={JSON.stringify(aiOverview, null, 2)}
+  1839→                  title="Translate AI Overview"
+  1840→                  className="rounded-xl"
+  1841→                />
+  1842→
+  1843→                {/* Key Requirements & Eligibility Check - side by side */}
+  1844→                <div className="grid md:grid-cols-2 gap-4">
+  1845→                  {/* Key Requirements */}
+  1846→                  {(aiOverview.keyRequirements as string[]) && (aiOverview.keyRequirements as string[]).length > 0 && (
+  1847→                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1848→                      <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
+  1849→                      <CardHeader className="pb-3">
+  1850→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1851→                          <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/50">
+  1852→                            <ListChecks className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+  1853→                          </div>
+  1854→                          Key Requirements
+  1855→                        </CardTitle>
+  1856→                      </CardHeader>
+  1857→                      <CardContent>
+  1858→                        <div className="space-y-2">
+  1859→                          {(aiOverview.keyRequirements as string[]).map((req, idx) => (
+  1860→                            <div key={idx} className="flex items-start gap-2 p-2.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg">
+  1861→                              <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900/50 mt-0.5">
+  1862→                                <CircleCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+  1863→                              </div>
+  1864→                              <p className="text-sm text-muted-foreground leading-relaxed">{req}</p>
+  1865→                            </div>
+  1866→                          ))}
+  1867→                        </div>
+  1868→                      </CardContent>
+  1869→                    </Card>
+  1870→                  )}
+  1871→
+  1872→                  {/* Eligibility Check */}
+  1873→                  {(aiOverview.eligibilityCheck as string[]) && (aiOverview.eligibilityCheck as string[]).length > 0 && (
+  1874→                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1875→                      <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-400" />
+  1876→                      <CardHeader className="pb-3">
+  1877→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1878→                          <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/50">
+  1879→                            <ClipboardCheck className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+  1880→                          </div>
+  1881→                          Eligibility Check
+  1882→                        </CardTitle>
+  1883→                      </CardHeader>
+  1884→                      <CardContent>
+  1885→                        <div className="space-y-2">
+  1886→                          {(aiOverview.eligibilityCheck as string[]).map((item, idx) => (
+  1887→                            <div key={idx} className="flex items-start gap-2 p-2.5 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg">
+  1888→                              <div className="p-1 rounded-md bg-amber-100 dark:bg-amber-900/50 mt-0.5">
+  1889→                                <ShieldCheck className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+  1890→                              </div>
+  1891→                              <p className="text-sm text-muted-foreground leading-relaxed">{item}</p>
+  1892→                            </div>
+  1893→                          ))}
+  1894→                        </div>
+  1895→                      </CardContent>
+  1896→                    </Card>
+  1897→                  )}
+  1898→                </div>
+  1899→
+  1900→                {/* Budget Analysis & Timeline - side by side */}
+  1901→                <div className="grid md:grid-cols-2 gap-4">
+  1902→                  {/* Budget Analysis */}
+  1903→                  {(aiOverview.budgetAnalysis) && (
+  1904→                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1905→                      <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+  1906→                      <CardHeader className="pb-3">
+  1907→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1908→                          <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/50">
+  1909→                            <Wallet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+  1910→                          </div>
+  1911→                          Budget Analysis
+  1912→                        </CardTitle>
+  1913→                      </CardHeader>
+  1914→                      <CardContent>
+  1915→                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-emerald-50/30 dark:bg-emerald-950/20 rounded-xl p-4">{aiOverview.budgetAnalysis}</p>
+  1916→                      </CardContent>
+  1917→                    </Card>
+  1918→                  )}
+  1919→
+  1920→                  {/* Timeline */}
+  1921→                  {(aiOverview.timeline) && (
+  1922→                    <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1923→                      <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
+  1924→                      <CardHeader className="pb-3">
+  1925→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1926→                          <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/50">
+  1927→                            <Clock3 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+  1928→                          </div>
+  1929→                          Timeline
+  1930→                        </CardTitle>
+  1931→                      </CardHeader>
+  1932→                      <CardContent>
+  1933→                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed bg-amber-50/30 dark:bg-amber-950/20 rounded-xl p-4">{aiOverview.timeline}</p>
+  1934→                      </CardContent>
+  1935→                    </Card>
+  1936→                  )}
+  1937→                </div>
+  1938→
+  1939→                {/* Required Documents */}
+  1940→                {(aiOverview.requiredDocuments as string[]) && (aiOverview.requiredDocuments as string[]).length > 0 && (
+  1941→                  <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1942→                    <div className="h-1 bg-gradient-to-r from-teal-400 to-teal-600" />
+  1943→                    <CardHeader className="pb-3">
+  1944→                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1945→                        <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-900/50">
+  1946→                          <FileCheck className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+  1947→                        </div>
+  1948→                        Required Documents
+  1949→                      </CardTitle>
+  1950→                    </CardHeader>
+  1951→                    <CardContent>
+  1952→                      <div className="flex flex-wrap gap-2">
+  1953→                        {(aiOverview.requiredDocuments as string[]).map((doc, idx) => (
+  1954→                          <Badge key={idx} className="text-xs bg-teal-50 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300 border-0 rounded-lg hover:bg-teal-50 py-1 px-2.5">
+  1955→                            <FileStack className="h-3 w-3 mr-1.5" /> {doc}
+  1956→                          </Badge>
+  1957→                        ))}
+  1958→                      </div>
+  1959→                    </CardContent>
+  1960→                  </Card>
+  1961→                )}
+  1962→
+  1963→                {/* Application Tips */}
+  1964→                {(aiOverview.applicationTips as string[]) && (aiOverview.applicationTips as string[]).length > 0 && (
+  1965→                  <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+  1966→                    <div className="h-1 bg-gradient-to-r from-violet-400 to-purple-500" />
+  1967→                    <CardHeader className="pb-3">
+  1968→                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+  1969→                        <div className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-900/50">
+  1970→                          <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+  1971→                        </div>
+  1972→                        Application Tips
+  1973→                      </CardTitle>
+  1974→                    </CardHeader>
+  1975→                    <CardContent>
+  1976→                      <div className="space-y-2">
+  1977→                        {(aiOverview.applicationTips as string[]).map((tip, idx) => (
+  1978→                          <div key={idx} className="flex items-start gap-2 p-3 bg-violet-50/50 dark:bg-violet-950/20 rounded-lg">
+  1979→                            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-200 text-[10px] font-bold shrink-0 mt-0.5">
+  1980→                              {idx + 1}
+  1981→                            </div>
+  1982→                            <p className="text-sm text-muted-foreground leading-relaxed">{tip}</p>
+  1983→                          </div>
+  1984→                        ))}
+  1985→                      </div>
+  1986→                    </CardContent>
+  1987→                  </Card>
+  1988→                )}
+  1989→              </div>
+  1990→            )}
+  1991→
+  1992→            {/* Empty state - no overview yet */}
+  1993→            {!aiOverview && !aiOverviewLoading && (
+  1994→              <Card className="premium-shadow rounded-xl border-0 bg-card">
+  1995→                <CardContent className="p-12 text-center">
+  1996→                  <div className="relative w-20 h-20 mx-auto mb-6">
+  1997→                    <div className="absolute inset-0 rounded-2xl bg-violet-500 opacity-20" />
+  1998→                    <div className="absolute inset-2 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+  1999→                      <Lightbulb className="h-8 w-8 text-white" />
+  2000→                    </div>
+
+[showing lines 1-2000 of 2506; use offset=2001 with limit to continue reading]

@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import {
   Globe2, Search, MapPin, Calendar, DollarSign,
@@ -22,6 +24,9 @@ import {
   Bookmark, BookmarkCheck, XCircle, AlertTriangle, Lightbulb,
   Target, BarChart3, Users, Zap, Eye, Gavel,
   CircleCheck, Send, FileSearch, FolderKanban, FileDown, FileSpreadsheet,
+  Trophy, Swords, Scale, Wrench, HeartPulse, Briefcase, Award,
+  OctagonAlert, CircleDashed, ArrowRight, Timer, Milestone,
+  Handshake, Star, Flame, Info, GitBranch, Layers, PieChart,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -385,15 +390,93 @@ interface InlineDocument {
  * ───────────────────────────────────────────────────────────────────── */
 
 interface AIReview {
-  summary: string;
-  keyRequirements: string[];
-  eligibilityCheck: { likely: boolean; reasons: string[] };
-  riskAssessment: { level: 'low' | 'medium' | 'high'; factors: string[] };
-  recommendedApproach: string;
-  competitiveLandscape: string;
-  bidReadiness: { score: number; checklist: string[] };
-  estimatedTimeline?: string;
-  tips: string[];
+  executiveSummary: string;
+  opportunityScore: number;
+  winProbability: number;
+  strategicAnalysis: {
+    swot: { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] };
+    strategicFit: 'high' | 'medium' | 'low';
+    strategicFitReasoning: string;
+    marketPositioning: string;
+  };
+  financialAnalysis: {
+    budgetFit: 'well_within' | 'within' | 'above' | 'significantly_above';
+    budgetFitReasoning: string;
+    estimatedROI: 'low' | 'medium' | 'high' | 'very_high';
+    roiReasoning: string;
+    paymentTermsRisk: 'low' | 'medium' | 'high';
+    paymentTermsNote: string;
+    costStructureBreakdown: string[];
+    financialRisks: string[];
+    marginPotential: 'thin' | 'moderate' | 'healthy' | 'strong';
+  };
+  technicalComplexity: {
+    level: 'low' | 'medium' | 'high' | 'very_high';
+    reasoning: string;
+    keyTechnologies: string[];
+    expertiseRequired: string[];
+    implementationRisks: string[];
+    estimatedDuration: string;
+  };
+  complianceAnalysis: {
+    overallCompliance: 'fully_compliant' | 'partially_compliant' | 'non_compliant' | 'unclear';
+    regulatoryFramework: string;
+    mandatoryCertifications: string[];
+    voluntaryCertifications: string[];
+    complianceGaps: string[];
+    documentationRequirements: string[];
+    complianceScore: number;
+  };
+  eligibilityDeepDive: {
+    overallEligible: boolean;
+    confidenceLevel: 'high' | 'medium' | 'low';
+    criteria: Array<{ criterion: string; met: boolean; partial?: boolean; note: string; severity: 'blocker' | 'warning' | 'info' }>;
+    blockers: string[];
+    warnings: string[];
+  };
+  riskMatrix: {
+    overallRiskLevel: 'low' | 'medium' | 'high' | 'critical';
+    overallRiskScore: number;
+    dimensions: {
+      financial: { score: number; factors: string[]; mitigation: string };
+      technical: { score: number; factors: string[]; mitigation: string };
+      legal: { score: number; factors: string[]; mitigation: string };
+      operational: { score: number; factors: string[]; mitigation: string };
+      reputational: { score: number; factors: string[]; mitigation: string };
+    };
+    criticalRisks: string[];
+    dealBreakers: string[];
+  };
+  competitiveIntelligence: {
+    estimatedBidders: string;
+    competitionLevel: 'low' | 'medium' | 'high' | 'very_high';
+    typicalCompetitors: string[];
+    differentiationStrategies: string[];
+    incumbentAdvantage: boolean;
+    incumbentNote: string;
+    pricingStrategy: 'aggressive' | 'competitive' | 'premium' | 'value_based';
+    pricingNote: string;
+  };
+  bidStrategy: {
+    recommendedApproach: string;
+    priorityLevel: 'must_win' | 'high' | 'medium' | 'low' | 'monitor';
+    keyWinFactors: string[];
+    differentiationPoints: string[];
+    partnershipOpportunities: string[];
+    proposalHighlights: string[];
+    estimatedPrepTime: string;
+    resourceRequirements: string;
+  };
+  timelineAnalysis: {
+    deadlineAssessment: 'comfortable' | 'tight' | 'very_tight' | 'already_passed';
+    daysToDeadline: number;
+    recommendedStartDaysBefore: number;
+    milestones: Array<{ phase: string; duration: string; deadline: string }>;
+    criticalPathItems: string[];
+  };
+  valueAddOpportunities: Array<{ opportunity: string; impact: 'low' | 'medium' | 'high'; effort: 'low' | 'medium' | 'high' }>;
+  redFlags: string[];
+  actionableRecommendations: Array<{ action: string; priority: 'critical' | 'high' | 'medium' | 'low'; category: string; timeline: string }>;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -674,7 +757,739 @@ function InlineDocumentViewer({ doc, onClose, tenderTitle }: { doc: InlineDocume
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * AI Review Panel Component
+ * Advanced AI Deep Review - Shared Rendering Helpers
+ * ───────────────────────────────────────────────────────────────────── */
+
+const priorityColors: Record<string, string> = {
+  must_win: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+  critical: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+  high: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  medium: 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+  low: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  monitor: 'bg-muted text-muted-foreground',
+};
+
+const fitColors: Record<string, string> = {
+  high: 'text-emerald-600 dark:text-emerald-400',
+  medium: 'text-amber-600 dark:text-amber-400',
+  low: 'text-rose-600 dark:text-rose-400',
+};
+
+const riskDimColors: Record<string, string> = {
+  financial: 'bg-amber-500',
+  technical: 'bg-sky-500',
+  legal: 'bg-violet-500',
+  operational: 'bg-orange-500',
+  reputational: 'bg-rose-500',
+};
+
+const riskDimIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  financial: DollarSign,
+  technical: Cpu,
+  legal: Scale,
+  operational: Wrench,
+  reputational: HeartPulse,
+};
+
+function ScoreRing({ score, max = 100, size = 56, label }: { score: number; max?: number; size?: number; label?: string }) {
+  const pct = Math.min(Math.max(score / max, 0), 1);
+  const r = (size - 8) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - pct);
+  const color = pct >= 0.7 ? 'text-emerald-500' : pct >= 0.4 ? 'text-amber-500' : 'text-rose-500';
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" className="stroke-muted" strokeWidth={4} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" className={`stroke-current ${color}`} strokeWidth={4} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
+      </svg>
+      <span className={`absolute font-bold text-sm ${color}`} style={{ width: size, textAlign: 'center', lineHeight: `${size}px` }}>{score}</span>
+      {label && <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Advanced AI Deep Review Content Renderer
+ * ───────────────────────────────────────────────────────────────────── */
+
+function DeepReviewContent({ review }: { review: AIReview }) {
+  return (
+    <div className="animate-[fadeIn_0.3s_ease-out]">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full h-auto flex flex-wrap gap-1 bg-muted/50 p-1 mb-4">
+          <TabsTrigger value="overview" className="text-xs gap-1 data-[state=active]:bg-violet-100 data-[state=active]:text-violet-700 dark:data-[state=active]:bg-violet-900/40 dark:data-[state=active]:text-violet-300"><Layers className="h-3 w-3" />Overview</TabsTrigger>
+          <TabsTrigger value="strategy" className="text-xs gap-1 data-[state=active]:bg-violet-100 data-[state=active]:text-violet-700 dark:data-[state=active]:bg-violet-900/40 dark:data-[state=active]:text-violet-300"><Swords className="h-3 w-3" />Strategy</TabsTrigger>
+          <TabsTrigger value="risk" className="text-xs gap-1 data-[state=active]:bg-violet-100 data-[state=active]:text-violet-700 dark:data-[state=active]:bg-violet-900/40 dark:data-[state=active]:text-violet-300"><AlertTriangle className="h-3 w-3" />Risk</TabsTrigger>
+          <TabsTrigger value="financial" className="text-xs gap-1 data-[state=active]:bg-violet-100 data-[state=active]:text-violet-700 dark:data-[state=active]:bg-violet-900/40 dark:data-[state=active]:text-violet-300"><DollarSign className="h-3 w-3" />Financial</TabsTrigger>
+          <TabsTrigger value="compliance" className="text-xs gap-1 data-[state=active]:bg-violet-100 data-[state=active]:text-violet-700 dark:data-[state=active]:bg-violet-900/40 dark:data-[state=active]:text-violet-300"><ShieldCheck className="h-3 w-3" />Compliance</TabsTrigger>
+          <TabsTrigger value="timeline" className="text-xs gap-1 data-[state=active]:bg-violet-100 data-[state=active]:text-violet-700 dark:data-[state=active]:bg-violet-900/40 dark:data-[state=active]:text-violet-300"><Timer className="h-3 w-3" />Timeline</TabsTrigger>
+        </TabsList>
+
+        {/* ─── OVERVIEW TAB ─── */}
+        <TabsContent value="overview" className="space-y-4 mt-0">
+          {/* Executive Summary */}
+          <div className="rounded-lg border border-violet-200/50 dark:border-violet-800/30 bg-gradient-to-r from-violet-50/50 to-background dark:from-violet-950/20 dark:to-background p-3">
+            <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />Executive Summary
+            </p>
+            <p className="text-sm text-foreground leading-relaxed">{review.executiveSummary}</p>
+          </div>
+
+          {/* Score Rings */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col items-center gap-1 relative">
+              <ScoreRing score={review.opportunityScore} label="Opportunity" />
+            </div>
+            <div className="flex flex-col items-center gap-1 relative">
+              <ScoreRing score={review.winProbability} label="Win Prob." />
+            </div>
+            <div className="flex flex-col items-center gap-1 relative">
+              <ScoreRing score={100 - review.riskMatrix.overallRiskScore} label="Safety" />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Priority Badge + Strategic Fit */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border p-3 space-y-1.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Priority Level</p>
+              <Badge className={`${priorityColors[review.bidStrategy.priorityLevel] || priorityColors.medium} border-0 text-xs capitalize`}>
+                {review.bidStrategy.priorityLevel.replace(/_/g, ' ')}
+              </Badge>
+            </div>
+            <div className="rounded-lg border border-border p-3 space-y-1.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Strategic Fit</p>
+              <span className={`text-sm font-bold capitalize ${fitColors[review.strategicAnalysis.strategicFit]}`}>
+                {review.strategicAnalysis.strategicFit}
+              </span>
+              <p className="text-[10px] text-muted-foreground leading-snug">{review.strategicAnalysis.strategicFitReasoning}</p>
+            </div>
+          </div>
+
+          {/* SWOT */}
+          <div>
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <Target className="h-3.5 w-3.5 text-violet-500" />SWOT Analysis
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: 'Strengths', items: review.strategicAnalysis.swot.strengths, color: 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/10', icon: <CheckCircle2 className="h-3 w-3 text-emerald-500" /> },
+                { label: 'Weaknesses', items: review.strategicAnalysis.swot.weaknesses, color: 'border-rose-300 dark:border-rose-700 bg-rose-50/30 dark:bg-rose-950/10', icon: <XCircle className="h-3 w-3 text-rose-500" /> },
+                { label: 'Opportunities', items: review.strategicAnalysis.swot.opportunities, color: 'border-sky-300 dark:border-sky-700 bg-sky-50/30 dark:bg-sky-950/10', icon: <TrendingUp className="h-3 w-3 text-sky-500" /> },
+                { label: 'Threats', items: review.strategicAnalysis.swot.threats, color: 'border-amber-300 dark:border-amber-700 bg-amber-50/30 dark:bg-amber-950/10', icon: <AlertTriangle className="h-3 w-3 text-amber-500" /> },
+              ].map(({ label, items, color, icon }) => (
+                <div key={label} className={`rounded-lg border p-2.5 ${color}`}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">{icon}{label}</p>
+                  <ul className="space-y-1">
+                    {items.map((item, i) => (
+                      <li key={i} className="text-[10px] text-foreground leading-snug">{item}</li>
+                    ))}
+                    {items.length === 0 && <li className="text-[10px] text-muted-foreground italic">None identified</li>}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Red Flags */}
+          {review.redFlags.length > 0 && (
+            <div className="rounded-lg border border-rose-200/50 dark:border-rose-800/30 bg-rose-50/30 dark:bg-rose-950/10 p-3">
+              <p className="text-xs font-semibold text-rose-700 dark:text-rose-300 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Flame className="h-3.5 w-3.5" />Red Flags
+              </p>
+              <ul className="space-y-1">
+                {review.redFlags.map((flag, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-rose-600 dark:text-rose-400">
+                    <OctagonAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>{flag}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── STRATEGY TAB ─── */}
+        <TabsContent value="strategy" className="space-y-4 mt-0">
+          {/* Recommended Approach */}
+          <div className="rounded-lg border border-violet-200/50 dark:border-violet-800/30 bg-violet-50/30 dark:bg-violet-950/10 p-3">
+            <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5" />Recommended Approach
+            </p>
+            <p className="text-sm text-foreground leading-relaxed">{review.bidStrategy.recommendedApproach}</p>
+          </div>
+
+          {/* Key Win Factors & Differentiation */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Trophy className="h-3.5 w-3.5 text-amber-500" />Key Win Factors
+              </p>
+              <ul className="space-y-1.5">
+                {review.bidStrategy.keyWinFactors.map((f, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Star className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Award className="h-3.5 w-3.5 text-sky-500" />Differentiation Points
+              </p>
+              <ul className="space-y-1.5">
+                {review.bidStrategy.differentiationPoints.map((d, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <ChevronRight className="h-3.5 w-3.5 text-sky-500 shrink-0 mt-0.5" />
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Competitive Intelligence */}
+          <div className="rounded-lg border border-border p-3 space-y-2">
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <Swords className="h-3.5 w-3.5 text-violet-500" />Competitive Intelligence
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Competition</p>
+                <Badge className={`${priorityColors[review.competitiveIntelligence.competitionLevel] || ''} border-0 text-xs capitalize mt-1`}>
+                  {review.competitiveIntelligence.competitionLevel}
+                </Badge>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Est. Bidders</p>
+                <p className="text-xs font-semibold mt-1">{review.competitiveIntelligence.estimatedBidders}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Pricing</p>
+                <p className="text-xs font-semibold capitalize mt-1">{review.competitiveIntelligence.pricingStrategy.replace(/_/g, ' ')}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Incumbent</p>
+                <p className="text-xs font-semibold mt-1">{review.competitiveIntelligence.incumbentAdvantage ? 'Yes' : 'No'}</p>
+              </div>
+            </div>
+            {review.competitiveIntelligence.pricingNote && (
+              <p className="text-xs text-muted-foreground"><span className="font-medium">Pricing:</span> {review.competitiveIntelligence.pricingNote}</p>
+            )}
+            {review.competitiveIntelligence.incumbentNote && (
+              <p className="text-xs text-muted-foreground"><span className="font-medium">Incumbent:</span> {review.competitiveIntelligence.incumbentNote}</p>
+            )}
+            {review.competitiveIntelligence.typicalCompetitors.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[10px] text-muted-foreground">Typical competitors:</span>
+                {review.competitiveIntelligence.typicalCompetitors.map((c, i) => (
+                  <Badge key={i} variant="outline" className="text-[10px]">{c}</Badge>
+                ))}
+              </div>
+            )}
+            {review.competitiveIntelligence.differentiationStrategies.length > 0 && (
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Differentiation Strategies</p>
+                <ul className="space-y-1">
+                  {review.competitiveIntelligence.differentiationStrategies.map((s, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <ChevronRight className="h-3 w-3 shrink-0 mt-0.5 text-violet-500" />{s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Partnership & Proposal Highlights */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {review.bidStrategy.partnershipOpportunities.length > 0 && (
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <Handshake className="h-3.5 w-3.5 text-emerald-500" />Partnership Opportunities
+                </p>
+                <ul className="space-y-1.5">
+                  {review.bidStrategy.partnershipOpportunities.map((p, i) => (
+                    <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                      <span className="mt-1.5 h-1 w-1 rounded-full bg-emerald-500 shrink-0" />{p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {review.bidStrategy.proposalHighlights.length > 0 && (
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <Briefcase className="h-3.5 w-3.5 text-amber-500" />Proposal Highlights
+                </p>
+                <ul className="space-y-1.5">
+                  {review.bidStrategy.proposalHighlights.map((h, i) => (
+                    <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />{h}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Market Positioning */}
+          <div className="rounded-lg border border-border p-3">
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5 text-sky-500" />Market Positioning
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">{review.strategicAnalysis.marketPositioning}</p>
+          </div>
+        </TabsContent>
+
+        {/* ─── RISK TAB ─── */}
+        <TabsContent value="risk" className="space-y-4 mt-0">
+          {/* Overall Risk Score */}
+          <div className="rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />Overall Risk Score
+              </p>
+              <span className="text-sm font-bold">{review.riskMatrix.overallRiskScore}/100</span>
+            </div>
+            <Progress value={review.riskMatrix.overallRiskScore} className="h-3" />
+            <div className="flex justify-between mt-1">
+              <span className="text-[10px] text-emerald-600">Low</span>
+              <span className="text-[10px] text-amber-600">Medium</span>
+              <span className="text-[10px] text-rose-600">High</span>
+            </div>
+          </div>
+
+          {/* 5-Dimension Risk Matrix */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <PieChart className="h-3.5 w-3.5 text-violet-500" />Risk Dimensions
+            </p>
+            {Object.entries(review.riskMatrix.dimensions).map(([dim, data]) => {
+              const DimIcon = riskDimIcons[dim] || AlertTriangle;
+              const barColor = riskDimColors[dim] || 'bg-muted';
+              return (
+                <div key={dim} className="rounded-lg border border-border p-2.5">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <DimIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-semibold capitalize">{dim}</span>
+                    </div>
+                    <span className="text-xs font-bold">{data.score}/10</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-1.5">
+                    <div className={`h-full rounded-full ${barColor}`} style={{ width: `${data.score * 10}%` }} />
+                  </div>
+                  {data.factors.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {data.factors.map((f, i) => (
+                        <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{f}</span>
+                      ))}
+                    </div>
+                  )}
+                  {data.mitigation && (
+                    <p className="text-[10px] text-muted-foreground"><span className="font-medium text-emerald-600 dark:text-emerald-400">Mitigation:</span> {data.mitigation}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Deal Breakers & Critical Risks */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {review.riskMatrix.dealBreakers.length > 0 && (
+              <div className="rounded-lg border border-rose-200/50 dark:border-rose-800/30 bg-rose-50/30 dark:bg-rose-950/10 p-3">
+                <p className="text-xs font-semibold text-rose-700 dark:text-rose-300 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <OctagonAlert className="h-3.5 w-3.5" />Deal Breakers
+                </p>
+                <ul className="space-y-1">
+                  {review.riskMatrix.dealBreakers.map((d, i) => (
+                    <li key={i} className="text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                      <XCircle className="h-3 w-3 shrink-0 mt-0.5" />{d}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {review.riskMatrix.criticalRisks.length > 0 && (
+              <div className="rounded-lg border border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10 p-3">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" />Critical Risks
+                </p>
+                <ul className="space-y-1">
+                  {review.riskMatrix.criticalRisks.map((r, i) => (
+                    <li key={i} className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                      <span className="mt-1.5 h-1 w-1 rounded-full bg-amber-500 shrink-0" />{r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ─── FINANCIAL TAB ─── */}
+        <TabsContent value="financial" className="space-y-4 mt-0">
+          {/* Budget Fit */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-border p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Budget Fit</p>
+              <Badge className={`border-0 text-xs capitalize mt-1 ${review.financialAnalysis.budgetFit === 'well_within' ? 'bg-emerald-50 text-emerald-700' : review.financialAnalysis.budgetFit === 'within' ? 'bg-sky-50 text-sky-700' : 'bg-rose-50 text-rose-700'}`}>
+                {review.financialAnalysis.budgetFit.replace(/_/g, ' ')}
+              </Badge>
+            </div>
+            <div className="rounded-lg border border-border p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">ROI Potential</p>
+              <Badge className={`border-0 text-xs capitalize mt-1 ${review.financialAnalysis.estimatedROI === 'very_high' || review.financialAnalysis.estimatedROI === 'high' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {review.financialAnalysis.estimatedROI.replace(/_/g, ' ')}
+              </Badge>
+            </div>
+            <div className="rounded-lg border border-border p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Margins</p>
+              <Badge className={`border-0 text-xs capitalize mt-1 ${review.financialAnalysis.marginPotential === 'strong' || review.financialAnalysis.marginPotential === 'healthy' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {review.financialAnalysis.marginPotential}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border p-3 space-y-2">
+            <p className="text-xs text-foreground leading-relaxed"><span className="font-semibold">Budget Analysis:</span> {review.financialAnalysis.budgetFitReasoning}</p>
+            <p className="text-xs text-foreground leading-relaxed"><span className="font-semibold">ROI Analysis:</span> {review.financialAnalysis.roiReasoning}</p>
+            <p className="text-xs text-foreground leading-relaxed"><span className="font-semibold">Payment Terms:</span> {review.financialAnalysis.paymentTermsNote} <Badge className={`ml-1 border-0 text-[10px] ${review.financialAnalysis.paymentTermsRisk === 'low' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{review.financialAnalysis.paymentTermsRisk} risk</Badge></p>
+          </div>
+
+          {/* Cost Breakdown */}
+          {review.financialAnalysis.costStructureBreakdown.length > 0 && (
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <PieChart className="h-3.5 w-3.5 text-violet-500" />Cost Structure Breakdown
+              </p>
+              <ul className="space-y-1.5">
+                {review.financialAnalysis.costStructureBreakdown.map((c, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <span className="mt-1.5 h-1 w-1 rounded-full bg-violet-500 shrink-0" />{c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Financial Risks */}
+          {review.financialAnalysis.financialRisks.length > 0 && (
+            <div className="rounded-lg border border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10 p-3">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <DollarSign className="h-3.5 w-3.5" />Financial Risks
+              </p>
+              <ul className="space-y-1">
+                {review.financialAnalysis.financialRisks.map((r, i) => (
+                  <li key={i} className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                    <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />{r}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── COMPLIANCE TAB ─── */}
+        <TabsContent value="compliance" className="space-y-4 mt-0">
+          {/* Overall Compliance */}
+          <div className="rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />Compliance Score
+              </p>
+              <span className="text-sm font-bold">{review.complianceAnalysis.complianceScore}/100</span>
+            </div>
+            <Progress value={review.complianceAnalysis.complianceScore} className="h-3" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Compliance Status */}
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1.5">Status</p>
+              <Badge className={`border-0 text-xs capitalize ${review.complianceAnalysis.overallCompliance === 'fully_compliant' ? 'bg-emerald-50 text-emerald-700' : review.complianceAnalysis.overallCompliance === 'partially_compliant' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>
+                {review.complianceAnalysis.overallCompliance.replace(/_/g, ' ')}
+              </Badge>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{review.complianceAnalysis.regulatoryFramework}</p>
+            </div>
+
+            {/* Eligibility Deep Dive */}
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1.5">Eligibility</p>
+              <div className="flex items-center gap-2 mb-1">
+                {review.eligibilityDeepDive.overallEligible ? (
+                  <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-xs">
+                    <CheckCircle2 className="h-3 w-3" />Eligible
+                  </Badge>
+                ) : (
+                  <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-0 gap-1 text-xs">
+                    <XCircle className="h-3 w-3" />Not Eligible
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-[10px]">Confidence: {review.eligibilityDeepDive.confidenceLevel}</Badge>
+              </div>
+              {review.eligibilityDeepDive.blockers.length > 0 && (
+                <ul className="space-y-1 mb-2">
+                  {review.eligibilityDeepDive.blockers.map((b, i) => (
+                    <li key={i} className="text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                      <XCircle className="h-3 w-3 shrink-0 mt-0.5" />{b}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {review.eligibilityDeepDive.warnings.length > 0 && (
+                <ul className="space-y-1">
+                  {review.eligibilityDeepDive.warnings.map((w, i) => (
+                    <li key={i} className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                      <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />{w}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* Eligibility Criteria */}
+          {review.eligibilityDeepDive.criteria.length > 0 && (
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <GitBranch className="h-3.5 w-3.5 text-violet-500" />Eligibility Criteria Breakdown
+              </p>
+              <div className="space-y-2">
+                {review.eligibilityDeepDive.criteria.map((c, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    {c.met ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                    ) : c.partial ? (
+                      <CircleDashed className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
+                    )}
+                    <div className="min-w-0">
+                      <span className="font-medium text-foreground">{c.criterion}</span>
+                      <span className="text-muted-foreground ml-1">— {c.note}</span>
+                      {c.severity === 'blocker' && <Badge className="ml-1.5 bg-rose-50 text-rose-700 border-0 text-[10px]">Blocker</Badge>}
+                      {c.severity === 'warning' && <Badge className="ml-1.5 bg-amber-50 text-amber-700 border-0 text-[10px]">Warning</Badge>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Certifications & Documents */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Award className="h-3.5 w-3.5 text-amber-500" />Mandatory Certifications
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {review.complianceAnalysis.mandatoryCertifications.map((c, i) => (
+                  <Badge key={i} className="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-0 text-[10px]">{c}</Badge>
+                ))}
+                {review.complianceAnalysis.mandatoryCertifications.length === 0 && <span className="text-xs text-muted-foreground italic">None specified</span>}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-sky-500" />Required Documents
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {review.complianceAnalysis.documentationRequirements.map((d, i) => (
+                  <Badge key={i} variant="outline" className="text-[10px]">{d}</Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Compliance Gaps */}
+          {review.complianceAnalysis.complianceGaps.length > 0 && (
+            <div className="rounded-lg border border-rose-200/50 dark:border-rose-800/30 bg-rose-50/30 dark:bg-rose-950/10 p-3">
+              <p className="text-xs font-semibold text-rose-700 dark:text-rose-300 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <OctagonAlert className="h-3.5 w-3.5" />Compliance Gaps
+              </p>
+              <ul className="space-y-1">
+                {review.complianceAnalysis.complianceGaps.map((g, i) => (
+                  <li key={i} className="text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                    <ArrowRight className="h-3 w-3 shrink-0 mt-0.5" />{g}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── TIMELINE TAB ─── */}
+        <TabsContent value="timeline" className="space-y-4 mt-0">
+          {/* Deadline Assessment */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border border-border p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Deadline</p>
+              <Badge className={`border-0 text-xs capitalize mt-1 ${review.timelineAnalysis.deadlineAssessment === 'comfortable' ? 'bg-emerald-50 text-emerald-700' : review.timelineAnalysis.deadlineAssessment === 'tight' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>
+                {review.timelineAnalysis.deadlineAssessment.replace(/_/g, ' ')}
+              </Badge>
+            </div>
+            <div className="rounded-lg border border-border p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Days Left</p>
+              <p className="text-lg font-bold mt-1">{review.timelineAnalysis.daysToDeadline}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Start Before</p>
+              <p className="text-lg font-bold mt-1">{review.timelineAnalysis.recommendedStartDaysBefore}d</p>
+            </div>
+          </div>
+
+          {/* Milestones */}
+          {review.timelineAnalysis.milestones.length > 0 && (
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Milestone className="h-3.5 w-3.5 text-violet-500" />Preparation Milestones
+              </p>
+              <div className="space-y-2">
+                {review.timelineAnalysis.milestones.map((m, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-6 w-6 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold text-violet-600 dark:text-violet-300">{i + 1}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-foreground">{m.phase}</p>
+                      <p className="text-[10px] text-muted-foreground">{m.duration} · {m.deadline}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Technical Complexity */}
+          <div className="rounded-lg border border-border p-3 space-y-2">
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <Cpu className="h-3.5 w-3.5 text-sky-500" />Technical Complexity
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Level</p>
+                <Badge className={`border-0 text-xs capitalize mt-1 ${review.technicalComplexity.level === 'low' ? 'bg-emerald-50 text-emerald-700' : review.technicalComplexity.level === 'medium' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>
+                  {review.technicalComplexity.level.replace(/_/g, ' ')}
+                </Badge>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Duration</p>
+                <p className="text-xs font-semibold mt-1">{review.technicalComplexity.estimatedDuration}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">{review.technicalComplexity.reasoning}</p>
+            {review.technicalComplexity.keyTechnologies.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[10px] text-muted-foreground">Key tech:</span>
+                {review.technicalComplexity.keyTechnologies.map((t, i) => (
+                  <Badge key={i} variant="outline" className="text-[10px]">{t}</Badge>
+                ))}
+              </div>
+            )}
+            {review.technicalComplexity.expertiseRequired.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[10px] text-muted-foreground">Expertise:</span>
+                {review.technicalComplexity.expertiseRequired.map((e, i) => (
+                  <Badge key={i} className="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-0 text-[10px]">{e}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Critical Path */}
+          {review.timelineAnalysis.criticalPathItems.length > 0 && (
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Flame className="h-3.5 w-3.5 text-amber-500" />Critical Path Items
+              </p>
+              <ul className="space-y-1">
+                {review.timelineAnalysis.criticalPathItems.map((item, i) => (
+                  <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                    <span className="mt-1.5 h-1 w-1 rounded-full bg-amber-500 shrink-0" />{item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* ─── Always-visible bottom section: Action Items & Value Add ─── */}
+      <Separator className="my-4" />
+
+      {/* Actionable Recommendations */}
+      {review.actionableRecommendations.length > 0 && (
+        <div className="rounded-lg border border-violet-200/50 dark:border-violet-800/30 bg-gradient-to-r from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-3 mb-3">
+          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5" />Actionable Recommendations
+          </p>
+          <div className="space-y-2">
+            {review.actionableRecommendations
+              .sort((a, b) => {
+                const order = { critical: 0, high: 1, medium: 2, low: 3 };
+                return (order[a.priority as keyof typeof order] ?? 3) - (order[b.priority as keyof typeof order] ?? 3);
+              })
+              .map((rec, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs">
+                  <Badge className={`${priorityColors[rec.priority] || ''} border-0 text-[10px] capitalize shrink-0`}>
+                    {rec.priority}
+                  </Badge>
+                  <div className="min-w-0">
+                    <span className="text-foreground">{rec.action}</span>
+                    <span className="text-muted-foreground ml-1">· {rec.timeline}</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Value Add Opportunities */}
+      {review.valueAddOpportunities.length > 0 && (
+        <div className="rounded-lg border border-emerald-200/50 dark:border-emerald-800/30 bg-emerald-50/30 dark:bg-emerald-950/10 p-3">
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Lightbulb className="h-3.5 w-3.5" />Value-Add Opportunities
+          </p>
+          <div className="space-y-2">
+            {review.valueAddOpportunities.map((v, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <div className="flex gap-1 shrink-0">
+                  <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 text-[10px]">{v.impact} impact</Badge>
+                  <Badge variant="outline" className="text-[10px]">{v.effort} effort</Badge>
+                </div>
+                <span className="text-muted-foreground">{v.opportunity}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bid Strategy Summary Footer */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">
+        <div className="text-center p-2 rounded-lg bg-muted/30">
+          <p className="text-[10px] text-muted-foreground uppercase">Prep Time</p>
+          <p className="text-xs font-semibold mt-0.5">{review.bidStrategy.estimatedPrepTime}</p>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/30">
+          <p className="text-[10px] text-muted-foreground uppercase">Resources</p>
+          <p className="text-xs font-semibold mt-0.5">{review.bidStrategy.resourceRequirements}</p>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/30">
+          <p className="text-[10px] text-muted-foreground uppercase">Impl. Duration</p>
+          <p className="text-xs font-semibold mt-0.5">{review.technicalComplexity.estimatedDuration}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * AI Review Panel Component (Side Panel)
  * ───────────────────────────────────────────────────────────────────── */
 
 function AIReviewPanel({
@@ -689,13 +1504,14 @@ function AIReviewPanel({
       <div className="border-t border-border bg-gradient-to-b from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-4 md:p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-violet-500 animate-pulse" />
-          <span className="text-sm font-medium text-violet-700 dark:text-violet-300">Generating AI Review…</span>
+          <span className="text-sm font-medium text-violet-700 dark:text-violet-300">Generating Deep AI Review…</span>
         </div>
         <div className="space-y-3">
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-3 w-full" />
           <Skeleton className="h-3 w-5/6" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
           </div>
@@ -709,166 +1525,8 @@ function AIReviewPanel({
   if (!review) return null;
 
   return (
-    <div className="border-t border-border bg-gradient-to-b from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-4 md:p-5 space-y-4 animate-[fadeIn_0.3s_ease-out]">
-      {/* Summary */}
-      <div className="flex items-start gap-2.5">
-        <div className="h-7 w-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0 mt-0.5">
-          <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1">AI Summary</p>
-          <p className="text-sm text-foreground leading-relaxed">{review.summary}</p>
-        </div>
-      </div>
-
-      <Separator className="bg-border" />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Key Requirements */}
-        {review.keyRequirements.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-              <Target className="h-3.5 w-3.5 text-amber-500" />
-              Key Requirements
-            </p>
-            <ul className="space-y-1.5">
-              {review.keyRequirements.map((req, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                  <span>{req}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Eligibility Check */}
-        <div>
-          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-            Eligibility Check
-          </p>
-          <div className="flex items-center gap-2 mb-2">
-            {review.eligibilityCheck.likely ? (
-              <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-xs">
-                <CheckCircle2 className="h-3 w-3" />
-                Likely Eligible
-              </Badge>
-            ) : (
-              <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-0 gap-1 text-xs">
-                <XCircle className="h-3 w-3" />
-                May Not Qualify
-              </Badge>
-            )}
-          </div>
-          {review.eligibilityCheck.reasons.length > 0 && (
-            <ul className="space-y-1">
-              {review.eligibilityCheck.reasons.map((reason, i) => (
-                <li key={i} className={`flex items-start gap-2 text-xs ${review.eligibilityCheck.likely ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                  {review.eligibilityCheck.likely ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  ) : (
-                    <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  )}
-                  <span>{reason}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      <Separator className="bg-border" />
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Risk Assessment */}
-        <div>
-          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-            Risk Assessment
-          </p>
-          <Badge className={`${riskBadgeColor(review.riskAssessment.level)} border-0 text-xs capitalize mb-2`}>
-            {review.riskAssessment.level} Risk
-          </Badge>
-          {review.riskAssessment.factors.length > 0 && (
-            <ul className="space-y-1 mt-1.5">
-              {review.riskAssessment.factors.map((factor, i) => (
-                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                  <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
-                  {factor}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Recommended Approach */}
-        <div>
-          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
-            Recommended Approach
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">{review.recommendedApproach}</p>
-        </div>
-
-        {/* Competitive Landscape */}
-        <div>
-          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5 text-amber-500" />
-            Competitive Landscape
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">{review.competitiveLandscape}</p>
-        </div>
-      </div>
-
-      <Separator className="bg-border" />
-
-      {/* Bid Readiness Score */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <BarChart3 className="h-3.5 w-3.5 text-amber-500" />
-            Bid Readiness
-          </p>
-          <span className="text-sm font-bold text-foreground">{review.bidReadiness.score}/10</span>
-        </div>
-        <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden mb-2">
-          <div
-            className={`h-full rounded-full transition-all ${readinessColor(review.bidReadiness.score)}`}
-            style={{ width: `${review.bidReadiness.score * 10}%` }}
-          />
-        </div>
-        {review.bidReadiness.checklist.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {review.bidReadiness.checklist.map((item, i) => (
-              <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                {item}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Tips */}
-      {review.tips.length > 0 && (
-        <>
-          <Separator className="bg-border" />
-          <div>
-            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5 text-amber-500" />
-              Tips
-            </p>
-            <ul className="space-y-1.5">
-              {review.tips.map((tip, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <ChevronRight className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+    <div className="border-t border-border bg-gradient-to-b from-violet-50/30 to-background dark:from-violet-950/10 dark:to-background p-4 md:p-5 animate-[fadeIn_0.3s_ease-out]">
+      <DeepReviewContent review={review} />
     </div>
   );
 }
@@ -1247,7 +1905,7 @@ function TenderCard({
                 disabled={aiLoading}
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide Review' : 'AI Review'}
+                {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide Review' : 'Deep Review'}
               </Button>
               {/* Import to local */}
               <Button
@@ -1589,8 +2247,8 @@ function TenderCard({
                       <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-300" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-foreground">AI Review &amp; Analysis</p>
-                      <p className="text-xs text-muted-foreground">Eligibility, risks &amp; bid readiness assessment</p>
+                      <p className="text-sm font-semibold text-foreground">Deep AI Review</p>
+                      <p className="text-xs text-muted-foreground">Multi-dimensional strategy, risk &amp; compliance analysis</p>
                     </div>
                   </div>
                   <Button
@@ -1601,7 +2259,7 @@ function TenderCard({
                     disabled={aiLoading}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide Review' : 'Run AI Review'}
+                    {aiLoading ? 'Analyzing…' : showAiReview ? 'Hide Review' : 'Run Deep Review'}
                   </Button>
                 </div>
 
@@ -1610,13 +2268,14 @@ function TenderCard({
                   <div className="space-y-3 py-1">
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" />
-                      <span className="text-xs text-muted-foreground">Generating AI analysis…</span>
+                      <span className="text-xs text-muted-foreground">Generating deep multi-dimensional analysis…</span>
                     </div>
                     <div className="space-y-2">
                       <Skeleton className="h-4 w-3/4" />
                       <Skeleton className="h-3 w-full" />
                       <Skeleton className="h-3 w-5/6" />
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        <Skeleton className="h-16 w-full" />
                         <Skeleton className="h-16 w-full" />
                         <Skeleton className="h-16 w-full" />
                       </div>
@@ -1625,170 +2284,13 @@ function TenderCard({
                 )}
 
                 {showAiReview && aiReview && (
-                  <div className="animate-[fadeIn_0.3s_ease-out] space-y-3">
-                    {/* Summary */}
-                    <div className="flex items-start gap-2.5">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1">AI Summary</p>
-                        <p className="text-sm text-foreground leading-relaxed">{aiReview.summary}</p>
-                      </div>
-                    </div>
-
-                    <Separator className="bg-border" />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Key Requirements */}
-                      {aiReview.keyRequirements.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                            <Target className="h-3.5 w-3.5 text-amber-500" />
-                            Key Requirements
-                          </p>
-                          <ul className="space-y-1.5">
-                            {aiReview.keyRequirements.map((req, i) => (
-                              <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                                <span>{req}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Eligibility Check */}
-                      <div>
-                        <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                          Eligibility Check
-                        </p>
-                        <div className="flex items-center gap-2 mb-2">
-                          {aiReview.eligibilityCheck.likely ? (
-                            <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 gap-1 text-xs">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Likely Eligible
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-0 gap-1 text-xs">
-                              <XCircle className="h-3 w-3" />
-                              May Not Qualify
-                            </Badge>
-                          )}
-                        </div>
-                        {aiReview.eligibilityCheck.reasons.length > 0 && (
-                          <ul className="space-y-1">
-                            {aiReview.eligibilityCheck.reasons.map((reason, i) => (
-                              <li key={i} className={`flex items-start gap-2 text-xs ${aiReview.eligibilityCheck.likely ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                {aiReview.eligibilityCheck.likely ? (
-                                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                ) : (
-                                  <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                )}
-                                <span>{reason}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-
-                    <Separator className="bg-border" />
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Risk Assessment */}
-                      <div>
-                        <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                          Risk Assessment
-                        </p>
-                        <Badge className={`${riskBadgeColor(aiReview.riskAssessment.level)} border-0 text-xs capitalize mb-2`}>
-                          {aiReview.riskAssessment.level} Risk
-                        </Badge>
-                        {aiReview.riskAssessment.factors.length > 0 && (
-                          <ul className="space-y-1 mt-1.5">
-                            {aiReview.riskAssessment.factors.map((factor, i) => (
-                              <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                                <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
-                                {factor}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Recommended Approach */}
-                      <div>
-                        <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                          <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
-                          Recommended Approach
-                        </p>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{aiReview.recommendedApproach}</p>
-                      </div>
-
-                      {/* Competitive Landscape */}
-                      <div>
-                        <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5 text-amber-500" />
-                          Competitive Landscape
-                        </p>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{aiReview.competitiveLandscape}</p>
-                      </div>
-                    </div>
-
-                    <Separator className="bg-border" />
-
-                    {/* Bid Readiness Score */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-foreground uppercase tracking-wide flex items-center gap-1.5">
-                          <BarChart3 className="h-3.5 w-3.5 text-amber-500" />
-                          Bid Readiness
-                        </p>
-                        <span className="text-sm font-bold text-foreground">{aiReview.bidReadiness.score}/10</span>
-                      </div>
-                      <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden mb-2">
-                        <div
-                          className={`h-full rounded-full transition-all ${readinessColor(aiReview.bidReadiness.score)}`}
-                          style={{ width: `${aiReview.bidReadiness.score * 10}%` }}
-                        />
-                      </div>
-                      {aiReview.bidReadiness.checklist.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {aiReview.bidReadiness.checklist.map((item, i) => (
-                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                              {item}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Tips */}
-                    {aiReview.tips.length > 0 && (
-                      <>
-                        <Separator className="bg-border" />
-                        <div>
-                          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                            <Zap className="h-3.5 w-3.5 text-amber-500" />
-                            Tips
-                          </p>
-                          <ul className="space-y-1.5">
-                            {aiReview.tips.map((tip, i) => (
-                              <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                <ChevronRight className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                                <span>{tip}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <DeepReviewContent review={aiReview} />
                 )}
 
                 {/* Prompt to run AI review if not yet started */}
                 {!showAiReview && !aiLoading && (
                   <p className="text-xs text-muted-foreground">
-                    Click &quot;Run AI Review&quot; to get an automated analysis of eligibility, risks, and bid readiness.
+                    Click &quot;Run Deep Review&quot; for a comprehensive multi-dimensional analysis covering strategy, risk, financial, compliance, and timeline.
                   </p>
                 )}
               </div>
