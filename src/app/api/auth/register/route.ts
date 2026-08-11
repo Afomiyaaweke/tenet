@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         data: {
           email: normalizedEmail,
           passwordHash,
-          role: 'user',
+          role: company ? 'team_admin' : 'user', // Company registrants become team_admin
           companyId: company?.id || null,
           status: 'active',
         },
@@ -131,6 +131,19 @@ export async function POST(request: NextRequest) {
         },
         include: { company: true },
       });
+
+      // Auto-create TeamMember as owner for company registrants
+      if (company) {
+        await tx.teamMember.create({
+          data: {
+            companyId: company.id,
+            userId: user.id,
+            role: 'owner',
+            permissions: 'view_dashboard,view_tenders,manage_tenders,view_live_tenders,view_bids,manage_bids,view_projects,manage_projects,view_documents,manage_documents,view_chat,send_chat,view_events,manage_events,use_ai,manage_team',
+            status: 'active',
+          },
+        });
+      }
 
       return { user, profile, company };
     });

@@ -30,12 +30,13 @@ model Company {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  users     User[]
-  profiles  Profile[]
-  documents Document[]
-  tenders   Tender[]
-  projects  Project[]
-  tasks     Task[]
+  users       User[]
+  profiles    Profile[]
+  documents   Document[]
+  tenders     Tender[]
+  projects    Project[]
+  tasks       Task[]
+  teamMembers TeamMember[]
 }
 
 // ==========================================
@@ -66,6 +67,7 @@ model User {
   messageReactions MessageReaction[]
   assignedTasks Task[]
   savedTenders SavedTender[]
+  teamMembership TeamMember[]
   socialPosts SocialPost[]
   socialPostReactions SocialPostReaction[]
   socialPostComments SocialPostComment[]
@@ -264,23 +266,49 @@ model Project {
 
 model Task {
   id          String   @id @default(cuid())
-  projectId   String
+  projectId   String?  // optional: team-level tasks don't belong to a project
   companyId   String?  // company isolation: inherited from project
   title       String
   description String?
-  status      String   @default("todo") // todo, in_progress, done
+  status      String   @default("todo") // todo, in_progress, in_review, done
+  priority    String   @default("medium") // low, medium, high, urgent
   assigneeId  String?  // user id of assigned team member
   dueDate     DateTime?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  company  Company? @relation(fields: [companyId], references: [id])
-  assignee User?    @relation(fields: [assigneeId], references: [id])
+  project  Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company  Company?  @relation(fields: [companyId], references: [id])
+  assignee User?     @relation(fields: [assigneeId], references: [id])
 
   @@index([companyId])
   @@index([assigneeId])
+  @@index([status])
+}
+
+// ==========================================
+// TEAM MEMBER (Role & Permissions)
+// ==========================================
+
+model TeamMember {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String
+  role        String   @default("member") // owner, admin, manager, member, viewer
+  permissions String   @default("view_tenders,view_bids") // comma-separated permission keys
+  status      String   @default("active") // active, invited, suspended, removed
+  joinedAt    DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([companyId])
+  @@index([userId])
+  @@index([role])
+  @@index([status])
 }
 
 // ==========================================

@@ -47,6 +47,7 @@ const PricingPlansView = dynamic(() => import('@/components/modules/pricing-plan
 const AIDocStudioView = dynamic(() => import('@/components/modules/ai-doc-studio').then(m => ({ default: m.AIDocStudio })), { ssr: false });
 const DocBuilderView = dynamic(() => import('@/components/modules/doc-builder').then(m => ({ default: m.DocBuilderView })), { ssr: false });
 const TenderAnalyzerView = dynamic(() => import('@/components/modules/tender-analyzer').then(m => ({ default: m.TenderAnalyzerView })), { ssr: false });
+const TeamManagementView = dynamic(() => import('@/components/modules/team-management').then(m => ({ default: m.TeamManagementView })), { ssr: false });
 
 /* ──────────────────────────── Loading spinner ──────────────────────────── */
 
@@ -155,6 +156,7 @@ function getNavItemsForRole(role: string): NavSection[] {
       {
         label: 'TEAM',
         items: [
+          { id: 'team-management', label: 'Team Management', icon: Users },
           { id: 'staff', label: 'Staff', icon: Users },
           { id: 'company-settings', label: 'Company Settings', icon: Building2 },
           { id: 'rate-limits', label: 'Rate Limits', icon: Shield },
@@ -180,7 +182,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio' | 'doc-builder' | 'tender-analyzer' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'social-circle' | 'rate-limits' | 'pricing-plans';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio' | 'doc-builder' | 'tender-analyzer' | 'agent' | 'staff' | 'team-management' | 'contact-us' | 'privacy-policy' | 'social-circle' | 'rate-limits' | 'pricing-plans';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -549,6 +551,8 @@ export function AppShell() {
         return <TenderAnalyzerView />;
       case 'agent':
         return <AgentView />;
+      case 'team-management':
+        return <TeamManagementView />;
       case 'staff':
         return <StaffView />;
       case 'contact-us':
