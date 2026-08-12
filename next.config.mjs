@@ -56,7 +56,8 @@ const allowedDevOrigins = [
 ];
 
 const nextConfig = {
-  output: "standalone",
+  // "standalone" output is for Docker/self-hosted; Vercel handles its own output
+  // output: "standalone",
 
   reactStrictMode: true,
 
