@@ -166,7 +166,7 @@ function getNavItemsForRole(role: string): NavSection[] {
   }
 
   // Regular user
-  return [main, { label: 'MANAGE', items: [{ id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support, plans];
+  return [main, { label: 'MANAGE', items: [{ id: 'team-management', label: 'Team Management', icon: Users }, { id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support, plans];
 }
 
 /* ──────────────────── Role badge config ──────────────────── */

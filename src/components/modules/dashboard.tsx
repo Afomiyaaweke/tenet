@@ -27,6 +27,8 @@ import {
   MessageSquare, Eye, BarChart3, Target, Briefcase,
   Award, Zap, ChevronRight, Sun, Moon, Sunrise,
   ArrowUpRight, ArrowDownRight, Activity, Bot, Star, Crown,
+  UserPlus, ClipboardList, Crown as CrownIcon, ShieldCheck,
+  MoreHorizontal, CircleDot, ListChecks, UserCog,
 } from 'lucide-react';
 
 // ─── Color Constants ────────────────────────────────────────────────
@@ -347,6 +349,82 @@ function PlanCard({ userPlan, setView }: { userPlan: string; setView: (view: any
   );
 }
 
+// ─── Team Types ────────────────────────────────────────────────────
+interface TeamMemberUser {
+  id: string;
+  email: string;
+  role: string;
+  status?: string;
+  profile: {
+    fullName: string | null;
+    jobTitle: string | null;
+    profilePhoto: string | null;
+  } | null;
+}
+
+interface DashboardTeamMember {
+  id: string;
+  companyId: string;
+  userId: string;
+  role: string;
+  permissions: string;
+  status: string;
+  joinedAt: string;
+  user: TeamMemberUser;
+}
+
+interface DashboardTeamTask {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  assigneeId: string | null;
+  dueDate: string | null;
+  createdAt: string;
+  assignee: { id: string; email: string; profile: { fullName: string | null; profilePhoto: string | null } | null } | null;
+}
+
+const TEAM_ROLE_LABELS: Record<string, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  manager: 'Manager',
+  member: 'Member',
+  viewer: 'Viewer',
+};
+const TEAM_ROLE_COLORS: Record<string, string> = {
+  owner: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  admin: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+  manager: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
+  member: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  viewer: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+};
+const TEAM_ROLE_GRADIENT: Record<string, string> = {
+  owner: 'gradient-amber',
+  admin: 'gradient-orange',
+  manager: 'gradient-teal',
+  member: 'gradient-emerald',
+  viewer: 'gradient-gray',
+};
+const TASK_STATUS_LABELS: Record<string, string> = {
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  in_review: 'In Review',
+  done: 'Done',
+};
+const TASK_STATUS_COLORS: Record<string, string> = {
+  todo: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  in_review: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  done: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+};
+const TASK_PRIORITY_DOT: Record<string, string> = {
+  urgent: 'bg-rose-500',
+  high: 'bg-orange-500',
+  medium: 'bg-amber-500',
+  low: 'bg-slate-400',
+};
+
 // ─── Main Dashboard ─────────────────────────────────────────────────
 export function DashboardView() {
   const { user } = useAuthStore();
@@ -356,6 +434,8 @@ export function DashboardView() {
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [teamMembers, setTeamMembers] = useState<DashboardTeamMember[]>([]);
+  const [teamTasks, setTeamTasks] = useState<DashboardTeamTask[]>([]);
 
   const role = user?.role || 'user';
   const greeting = getGreeting();
@@ -363,14 +443,18 @@ export function DashboardView() {
 
   // ── Data Loading ──
   const loadDashboard = useCallback(async () => {
-    const [tendersRes, bidsRes, projectsRes] = await Promise.all([
+    const [tendersRes, bidsRes, projectsRes, teamRes, tasksRes] = await Promise.all([
       api.get('/tenders'),
       api.get('/bids'),
       api.get('/projects'),
+      api.get('/team/members').catch(() => ({ success: false, data: [] })),
+      api.get('/team/tasks').catch(() => ({ success: false, data: [] })),
     ]);
     if (tendersRes.success) setTenders(tendersRes.data);
     if (bidsRes.success) setBids(bidsRes.data);
     if (projectsRes.success) setProjects(projectsRes.data);
+    if (teamRes.success) setTeamMembers(teamRes.data);
+    if (tasksRes.success) setTeamTasks(tasksRes.data);
   }, []);
 
   useEffect(() => {
@@ -532,7 +616,7 @@ export function DashboardView() {
     { icon: Plus, label: 'Publish Tender', description: 'Create new opportunities', gradient: 'gradient-emerald', view: 'tenders' },
     { icon: Search, label: 'Browse Tenders', description: 'Find matching opportunities', gradient: 'gradient-amber', view: 'tenders' },
     { icon: Gavel, label: 'My Bids', description: 'Track your submissions', gradient: 'gradient-teal', view: 'bids' },
-    { icon: Bot, label: 'AI Doc Studio', description: 'Review & generate docs with AI', gradient: 'gradient-rose', view: 'agent' },
+    { icon: Users, label: 'Team Management', description: 'Manage members & tasks', gradient: 'gradient-purple', view: 'team-management' },
   ];
 
   const today = new Date();
@@ -933,7 +1017,244 @@ export function DashboardView() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          5. QUICK ACTIONS GRID
+          5. TEAM MANAGEMENT OVERVIEW
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Team Members Card */}
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-lg gradient-purple">
+                  <Users className="h-3.5 w-3.5 text-white" />
+                </div>
+                Team Members
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] px-2 py-0 border-purple-300 text-purple-600">
+                  {teamMembers.filter(m => m.status === 'active').length} active
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => setView('team-management')}
+                >
+                  Manage <ChevronRight className="h-3 w-3 ml-0.5" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {teamMembers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <Users className="h-10 w-10 mb-2 opacity-30" />
+                <p className="text-sm mb-3">No team members yet</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl"
+                  onClick={() => setView('team-management')}
+                >
+                  <UserPlus className="h-4 w-4 mr-1.5" />
+                  Add Team Members
+                </Button>
+              </div>
+            ) : (
+              <ScrollArea className="max-h-[320px]">
+                <div className="space-y-2">
+                  {teamMembers
+                    .filter(m => m.status === 'active')
+                    .slice(0, 8)
+                    .map((member) => {
+                      const displayName = member.user?.profile?.fullName || member.user?.email?.split('@')[0] || 'Unknown';
+                      const initials = displayName.slice(0, 2).toUpperCase();
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:border-purple-200 hover:bg-purple-50/10 transition-all duration-200 group"
+                        >
+                          {/* Avatar */}
+                          {member.user?.profile?.profilePhoto ? (
+                            <img
+                              src={member.user.profile.profilePhoto}
+                              alt={displayName}
+                              className="h-9 w-9 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold shadow-sm">
+                              {initials}
+                            </div>
+                          )}
+                          {/* Info */}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate group-hover:text-purple-700 transition-colors">
+                              {displayName}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {member.user?.profile?.jobTitle || member.user?.email}
+                            </p>
+                          </div>
+                          {/* Role Badge */}
+                          <Badge className={`text-[10px] px-2 py-0 border-0 ${TEAM_ROLE_COLORS[member.role] || TEAM_ROLE_COLORS.member}`}>
+                            {member.role === 'owner' && <CrownIcon className="h-2.5 w-2.5 mr-0.5" />}
+                            {TEAM_ROLE_LABELS[member.role] || member.role}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  {teamMembers.filter(m => m.status === 'active').length > 8 && (
+                    <button
+                      onClick={() => setView('team-management')}
+                      className="w-full text-center py-2 text-xs text-purple-600 hover:text-purple-700 font-medium"
+                    >
+                      +{teamMembers.filter(m => m.status === 'active').length - 8} more members
+                    </button>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Team Tasks Card */}
+        <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-lg gradient-teal">
+                  <ClipboardList className="h-3.5 w-3.5 text-white" />
+                </div>
+                Team Tasks
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] px-2 py-0 border-teal-300 text-teal-600">
+                  {teamTasks.filter(t => t.status !== 'done').length} pending
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => setView('team-management')}
+                >
+                  Manage <ChevronRight className="h-3 w-3 ml-0.5" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {teamTasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <ClipboardList className="h-10 w-10 mb-2 opacity-30" />
+                <p className="text-sm mb-3">No team tasks yet</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl"
+                  onClick={() => setView('team-management')}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Create Task
+                </Button>
+              </div>
+            ) : (
+              <div>
+                {/* Task Status Summary Bar */}
+                <div className="flex items-center gap-2 mb-4">
+                  {(['todo', 'in_progress', 'in_review', 'done'] as const).map((status) => {
+                    const count = teamTasks.filter(t => t.status === status).length;
+                    if (count === 0) return null;
+                    return (
+                      <div key={status} className="flex items-center gap-1.5">
+                        <Badge className={`text-[10px] px-2 py-0 border-0 ${TASK_STATUS_COLORS[status]}`}>
+                          {TASK_STATUS_LABELS[status]}: {count}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Task Progress Bar */}
+                {teamTasks.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-muted-foreground">Completion</span>
+                      <span className="text-xs font-semibold">
+                        {Math.round((teamTasks.filter(t => t.status === 'done').length / teamTasks.length) * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
+                        style={{ width: `${(teamTasks.filter(t => t.status === 'done').length / teamTasks.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Task List */}
+                <ScrollArea className="max-h-[220px]">
+                  <div className="space-y-2">
+                    {teamTasks
+                      .filter(t => t.status !== 'done')
+                      .sort((a, b) => {
+                        const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+                        return (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3);
+                      })
+                      .slice(0, 6)
+                      .map((task) => {
+                        const assigneeName = task.assignee?.profile?.fullName || task.assignee?.email?.split('@')[0] || null;
+                        const isOverdue = task.dueDate && new Date(task.dueDate).getTime() < Date.now();
+                        return (
+                          <div
+                            key={task.id}
+                            className="flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:border-teal-200 hover:bg-teal-50/10 transition-all duration-200 group"
+                          >
+                            {/* Priority Dot */}
+                            <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${TASK_PRIORITY_DOT[task.priority] || 'bg-slate-400'}`} />
+                            {/* Task Info */}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate group-hover:text-teal-700 transition-colors">
+                                {task.title}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {assigneeName && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {assigneeName}
+                                  </span>
+                                )}
+                                {task.dueDate && (
+                                  <span className={`text-[10px] ${isOverdue ? 'text-rose-500 font-semibold' : 'text-muted-foreground'}`}>
+                                    {isOverdue ? 'Overdue' : `${daysUntil(task.dueDate)}d left`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {/* Status Badge */}
+                            <Badge className={`text-[10px] px-2 py-0 border-0 ${TASK_STATUS_COLORS[task.status] || TASK_STATUS_COLORS.todo}`}>
+                              {TASK_STATUS_LABELS[task.status] || task.status}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    {teamTasks.filter(t => t.status !== 'done').length > 6 && (
+                      <button
+                        onClick={() => setView('team-management')}
+                        className="w-full text-center py-2 text-xs text-teal-600 hover:text-teal-700 font-medium"
+                      >
+                        +{teamTasks.filter(t => t.status !== 'done').length - 6} more tasks
+                      </button>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          5b. QUICK ACTIONS GRID
           ═══════════════════════════════════════════════════════════════ */}
       <div>
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
