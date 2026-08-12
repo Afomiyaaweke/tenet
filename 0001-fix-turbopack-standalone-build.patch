@@ -1,0 +1,37 @@
+From f751daf2db7806fc6327fdc16498e1ccf3a9f00e Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Wed, 12 Aug 2026 17:29:49 +0000
+Subject: [PATCH] Build with webpack instead of Turbopack to fix missing
+ .next/standalone
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Next.js 16 defaults next build to Turbopack, which has an intermittent
+bug where the production build reports success but .next/standalone
+(and thus server.js) is never emitted — causing the Docker runner
+stage's COPY --from=builder /app/.next/standalone to fail with
+'not found', non-deterministically, on otherwise identical builds.
+
+--webpack is the officially documented opt-out (Next.js 16 upgrade
+guide) and reliably produces .next/standalone.
+---
+ package.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/package.json b/package.json
+index a8c2263..9d33430 100755
+--- a/package.json
++++ b/package.json
+@@ -4,7 +4,7 @@
+   "private": true,
+   "scripts": {
+     "dev": "next dev -p 3000 -H 0.0.0.0",
+-    "build": "next build",
++    "build": "next build --webpack",
+     "start": "NODE_ENV=production next start -p 3000",
+     "lint": "eslint .",
+     "db:push": "cp .env .env.bak && prisma db push && cp .env.bak .env && rm .env.bak",
+-- 
+2.43.0
+
