@@ -206,8 +206,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
   });
   const [loading, setLoading] = useState(false);
-  const [emailChecking, setEmailChecking] = useState(false);
-
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [regStep, setRegStep] = useState<RegStep>(1);
@@ -352,25 +350,6 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
   const goNext = async () => {
     if (!canGoNext()) return;
-    // At Step 1, check if email is already registered → auto-switch to login
-    if (regStep === 1 && regData.email) {
-      setEmailChecking(true);
-      try {
-        const { api } = await import('@/lib/api');
-        const res = await api.post('/auth/check-email', { email: regData.email });
-        if (res.success && res.exists) {
-          setEmailChecking(false);
-          // Auto-switch to login with pre-filled email
-          toast.success('Welcome back! Switching to Sign In...', { duration: 4000 });
-          setActiveTab('login');
-          setLoginData(d => ({ ...d, email: regData.email }));
-          return;
-        }
-      } catch {
-        // If check fails, just proceed — the register endpoint will catch it later
-      }
-      setEmailChecking(false);
-    }
     if (regStep < 4) setRegStep((regStep + 1) as RegStep);
   };
 
@@ -965,20 +944,13 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                       <Button
                         type="button"
                         onClick={goNext}
-                        disabled={!canGoNext() || emailChecking}
+                        disabled={!canGoNext()}
                         className="w-full h-11 gradient-orange text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 border-0 disabled:opacity-50 disabled:hover:scale-100"
                       >
-                        {emailChecking ? (
-                          <span className="flex items-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Checking email...
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-2">
                             Continue
                             <ArrowRight className="w-4 h-4" />
                           </span>
-                        )}
                       </Button>
                     </div>
                   )}

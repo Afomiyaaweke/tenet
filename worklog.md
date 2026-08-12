@@ -45,3 +45,24 @@ Stage Summary:
 - Root cause: PostgreSQL provider with no working PostgreSQL connection
 - Fix: Switched to SQLite with correct path resolution for local dev
 - Login and registration both working in preview
+
+---
+Task ID: 3
+Agent: main
+Task: Remove email check during registration and revert all Vercel-related changes
+
+Work Log:
+- Removed email check (check-email API call) from registration flow in auth-gate.tsx
+- Removed emailChecking state and related UI (loader + "Checking email..." text)
+- Reverted db.ts to simple version without resolveDatabaseUrl() function
+- Deleted Vercel-specific files: scripts/vercel-build.sh, vercel.json, schema.prod.prisma, setup-db route, check-email route
+- Reverted package.json: build back to "next build", removed "build:local" and "postinstall"
+- Fixed JWT_SECRET in .env to be >= 32 characters
+- Regenerated Prisma client
+- Verified: login works (API + browser), registration works (API), no dev errors, lint passes
+
+Stage Summary:
+- Email check removed from registration - no more "Checking email..." delay
+- All Vercel deployment code removed - project is back to clean local dev state
+- Database: SQLite with file:../db/custom.db
+- Login test: testuser@test.com / Test1234! → Dashboard "Good evening, Test User"
