@@ -285,23 +285,25 @@ model Project {
 
 model Task {
   id          String   @id @default(cuid())
-  projectId   String
+  projectId   String?  // optional: team-level tasks don't belong to a project
   companyId   String?  // company isolation: inherited from project
   title       String
   description String?
-  status      String   @default("todo") // todo, in_progress, done
+  status      String   @default("todo") // todo, in_progress, in_review, done
+  priority    String   @default("medium") // low, medium, high, urgent
   assigneeId  String?  // user id of assigned team member
   dueDate     DateTime?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project  Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   company  Company? @relation(fields: [companyId], references: [id])
   assignee User?    @relation(fields: [assigneeId], references: [id])
 
   @@index([companyId])
   @@index([assigneeId])
+  @@index([status])
 }
 
 // ==========================================
