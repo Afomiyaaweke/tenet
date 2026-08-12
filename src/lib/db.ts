@@ -24,9 +24,35 @@ const globalForPrisma = globalThis as unknown as {
  * limiting, session caching, and ephemeral data that doesn't need DB persistence.
  */
 
+/**
+ * Resolve the database URL for the current environment.
+ *
+ * In production on Vercel, the Neon integration sets env vars prefixed with
+ * the project name (e.g. `tenet_DATABASE_URL`, `tenet_POSTGRES_PRISMA_URL`).
+ * We prefer these over `DATABASE_URL` because the manually-set `DATABASE_URL`
+ * may be a placeholder (e.g. pointing to localhost).
+ *
+ * Resolution order in production:
+ *   1. tenet_POSTGRES_PRISMA_URL (Neon pooled URL, ideal for Prisma serverless)
+ *   2. tenet_DATABASE_URL        (Neon direct URL)
+ *   3. DATABASE_URL              (manually set, fallback)
+ *
+ * In development, always use DATABASE_URL.
+ */
+function resolveDatabaseUrl(): string | undefined {
+  if (process.env.NODE_ENV === 'production') {
+    // Neon integration vars (prefixed with project name "tenet_")
+    const neonPrismaUrl = process.env.tenet_POSTGRES_PRISMA_URL
+    const neonDatabaseUrl = process.env.tenet_DATABASE_URL
+    if (neonPrismaUrl) return neonPrismaUrl
+    if (neonDatabaseUrl) return neonDatabaseUrl
+  }
+  return process.env.DATABASE_URL
+}
+
 function createPrismaClient(): PrismaClient {
   const isProduction = process.env.NODE_ENV === 'production'
-  const databaseUrl = process.env.DATABASE_URL
+  const databaseUrl = resolveDatabaseUrl()
 
   // For production PostgreSQL on Vercel, append connection pooling params
   if (isProduction && databaseUrl && databaseUrl.startsWith('postgresql')) {
