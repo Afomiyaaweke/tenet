@@ -1,0 +1,1174 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback } from 'react';
+     4→import { useAuthStore } from '@/store';
+     5→import { api } from '@/lib/api';
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { Button } from '@/components/ui/button';
+     9→import { Input } from '@/components/ui/input';
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    11→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+    12→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    13→import { ScrollArea } from '@/components/ui/scroll-area';
+    14→import { Separator } from '@/components/ui/separator';
+    15→import { Switch } from '@/components/ui/switch';
+    16→import {
+    17→  Users, UserPlus, Shield, ClipboardList, MoreHorizontal,
+    18→  Crown, Settings, Trash2, Edit3, Check, X, Search,
+    19→  Plus, Clock, AlertTriangle, ChevronDown, Eye,
+    20→  Lock, Unlock, Briefcase, FileSearch, Gavel,
+    21→  FolderKanban, MessageSquare, FileText, GraduationCap,
+    22→  Bot, LayoutDashboard, Globe2, ClipboardList as PublishedTenders,
+    23→} from 'lucide-react';
+    24→
+    25→// ─── Types ──────────────────────────────────────────────────────
+    26→
+    27→interface TeamMemberUser {
+    28→  id: string;
+    29→  email: string;
+    30→  role: string;
+    31→  status?: string;
+    32→  profile: {
+    33→    fullName: string | null;
+    34→    jobTitle: string | null;
+    35→    profilePhoto: string | null;
+    36→    verified?: boolean;
+    37→  } | null;
+    38→}
+    39→
+    40→interface TeamMember {
+    41→  id: string;
+    42→  companyId: string;
+    43→  userId: string;
+    44→  role: string;
+    45→  permissions: string;
+    46→  status: string;
+    47→  joinedAt: string;
+    48→  user: TeamMemberUser;
+    49→}
+    50→
+    51→interface TaskAssignee {
+    52→  id: string;
+    53→  email: string;
+    54→  profile: {
+    55→    fullName: string | null;
+    56→    profilePhoto: string | null;
+    57→  } | null;
+    58→}
+    59→
+    60→interface TeamTask {
+    61→  id: string;
+    62→  title: string;
+    63→  description: string | null;
+    64→  status: string;
+    65→  priority: string;
+    66→  assigneeId: string | null;
+    67→  dueDate: string | null;
+    68→  createdAt: string;
+    69→  assignee: TaskAssignee | null;
+    70→}
+    71→
+    72→// ─── Constants ──────────────────────────────────────────────────
+    73→
+    74→const ROLES = ['owner', 'admin', 'manager', 'member', 'viewer'] as const;
+    75→const ROLE_LABELS: Record<string, string> = {
+    76→  owner: 'Owner',
+    77→  admin: 'Admin',
+    78→  manager: 'Manager',
+    79→  member: 'Member',
+    80→  viewer: 'Viewer',
+    81→};
+    82→const ROLE_COLORS: Record<string, string> = {
+    83→  owner: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+    84→  admin: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+    85→  manager: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
+    86→  member: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    87→  viewer: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    88→};
+    89→
+    90→const STATUSES = ['todo', 'in_progress', 'in_review', 'done'] as const;
+    91→const STATUS_LABELS: Record<string, string> = {
+    92→  todo: 'To Do',
+    93→  in_progress: 'In Progress',
+    94→  in_review: 'In Review',
+    95→  done: 'Done',
+    96→};
+    97→const STATUS_COLORS: Record<string, string> = {
+    98→  todo: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    99→  in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+   100→  in_review: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+   101→  done: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+   102→};
+   103→
+   104→const PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+   105→const PRIORITY_LABELS: Record<string, string> = { low: 'Low', medium: 'Medium', high: 'High', urgent: 'Urgent' };
+   106→const PRIORITY_COLORS: Record<string, string> = {
+   107→  low: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+   108→  medium: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300',
+   109→  high: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300',
+   110→  urgent: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300',
+   111→};
+   112→
+   113→// All available permission keys
+   114→const ALL_PERMISSIONS = [
+   115→  { key: 'view_dashboard', label: 'View Dashboard', icon: LayoutDashboard, desc: 'Access the main dashboard' },
+   116→  { key: 'view_tenders', label: 'View Tenders', icon: FileSearch, desc: 'Browse and read tenders' },
+   117→  { key: 'manage_tenders', label: 'Manage Tenders', icon: FileSearch, desc: 'Create, edit, delete tenders' },
+   118→  { key: 'view_live_tenders', label: 'View Live Tenders', icon: Globe2, desc: 'Browse international tenders' },
+   119→  { key: 'view_bids', label: 'View Bids', icon: Gavel, desc: 'Read bid submissions' },
+   120→  { key: 'manage_bids', label: 'Manage Bids', icon: Gavel, desc: 'Create, edit, withdraw bids' },
+   121→  { key: 'view_projects', label: 'View Projects', icon: FolderKanban, desc: 'Read project details' },
+   122→  { key: 'manage_projects', label: 'Manage Projects', icon: FolderKanban, desc: 'Create, edit projects' },
+   123→  { key: 'view_documents', label: 'View Documents', icon: FileText, desc: 'Read company documents' },
+   124→  { key: 'manage_documents', label: 'Manage Documents', icon: FileText, desc: 'Upload, edit, delete documents' },
+   125→  { key: 'view_chat', label: 'View Messages', icon: MessageSquare, desc: 'Read chat messages' },
+   126→  { key: 'send_chat', label: 'Send Messages', icon: MessageSquare, desc: 'Send chat messages' },
+   127→  { key: 'view_events', label: 'View Workshops', icon: GraduationCap, desc: 'Browse workshops & training' },
+   128→  { key: 'manage_events', label: 'Manage Workshops', icon: GraduationCap, desc: 'Create, edit workshops' },
+   129→  { key: 'use_ai', label: 'Use AI Tools', icon: Bot, desc: 'Access AI document studio & analyzer' },
+   130→  { key: 'manage_team', label: 'Manage Team', icon: Users, desc: 'Add/remove team members' },
+   131→];
+   132→
+   133→// ─── Helper ─────────────────────────────────────────────────────
+   134→
+   135→function getInitials(name: string | null | undefined, email: string): string {
+   136→  if (name) {
+   137→    const parts = name.split(' ').filter(Boolean);
+   138→    return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name[0].toUpperCase();
+   139→  }
+   140→  return email[0].toUpperCase();
+   141→}
+   142→
+   143→function formatDate(d: string | null): string {
+   144→  if (!d) return '—';
+   145→  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+   146→}
+   147→
+   148→function parsePerms(str: string): Set<string> {
+   149→  return new Set(str.split(',').map((s) => s.trim()).filter(Boolean));
+   150→}
+   151→
+   152→function permsToString(set: Set<string>): string {
+   153→  return Array.from(set).join(',');
+   154→}
+   155→
+   156→// ─── Component ──────────────────────────────────────────────────
+   157→
+   158→export function TeamManagementView() {
+   159→  const { user } = useAuthStore();
+   160→  const [members, setMembers] = useState<TeamMember[]>([]);
+   161→  const [tasks, setTasks] = useState<TeamTask[]>([]);
+   162→  const [loading, setLoading] = useState(true);
+   163→  const [activeTab, setActiveTab] = useState('members');
+   164→
+   165→  const fetchMembers = useCallback(async () => {
+   166→    try {
+   167→      const res = await api.get('/team/members');
+   168→      if (res.success) setMembers(res.data);
+   169→    } catch (err) {
+   170→      console.error('Fetch members error:', err);
+   171→    }
+   172→  }, []);
+   173→
+   174→  const fetchTasks = useCallback(async () => {
+   175→    try {
+   176→      const res = await api.get('/team/tasks');
+   177→      if (res.success) setTasks(res.data);
+   178→    } catch (err) {
+   179→      console.error('Fetch tasks error:', err);
+   180→    }
+   181→  }, []);
+   182→
+   183→  useEffect(() => {
+   184→    (async () => {
+   185→      setLoading(true);
+   186→      await Promise.all([fetchMembers(), fetchTasks()]);
+   187→      setLoading(false);
+   188→    })();
+   189→  }, [fetchMembers, fetchTasks]);
+   190→
+   191→  // ── Derived ──
+   192→  const activeMembers = members.filter((m) => m.status === 'active');
+   193→  const todoTasks = tasks.filter((t) => t.status === 'todo');
+   194→  const inProgressTasks = tasks.filter((t) => t.status === 'in_progress');
+   195→  const inReviewTasks = tasks.filter((t) => t.status === 'in_review');
+   196→  const doneTasks = tasks.filter((t) => t.status === 'done');
+   197→
+   198→  if (loading) {
+   199→    return (
+   200→      <div className="p-6 space-y-6">
+   201→        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   202→          {[1, 2, 3].map((i) => (
+   203→            <div key={i} className="h-28 rounded-xl bg-muted/40 animate-pulse" />
+   204→          ))}
+   205→        </div>
+   206→        <div className="h-64 rounded-xl bg-muted/40 animate-pulse" />
+   207→      </div>
+   208→    );
+   209→  }
+   210→
+   211→  return (
+   212→    <div className="p-4 md:p-6 space-y-6">
+   213→      {/* ── Header ── */}
+   214→      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   215→        <div>
+   216→          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+   217→            <Users className="h-5 w-5 text-primary" /> Team Management
+   218→          </h2>
+   219→          <p className="text-sm text-muted-foreground mt-1">Manage members, tasks, and permissions</p>
+   220→        </div>
+   221→      </div>
+   222→
+   223→      {/* ── Summary Cards ── */}
+   224→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   225→        <Card className="border border-border/50">
+   226→          <CardContent className="p-4 flex items-center gap-3">
+   227→            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+   228→              <Users className="h-5 w-5 text-primary" />
+   229→            </div>
+   230→            <div>
+   231→              <p className="text-2xl font-bold text-foreground">{activeMembers.length}</p>
+   232→              <p className="text-xs text-muted-foreground">Active Members</p>
+   233→            </div>
+   234→          </CardContent>
+   235→        </Card>
+   236→        <Card className="border border-border/50">
+   237→          <CardContent className="p-4 flex items-center gap-3">
+   238→            <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+   239→              <Crown className="h-5 w-5 text-amber-500" />
+   240→            </div>
+   241→            <div>
+   242→              <p className="text-2xl font-bold text-foreground">{activeMembers.filter((m) => ['owner', 'admin'].includes(m.role)).length}</p>
+   243→              <p className="text-xs text-muted-foreground">Admins</p>
+   244→            </div>
+   245→          </CardContent>
+   246→        </Card>
+   247→        <Card className="border border-border/50">
+   248→          <CardContent className="p-4 flex items-center gap-3">
+   249→            <div className="w-10 h-10 rounded-lg bg-teal-500/10 flex items-center justify-center">
+   250→              <ClipboardList className="h-5 w-5 text-teal-500" />
+   251→            </div>
+   252→            <div>
+   253→              <p className="text-2xl font-bold text-foreground">{tasks.length}</p>
+   254→              <p className="text-xs text-muted-foreground">Total Tasks</p>
+   255→            </div>
+   256→          </CardContent>
+   257→        </Card>
+   258→        <Card className="border border-border/50">
+   259→          <CardContent className="p-4 flex items-center gap-3">
+   260→            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+   261→              <Check className="h-5 w-5 text-emerald-500" />
+   262→            </div>
+   263→            <div>
+   264→              <p className="text-2xl font-bold text-foreground">{doneTasks.length}</p>
+   265→              <p className="text-xs text-muted-foreground">Completed</p>
+   266→            </div>
+   267→          </CardContent>
+   268→        </Card>
+   269→      </div>
+   270→
+   271→      {/* ── Main Tabs ── */}
+   272→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   273→        <TabsList className="w-full sm:w-auto">
+   274→          <TabsTrigger value="members" className="gap-1.5">
+   275→            <Users className="h-3.5 w-3.5" /> Members
+   276→          </TabsTrigger>
+   277→          <TabsTrigger value="tasks" className="gap-1.5">
+   278→            <ClipboardList className="h-3.5 w-3.5" /> Tasks
+   279→          </TabsTrigger>
+   280→          <TabsTrigger value="permissions" className="gap-1.5">
+   281→            <Shield className="h-3.5 w-3.5" /> Permissions
+   282→          </TabsTrigger>
+   283→        </TabsList>
+   284→
+   285→        {/* ─── Members Tab ─── */}
+   286→        <TabsContent value="members" className="mt-4">
+   287→          <MembersTab
+   288→            members={members}
+   289→            activeMembers={activeMembers}
+   290→            onRefresh={fetchMembers}
+   291→            currentUserId={user?.id || ''}
+   292→          />
+   293→        </TabsContent>
+   294→
+   295→        {/* ─── Tasks Tab ─── */}
+   296→        <TabsContent value="tasks" className="mt-4">
+   297→          <TasksTab
+   298→            tasks={tasks}
+   299→            members={activeMembers}
+   300→            todoTasks={todoTasks}
+   301→            inProgressTasks={inProgressTasks}
+   302→            inReviewTasks={inReviewTasks}
+   303→            doneTasks={doneTasks}
+   304→            onRefresh={fetchTasks}
+   305→          />
+   306→        </TabsContent>
+   307→
+   308→        {/* ─── Permissions Tab ─── */}
+   309→        <TabsContent value="permissions" className="mt-4">
+   310→          <PermissionsTab
+   311→            members={activeMembers}
+   312→            onRefresh={fetchMembers}
+   313→          />
+   314→        </TabsContent>
+   315→      </Tabs>
+   316→    </div>
+   317→  );
+   318→}
+   319→
+   320→// ─── Members Tab ────────────────────────────────────────────────
+   321→
+   322→function MembersTab({
+   323→  members,
+   324→  activeMembers,
+   325→  onRefresh,
+   326→  currentUserId,
+   327→}: {
+   328→  members: TeamMember[];
+   329→  activeMembers: TeamMember[];
+   330→  onRefresh: () => Promise<void>;
+   331→  currentUserId: string;
+   332→}) {
+   333→  const [showAdd, setShowAdd] = useState(false);
+   334→  const [searchQ, setSearchQ] = useState('');
+   335→  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+   336→  const [editRole, setEditRole] = useState('');
+   337→
+   338→  const filtered = activeMembers.filter((m) => {
+   339→    if (!searchQ) return true;
+   340→    const name = m.user.profile?.fullName || '';
+   341→    return name.toLowerCase().includes(searchQ.toLowerCase()) || m.user.email.toLowerCase().includes(searchQ.toLowerCase());
+   342→  });
+   343→
+   344→  const handleRemove = async (id: string) => {
+   345→    if (!confirm('Remove this team member?')) return;
+   346→    const res = await api.delete(`/team/members/${id}`);
+   347→    if (res.success) onRefresh();
+   348→  };
+   349→
+   350→  const handleRoleChange = async () => {
+   351→    if (!editingMember) return;
+   352→    const res = await api.patch(`/team/members/${editingMember.id}`, { role: editRole });
+   353→    if (res.success) {
+   354→      setEditingMember(null);
+   355→      onRefresh();
+   356→    }
+   357→  };
+   358→
+   359→  return (
+   360→    <div className="space-y-4">
+   361→      {/* ── Actions ── */}
+   362→      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   363→        <div className="relative flex-1 max-w-sm">
+   364→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   365→          <Input
+   366→            placeholder="Search members..."
+   367→            value={searchQ}
+   368→            onChange={(e) => setSearchQ(e.target.value)}
+   369→            className="pl-9"
+   370→          />
+   371→        </div>
+   372→        <Button onClick={() => setShowAdd(true)} className="gap-1.5">
+   373→          <UserPlus className="h-4 w-4" /> Add Member
+   374→        </Button>
+   375→      </div>
+   376→
+   377→      {/* ── Member List ── */}
+   378→      <div className="grid gap-3">
+   379→        {filtered.length === 0 ? (
+   380→          <Card className="border-dashed">
+   381→            <CardContent className="py-12 text-center">
+   382→              <Users className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+   383→              <p className="text-sm font-medium text-muted-foreground">No team members found</p>
+   384→              <p className="text-xs text-muted-foreground/60 mt-1">Add members to get started</p>
+   385→            </CardContent>
+   386→          </Card>
+   387→        ) : (
+   388→          filtered.map((member) => (
+   389→            <Card key={member.id} className="border border-border/50 hover:border-border transition-colors">
+   390→              <CardContent className="p-4 flex items-center gap-4">
+   391→                {/* Avatar */}
+   392→                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+   393→                  <span className="text-sm font-bold text-primary">
+   394→                    {getInitials(member.user.profile?.fullName, member.user.email)}
+   395→                  </span>
+   396→                </div>
+   397→
+   398→                {/* Info */}
+   399→                <div className="flex-1 min-w-0">
+   400→                  <div className="flex items-center gap-2">
+   401→                    <p className="text-sm font-semibold truncate text-foreground">
+   402→                      {member.user.profile?.fullName || member.user.email}
+   403→                    </p>
+   404→                    {member.userId === currentUserId && (
+   405→                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-0">You</Badge>
+   406→                    )}
+   407→                  </div>
+   408→                  <p className="text-xs text-muted-foreground truncate">{member.user.email}</p>
+   409→                  {member.user.profile?.jobTitle && (
+   410→                    <p className="text-[11px] text-muted-foreground/70 truncate">{member.user.profile.jobTitle}</p>
+   411→                  )}
+   412→                </div>
+   413→
+   414→                {/* Role Badge */}
+   415→                <Badge className={`text-[10px] px-2 py-0.5 font-semibold border-0 ${ROLE_COLORS[member.role] || ROLE_COLORS.member}`}>
+   416→                  {member.role === 'owner' && <Crown className="h-3 w-3 mr-1" />}
+   417→                  {ROLE_LABELS[member.role] || member.role}
+   418→                </Badge>
+   419→
+   420→                {/* Joined Date */}
+   421→                <span className="text-[11px] text-muted-foreground/60 hidden lg:block">
+   422→                  Joined {formatDate(member.joinedAt)}
+   423→                </span>
+   424→
+   425→                {/* Actions */}
+   426→                {member.role !== 'owner' && (
+   427→                  <div className="flex items-center gap-1">
+   428→                    <Button
+   429→                      variant="ghost"
+   430→                      size="icon"
+   431→                      className="h-8 w-8 hover:bg-primary/10"
+   432→                      onClick={() => {
+   433→                        setEditingMember(member);
+   434→                        setEditRole(member.role);
+   435→                      }}
+   436→                    >
+   437→                      <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
+   438→                    </Button>
+   439→                    <Button
+   440→                      variant="ghost"
+   441→                      size="icon"
+   442→                      className="h-8 w-8 hover:bg-red-50 dark:hover:bg-red-950/30"
+   443→                      onClick={() => handleRemove(member.id)}
+   444→                    >
+   445→                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+   446→                    </Button>
+   447→                  </div>
+   448→                )}
+   449→              </CardContent>
+   450→            </Card>
+   451→          ))
+   452→        )}
+   453→      </div>
+   454→
+   455→      {/* ── Add Member Dialog ── */}
+   456→      <AddMemberDialog open={showAdd} onOpenChange={setShowAdd} onAdded={onRefresh} />
+   457→
+   458→      {/* ── Edit Role Dialog ── */}
+   459→      <Dialog open={!!editingMember} onOpenChange={(open) => !open && setEditingMember(null)}>
+   460→        <DialogContent className="sm:max-w-md">
+   461→          <DialogHeader>
+   462→            <DialogTitle>Change Role</DialogTitle>
+   463→          </DialogHeader>
+   464→          <div className="space-y-4 py-2">
+   465→            <p className="text-sm text-muted-foreground">
+   466→              Change role for <span className="font-semibold text-foreground">{editingMember?.user.profile?.fullName || editingMember?.user.email}</span>
+   467→            </p>
+   468→            <Select value={editRole} onValueChange={setEditRole}>
+   469→              <SelectTrigger>
+   470→                <SelectValue placeholder="Select role" />
+   471→              </SelectTrigger>
+   472→              <SelectContent>
+   473→                {ROLES.filter((r) => r !== 'owner').map((role) => (
+   474→                  <SelectItem key={role} value={role}>
+   475→                    <span className="flex items-center gap-2">
+   476→                      {ROLE_LABELS[role]}
+   477→                      <span className="text-[10px] text-muted-foreground">({role})</span>
+   478→                    </span>
+   479→                  </SelectItem>
+   480→                ))}
+   481→              </SelectContent>
+   482→            </Select>
+   483→          </div>
+   484→          <DialogFooter>
+   485→            <Button variant="outline" onClick={() => setEditingMember(null)}>Cancel</Button>
+   486→            <Button onClick={handleRoleChange}>Save</Button>
+   487→          </DialogFooter>
+   488→        </DialogContent>
+   489→      </Dialog>
+   490→    </div>
+   491→  );
+   492→}
+   493→
+   494→// ─── Add Member Dialog ──────────────────────────────────────────
+   495→
+   496→function AddMemberDialog({ open, onOpenChange, onAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onAdded: () => Promise<void> }) {
+   497→  const [searchQ, setSearchQ] = useState('');
+   498→  const [searchResults, setSearchResults] = useState<TeamMemberUser[]>([]);
+   499→  const [selectedUser, setSelectedUser] = useState<TeamMemberUser | null>(null);
+   500→  const [role, setRole] = useState('member');
+   501→  const [adding, setAdding] = useState(false);
+   502→  const [step, setStep] = useState<'search' | 'configure'>('search');
+   503→
+   504→  const doSearch = async () => {
+   505→    if (!searchQ.trim()) return;
+   506→    const res = await api.get('/team/search-users', { q: searchQ });
+   507→    if (res.success) setSearchResults(res.data);
+   508→  };
+   509→
+   510→  const handleAdd = async () => {
+   511→    if (!selectedUser) return;
+   512→    setAdding(true);
+   513→    const res = await api.post('/team/members', {
+   514→      userId: selectedUser.id,
+   515→      role,
+   516→      permissions: getDefaultPerms(role),
+   517→    });
+   518→    if (res.success) {
+   519→      onOpenChange(false);
+   520→      setSearchQ('');
+   521→      setSelectedUser(null);
+   522→      setStep('search');
+   523→      onAdded();
+   524→    }
+   525→    setAdding(false);
+   526→  };
+   527→
+   528→  return (
+   529→    <Dialog open={open} onOpenChange={onOpenChange}>
+   530→      <DialogContent className="sm:max-w-lg">
+   531→        <DialogHeader>
+   532→          <DialogTitle className="flex items-center gap-2">
+   533→            <UserPlus className="h-4 w-4 text-primary" /> Add Team Member
+   534→          </DialogTitle>
+   535→        </DialogHeader>
+   536→
+   537→        {step === 'search' ? (
+   538→          <div className="space-y-4 py-2">
+   539→            <div className="flex gap-2">
+   540→              <div className="relative flex-1">
+   541→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   542→                <Input
+   543→                  placeholder="Search by name or email..."
+   544→                  value={searchQ}
+   545→                  onChange={(e) => setSearchQ(e.target.value)}
+   546→                  onKeyDown={(e) => e.key === 'Enter' && doSearch()}
+   547→                  className="pl-9"
+   548→                />
+   549→              </div>
+   550→              <Button onClick={doSearch} variant="secondary">Search</Button>
+   551→            </div>
+   552→            <ScrollArea className="max-h-64">
+   553→              {searchResults.length === 0 ? (
+   554→                <p className="text-sm text-muted-foreground text-center py-6">
+   555→                  {searchQ ? 'No users found' : 'Type a name or email to search'}
+   556→                </p>
+   557→              ) : (
+   558→                <div className="space-y-2">
+   559→                  {searchResults.map((u) => (
+   560→                    <button
+   561→                      key={u.id}
+   562→                      onClick={() => { setSelectedUser(u); setStep('configure'); }}
+   563→                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/60 transition-colors text-left"
+   564→                    >
+   565→                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+   566→                        <span className="text-xs font-bold text-primary">{getInitials(u.profile?.fullName, u.email)}</span>
+   567→                      </div>
+   568→                      <div>
+   569→                        <p className="text-sm font-medium text-foreground">{u.profile?.fullName || u.email}</p>
+   570→                        <p className="text-xs text-muted-foreground">{u.email}</p>
+   571→                      </div>
+   572→                    </button>
+   573→                  ))}
+   574→                </div>
+   575→              )}
+   576→            </ScrollArea>
+   577→          </div>
+   578→        ) : (
+   579→          <div className="space-y-4 py-2">
+   580→            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40">
+   581→              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+   582→                <span className="text-sm font-bold text-primary">{getInitials(selectedUser?.profile?.fullName, selectedUser?.email || '')}</span>
+   583→              </div>
+   584→              <div>
+   585→                <p className="text-sm font-semibold text-foreground">{selectedUser?.profile?.fullName || selectedUser?.email}</p>
+   586→                <p className="text-xs text-muted-foreground">{selectedUser?.email}</p>
+   587→              </div>
+   588→            </div>
+   589→            <div>
+   590→              <label className="text-sm font-medium text-foreground mb-1.5 block">Role</label>
+   591→              <Select value={role} onValueChange={setRole}>
+   592→                <SelectTrigger>
+   593→                  <SelectValue />
+   594→                </SelectTrigger>
+   595→                <SelectContent>
+   596→                  {ROLES.filter((r) => r !== 'owner').map((r) => (
+   597→                    <SelectItem key={r} value={r}>
+   598→                      <span className="flex items-center gap-2">
+   599→                        {ROLE_LABELS[r]}
+   600→                        <Badge className={`text-[9px] px-1.5 py-0 border-0 ${ROLE_COLORS[r]}`}>{r}</Badge>
+   601→                      </span>
+   602→                    </SelectItem>
+   603→                  ))}
+   604→                </SelectContent>
+   605→              </Select>
+   606→            </div>
+   607→            <div className="text-xs text-muted-foreground">
+   608→              <p className="font-medium mb-1">Default permissions for {ROLE_LABELS[role]}:</p>
+   609→              <p>{getDefaultPerms(role).split(',').map((p) => ALL_PERMISSIONS.find((perm) => perm.key === p)?.label || p).join(', ')}</p>
+   610→            </div>
+   611→          </div>
+   612→        )}
+   613→
+   614→        <DialogFooter>
+   615→          {step === 'configure' && (
+   616→            <Button variant="outline" onClick={() => setStep('search')}>Back</Button>
+   617→          )}
+   618→          {step === 'configure' ? (
+   619→            <Button onClick={handleAdd} disabled={adding}>
+   620→              {adding ? 'Adding...' : 'Add to Team'}
+   621→            </Button>
+   622→          ) : (
+   623→            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+   624→          )}
+   625→        </DialogFooter>
+   626→      </DialogContent>
+   627→    </Dialog>
+   628→  );
+   629→}
+   630→
+   631→function getDefaultPerms(role: string): string {
+   632→  switch (role) {
+   633→    case 'admin':
+   634→      return ALL_PERMISSIONS.map((p) => p.key).join(',');
+   635→    case 'manager':
+   636→      return 'view_dashboard,view_tenders,manage_tenders,view_live_tenders,view_bids,manage_bids,view_projects,view_documents,manage_documents,view_chat,send_chat,view_events,use_ai';
+   637→    case 'member':
+   638→      return 'view_dashboard,view_tenders,view_live_tenders,view_bids,view_projects,view_documents,view_chat,send_chat,view_events,use_ai';
+   639→    case 'viewer':
+   640→      return 'view_dashboard,view_tenders,view_live_tenders,view_bids,view_projects,view_documents,view_chat,view_events';
+   641→    default:
+   642→      return 'view_tenders,view_bids';
+   643→  }
+   644→}
+   645→
+   646→// ─── Tasks Tab ──────────────────────────────────────────────────
+   647→
+   648→function TasksTab({
+   649→  tasks,
+   650→  members,
+   651→  todoTasks,
+   652→  inProgressTasks,
+   653→  inReviewTasks,
+   654→  doneTasks,
+   655→  onRefresh,
+   656→}: {
+   657→  tasks: TeamTask[];
+   658→  members: TeamMember[];
+   659→  todoTasks: TeamTask[];
+   660→  inProgressTasks: TeamTask[];
+   661→  inReviewTasks: TeamTask[];
+   662→  doneTasks: TeamTask[];
+   663→  onRefresh: () => Promise<void>;
+   664→}) {
+   665→  const [showCreate, setShowCreate] = useState(false);
+   666→  const [editingTask, setEditingTask] = useState<TeamTask | null>(null);
+   667→  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+   668→
+   669→  return (
+   670→    <div className="space-y-4">
+   671→      {/* ── Actions ── */}
+   672→      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   673→        <div className="flex items-center gap-2">
+   674→          <Button
+   675→            variant={viewMode === 'kanban' ? 'default' : 'outline'}
+   676→            size="sm"
+   677→            onClick={() => setViewMode('kanban')}
+   678→          >
+   679→            Kanban
+   680→          </Button>
+   681→          <Button
+   682→            variant={viewMode === 'list' ? 'default' : 'outline'}
+   683→            size="sm"
+   684→            onClick={() => setViewMode('list')}
+   685→          >
+   686→            List
+   687→          </Button>
+   688→        </div>
+   689→        <Button onClick={() => setShowCreate(true)} className="gap-1.5">
+   690→          <Plus className="h-4 w-4" /> New Task
+   691→        </Button>
+   692→      </div>
+   693→
+   694→      {viewMode === 'kanban' ? (
+   695→        /* ── Kanban Board ── */
+   696→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+   697→          <TaskColumn title="To Do" tasks={todoTasks} color="bg-slate-500" members={members} onRefresh={onRefresh} onEdit={setEditingTask} />
+   698→          <TaskColumn title="In Progress" tasks={inProgressTasks} color="bg-blue-500" members={members} onRefresh={onRefresh} onEdit={setEditingTask} />
+   699→          <TaskColumn title="In Review" tasks={inReviewTasks} color="bg-amber-500" members={members} onRefresh={onRefresh} onEdit={setEditingTask} />
+   700→          <TaskColumn title="Done" tasks={doneTasks} color="bg-emerald-500" members={members} onRefresh={onRefresh} onEdit={setEditingTask} />
+   701→        </div>
+   702→      ) : (
+   703→        /* ── List View ── */
+   704→        <div className="space-y-2">
+   705→          {tasks.length === 0 ? (
+   706→            <Card className="border-dashed">
+   707→              <CardContent className="py-12 text-center">
+   708→                <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+   709→                <p className="text-sm font-medium text-muted-foreground">No tasks yet</p>
+   710→              </CardContent>
+   711→            </Card>
+   712→          ) : (
+   713→            tasks.map((task) => (
+   714→              <TaskRow key={task.id} task={task} members={members} onRefresh={onRefresh} onEdit={setEditingTask} />
+   715→            ))
+   716→          )}
+   717→        </div>
+   718→      )}
+   719→
+   720→      {/* ── Create Task Dialog ── */}
+   721→      <CreateTaskDialog open={showCreate} onOpenChange={setShowCreate} members={members} onCreated={onRefresh} />
+   722→
+   723→      {/* ── Edit Task Dialog ── */}
+   724→      {editingTask && (
+   725→        <EditTaskDialog task={editingTask} open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)} members={members} onSaved={onRefresh} />
+   726→      )}
+   727→    </div>
+   728→  );
+   729→}
+   730→
+   731→function TaskColumn({ title, tasks, color, members, onRefresh, onEdit }: {
+   732→  title: string; tasks: TeamTask[]; color: string; members: TeamMember[]; onRefresh: () => Promise<void>; onEdit: (t: TeamTask) => void;
+   733→}) {
+   734→  return (
+   735→    <div className="space-y-3">
+   736→      <div className="flex items-center gap-2">
+   737→        <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
+   738→        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+   739→        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{tasks.length}</Badge>
+   740→      </div>
+   741→      <ScrollArea className="max-h-[500px]">
+   742→        <div className="space-y-2">
+   743→          {tasks.map((task) => (
+   744→            <TaskCard key={task.id} task={task} members={members} onRefresh={onRefresh} onEdit={onEdit} />
+   745→          ))}
+   746→          {tasks.length === 0 && (
+   747→            <div className="py-8 text-center text-xs text-muted-foreground/50 border border-dashed rounded-lg">
+   748→              No tasks
+   749→            </div>
+   750→          )}
+   751→        </div>
+   752→      </ScrollArea>
+   753→    </div>
+   754→  );
+   755→}
+   756→
+   757→function TaskCard({ task, members, onRefresh, onEdit }: { task: TeamTask; members: TeamMember[]; onRefresh: () => Promise<void>; onEdit: (t: TeamTask) => void; }) {
+   758→  const handleStatusMove = async (newStatus: string) => {
+   759→    await api.patch(`/team/tasks/${task.id}`, { status: newStatus });
+   760→    onRefresh();
+   761→  };
+   762→
+   763→  const handleDelete = async () => {
+   764→    if (!confirm('Delete this task?')) return;
+   765→    await api.delete(`/team/tasks/${task.id}`);
+   766→    onRefresh();
+   767→  };
+   768→
+   769→  return (
+   770→    <Card className="border border-border/50 hover:border-border hover:shadow-sm transition-all cursor-pointer" onClick={() => onEdit(task)}>
+   771→      <CardContent className="p-3 space-y-2">
+   772→        <div className="flex items-start justify-between gap-1">
+   773→          <p className="text-sm font-medium text-foreground leading-snug">{task.title}</p>
+   774→          <Badge className={`text-[9px] px-1.5 py-0 border-0 flex-shrink-0 ${PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium}`}>
+   775→            {PRIORITY_LABELS[task.priority] || task.priority}
+   776→          </Badge>
+   777→        </div>
+   778→        {task.description && (
+   779→          <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+   780→        )}
+   781→        <div className="flex items-center justify-between">
+   782→          {task.assignee ? (
+   783→            <div className="flex items-center gap-1.5">
+   784→              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+   785→                <span className="text-[8px] font-bold text-primary">{getInitials(task.assignee.profile?.fullName, task.assignee.email)}</span>
+   786→              </div>
+   787→              <span className="text-[11px] text-muted-foreground truncate">{task.assignee.profile?.fullName || task.assignee.email}</span>
+   788→            </div>
+   789→          ) : (
+   790→            <span className="text-[11px] text-muted-foreground/50">Unassigned</span>
+   791→          )}
+   792→          {task.dueDate && (
+   793→            <span className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5">
+   794→              <Clock className="h-3 w-3" /> {formatDate(task.dueDate)}
+   795→            </span>
+   796→          )}
+   797→        </div>
+   798→        {/* Quick status buttons */}
+   799→        <div className="flex gap-1 pt-1" onClick={(e) => e.stopPropagation()}>
+   800→          {task.status !== 'todo' && (
+   801→            <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => handleStatusMove(task.status === 'in_progress' ? 'todo' : task.status === 'in_review' ? 'in_progress' : 'in_review')}>
+   802→              ←
+   803→            </Button>
+   804→          )}
+   805→          {task.status !== 'done' && (
+   806→            <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => handleStatusMove(task.status === 'todo' ? 'in_progress' : task.status === 'in_progress' ? 'in_review' : 'done')}>
+   807→              →
+   808→            </Button>
+   809→          )}
+   810→          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 ml-auto hover:text-red-500" onClick={handleDelete}>
+   811→            <Trash2 className="h-3 w-3" />
+   812→          </Button>
+   813→        </div>
+   814→      </CardContent>
+   815→    </Card>
+   816→  );
+   817→}
+   818→
+   819→function TaskRow({ task, members, onRefresh, onEdit }: { task: TeamTask; members: TeamMember[]; onRefresh: () => Promise<void>; onEdit: (t: TeamTask) => void; }) {
+   820→  return (
+   821→    <Card className="border border-border/50 hover:border-border transition-colors cursor-pointer" onClick={() => onEdit(task)}>
+   822→      <CardContent className="p-3 flex items-center gap-3">
+   823→        <Badge className={`text-[10px] px-2 py-0.5 border-0 ${STATUS_COLORS[task.status] || STATUS_COLORS.todo}`}>
+   824→          {STATUS_LABELS[task.status] || task.status}
+   825→        </Badge>
+   826→        <p className="text-sm font-medium text-foreground flex-1 truncate">{task.title}</p>
+   827→        <Badge className={`text-[9px] px-1.5 py-0 border-0 ${PRIORITY_COLORS[task.priority]}`}>
+   828→          {PRIORITY_LABELS[task.priority]}
+   829→        </Badge>
+   830→        {task.assignee && (
+   831→          <span className="text-xs text-muted-foreground hidden sm:inline">{task.assignee.profile?.fullName || task.assignee.email}</span>
+   832→        )}
+   833→        {task.dueDate && (
+   834→          <span className="text-[11px] text-muted-foreground/60 hidden md:inline">{formatDate(task.dueDate)}</span>
+   835→        )}
+   836→      </CardContent>
+   837→    </Card>
+   838→  );
+   839→}
+   840→
+   841→// ─── Create Task Dialog ─────────────────────────────────────────
+   842→
+   843→function CreateTaskDialog({ open, onOpenChange, members, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; members: TeamMember[]; onCreated: () => Promise<void>; }) {
+   844→  const [title, setTitle] = useState('');
+   845→  const [description, setDescription] = useState('');
+   846→  const [priority, setPriority] = useState('medium');
+   847→  const [assigneeId, setAssigneeId] = useState('');
+   848→  const [dueDate, setDueDate] = useState('');
+   849→  const [creating, setCreating] = useState(false);
+   850→
+   851→  const handleCreate = async () => {
+   852→    if (!title.trim()) return;
+   853→    setCreating(true);
+   854→    const res = await api.post('/team/tasks', {
+   855→      title,
+   856→      description,
+   857→      priority,
+   858→      assigneeId: assigneeId || null,
+   859→      dueDate: dueDate || null,
+   860→    });
+   861→    if (res.success) {
+   862→      onOpenChange(false);
+   863→      setTitle(''); setDescription(''); setPriority('medium'); setAssigneeId(''); setDueDate('');
+   864→      onCreated();
+   865→    }
+   866→    setCreating(false);
+   867→  };
+   868→
+   869→  return (
+   870→    <Dialog open={open} onOpenChange={onOpenChange}>
+   871→      <DialogContent className="sm:max-w-lg">
+   872→        <DialogHeader>
+   873→          <DialogTitle className="flex items-center gap-2">
+   874→            <Plus className="h-4 w-4 text-primary" /> New Team Task
+   875→          </DialogTitle>
+   876→        </DialogHeader>
+   877→        <div className="space-y-3 py-2">
+   878→          <Input placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
+   879→          <Input placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
+   880→          <div className="grid grid-cols-2 gap-3">
+   881→            <div>
+   882→              <label className="text-xs font-medium text-muted-foreground mb-1 block">Priority</label>
+   883→              <Select value={priority} onValueChange={setPriority}>
+   884→                <SelectTrigger><SelectValue /></SelectTrigger>
+   885→                <SelectContent>
+   886→                  {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABELS[p]}</SelectItem>)}
+   887→                </SelectContent>
+   888→              </Select>
+   889→            </div>
+   890→            <div>
+   891→              <label className="text-xs font-medium text-muted-foreground mb-1 block">Due Date</label>
+   892→              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+   893→            </div>
+   894→          </div>
+   895→          <div>
+   896→            <label className="text-xs font-medium text-muted-foreground mb-1 block">Assignee</label>
+   897→            <Select value={assigneeId} onValueChange={setAssigneeId}>
+   898→              <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+   899→              <SelectContent>
+   900→                <SelectItem value="none">Unassigned</SelectItem>
+   901→                {members.map((m) => (
+   902→                  <SelectItem key={m.userId} value={m.userId}>
+   903→                    {m.user.profile?.fullName || m.user.email}
+   904→                  </SelectItem>
+   905→                ))}
+   906→              </SelectContent>
+   907→            </Select>
+   908→          </div>
+   909→        </div>
+   910→        <DialogFooter>
+   911→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+   912→          <Button onClick={handleCreate} disabled={!title.trim() || creating}>
+   913→            {creating ? 'Creating...' : 'Create Task'}
+   914→          </Button>
+   915→        </DialogFooter>
+   916→      </DialogContent>
+   917→    </Dialog>
+   918→  );
+   919→}
+   920→
+   921→// ─── Edit Task Dialog ───────────────────────────────────────────
+   922→
+   923→function EditTaskDialog({ task, open, onOpenChange, members, onSaved }: { task: TeamTask; open: boolean; onOpenChange: (o: boolean) => void; members: TeamMember[]; onSaved: () => Promise<void>; }) {
+   924→  const [title, setTitle] = useState(task.title);
+   925→  const [description, setDescription] = useState(task.description || '');
+   926→  const [status, setStatus] = useState(task.status);
+   927→  const [priority, setPriority] = useState(task.priority);
+   928→  const [assigneeId, setAssigneeId] = useState(task.assigneeId || '');
+   929→  const [dueDate, setDueDate] = useState(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '');
+   930→  const [saving, setSaving] = useState(false);
+   931→
+   932→  /* eslint-disable react-hooks/set-state-in-effect */
+   933→  useEffect(() => {
+   934→    setTitle(task.title);
+   935→    setDescription(task.description || '');
+   936→    setStatus(task.status);
+   937→    setPriority(task.priority);
+   938→    setAssigneeId(task.assigneeId || '');
+   939→    setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '');
+   940→  }, [task]);
+   941→  /* eslint-enable react-hooks/set-state-in-effect */
+   942→
+   943→  const handleSave = async () => {
+   944→    setSaving(true);
+   945→    const res = await api.patch(`/team/tasks/${task.id}`, {
+   946→      title,
+   947→      description,
+   948→      status,
+   949→      priority,
+   950→      assigneeId: assigneeId || null,
+   951→      dueDate: dueDate || null,
+   952→    });
+   953→    if (res.success) {
+   954→      onOpenChange(false);
+   955→      onSaved();
+   956→    }
+   957→    setSaving(false);
+   958→  };
+   959→
+   960→  return (
+   961→    <Dialog open={open} onOpenChange={onOpenChange}>
+   962→      <DialogContent className="sm:max-w-lg">
+   963→        <DialogHeader>
+   964→          <DialogTitle>Edit Task</DialogTitle>
+   965→        </DialogHeader>
+   966→        <div className="space-y-3 py-2">
+   967→          <Input placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
+   968→          <Input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+   969→          <div className="grid grid-cols-2 gap-3">
+   970→            <div>
+   971→              <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
+   972→              <Select value={status} onValueChange={setStatus}>
+   973→                <SelectTrigger><SelectValue /></SelectTrigger>
+   974→                <SelectContent>
+   975→                  {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+   976→                </SelectContent>
+   977→              </Select>
+   978→            </div>
+   979→            <div>
+   980→              <label className="text-xs font-medium text-muted-foreground mb-1 block">Priority</label>
+   981→              <Select value={priority} onValueChange={setPriority}>
+   982→                <SelectTrigger><SelectValue /></SelectTrigger>
+   983→                <SelectContent>
+   984→                  {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABELS[p]}</SelectItem>)}
+   985→                </SelectContent>
+   986→              </Select>
+   987→            </div>
+   988→          </div>
+   989→          <div className="grid grid-cols-2 gap-3">
+   990→            <div>
+   991→              <label className="text-xs font-medium text-muted-foreground mb-1 block">Assignee</label>
+   992→              <Select value={assigneeId || 'none'} onValueChange={(v) => setAssigneeId(v === 'none' ? '' : v)}>
+   993→                <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+   994→                <SelectContent>
+   995→                  <SelectItem value="none">Unassigned</SelectItem>
+   996→                  {members.map((m) => (
+   997→                    <SelectItem key={m.userId} value={m.userId}>
+   998→                      {m.user.profile?.fullName || m.user.email}
+   999→                    </SelectItem>
+  1000→                  ))}
+  1001→                </SelectContent>
+  1002→              </Select>
+  1003→            </div>
+  1004→            <div>
+  1005→              <label className="text-xs font-medium text-muted-foreground mb-1 block">Due Date</label>
+  1006→              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+  1007→            </div>
+  1008→          </div>
+  1009→        </div>
+  1010→        <DialogFooter>
+  1011→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+  1012→          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+  1013→        </DialogFooter>
+  1014→      </DialogContent>
+  1015→    </Dialog>
+  1016→  );
+  1017→}
+  1018→
+  1019→// ─── Permissions Tab ────────────────────────────────────────────
+  1020→
+  1021→function PermissionsTab({ members, onRefresh }: { members: TeamMember[]; onRefresh: () => Promise<void>; }) {
+  1022→  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  1023→  const [permissions, setPermissions] = useState<Set<string>>(new Set());
+  1024→  const [saving, setSaving] = useState(false);
+  1025→
+  1026→  const selectMember = (member: TeamMember) => {
+  1027→    setSelectedMember(member);
+  1028→    setPermissions(parsePerms(member.permissions));
+  1029→  };
+  1030→
+  1031→  const togglePerm = (key: string) => {
+  1032→    setPermissions((prev) => {
+  1033→      const next = new Set(prev);
+  1034→      if (next.has(key)) next.delete(key);
+  1035→      else next.add(key);
+  1036→      return next;
+  1037→    });
+  1038→  };
+  1039→
+  1040→  const handleSave = async () => {
+  1041→    if (!selectedMember) return;
+  1042→    setSaving(true);
+  1043→    const res = await api.patch(`/team/members/${selectedMember.id}`, {
+  1044→      permissions: permsToString(permissions),
+  1045→    });
+  1046→    if (res.success) {
+  1047→      onRefresh();
+  1048→    }
+  1049→    setSaving(false);
+  1050→  };
+  1051→
+  1052→  // Role-based preset
+  1053→  const applyPreset = (role: string) => {
+  1054→    setPermissions(parsePerms(getDefaultPerms(role)));
+  1055→  };
+  1056→
+  1057→  return (
+  1058→    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  1059→      {/* ── Member List ── */}
+  1060→      <div className="lg:col-span-1 space-y-3">
+  1061→        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+  1062→          <Users className="h-4 w-4 text-primary" /> Select Member
+  1063→        </h3>
+  1064→        <ScrollArea className="max-h-[500px]">
+  1065→          <div className="space-y-2">
+  1066→            {members.map((member) => (
+  1067→              <button
+  1068→                key={member.id}
+  1069→                onClick={() => selectMember(member)}
+  1070→                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${
+  1071→                  selectedMember?.id === member.id
+  1072→                    ? 'bg-primary/10 border border-primary/30'
+  1073→                    : 'hover:bg-muted/60 border border-transparent'
+  1074→                }`}
+  1075→              >
+  1076→                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+  1077→                  <span className="text-xs font-bold text-primary">{getInitials(member.user.profile?.fullName, member.user.email)}</span>
+  1078→                </div>
+  1079→                <div className="min-w-0 flex-1">
+  1080→                  <p className="text-sm font-medium text-foreground truncate">{member.user.profile?.fullName || member.user.email}</p>
+  1081→                  <Badge className={`text-[9px] px-1.5 py-0 border-0 ${ROLE_COLORS[member.role]}`}>
+  1082→                    {ROLE_LABELS[member.role]}
+  1083→                  </Badge>
+  1084→                </div>
+  1085→              </button>
+  1086→            ))}
+  1087→          </div>
+  1088→        </ScrollArea>
+  1089→      </div>
+  1090→
+  1091→      {/* ── Permission Matrix ── */}
+  1092→      <div className="lg:col-span-2">
+  1093→        {!selectedMember ? (
+  1094→          <Card className="border-dashed">
+  1095→            <CardContent className="py-16 text-center">
+  1096→              <Shield className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+  1097→              <p className="text-sm font-medium text-muted-foreground">Select a member to manage permissions</p>
+  1098→              <p className="text-xs text-muted-foreground/60 mt-1">Choose a member from the list to view and edit their access</p>
+  1099→            </CardContent>
+  1100→          </Card>
+  1101→        ) : (
+  1102→          <Card className="border border-border/50">
+  1103→            <CardHeader className="pb-3">
+  1104→              <div className="flex items-center justify-between">
+  1105→                <CardTitle className="text-base flex items-center gap-2">
+  1106→                  <Shield className="h-4 w-4 text-primary" />
+  1107→                  Permissions for {selectedMember.user.profile?.fullName || selectedMember.user.email}
+  1108→                </CardTitle>
+  1109→                <Badge className={`text-[10px] px-2 py-0.5 border-0 ${ROLE_COLORS[selectedMember.role]}`}>
+  1110→                  {ROLE_LABELS[selectedMember.role]}
+  1111→                </Badge>
+  1112→              </div>
+  1113→            </CardHeader>
+  1114→            <CardContent className="space-y-4">
+  1115→              {/* ── Preset Buttons ── */}
+  1116→              <div className="flex flex-wrap gap-2">
+  1117→                <p className="w-full text-xs font-medium text-muted-foreground mb-1">Apply role preset:</p>
+  1118→                {ROLES.filter((r) => r !== 'owner').map((role) => (
+  1119→                  <Button
+  1120→                    key={role}
+  1121→                    variant="outline"
+  1122→                    size="sm"
+  1123→                    className="text-xs gap-1"
+  1124→                    onClick={() => applyPreset(role)}
+  1125→                  >
+  1126→                    {ROLE_LABELS[role]}
+  1127→                  </Button>
+  1128→                ))}
+  1129→              </div>
+  1130→
+  1131→              <Separator />
+  1132→
+  1133→              {/* ── Permission Toggles ── */}
+  1134→              <div className="space-y-3">
+  1135→                {ALL_PERMISSIONS.map((perm) => {
+  1136→                  const Icon = perm.icon;
+  1137→                  const isOn = permissions.has(perm.key);
+  1138→                  return (
+  1139→                    <div key={perm.key} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/30 transition-colors">
+  1140→                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isOn ? 'bg-primary/10' : 'bg-muted/40'}`}>
+  1141→                        <Icon className={`h-4 w-4 ${isOn ? 'text-primary' : 'text-muted-foreground/40'}`} />
+  1142→                      </div>
+  1143→                      <div className="flex-1 min-w-0">
+  1144→                        <p className={`text-sm font-medium ${isOn ? 'text-foreground' : 'text-muted-foreground'}`}>{perm.label}</p>
+  1145→                        <p className="text-[11px] text-muted-foreground/60">{perm.desc}</p>
+  1146→                      </div>
+  1147→                      <Switch
+  1148→                        checked={isOn}
+  1149→                        onCheckedChange={() => togglePerm(perm.key)}
+  1150→                      />
+  1151→                    </div>
+  1152→                  );
+  1153→                })}
+  1154→              </div>
+  1155→
+  1156→              <Separator />
+  1157→
+  1158→              {/* ── Save ── */}
+  1159→              <div className="flex items-center justify-between">
+  1160→                <p className="text-xs text-muted-foreground">
+  1161→                  {permissions.size} of {ALL_PERMISSIONS.length} permissions enabled
+  1162→                </p>
+  1163→                <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+  1164→                  {saving ? 'Saving...' : 'Save Permissions'}
+  1165→                </Button>
+  1166→              </div>
+  1167→            </CardContent>
+  1168→          </Card>
+  1169→        )}
+  1170→      </div>
+  1171→    </div>
+  1172→  );
+  1173→}
+  1174→
