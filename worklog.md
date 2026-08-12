@@ -23,3 +23,25 @@ Stage Summary:
 - Team management feature fully implemented and pushed to GitHub
 - 9 files changed, 1904 insertions, 13 deletions
 - Deep AI review (6-tab) feature preserved from previous session
+
+---
+Task ID: 2
+Agent: main
+Task: Fix preview login - database provider mismatch
+
+Work Log:
+- Diagnosed error: Prisma schema had provider = "postgresql" but .env had placeholder Supabase URL with [YOUR-PASSWORD]
+- Error was: "the URL must start with the protocol `file:`" (SQLite mismatch) then "Unable to open the database file" (path issue)
+- Switched prisma/schema.prisma provider from "postgresql" to "sqlite"
+- Updated .env DATABASE_URL to file:../db/custom.db (relative to schema directory, resolving to existing DB at /home/z/my-project/db/custom.db)
+- Regenerated Prisma client and pushed schema
+- Added JWT_SECRET to .env for dev
+- Verified login works: POST /api/auth/login returns 200 with JWT token
+- Verified registration works: POST /api/auth/register creates user + company + profile + teamMember
+- Browser-verified: Clicked Sign In → filled credentials → logged in → saw "Good evening, Test User" dashboard
+- Test credentials: testuser@test.com / Test1234!
+
+Stage Summary:
+- Root cause: PostgreSQL provider with no working PostgreSQL connection
+- Fix: Switched to SQLite with correct path resolution for local dev
+- Login and registration both working in preview
