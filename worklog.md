@@ -276,3 +276,24 @@ Stage Summary:
 - All 41+ commits including collapsible sidebar changes are now on GitHub
 - Package.json now uses `bash scripts/vercel-build.sh` for Vercel builds
 - Local dev server confirmed working after rebase
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix favicon to match Tenets company logo
+
+Work Log:
+- Created new SVG favicon matching the logo: orange rounded square with white "T"
+- Generated PNG favicons (16x16, 32x32, 180x180 apple-touch-icon) using sharp
+- Tried Next.js App Router icon.tsx/apple-icon.tsx approach but caused Vercel build error (nft.json missing)
+- Removed icon.tsx/apple-icon.tsx and kept static favicon files
+- Vercel Turbopack build was failing with ENOENT .nft.json error - switched to --webpack flag
+- Deployed successfully to Vercel with webpack build
+- Committed and pushed to GitHub
+- Verified favicon on Vercel deployment
+
+Stage Summary:
+- Favicon now matches Tenets logo (orange rounded square with white "T")
+- Files updated: public/favicon.svg, favicon-16x16.png, favicon-32x32.png, apple-touch-icon.png
+- Removed src/app/icon.tsx and apple-icon.tsx (caused Vercel build issues)
+- Vercel deployment: https://tenetbid.vercel.app (deployed with --webpack flag)
+- GitHub pushed: https://github.com/Afomiyaaweke/tenet (main branch)
