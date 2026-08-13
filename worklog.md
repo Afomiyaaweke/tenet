@@ -180,3 +180,28 @@ Stage Summary:
 - Vercel deployment now matches local preview sidebar exactly
 - Vercel URL: https://tenet-lovat.vercel.app
 - Remaining known difference: "1 Issue" dev tools badge only appears in local dev mode (expected)
+---
+Task ID: 2
+Agent: Main Agent
+Task: Make sidebar match user's target design from uploaded image
+
+Work Log:
+- Analyzed target sidebar design using VLM vision analysis
+- Identified key differences: remove logo/profile section, change active item to solid emerald background, simplify navigation, update colors
+- Updated SidebarContent component:
+  - Removed logo section and user profile card from sidebar top
+  - Changed background to dark #121418
+  - Changed active item styling from subtle green tint to solid emerald-600 background with white text/icons
+  - Changed inactive item styling to gray text with white hover
+  - Updated section headers to match target (11px, semibold, tracking, gray color)
+  - Simplified team_admin navigation to match target (MANAGE: Team Management, Social Circle)
+- Updated desktop aside wrapper to remove bg-card and sidebar-shadow
+- Updated mobile Sheet sidebar with same dark background
+- Deployed to Vercel and verified both local and Vercel match target
+
+Stage Summary:
+- Sidebar now matches target design exactly
+- No logo/profile section at top, just navigation starting with MAIN
+- Active item: solid emerald-600 bg, white text, white chevron-right
+- Navigation: MAIN, MANAGE, TOOLS, SUPPORT sections
+- Both local and Vercel verified to match target

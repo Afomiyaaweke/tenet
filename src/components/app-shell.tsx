@@ -141,18 +141,15 @@ function getNavItemsForRole(role: string): NavSection[] {
   if (role === 'team_admin') {
     return [
       main,
-      manage,
-      tools,
-      support,
       {
-        label: 'TEAM',
+        label: 'MANAGE',
         items: [
           { id: 'team-management', label: 'Team Management', icon: Users },
-          { id: 'staff', label: 'Staff', icon: Users },
-          { id: 'company-settings', label: 'Company Settings', icon: Building2 },
-          { id: 'rate-limits', label: 'Rate Limits', icon: Shield },
+          { id: 'social-circle', label: 'Social Circle', icon: Users },
         ],
       },
+      tools,
+      support,
     ];
   }
 
@@ -227,67 +224,16 @@ function SidebarContent({
   const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
 
   return (
-    <div className="flex flex-col h-full bg-card">
-      {/* ── Logo ── */}
-      <div className="px-5 pt-5 pb-4">
-        <div className="flex items-center gap-3">
-          <TenetLogo size="sm" />
-        </div>
-      </div>
-
-      <Separator className="opacity-60" />
-
-      {/* ── User Profile Card ── */}
-      <div className="px-4 py-4">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors">
-          <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center shadow-sm shadow-slate-200 dark:shadow-slate-900/30">
-              <span className="text-white font-bold text-sm">{getUserInitial(user)}</span>
-            </div>
-            {isVerified && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-orange-500 rounded-full border-2 border-card flex items-center justify-center">
-                <Check className="w-2 h-2 text-white" strokeWidth={3} />
-              </span>
-            )}
-            {companyName && (
-              <span className="absolute -bottom-1 -left-1 w-4 h-4 bg-orange-600 rounded-full border-2 border-card flex items-center justify-center" title={companyName}>
-                <span className="text-white font-bold text-[7px]">{getCompanyInitial({ name: companyName })}</span>
-              </span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold truncate text-foreground">{displayName}</p>
-            {companyName && (
-              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{companyName}</p>
-            )}
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Badge
-                variant="secondary"
-                className={`text-[10px] px-1.5 py-0 font-semibold border-0 ${badgeConfig.className}`}
-              >
-                {badgeConfig.label}
-              </Badge>
-              {isVerified && (
-                <span className="flex items-center gap-0.5 text-[10px] text-orange-600 font-medium">
-                  <Verified className="w-3 h-3" /> Verified
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <Separator className="opacity-40" />
-
+    <div className="flex flex-col h-full bg-[#121418]">
       {/* ── Navigation ── */}
-      <ScrollArea className="flex-1 px-3 py-2">
-        <nav className="space-y-5">
+      <ScrollArea className="flex-1 px-3 py-5">
+        <nav className="space-y-6">
           {navSections.map((section) => (
             <div key={section.label}>
-              <p className="px-3 mb-1.5 text-[10px] font-bold tracking-[0.12em] text-muted-foreground/70 uppercase select-none">
+              <p className="px-3 mb-2 text-[11px] font-semibold tracking-[0.08em] text-[#6b7280] uppercase select-none">
                 {section.label}
               </p>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const isActive =
@@ -302,18 +248,18 @@ function SidebarContent({
                         setView(item.id as View);
                       }}
                       className={`
-                        group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
+                        group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
                         transition-all duration-150 relative
                         ${
                           isActive
-                            ? 'bg-primary/10 text-primary border-l-[3px] border-primary pl-[9px] font-semibold'
-                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border-l-[3px] border-transparent pl-[9px]'
+                            ? 'bg-emerald-600 text-white font-semibold shadow-sm shadow-emerald-600/30'
+                            : 'text-[#9ca3af] hover:bg-white/5 hover:text-[#f3f4f6]'
                         }
                       `}
                     >
                       <Icon
                         className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
-                          isActive ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-primary'
+                          isActive ? 'text-white' : 'text-[#9ca3af] group-hover:text-white'
                         }`}
                       />
                       <span className="truncate flex-1 text-left">{item.label}</span>
@@ -323,7 +269,7 @@ function SidebarContent({
                         </span>
                       )}
                       {isActive && (
-                        <ChevronRight className="h-3.5 w-3.5 ml-auto flex-shrink-0 text-primary" />
+                        <ChevronRight className="h-4 w-4 ml-auto flex-shrink-0 text-white" />
                       )}
                     </button>
                   );
@@ -336,11 +282,10 @@ function SidebarContent({
 
       {/* ── Bottom Section ── */}
       <div className="px-4 pb-4 pt-2 space-y-3">
-        {/* Sign Out */}
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+          className="w-full justify-start text-[#9ca3af] hover:text-red-500 hover:bg-white/5 transition-colors"
           onClick={logout}
         >
           <LogOut className="h-4 w-4 mr-2" />
@@ -572,7 +517,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen flex bg-background">
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-[260px] bg-card border-r border-border/50 flex-col flex-shrink-0 sidebar-shadow">
+      <aside className="hidden md:flex w-[260px] border-r border-white/5 flex-col flex-shrink-0">
         <SidebarContent {...sidebarProps} />
       </aside>
 
@@ -587,7 +532,7 @@ export function AppShell() {
                 <Menu className="h-5 w-5 text-muted-foreground" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-[260px]">
+            <SheetContent side="left" className="p-0 w-[260px] bg-[#121418]">
               <SidebarContent {...sidebarProps} />
             </SheetContent>
           </Sheet>
