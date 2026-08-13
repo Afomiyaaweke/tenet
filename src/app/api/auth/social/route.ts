@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
       user = await db.user.create({
         data: {
           email: userEmail,
-          password: hashedPassword,
+          passwordHash: hashedPassword,
           role: 'user',
           profile: {
             create: {
@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
       { expiresIn: '7d' }
     );
 
-    const { password, ...safeUser } = user;
+    const { passwordHash, ...safeUser } = user;
 
     return NextResponse.json({
       success: true,
