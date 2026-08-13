@@ -205,3 +205,33 @@ Stage Summary:
 - Active item: solid emerald-600 bg, white text, white chevron-right
 - Navigation: MAIN, MANAGE, TOOLS, SUPPORT sections
 - Both local and Vercel verified to match target
+---
+Task ID: 1
+Agent: Main Agent
+Task: Make sidebar collapsible with company logo display
+
+Work Log:
+- Read current app-shell.tsx, sidebar.tsx, and logo.tsx to understand existing implementation
+- Added PanelLeftClose and PanelLeftOpen icons from lucide-react
+- Added collapsed and onToggleCollapse props to SidebarContent component
+- Added TenetLogo to sidebar header - shows full logo when expanded, icon-only when collapsed
+- Added collapse/expand toggle button with PanelLeftClose/PanelLeftOpen icons
+- Modified navigation items to hide text labels when collapsed, show only icons
+- Added section dividers (thin horizontal lines) when collapsed instead of section labels
+- Modified Sign Out button to be icon-only when collapsed
+- Added sidebarCollapsed state with localStorage persistence
+- Added smooth CSS transition (300ms ease-in-out) for sidebar width change
+- Sidebar width: 260px (expanded) → 68px (collapsed)
+- Mobile Sheet sidebar always shows expanded (no collapse on mobile)
+- Hide toggle button in mobile Sheet by making onToggleCollapse optional
+- Tested collapse/expand functionality with agent-browser
+- Tested mobile responsiveness with 375x812 viewport
+- Verified navigation works after collapse/expand cycles
+
+Stage Summary:
+- Sidebar is now collapsible with smooth slide animation
+- Company logo (Tenets) prominently displayed at top of sidebar when expanded
+- Logo icon-only shown when sidebar is collapsed
+- Collapse state persists in localStorage
+- Mobile uses Sheet drawer (always expanded) without collapse toggle
+- No lint errors introduced

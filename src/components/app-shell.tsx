@@ -16,7 +16,7 @@ import {
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
-  PenTool, BarChart3, FileCode, Shield,
+  PenTool, BarChart3, FileCode, Shield, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
@@ -208,6 +208,8 @@ function SidebarContent({
   setView,
   unreadCount,
   logout,
+  collapsed,
+  onToggleCollapse,
 }: {
   user: { profile?: { fullName?: string; verified?: boolean }; email?: string; role?: string; companyId?: string; company?: { name?: string } } | null;
   role: string;
@@ -217,6 +219,8 @@ function SidebarContent({
   setView: (view: View, params?: Record<string, string>) => void;
   unreadCount: number;
   logout: () => void;
+  collapsed: boolean;
+  onToggleCollapse?: () => void;
 }) {
   const displayName = user?.profile?.fullName || user?.email || 'User';
   const isVerified = (user?.profile as { verified?: boolean })?.verified ?? false;
@@ -225,15 +229,34 @@ function SidebarContent({
 
   return (
     <div className="flex flex-col h-full bg-[#121418]">
+      {/* ── Logo Header ── */}
+      <div className={`flex items-center border-b border-white/5 ${collapsed ? 'flex-col justify-center px-2 py-4 gap-2' : 'justify-between px-4 py-4'}`}>
+        <TenetLogo size={collapsed ? 'sm' : 'md'} iconOnly={collapsed} />
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            className={`rounded-md flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-white/10 transition-colors ${collapsed ? 'h-6 w-6' : 'h-7 w-7'}`}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
+
       {/* ── Navigation ── */}
-      <ScrollArea className="flex-1 px-3 py-5">
+      <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-6">
           {navSections.map((section) => (
             <div key={section.label}>
-              <p className="px-3 mb-2 text-[11px] font-semibold tracking-[0.08em] text-[#6b7280] uppercase select-none">
-                {section.label}
-              </p>
-              <div className="space-y-1">
+              {!collapsed && (
+                <p className="px-3 mb-2 text-[11px] font-semibold tracking-[0.08em] text-[#6b7280] uppercase select-none">
+                  {section.label}
+                </p>
+              )}
+              {collapsed && (
+                <div className="mx-auto mb-2 w-5 h-[1px] bg-white/10" />
+              )}
+              <div className={`space-y-1 ${collapsed ? 'flex flex-col items-center' : ''}`}>
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const isActive =
@@ -247,9 +270,11 @@ function SidebarContent({
                       onClick={() => {
                         setView(item.id as View);
                       }}
+                      title={collapsed ? item.label : undefined}
                       className={`
-                        group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                        group w-full flex items-center gap-3 rounded-lg text-sm font-medium
                         transition-all duration-150 relative
+                        ${collapsed ? 'justify-center px-1 py-2.5' : 'px-3 py-2.5'}
                         ${
                           isActive
                             ? 'bg-emerald-600 text-white font-semibold shadow-sm shadow-emerald-600/30'
@@ -262,13 +287,18 @@ function SidebarContent({
                           isActive ? 'text-white' : 'text-[#9ca3af] group-hover:text-white'
                         }`}
                       />
-                      <span className="truncate flex-1 text-left">{item.label}</span>
-                      {item.id === 'chat' && unreadCount > 0 && (
+                      {!collapsed && <span className="truncate flex-1 text-left">{item.label}</span>}
+                      {!collapsed && item.id === 'chat' && unreadCount > 0 && (
                         <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-red-200">
                           {unreadCount > 99 ? '99+' : unreadCount}
                         </span>
                       )}
-                      {isActive && (
+                      {collapsed && item.id === 'chat' && unreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                      {!collapsed && isActive && (
                         <ChevronRight className="h-4 w-4 ml-auto flex-shrink-0 text-white" />
                       )}
                     </button>
@@ -281,15 +311,16 @@ function SidebarContent({
       </ScrollArea>
 
       {/* ── Bottom Section ── */}
-      <div className="px-4 pb-4 pt-2 space-y-3">
+      <div className={`pb-4 pt-2 space-y-3 ${collapsed ? 'px-2' : 'px-4'}`}>
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-[#9ca3af] hover:text-red-500 hover:bg-white/5 transition-colors"
+          className={`text-[#9ca3af] hover:text-red-500 hover:bg-white/5 transition-colors ${collapsed ? 'w-full justify-center px-1' : 'w-full justify-start'}`}
           onClick={logout}
+          title={collapsed ? 'Sign Out' : undefined}
         >
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
+          <LogOut className={`h-4 w-4 ${collapsed ? '' : 'mr-2'}`} />
+          {!collapsed && 'Sign Out'}
         </Button>
       </div>
     </div>
@@ -512,12 +543,30 @@ export function AppShell() {
   const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
   const companyName = company?.name || user?.company?.name;
 
-  const sidebarProps = { user, role, company, navSections, view, setView, unreadCount, logout };
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tenet-sidebar-collapsed') === 'true';
+    }
+    return false;
+  });
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('tenet-sidebar-collapsed', String(next));
+      return next;
+    });
+  };
+
+  const sidebarProps = { user, role, company, navSections, view, setView, unreadCount, logout, collapsed: sidebarCollapsed, onToggleCollapse: toggleSidebarCollapse };
 
   return (
     <div className="min-h-screen flex bg-background">
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-[260px] border-r border-white/5 flex-col flex-shrink-0">
+      <aside
+        className="hidden md:flex border-r border-white/5 flex-col flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden"
+        style={{ width: sidebarCollapsed ? '68px' : '260px' }}
+      >
         <SidebarContent {...sidebarProps} />
       </aside>
 
@@ -533,7 +582,7 @@ export function AppShell() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-[260px] bg-[#121418]">
-              <SidebarContent {...sidebarProps} />
+              <SidebarContent {...sidebarProps} collapsed={false} />
             </SheetContent>
           </Sheet>
 
