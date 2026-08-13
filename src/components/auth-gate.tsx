@@ -398,6 +398,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   // Handle ?token=xxx in URL for email reset links
   useEffect(() => {
@@ -434,15 +435,20 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError('');
     if (!loginData.email || !loginData.password) return;
     setLoading(true);
     try {
       const result = await login(loginData.email, loginData.password);
       if (!result.success) {
-        toast.error(result.error || 'Invalid email or password. Please try again.');
+        const errMsg = result.error || 'Invalid email or password. Please try again.';
+        setAuthError(errMsg);
+        toast.error(errMsg);
       }
     } catch {
-      toast.error('Login failed. Please check your connection and try again.');
+      const errMsg = 'Login failed. Please check your connection and try again.';
+      setAuthError(errMsg);
+      toast.error(errMsg);
     }
     setLoading(false);
   };
@@ -958,6 +964,13 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                   </div>
 
                   <form onSubmit={handleLoginSubmit} className="space-y-5">
+                    {/* Inline error message */}
+                    {authError && (
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-sm animate-[viewEnter_0.2s_ease-out]">
+                        <XCircle className="w-4 h-4 shrink-0" />
+                        <span>{authError}</span>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label htmlFor="login-email" className="text-sm font-medium text-foreground flex items-center gap-2">
                         <Mail className="w-3.5 h-3.5 text-muted-foreground" />
@@ -968,7 +981,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                         type="email"
                         placeholder="you@example.com"
                         value={loginData.email}
-                        onChange={e => setLoginData(d => ({ ...d, email: e.target.value }))}
+                        onChange={e => { setLoginData(d => ({ ...d, email: e.target.value })); setAuthError(''); }}
                         required
                         autoComplete="username"
                         className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200"
@@ -986,7 +999,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           type={showPassword ? 'text' : 'password'}
                           placeholder="••••••••"
                           value={loginData.password}
-                          onChange={e => setLoginData(d => ({ ...d, password: e.target.value }))}
+                          onChange={e => { setLoginData(d => ({ ...d, password: e.target.value })); setAuthError(''); }}
                           required
                           autoComplete="current-password"
                           className="h-11 bg-muted/50 border-border focus:bg-background focus:border-primary focus:ring-primary/20 transition-all duration-200 pr-10"
