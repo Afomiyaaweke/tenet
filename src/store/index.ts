@@ -14,6 +14,7 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<AuthResult>;
+  socialLogin: (provider: string, code: string) => Promise<AuthResult>;
   register: (data: Record<string, string>) => Promise<AuthResult>;
   logout: () => void;
   fetchMe: () => Promise<void>;
@@ -34,6 +35,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       return { success: true };
     }
     return { success: false, error: res.error || 'Invalid email or password' };
+  },
+
+  socialLogin: async (provider, code) => {
+    const res = await api.post('/auth/social', { provider, code });
+    if (res.success) {
+      localStorage.setItem('tenet_token', res.data.token);
+      set({ user: res.data.user, token: res.data.token });
+      return { success: true };
+    }
+    return { success: false, error: res.error || 'Social login failed' };
   },
 
   register: async (data) => {
