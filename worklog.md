@@ -91,3 +91,35 @@ Stage Summary:
 - Vercel deployed and working: https://tenet-lovat.vercel.app
 - GitHub push blocked - needs user to provide Personal Access Token or push manually
 - Local dev works with SQLite
+
+---
+Task ID: 2-a
+Agent: deploy-agent
+Task: Deploy exact local code to Vercel
+
+Work Log:
+- Read worklog and current project state: schema uses sqlite, db.ts has resolveDatabaseUrl() for Neon, .env has SQLite URL
+- Created /scripts/vercel-build.sh that switches Prisma provider from sqlite to postgresql, runs prisma generate, then next build
+- Made vercel-build.sh executable (chmod +x)
+- Updated package.json: changed build to "bash scripts/vercel-build.sh", added postinstall "prisma generate"
+- Ran lint: 0 errors, 5 warnings (pre-existing)
+- First Vercel deploy attempt: scripts/vercel-build.sh not found on Vercel (untracked files not included in deployment)
+- Git committed scripts/ and package.json changes
+- Second deploy attempt: still failed - Vercel build cache didn't include scripts dir
+- Switched approach: inlined build commands directly in package.json build script using sed + prisma generate + next build
+- Git committed inline build change
+- Deployed to Vercel with --force flag and VERCEL_ORG_ID/VERCEL_PROJECT_ID env vars
+- Build succeeded: provider switched to postgresql, Prisma client generated, Next.js compiled successfully
+- Deployed to production with --prod flag: https://tenet-lovat.vercel.app
+- Verified deployment: curl returns HTTP 200
+- Restored local dev setup: package.json build back to "next build", removed postinstall, kept vercel-build.sh script
+- Regenerated Prisma client locally with SQLite provider
+- Final lint check: 0 errors, 5 warnings (pre-existing)
+
+Stage Summary:
+- Vercel production deployment successful: https://tenet-lovat.vercel.app
+- Build mechanism: inline sed command in package.json switches sqlite→postgresql during Vercel build, then prisma generate + next build
+- db.ts resolveDatabaseUrl() handles Neon tenet_ prefixed env vars for PostgreSQL
+- Local dev fully restored: SQLite provider, "next build" script, no postinstall
+- vercel-build.sh script kept at /scripts/vercel-build.sh for future reference
+- Lint clean: 0 errors
