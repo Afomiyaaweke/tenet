@@ -14,9 +14,9 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
   const isDark = theme === 'dark';
 
   const sizes = {
-    sm: { icon: 24, text: 'text-sm' },
-    md: { icon: 32, text: 'text-base' },
-    lg: { icon: 40, text: 'text-xl' },
+    sm: { icon: 32, text: 'text-sm' },
+    md: { icon: 40, text: 'text-base' },
+    lg: { icon: 52, text: 'text-xl' },
   };
 
   const s = sizes[size];
@@ -24,15 +24,16 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
   const accentColor = '#F97316';
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center gap-2.5 ${className}`}>
       {/* TenetBid Logo - using uploaded logo image */}
       <Image
         src="/logo.png"
         alt="TenetBid Logo"
         width={s.icon}
         height={s.icon}
-        className="flex-shrink-0 rounded-md"
+        className="flex-shrink-0 rounded-lg shadow-sm"
         priority
+        unoptimized
       />
 
       {/* Text - only show if not iconOnly */}

@@ -397,3 +397,24 @@ Stage Summary:
 - Social login now gracefully shows error toast when OAuth isn't configured instead of silently failing
 - All three sections (GitHub, Vercel, Reviews) now have unified visual appearance with 3-col stats cards, consistent badges, and consistent CTA buttons
 - No remaining orange "T" logos found - all already replaced
+---
+Task ID: 2
+Agent: main
+Task: Change logo with new uploaded image and regenerate favicons
+
+Work Log:
+- Copied new logo (pasted_image_1786629882544.png) to public/logo.png
+- Optimized logo from 1664x928 (1.5MB) to 512x512 (71KB) with white background
+- Regenerated all favicon sizes (16x16, 32x32, 48x48, 180x180, 192x192, 512x512) and favicon.ico
+- Increased logo icon sizes in TenetLogo component: sm=32, md=40, lg=52
+- Added rounded-lg and shadow-sm styling to logo component
+- Added unoptimized prop to Next.js Image component for better compatibility
+- Updated auth-gate.tsx left panel logo to 56x56 with rounded-lg shadow-md styling
+- Verified logo displays correctly with colorful gradient T design on both landing page and auth page
+- Second uploaded image confirmed LinkedIn social login error toast is working correctly
+
+Stage Summary:
+- New logo with gradient T design (purple/orange with teal ring) is now displayed throughout the app
+- Logo is clearly visible with proper sizing and styling
+- All favicons regenerated from new logo
+- Social login error handling confirmed working (LinkedIn toast visible in user screenshot)
