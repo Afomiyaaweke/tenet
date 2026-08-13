@@ -10,9 +10,6 @@ const UPLOAD_DIR = process.cwd() + '/uploads';
  * Serves uploaded files from the local filesystem for development.
  * In production (Vercel), files are stored in Vercel Blob with absolute URLs,
  * so this route is only needed for local development.
- *
- * This route is accessed via a Next.js rewrite from /uploads/:path* → /api/uploads/:path*
- * to maintain backward compatibility with URLs stored in the database.
  */
 export async function GET(
   request: NextRequest,
