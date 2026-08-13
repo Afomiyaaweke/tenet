@@ -557,10 +557,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           <div className="relative z-10 flex flex-col h-full px-12 xl:px-16 py-10">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-16 animate-[fadeDown_0.6s_ease-out_both]">
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-xl border border-white/10">
-                <rect width="48" height="48" rx="8" fill="#F97316" />
-                <text x="24" y="33" textAnchor="middle" fill="white" fontSize="28" fontWeight="bold" fontFamily="system-ui, sans-serif">T</text>
-              </svg>
+              <img src="/logo.png" alt="TenetBid Logo" width={48} height={48} className="rounded-xl border border-white/10" />
               <div>
                 <h1 className="text-2xl font-bold text-white tracking-tight">TenetBid</h1>
                 <p className="text-orange-300/80 text-xs font-medium tracking-wide uppercase">Procurement Platform</p>
