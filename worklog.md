@@ -418,3 +418,25 @@ Stage Summary:
 - Logo is clearly visible with proper sizing and styling
 - All favicons regenerated from new logo
 - Social login error handling confirmed working (LinkedIn toast visible in user screenshot)
+
+---
+Task ID: 1
+Agent: main
+Task: Update logo with new image, fix sign-in options, push to GitHub and Vercel
+
+Work Log:
+- Copied new uploaded logo (pasted_image_1786632713637.png) to public/logo.png
+- Fixed social login: instead of opening a popup that fails when OAuth not configured, now uses fetch() to check the API first and shows toast error directly
+- Raised Sonner Toaster z-index to 99999 for visibility above auth gate
+- Browser-verified: all social login buttons show "not available yet" toast messages
+- Browser-verified: email/password login shows "Invalid email or password" error toast
+- Committed all changes (3 files: logo.png, layout.tsx, auth-gate.tsx)
+- GitHub push failed: no authentication credentials in this environment
+- Vercel deployment not possible: no Vercel token configured
+
+Stage Summary:
+- Logo updated with new branding image
+- Sign-in options fixed: social login shows clear toast feedback instead of broken popup
+- Toast notifications now properly visible (z-index fix)
+- Changes committed locally (commit 0953b58)
+- GitHub push and Vercel deploy require user to provide credentials or push manually
