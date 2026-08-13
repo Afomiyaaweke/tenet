@@ -106,11 +106,7 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
       // If the response is HTML (type oauth-error), the provider is not configured
       const contentType = response.headers.get('content-type') || '';
       if (contentType.includes('text/html')) {
-        const html = await response.text();
-        // Extract error message from the HTML
-        const errorMatch = html.match(/error:\s*["'](.+?)["']/);
-        const errorMsg = errorMatch?.[1] || `${providerId.charAt(0).toUpperCase() + providerId.slice(1)} login is coming soon. Please use email/password to sign in.`;
-        toast.error(errorMsg);
+        toast.info(`${providerId.charAt(0).toUpperCase() + providerId.slice(1)} sign-in is coming soon! Please use email & password for now.`, { duration: 5000 });
         setSocialLoading(null);
         onLoadingChange(false);
         return;
@@ -191,7 +187,7 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
         </div>
       </div>
 
-      {/* Social buttons grid */}
+      {/* Social buttons grid with Coming Soon badges */}
       <div className="grid grid-cols-2 gap-2.5">
         {SOCIAL_PROVIDERS.map((provider) => (
           <button
@@ -199,7 +195,7 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
             type="button"
             disabled={loading || !!socialLoading}
             onClick={() => handleSocialLogin(provider.id)}
-            className="flex items-center justify-center gap-2 h-10 px-3 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
+            className="relative flex items-center justify-center gap-2 h-10 px-3 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 group"
           >
             {socialLoading === provider.id ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -207,9 +203,18 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
               provider.icon
             )}
             <span>{provider.name}</span>
+            {/* Coming Soon badge */}
+            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 text-[9px] font-bold leading-none rounded-full bg-orange-500/90 text-white shadow-sm">
+              Soon
+            </span>
           </button>
         ))}
       </div>
+
+      {/* Hint text */}
+      <p className="text-center text-xs text-muted-foreground/70">
+        Social sign-in coming soon — use email &amp; password for now
+      </p>
     </div>
   );
 }
