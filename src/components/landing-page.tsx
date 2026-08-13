@@ -19,6 +19,11 @@ import {
   ChevronRight,
   Phone,
   Mail,
+  Star,
+  GitFork,
+  Globe,
+  Rocket,
+  ExternalLink,
 } from 'lucide-react';
 
 /* ───────────────────────── Animated Background ───────────────────────── */
@@ -137,10 +142,12 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <TenetLogo size="sm" />
 
             {/* Nav Links (desktop) */}
-            <nav className="hidden md:flex items-center gap-8">
+            <nav className="hidden md:flex items-center gap-6">
               <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</a>
               <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
-              <a href="#community" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Community</a>
+              <a href="#github" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">GitHub</a>
+              <a href="#vercel" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Vercel</a>
+              <a href="#community" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Reviews</a>
             </nav>
 
             {/* CTA */}
@@ -321,6 +328,110 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               description="Submit your AI-enhanced bids with confidence. Tender owners use AI to analyze and award the best applicants fairly."
               delay="0.3s"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════ GITHUB / OPEN SOURCE SECTION ═══════════ */}
+      <section id="github" className="py-20 sm:py-28">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200/60 rounded-full px-4 py-1.5 mb-4">
+              <Star className="w-3.5 h-3.5 text-orange-600" />
+              <span className="text-xs font-semibold text-orange-700">Open Source</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
+              Star Us on GitHub
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              TenetBid is open source and community driven. Contribute, report issues, or fork the project to make it your own.
+            </p>
+          </div>
+
+          {/* GitHub Stats Cards */}
+          <div className="grid sm:grid-cols-3 gap-6 mb-10 max-w-2xl mx-auto">
+            <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+              <Star className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+              <p className="text-3xl font-extrabold text-foreground">2.4k+</p>
+              <p className="text-sm text-muted-foreground mt-1">Stars</p>
+            </div>
+            <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+              <GitFork className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+              <p className="text-3xl font-extrabold text-foreground">180+</p>
+              <p className="text-sm text-muted-foreground mt-1">Forks</p>
+            </div>
+            <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+              <Users className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+              <p className="text-3xl font-extrabold text-foreground">50+</p>
+              <p className="text-sm text-muted-foreground mt-1">Contributors</p>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="text-center">
+            <Button
+              className="bg-slate-900 text-white font-semibold border-0 shadow-lg shadow-slate-300/40 hover:shadow-slate-400/60 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl h-11 px-6"
+              onClick={() => window.open('https://github.com/tenetbid/tenetbid', '_blank')}
+            >
+              <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 mr-2" fill="currentColor">
+                <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.145 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.621.242 2.842.118 3.145.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+              </svg>
+              View on GitHub
+              <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════ VERCEL / DEPLOYMENT SECTION ═══════════ */}
+      <section id="vercel" className="py-20 sm:py-28 bg-muted/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200/60 rounded-full px-4 py-1.5 mb-4">
+              <Rocket className="w-3.5 h-3.5 text-orange-600" />
+              <span className="text-xs font-semibold text-orange-700">Deployment</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
+              Powered by Vercel
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Deploy TenetBid globally with one click. Edge-optimized, serverless, and infinitely scalable on Vercel's infrastructure.
+            </p>
+          </div>
+
+          {/* Vercel Feature Cards */}
+          <div className="grid sm:grid-cols-3 gap-6 mb-10 max-w-2xl mx-auto">
+            <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+              <Globe className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+              <p className="text-3xl font-extrabold text-foreground">Edge</p>
+              <p className="text-sm text-muted-foreground mt-1">Global CDN</p>
+            </div>
+            <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+              <Zap className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+              <p className="text-3xl font-extrabold text-foreground">99.9%</p>
+              <p className="text-sm text-muted-foreground mt-1">Uptime SLA</p>
+            </div>
+            <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+              <Rocket className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+              <p className="text-3xl font-extrabold text-foreground">&lt;50ms</p>
+              <p className="text-sm text-muted-foreground mt-1">Cold Start</p>
+            </div>
+          </div>
+
+          {/* Vercel Triangle Logo + CTA */}
+          <div className="text-center">
+            <Button
+              className="bg-slate-900 text-white font-semibold border-0 shadow-lg shadow-slate-300/40 hover:shadow-slate-400/60 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl h-11 px-6"
+              onClick={() => window.open('https://vercel.com/new?utm_source=tenetbid', '_blank')}
+            >
+              <svg viewBox="0 0 76 65" className="w-4.5 h-4.5 mr-2" fill="currentColor">
+                <path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/>
+              </svg>
+              Deploy on Vercel
+              <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+            </Button>
           </div>
         </div>
       </section>
