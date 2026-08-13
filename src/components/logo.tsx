@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useTheme } from 'next-themes';
 
 interface TenetLogoProps {
@@ -25,15 +24,28 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {/* TenetBid Logo Image */}
-      <Image
-        src="/tenets-logo.png"
-        alt="TenetBid Logo"
+      {/* TenetBid Logo - using SVG icon for reliability */}
+      <svg
         width={s.icon}
         height={s.icon}
-        className="flex-shrink-0 rounded-sm object-cover"
-        priority
-      />
+        viewBox="0 0 32 32"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="flex-shrink-0"
+      >
+        <rect width="32" height="32" rx="6" fill={accentColor} />
+        <text
+          x="16"
+          y="22"
+          textAnchor="middle"
+          fill="white"
+          fontSize="18"
+          fontWeight="bold"
+          fontFamily="system-ui, sans-serif"
+        >
+          T
+        </text>
+      </svg>
 
       {/* Text - only show if not iconOnly */}
       {!iconOnly && (

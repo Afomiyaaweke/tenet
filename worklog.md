@@ -160,3 +160,23 @@ Stage Summary:
 - UI matches local preview exactly (same sidebar, layout, components)
 - Auth flow works on Vercel (register + login)
 - GitHub push not possible without credentials
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix sidebar styling mismatch between local preview and Vercel deployment
+
+Work Log:
+- Compared local and Vercel dashboard sidebars using agent-browser screenshots and VLM analysis
+- Identified key differences: broken logo image on Vercel, different sidebar background colors, and missing items
+- Root cause: Vercel deployment was running old code (37 commits behind) and logo image file (2.1MB PNG) was failing to load
+- Fixed logo component by replacing `next/image` with inline SVG logo (reliable across all environments)
+- Updated auth-gate.tsx to also use inline SVG logo instead of broken image reference
+- Redeployed to Vercel 3 times to push the latest code
+- Final VLM comparison confirmed sidebars are now visually identical
+
+Stage Summary:
+- Logo component changed from `next/image` with PNG file to inline SVG for reliability
+- Auth-gate logo also updated to inline SVG
+- Vercel deployment now matches local preview sidebar exactly
+- Vercel URL: https://tenet-lovat.vercel.app
+- Remaining known difference: "1 Issue" dev tools badge only appears in local dev mode (expected)
