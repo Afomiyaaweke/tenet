@@ -123,3 +123,40 @@ Stage Summary:
 - Local dev fully restored: SQLite provider, "next build" script, no postinstall
 - vercel-build.sh script kept at /scripts/vercel-build.sh for future reference
 - Lint clean: 0 errors
+---
+Task ID: 1
+Agent: main
+Task: Find and remove subscription/pricing UI from the app
+
+Work Log:
+- Searched all source files for subscription, pricing, plan, upgrade, payment, billing keywords
+- Found only minimal references: "Payment" in a SelectItem dropdown, "pricing" in a feature description
+- No subscription/pricing UI section exists in the app to remove
+- Marked as completed (nothing to remove)
+
+Stage Summary:
+- No subscription/pricing UI component exists in the app
+- The app doesn't have any subscription, pricing, or billing section
+
+---
+Task ID: 3
+Agent: main
+Task: Deploy exact local code to Vercel so it matches local preview
+
+Work Log:
+- Analyzed uploaded screenshots showing Vercel deployment had old/different code
+- Created Vercel build script (scripts/vercel-build.sh) that switches Prisma provider from SQLite to PostgreSQL during build
+- Updated package.json build script for Vercel deployment
+- Deployed to Vercel using CLI with --prod flag
+- Deployment URL: https://tenet-lovat.vercel.app (HTTP 200)
+- Restored local dev setup after deployment (package.json back to "next build")
+- Verified landing page matches local preview
+- Tested registration and login APIs on Vercel - both working
+- Verified dashboard UI matches local preview (same sidebar, same layout, same components)
+- The only difference is data (different databases: local SQLite vs Vercel Neon PostgreSQL)
+
+Stage Summary:
+- Vercel deployed successfully: https://tenet-lovat.vercel.app
+- UI matches local preview exactly (same sidebar, layout, components)
+- Auth flow works on Vercel (register + login)
+- GitHub push not possible without credentials
