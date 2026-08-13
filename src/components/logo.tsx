@@ -31,7 +31,7 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
         alt="TenetBid Logo"
         width={s.icon}
         height={s.icon}
-        className="flex-shrink-0 rounded-lg shadow-sm"
+        className="flex-shrink-0 aspect-square object-cover rounded-lg shadow-sm"
         priority
         unoptimized
       />
