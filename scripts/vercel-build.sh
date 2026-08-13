@@ -18,6 +18,6 @@ npx prisma generate
 echo "Running next build..."
 
 # Build the Next.js app
-npx next build
+npx next build --webpack
 
 echo "=== Vercel Build Complete ==="
