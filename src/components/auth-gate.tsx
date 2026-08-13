@@ -115,6 +115,16 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
 
       // Listen for the callback message from the popup
       const handleMessage = async (event: MessageEvent) => {
+        // Handle OAuth error (e.g., provider not configured)
+        if (event.data?.type === 'oauth-error' && event.data?.provider === providerId) {
+          window.removeEventListener('message', handleMessage);
+          toast.error(event.data?.error || `${providerId} login is not available yet.`);
+          setSocialLoading(null);
+          onLoadingChange(false);
+          popup?.close();
+          return;
+        }
+        // Handle successful OAuth callback
         if (event.data?.type === 'oauth-callback' && event.data?.provider === providerId) {
           window.removeEventListener('message', handleMessage);
           if (event.data?.code) {

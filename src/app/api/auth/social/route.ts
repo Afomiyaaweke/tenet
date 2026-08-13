@@ -64,12 +64,19 @@ export async function GET(req: NextRequest) {
   const config = OAUTH_PROVIDERS[provider];
 
   if (!config.clientId) {
-    return NextResponse.json({
-      success: false,
-      error: `${provider} OAuth is not configured. Please add the required environment variables.`,
-      provider,
-      requiredVars: getRequiredEnvVars(provider),
-    }, { status: 400 });
+    // Return HTML that communicates the error back to the parent window via postMessage
+    // and auto-closes the popup, so the user sees a proper toast instead of raw JSON
+    const errorMsg = `${provider} login is not available yet. Please use email/password to sign in.`;
+    const html = `<!DOCTYPE html><html><body><script>
+      if (window.opener) {
+        window.opener.postMessage({ type: 'oauth-error', provider: '${provider}', error: ${JSON.stringify(errorMsg)} }, '*');
+      }
+      window.close();
+    </script></body></html>`;
+    return new NextResponse(html, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+    });
   }
 
   // Generate a random state for CSRF protection

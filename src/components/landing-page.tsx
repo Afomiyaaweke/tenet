@@ -350,7 +350,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
 
           {/* GitHub Stats Cards */}
-          <div className="grid sm:grid-cols-3 gap-6 mb-10 max-w-2xl mx-auto">
+          <div className="grid sm:grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
             <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
               <Star className="w-8 h-8 text-orange-500 mx-auto mb-3" />
               <p className="text-3xl font-extrabold text-foreground">2.4k+</p>
@@ -402,7 +402,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           </div>
 
           {/* Vercel Feature Cards */}
-          <div className="grid sm:grid-cols-3 gap-6 mb-10 max-w-2xl mx-auto">
+          <div className="grid sm:grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
             <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
               <Globe className="w-8 h-8 text-orange-500 mx-auto mb-3" />
               <p className="text-3xl font-extrabold text-foreground">Edge</p>

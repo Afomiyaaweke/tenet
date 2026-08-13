@@ -425,18 +425,31 @@ export function CommentSection() {
           </p>
         </div>
 
-        {/* ─── Rating Overview ─── */}
-        <div className="max-w-md mx-auto mb-12">
-          <Card className="bg-card rounded-2xl border border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-6">
-                {/* Big number */}
-                <div className="text-center flex-shrink-0">
-                  <p className="text-5xl font-extrabold text-foreground">{avgDisplay}</p>
-                  <StarRating rating={Math.round(stats.avgRating)} size="md" />
-                </div>
-                {/* Distribution bars */}
-                <div className="flex-1 space-y-1.5">
+        {/* ─── Review Stats Cards (matches GitHub/Vercel 3-col style) ─── */}
+        <div className="grid sm:grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
+          <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+            <Star className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+            <p className="text-3xl font-extrabold text-foreground">{avgDisplay}</p>
+            <p className="text-sm text-muted-foreground mt-1">Avg Rating</p>
+          </div>
+          <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+            <Award className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+            <p className="text-3xl font-extrabold text-foreground">{stats.totalCount}</p>
+            <p className="text-sm text-muted-foreground mt-1">Reviews</p>
+          </div>
+          <div className="group relative bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-slate-500/5 hover:border-slate-200/60 transition-all duration-300 text-center">
+            <CheckCircle2 className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+            <p className="text-3xl font-extrabold text-foreground">{stats.ratingDistribution[5] || 0}</p>
+            <p className="text-sm text-muted-foreground mt-1">5-Star Reviews</p>
+          </div>
+        </div>
+
+        {/* ─── Rating Distribution ─── */}
+        {stats.totalCount > 0 && (
+          <div className="max-w-md mx-auto mb-12">
+            <Card className="bg-card rounded-2xl border border-border">
+              <CardContent className="p-5">
+                <div className="space-y-1.5">
                   {[5, 4, 3, 2, 1].map((s) => (
                     <RatingBar
                       key={s}
@@ -446,13 +459,10 @@ export function CommentSection() {
                     />
                   ))}
                 </div>
-              </div>
-              <p className="text-center text-sm text-muted-foreground mt-4 font-medium">
-                Based on {stats.totalCount} review{stats.totalCount !== 1 ? 's' : ''}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* ─── Testimonial Grid ─── */}
         {loading ? (
@@ -499,11 +509,10 @@ export function CommentSection() {
           </div>
         )}
 
-        {/* ─── Write a Review ─── */}
-        <div className="max-w-2xl mx-auto">
+        {/* ─── Write a Review CTA ─── */}
+        <div className="text-center">
           <Button
-            variant="outline"
-            className="w-full sm:w-auto bg-slate-900 text-white font-semibold border-0 shadow-lg shadow-slate-300/40 hover:shadow-slate-400/60 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            className="bg-slate-900 text-white font-semibold border-0 shadow-lg shadow-slate-300/40 hover:shadow-slate-400/60 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl h-11 px-6"
             onClick={() => setFormOpen((prev) => !prev)}
           >
             {formOpen ? (
@@ -518,9 +527,11 @@ export function CommentSection() {
               </>
             )}
           </Button>
+        </div>
 
-          {formOpen && (
-            <Card className="mt-6 bg-card rounded-2xl border border-border">
+        {formOpen && (
+          <div className="max-w-2xl mx-auto mt-10">
+            <Card className="bg-card rounded-2xl border border-border">
               <CardContent className="p-5 sm:p-6">
                 <h4 className="text-lg font-bold text-foreground mb-4">Share Your Experience</h4>
                 <ReviewForm
@@ -531,8 +542,8 @@ export function CommentSection() {
                 />
               </CardContent>
             </Card>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

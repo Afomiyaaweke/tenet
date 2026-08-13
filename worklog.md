@@ -377,3 +377,23 @@ Work Log:
 Stage Summary:
 - No remaining orange "T" SVG logos found in the codebase
 - All logo replacements were already completed in the previous session
+---
+Task ID: 1
+Agent: main
+Task: Fix sign-in, unify review/github/vercel sections, replace orange T logos
+
+Work Log:
+- Fixed social login error handling: when OAuth is not configured (no client IDs), the social route now returns an HTML page that uses postMessage to communicate the error back to the parent window and auto-closes the popup
+- Updated SocialLoginButtons component in auth-gate.tsx to listen for 'oauth-error' postMessage events and display a toast with the error message
+- Verified email/password login form works correctly (API returns 401 for invalid credentials, 200 for valid ones)
+- Confirmed all orange "T" logos were already replaced in previous session (logo.tsx uses /logo.png, auth-gate uses <img src="/logo.png">)
+- Unified review/github/vercel sections: all three now use the same 3-column stats card layout, consistent badge styles, consistent CTA button styles (bg-slate-900, rounded-xl), consistent padding (mb-12), and alternating backgrounds
+- Updated CommentSection to use 3-column stats cards (Avg Rating, Reviews, 5-Star Reviews) matching GitHub/Vercel card style
+- Added rating distribution bars below stats cards in reviews section
+- Updated CTA button in reviews section to match GitHub/Vercel style (centered, same button classes)
+- Moved review form below CTA button for consistent layout
+
+Stage Summary:
+- Social login now gracefully shows error toast when OAuth isn't configured instead of silently failing
+- All three sections (GitHub, Vercel, Reviews) now have unified visual appearance with 3-col stats cards, consistent badges, and consistent CTA buttons
+- No remaining orange "T" logos found - all already replaced
