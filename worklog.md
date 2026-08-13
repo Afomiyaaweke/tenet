@@ -66,3 +66,28 @@ Stage Summary:
 - All Vercel deployment code removed - project is back to clean local dev state
 - Database: SQLite with file:../db/custom.db
 - Login test: testuser@test.com / Test1234! → Dashboard "Good evening, Test User"
+
+---
+Task ID: 4
+Agent: main
+Task: Remove subscription feature, push code to GitHub and Vercel
+
+Work Log:
+- Removed PricingPlansView component and navigation from app-shell.tsx
+- Removed PlanCard, "Upgrade to Pro" button, PLAN_CONFIG from dashboard.tsx
+- Deleted /api/plans routes and pricing-plans.tsx component
+- Removed 'pricing-plans' from View type in both app-shell.tsx and store/index.ts
+- Cleaned up unused imports (Star, Zap, Crown from dashboard)
+- Switched schema to postgresql + added Neon DATABASE_URL resolution in db.ts for Vercel
+- Deployed to Vercel via CLI with PostgreSQL schema and prisma generate in build
+- Vercel deployment succeeded: https://tenet-lovat.vercel.app
+- Tested Vercel: registration and login both work (verceltest@test.com)
+- Switched back to SQLite for local dev
+- Committed all changes to local git
+- GitHub push failed: no GitHub credentials available in this environment
+
+Stage Summary:
+- Subscription/pricing feature fully removed from app
+- Vercel deployed and working: https://tenet-lovat.vercel.app
+- GitHub push blocked - needs user to provide Personal Access Token or push manually
+- Local dev works with SQLite
