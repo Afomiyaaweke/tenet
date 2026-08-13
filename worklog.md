@@ -440,3 +440,26 @@ Stage Summary:
 - Toast notifications now properly visible (z-index fix)
 - Changes committed locally (commit 0953b58)
 - GitHub push and Vercel deploy require user to provide credentials or push manually
+
+---
+Task ID: 1
+Agent: main
+Task: Fix sign-in not working, deploy to Vercel, push to GitHub
+
+Work Log:
+- Found root cause: Prisma schema was stuck on "postgresql" from Vercel build test, but DATABASE_URL was SQLite
+- This caused all login API calls to return 500 "An error occurred during login"
+- Fixed: switched schema back to "sqlite", regenerated Prisma client, restarted dev server
+- Found secondary issue: Sonner toast notifications were not rendering (compatibility with Next.js 16/React 19)
+- Added inline error state (authError) with red error box directly on the login form
+- Error shows XCircle icon + message, auto-clears when user types
+- Updated sonner from 2.0.7 to 2.0.8 for better React 19 compatibility
+- Successfully deployed to Vercel (temporary URL: https://temporary-racing-acacia-04k73bi.vercel.app)
+- Removed uploads/[...path] route for Vercel deploy (causes ENOENT build error), restored for local dev
+- GitHub push still requires user credentials
+
+Stage Summary:
+- Sign-in now works: inline error + toast on failed login, successful login works
+- Prisma schema fixed: sqlite for local dev
+- Vercel deployed successfully (anonymous/temporary)
+- GitHub push needs user authentication
