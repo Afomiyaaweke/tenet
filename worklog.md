@@ -297,3 +297,32 @@ Stage Summary:
 - Removed src/app/icon.tsx and apple-icon.tsx (caused Vercel build issues)
 - Vercel deployment: https://tenetbid.vercel.app (deployed with --webpack flag)
 - GitHub pushed: https://github.com/Afomiyaaweke/tenet (main branch)
+---
+Task ID: 5
+Agent: Main Agent
+Task: Add social login options (Google, LinkedIn, GitHub, Microsoft) to sign-in and registration
+
+Work Log:
+- Added socialLogin method to auth store (src/store/index.ts)
+- Created backend API route for OAuth (src/app/api/auth/social/route.ts)
+  - GET: Initiates OAuth flow by redirecting to provider
+  - POST: Handles token exchange and user creation/login
+  - Supports Google, LinkedIn, GitHub, Microsoft
+  - Auto-creates users on first social login (pre-verified)
+- Created SocialLoginButtons component in auth-gate.tsx
+  - Provider-specific SVG icons (Google multicolor, LinkedIn blue, GitHub dark, Microsoft 4-color)
+  - Provider-specific styling (background, border, text colors)
+  - Popup-based OAuth flow with message passing
+  - Loading states per provider
+  - "Or continue with" / "Or sign up with" divider
+- Added SocialLoginButtons to login form (after Sign In button)
+- Added SocialLoginButtons to registration step 1 (after Continue button)
+- Tested with agent-browser - all 4 buttons visible on both login and register
+- Pushed to GitHub successfully
+- Vercel token expired - could not deploy (user needs to provide new token)
+
+Stage Summary:
+- Social login buttons (Google, LinkedIn, GitHub, Microsoft) added to both sign-in and registration
+- Backend OAuth API route created at /api/auth/social
+- Code pushed to GitHub: https://github.com/Afomiyaaweke/tenet
+- Vercel deployment requires new token (previous token expired)
