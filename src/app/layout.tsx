@@ -47,7 +47,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <Toaster richColors position="top-right" />
+          <Toaster richColors position="top-right" style={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
         </ThemeProvider>
       </body>
     </html>

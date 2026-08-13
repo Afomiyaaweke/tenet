@@ -92,21 +92,38 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
 
   const handleSocialLogin = async (providerId: string) => {
+    // First, check if the provider is configured by hitting the API
     setSocialLoading(providerId);
     onLoadingChange(true);
 
     try {
-      // Initiate OAuth by redirecting to our API which redirects to the provider
-      // For now, we'll use the popup-based approach with a redirect
       const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const checkUrl = `${appUrl}/api/auth/social?provider=${providerId}`;
+
+      // Fetch the URL to check if provider is configured
+      const response = await fetch(checkUrl, { method: 'GET', redirect: 'manual' });
+
+      // If the response is HTML (type oauth-error), the provider is not configured
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        const html = await response.text();
+        // Extract error message from the HTML
+        const errorMatch = html.match(/error:\s*["'](.+?)["']/);
+        const errorMsg = errorMatch?.[1] || `${providerId.charAt(0).toUpperCase() + providerId.slice(1)} login is coming soon. Please use email/password to sign in.`;
+        toast.error(errorMsg);
+        setSocialLoading(null);
+        onLoadingChange(false);
+        return;
+      }
+
+      // If we got a redirect (opaque redirect response), the provider IS configured
+      // Open OAuth in a popup window for the full flow
       const redirectUrl = `${appUrl}/api/auth/social?provider=${providerId}`;
-      
-      // Open OAuth in a popup window
       const width = 600;
       const height = 700;
       const left = (window.screen.width - width) / 2;
       const top = (window.screen.height - height) / 2;
-      
+
       const popup = window.open(
         redirectUrl,
         `${providerId}Login`,
@@ -154,7 +171,7 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
       }, 1000);
 
     } catch (error) {
-      toast.error(`Failed to connect to ${providerId}. Please try again.`);
+      toast.error(`Failed to connect. Please use email/password to sign in.`);
       setSocialLoading(null);
       onLoadingChange(false);
     }
