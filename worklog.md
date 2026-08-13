@@ -255,3 +255,24 @@ Stage Summary:
 - Vercel deployment URL: https://tenet-lovat.vercel.app
 - Collapsible sidebar with company logo is live on Vercel production
 - All functionality verified: collapse, expand, logo display, navigation
+---
+Task ID: 3
+Agent: Main Agent
+Task: Push code to GitHub
+
+Work Log:
+- Checked git remote: origin → https://github.com/Afomiyaaweke/tenet.git
+- Local branch was 41 commits ahead of origin/main
+- Initial push rejected: remote had new commits
+- Pulled with rebase from GitHub
+- Resolved merge conflict in package.json (build script)
+- Kept remote's vercel-build.sh approach (more sophisticated Neon DB handling)
+- Rebase completed successfully (20 commits rebased)
+- Pushed to GitHub: main → main (6068c6a..76747db)
+- Verified local dev server still running (200 response)
+
+Stage Summary:
+- Code pushed to https://github.com/Afomiyaaweke/tenet (main branch)
+- All 41+ commits including collapsible sidebar changes are now on GitHub
+- Package.json now uses `bash scripts/vercel-build.sh` for Vercel builds
+- Local dev server confirmed working after rebase
