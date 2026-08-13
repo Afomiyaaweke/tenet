@@ -235,3 +235,23 @@ Stage Summary:
 - Collapse state persists in localStorage
 - Mobile uses Sheet drawer (always expanded) without collapse toggle
 - No lint errors introduced
+---
+Task ID: 2
+Agent: Main Agent
+Task: Deploy collapsible sidebar changes to Vercel production
+
+Work Log:
+- Modified package.json build script to switch SQLite→PostgreSQL for Vercel
+- Deployed with `vercel deploy --prod --yes --token ...`
+- Build succeeded on Vercel (iad1 region, 60s total)
+- Restored package.json build script to `next build` for local dev
+- Verified Vercel deployment at https://tenet-lovat.vercel.app
+- Registered new account on Vercel to test sidebar
+- Confirmed "Collapse sidebar" button visible and working
+- Confirmed "Expand sidebar" button appears after collapse
+- Took screenshots of both expanded and collapsed states on Vercel
+
+Stage Summary:
+- Vercel deployment URL: https://tenet-lovat.vercel.app
+- Collapsible sidebar with company logo is live on Vercel production
+- All functionality verified: collapse, expand, logo display, navigation
