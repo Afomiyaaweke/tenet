@@ -20,14 +20,6 @@ fi
 echo "Running prisma generate..."
 npx prisma generate
 
-# Push schema to Neon PostgreSQL database
-# This ensures all tables exist before the app starts
-echo "Pushing schema to PostgreSQL database..."
-npx prisma db push --skip-generate --accept-data-loss 2>&1 || {
-  echo "WARNING: prisma db push failed. The database may already be up to date."
-  echo "Continuing with build..."
-}
-
 echo "Running next build with webpack..."
 npx next build --webpack
 

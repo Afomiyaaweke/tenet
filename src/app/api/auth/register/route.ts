@@ -195,13 +195,21 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error: any) {
-    console.error('Registration error:', error);
-    
+    // Log the FULL error object for debugging
+    console.error('Registration error (full):', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    console.error('Registration error message:', error?.message);
+    console.error('Registration error code:', error?.code);
+    console.error('Registration error meta:', error?.meta);
+
     // Provide more specific error messages for common failures
     let errorMessage = 'An error occurred during registration';
     const msg = error?.message || '';
-    
-    if (msg.includes('JWT_SECRET') || msg.includes('FATAL')) {
+    const code = error?.code || '';
+
+    // P1001 = Can't reach database server
+    if (code === 'P1001' || msg.includes('P1001') || msg.includes("Can't reach database") || (msg.includes('connect') && msg.includes('database'))) {
+      errorMessage = 'Database connection failed. Please ensure DATABASE_URL is set in Vercel environment variables.';
+    } else if (msg.includes('JWT_SECRET') || msg.includes('FATAL')) {
       errorMessage = 'Server configuration error. Please contact support.';
     } else if (msg.includes('Unique constraint') || msg.includes('unique') || msg.includes('duplicate key')) {
       errorMessage = 'A record with this information already exists. Please try different details.';
@@ -212,7 +220,7 @@ export async function POST(request: NextRequest) {
     } else if (msg.includes('Transaction') || msg.includes('transaction')) {
       errorMessage = 'Registration timed out. Please try again.';
     }
-    
+
     return NextResponse.json(
       { success: false, error: errorMessage },
       { status: 500 },

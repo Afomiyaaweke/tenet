@@ -23,11 +23,12 @@ function resolveDatabaseUrl(): string | undefined {
       'POSTGRES_URL',
       'tenet_DATABASE_URL',
       'tenet_POSTGRES_URL',
+      'DATABASE_URL',
     ];
 
     for (const key of envKeys) {
       const value = (process.env as Record<string, string | undefined>)[key];
-      if (value && value.startsWith('postgresql')) return value;
+      if (value && (value.startsWith('postgresql') || value.startsWith('postgres'))) return value;
     }
   }
   return process.env.DATABASE_URL
@@ -37,7 +38,7 @@ function createPrismaClient(): PrismaClient {
   const isProduction = process.env.NODE_ENV === 'production'
   const databaseUrl = resolveDatabaseUrl()
 
-  if (isProduction && databaseUrl && databaseUrl.startsWith('postgresql')) {
+  if (isProduction && databaseUrl && (databaseUrl.startsWith('postgresql') || databaseUrl.startsWith('postgres'))) {
     const url = new URL(databaseUrl)
     if (!url.searchParams.has('connection_limit')) url.searchParams.set('connection_limit', '20')
     if (!url.searchParams.has('pool_timeout')) url.searchParams.set('pool_timeout', '30')
