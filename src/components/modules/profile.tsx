@@ -177,6 +177,19 @@ export function ProfileView() {
     bio: user?.profile?.bio || '',
     skillTags: user?.profile?.skillTags || '',
   }));
+  const [companyEditing, setCompanyEditing] = useState(false);
+  const [companyForm, setCompanyForm] = useState(() => ({
+    name: company?.name || '',
+    industry: company?.industry || 'General',
+    tinNumber: company?.tinNumber || '',
+    registrationNo: company?.registrationNo || '',
+    phone: company?.phone || '',
+    email: company?.email || '',
+    city: company?.city || '',
+    country: company?.country || 'Ethiopia',
+    address: company?.address || '',
+    website: company?.website || '',
+  }));
   const [selectedSkills, setSelectedSkills] = useState<string[]>(
     () => (user?.profile?.skillTags || '').split(',').map(s => s.trim()).filter(Boolean)
   );
@@ -316,6 +329,37 @@ export function ProfileView() {
     } else toast.error(res.error || 'Failed to update profile');
   };
 
+  const handleCompanySave = async () => {
+    if (!companyData?.id) return;
+    const res = await api.put(`/companies/${companyData.id}`, companyForm);
+    if (res.success) {
+      toast.success('Company information updated!');
+      setCompanyEditing(false);
+      setCompanyData(res.data);
+      // Refresh user data so store stays in sync
+      const meRes = await api.get('/auth/me');
+      if (meRes.success) setUser(meRes.data);
+    } else {
+      toast.error(res.error || 'Failed to update company');
+    }
+  };
+
+  const startCompanyEdit = () => {
+    setCompanyForm({
+      name: companyData?.name || '',
+      industry: companyData?.industry || 'General',
+      tinNumber: companyData?.tinNumber || '',
+      registrationNo: companyData?.registrationNo || '',
+      phone: companyData?.phone || '',
+      email: companyData?.email || '',
+      city: companyData?.city || '',
+      country: companyData?.country || 'Ethiopia',
+      address: companyData?.address || '',
+      website: companyData?.website || '',
+    });
+    setCompanyEditing(true);
+  };
+
   const toggleSkill = (skill: string) => {
     setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
   };
@@ -406,6 +450,26 @@ export function ProfileView() {
                   <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> Verified
                 </Badge>
               )}
+              {isTeamAdmin && hasCompany && !companyEditing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                  onClick={startCompanyEdit}
+                >
+                  <Edit2 className="h-3 w-3 mr-1" /> Edit
+                </Button>
+              )}
+              {companyEditing && (
+                <div className="ml-auto flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setCompanyEditing(false)}>
+                    <X className="h-3 w-3 mr-0.5" /> Cancel
+                  </Button>
+                  <Button size="sm" className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCompanySave}>
+                    <Save className="h-3 w-3 mr-0.5" /> Save
+                  </Button>
+                </div>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -422,81 +486,201 @@ export function ProfileView() {
                     <Building className="h-5 w-5 text-teal-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-bold text-foreground">{companyData.name}</h4>
-                      {companyData.verified && (
-                        <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{companyData.industry}</p>
+                    {companyEditing ? (
+                      <Input
+                        value={companyForm.name}
+                        onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
+                        className="h-8 text-sm font-bold"
+                        placeholder="Company name"
+                      />
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-bold text-foreground">{companyData.name}</h4>
+                          {companyData.verified && (
+                            <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{companyData.industry}</p>
+                      </>
+                    )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-lg text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => setView('admin', { tab: 'companies' })}
-                  >
-                    View Details <ChevronRight className="h-3 w-3 ml-0.5" />
-                  </Button>
+                  {!companyEditing && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-lg text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setView('admin', { tab: 'companies' })}
+                    >
+                      View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+                    </Button>
+                  )}
                 </div>
 
                 {/* Company details grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {companyData.city && (
-                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                      <MapPinned className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                {companyEditing ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
-                        <p className="text-xs font-medium">{companyData.city}{companyData.country ? `, ${companyData.country}` : ''}</p>
+                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Industry</Label>
+                        <Input
+                          value={companyForm.industry}
+                          onChange={(e) => setCompanyForm({ ...companyForm, industry: e.target.value })}
+                          className="h-8 text-xs mt-1"
+                          placeholder="e.g. Construction"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">TIN Number</Label>
+                        <Input
+                          value={companyForm.tinNumber}
+                          onChange={(e) => setCompanyForm({ ...companyForm, tinNumber: e.target.value })}
+                          className="h-8 text-xs mt-1"
+                          placeholder="TIN..."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Registration No.</Label>
+                        <Input
+                          value={companyForm.registrationNo}
+                          onChange={(e) => setCompanyForm({ ...companyForm, registrationNo: e.target.value })}
+                          className="h-8 text-xs mt-1"
+                          placeholder="REG..."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Phone</Label>
+                        <Input
+                          value={companyForm.phone}
+                          onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
+                          className="h-8 text-xs mt-1"
+                          placeholder="+251..."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Email</Label>
+                        <Input
+                          value={companyForm.email}
+                          onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
+                          className="h-8 text-xs mt-1"
+                          placeholder="info@company.com"
+                          type="email"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Website</Label>
+                        <Input
+                          value={companyForm.website}
+                          onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
+                          className="h-8 text-xs mt-1"
+                          placeholder="https://company.com"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">City</Label>
+                        <Input
+                          value={companyForm.city}
+                          onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
+                          className="h-8 text-xs mt-1"
+                          placeholder="Addis Ababa"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Country</Label>
+                        <Input
+                          value={companyForm.country}
+                          onChange={(e) => setCompanyForm({ ...companyForm, country: e.target.value })}
+                          className="h-8 text-xs mt-1"
+                          placeholder="Ethiopia"
+                        />
                       </div>
                     </div>
-                  )}
-                  {companyData.tinNumber && (
-                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                      <Hash className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">TIN Number</p>
-                        <p className="text-xs font-medium">{companyData.tinNumber}</p>
-                      </div>
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Address</Label>
+                      <Input
+                        value={companyForm.address}
+                        onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
+                        className="h-8 text-xs mt-1"
+                        placeholder="Street address"
+                      />
                     </div>
-                  )}
-                  {companyData.registrationNo && (
-                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                      <FileText className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Registration No.</p>
-                        <p className="text-xs font-medium">{companyData.registrationNo}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {companyData.city && (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                        <MapPinned className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
+                          <p className="text-xs font-medium">{companyData.city}{companyData.country ? `, ${companyData.country}` : ''}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {companyData.industry && (
-                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                      <Briefcase className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Industry</p>
-                        <p className="text-xs font-medium">{companyData.industry}</p>
+                    )}
+                    {companyData.tinNumber && (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                        <Hash className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">TIN Number</p>
+                          <p className="text-xs font-medium">{companyData.tinNumber}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {companyData.phone && (
-                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                      <Phone className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Phone</p>
-                        <p className="text-xs font-medium">{companyData.phone}</p>
+                    )}
+                    {companyData.registrationNo && (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                        <FileText className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Registration No.</p>
+                          <p className="text-xs font-medium">{companyData.registrationNo}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {companyData.website && (
-                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                      <Globe className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
-                        <p className="text-xs font-medium truncate max-w-[200px]">{companyData.website}</p>
+                    )}
+                    {companyData.industry && (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                        <Briefcase className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Industry</p>
+                          <p className="text-xs font-medium">{companyData.industry}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                    {companyData.phone && (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                        <Phone className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Phone</p>
+                          <p className="text-xs font-medium">{companyData.phone}</p>
+                        </div>
+                      </div>
+                    )}
+                    {companyData.website && (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                        <Globe className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
+                          <p className="text-xs font-medium truncate max-w-[200px]">{companyData.website}</p>
+                        </div>
+                      </div>
+                    )}
+                    {companyData.email && (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                        <Mail className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Email</p>
+                          <p className="text-xs font-medium">{companyData.email}</p>
+                        </div>
+                      </div>
+                    )}
+                    {companyData.address && (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                        <MapPin className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Address</p>
+                          <p className="text-xs font-medium">{companyData.address}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">
