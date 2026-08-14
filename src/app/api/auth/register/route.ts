@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
     // ── Create Company + User + Profile in a transaction ──
+    // Use 15s timeout for Neon cold starts (default is 5s)
     const result = await db.$transaction(async (tx) => {
       let company: { id: string; name: string; [key: string]: unknown } | null = null;
       if (companyName) {
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
       }
 
       return { user, profile, company };
-    });
+    }, { timeout: 15000 });
 
     // ── Store initial password in history (non-critical - don't fail registration) ──
     try {
@@ -193,10 +194,27 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 },
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration error:', error);
+    
+    // Provide more specific error messages for common failures
+    let errorMessage = 'An error occurred during registration';
+    const msg = error?.message || '';
+    
+    if (msg.includes('JWT_SECRET') || msg.includes('FATAL')) {
+      errorMessage = 'Server configuration error. Please contact support.';
+    } else if (msg.includes('Unique constraint') || msg.includes('unique') || msg.includes('duplicate key')) {
+      errorMessage = 'A record with this information already exists. Please try different details.';
+    } else if (msg.includes('connect') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
+      errorMessage = 'Unable to connect to database. Please try again in a moment.';
+    } else if (msg.includes('does not exist') || msg.includes('table')) {
+      errorMessage = 'Database schema is not ready. Please try again in a moment.';
+    } else if (msg.includes('Transaction') || msg.includes('transaction')) {
+      errorMessage = 'Registration timed out. Please try again.';
+    }
+    
     return NextResponse.json(
-      { success: false, error: 'An error occurred during registration' },
+      { success: false, error: errorMessage },
       { status: 500 },
     );
   }

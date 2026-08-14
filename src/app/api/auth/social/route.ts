@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import jwt from 'jsonwebtoken';
+import { generateToken } from '@/lib/auth';
 import bcryptjs from 'bcryptjs';
 import crypto from 'crypto';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'tenet-dev-jwt-secret-2024-production-key';
 
 // OAuth provider configuration
 const OAUTH_PROVIDERS: Record<string, { clientId: string; clientSecret: string; authUrl: string; tokenUrl: string; userInfoUrl: string; scope: string }> = {
@@ -196,12 +194,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Generate JWT
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Generate JWT using centralized auth function
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+      tokenVersion: user.tokenVersion ?? 0,
+    });
 
     const { passwordHash, ...safeUser } = user;
 
