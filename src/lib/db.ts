@@ -6,15 +6,29 @@ const globalForPrisma = globalThis as unknown as {
 
 /**
  * Resolve the database URL for the current environment.
- * In production on Vercel, the Neon integration sets env vars prefixed with
- * the project name (e.g. tenet_DATABASE_URL, tenet_POSTGRES_PRISMA_URL).
+ * In production on Vercel, the Neon integration may set env vars with various prefixes:
+ * - POSTGRES_PRISMA_URL (default Neon integration)
+ * - POSTGRES_URL (alternative Neon naming)
+ * - tenet_POSTGRES_PRISMA_URL (project-prefixed)
+ * - tenet_DATABASE_URL (project-prefixed)
+ * - DATABASE_URL (fallback)
  */
 function resolveDatabaseUrl(): string | undefined {
   if (process.env.NODE_ENV === 'production') {
-    const neonPrismaUrl = process.env.tenet_POSTGRES_PRISMA_URL
-    const neonDatabaseUrl = process.env.tenet_DATABASE_URL
-    if (neonPrismaUrl) return neonPrismaUrl
-    if (neonDatabaseUrl) return neonDatabaseUrl
+    // Try all possible Neon env var names in order of preference
+    // Prefer Prisma-specific URL (includes connection_limit support)
+    const envKeys = [
+      'POSTGRES_PRISMA_URL',
+      'tenet_POSTGRES_PRISMA_URL',
+      'POSTGRES_URL',
+      'tenet_DATABASE_URL',
+      'tenet_POSTGRES_URL',
+    ];
+
+    for (const key of envKeys) {
+      const value = (process.env as Record<string, string | undefined>)[key];
+      if (value && value.startsWith('postgresql')) return value;
+    }
   }
   return process.env.DATABASE_URL
 }

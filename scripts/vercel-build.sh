@@ -2,22 +2,25 @@
 set -euo pipefail
 
 echo "=== Vercel Build Script ==="
-echo "Switching Prisma provider from sqlite to postgresql for Vercel build..."
 
 SCHEMA_FILE="prisma/schema.prisma"
 
-# Switch provider from sqlite to postgresql
-sed -i 's/provider = "sqlite"/provider = "postgresql"/' "$SCHEMA_FILE"
+# Check if we need to switch provider
+CURRENT_PROVIDER=$(grep -oP 'provider\s*=\s*"\K[^"]+' "$SCHEMA_FILE" || echo "unknown")
+echo "Current Prisma provider: $CURRENT_PROVIDER"
 
-echo "Prisma provider switched to postgresql"
+if [ "$CURRENT_PROVIDER" = "sqlite" ]; then
+  echo "Switching Prisma provider from sqlite to postgresql for Vercel build..."
+  sed -i 's/provider = "sqlite"/provider = "postgresql"/' "$SCHEMA_FILE"
+  echo "Provider switched to postgresql"
+else
+  echo "Provider is already $CURRENT_PROVIDER, no switch needed"
+fi
+
 echo "Running prisma generate..."
-
-# Generate Prisma client with postgresql provider
 npx prisma generate
 
-echo "Running next build..."
-
-# Build the Next.js app
+echo "Running next build with webpack..."
 npx next build --webpack
 
 echo "=== Vercel Build Complete ==="

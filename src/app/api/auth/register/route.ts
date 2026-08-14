@@ -93,8 +93,8 @@ export async function POST(request: NextRequest) {
           data: {
             name: companyName,
             industry: companyIndustry || 'General',
-            tinNumber: companyTinNumber || null,
-            registrationNo: companyRegistrationNo || null,
+            tinNumber: (companyTinNumber?.trim() || null),
+            registrationNo: (companyRegistrationNo?.trim() || null),
             phone: companyPhone || null,
             city: companyCity || null,
             country: companyCountry || 'Ethiopia',
@@ -148,8 +148,12 @@ export async function POST(request: NextRequest) {
       return { user, profile, company };
     });
 
-    // ── Store initial password in history ──
-    await addPasswordHistory(result.user.id, passwordHash);
+    // ── Store initial password in history (non-critical - don't fail registration) ──
+    try {
+      await addPasswordHistory(result.user.id, passwordHash);
+    } catch (e) {
+      console.error('Password history save failed (non-critical):', e);
+    }
 
     // ── Generate JWT token ──
     const token = generateToken({
@@ -160,18 +164,22 @@ export async function POST(request: NextRequest) {
       tokenVersion: result.user.tokenVersion ?? 0,
     });
 
-    // ── Audit log ──
-    const clientIP = getClientIP(request);
-    const userAgent = getUserAgent(request);
-    await auditLog({
-      userId: result.user.id,
-      action: 'register',
-      resource: 'user',
-      resourceId: result.user.id,
-      companyId: result.user.companyId || undefined,
-      ipAddress: clientIP,
-      userAgent,
-    });
+    // ── Audit log (non-critical) ──
+    try {
+      const clientIP = getClientIP(request);
+      const userAgent = getUserAgent(request);
+      await auditLog({
+        userId: result.user.id,
+        action: 'register',
+        resource: 'user',
+        resourceId: result.user.id,
+        companyId: result.user.companyId || undefined,
+        ipAddress: clientIP,
+        userAgent,
+      });
+    } catch (e) {
+      console.error('Audit log failed (non-critical):', e);
+    }
 
     const { passwordHash: _, ...userWithoutPassword } = result.user;
 

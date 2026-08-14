@@ -19,6 +19,10 @@ class ApiClient {
     const url = new URL(`${API_BASE}${path}`, window.location.origin);
     if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     const res = await fetch(url.toString(), { headers: this.headers() });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
+    }
     return res.json();
   }
 
@@ -28,6 +32,10 @@ class ApiClient {
       headers: this.headers(),
       body: data ? JSON.stringify(data) : undefined,
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
+    }
     return res.json();
   }
 
@@ -37,6 +45,10 @@ class ApiClient {
       headers: this.headers(),
       body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
+    }
     return res.json();
   }
 
@@ -46,6 +58,10 @@ class ApiClient {
       headers: this.headers(),
       body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
+    }
     return res.json();
   }
 
@@ -54,6 +70,10 @@ class ApiClient {
       method: 'DELETE',
       headers: this.headers(),
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
+    }
     return res.json();
   }
 
@@ -66,6 +86,10 @@ class ApiClient {
       headers,
       body: formData,
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      try { return { success: false, error: JSON.parse(text).error || `Upload failed (${res.status})` }; } catch { return { success: false, error: `Upload failed (${res.status}): ${text.slice(0, 200)}` }; }
+    }
     return res.json();
   }
 }
