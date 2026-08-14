@@ -2653,7 +2653,7 @@ export function LiveTendersView() {
       else setLoading(true);
 
       const currentOffset = append ? tendersLengthRef.current : 0;
-      const params: Record<string, string> = { rows: append ? '200' : '100', offset: String(currentOffset) };
+      const params: Record<string, string> = { rows: append ? '50' : '25', offset: String(currentOffset) };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
       if (sectorFilter) params.sector = sectorFilter;
@@ -2698,7 +2698,7 @@ export function LiveTendersView() {
   useEffect(() => {
     if (!autoRefresh) return;
 
-    const POLL_INTERVAL = 60_000; // 60 seconds
+    const POLL_INTERVAL = 5 * 60_000; // 5 minutes
 
     const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -2740,23 +2740,30 @@ export function LiveTendersView() {
     return () => clearInterval(id);
   }, [lastRefreshed]);
 
-  // Check saved status for visible tenders
+  // Check saved status for visible tenders — batched into a single API call
   useEffect(() => {
     const checkSaved = async () => {
       const unchecked = tenders.filter(t => savedTenders[t.id] === undefined);
-      const batch = unchecked.slice(0, 20);
-      for (const t of batch) {
-        try {
-          const res = await api.get('/tenders/saved/check', {
-            tenderId: t.externalId || t.id,
-            source: t.source,
-          });
-          if (res.success) {
-            setSavedTenders((prev) => ({ ...prev, [t.id]: res.saved }));
+      const batch = unchecked.slice(0, 50);
+      if (batch.length === 0) return;
+      try {
+        const items = batch.map(t => ({
+          tenderId: t.externalId || t.id,
+          source: t.source,
+        }));
+        const res = await api.post('/tenders/saved/batch-check', { items });
+        if (res.success && res.results) {
+          const updates: Record<string, boolean> = {};
+          for (const t of batch) {
+            const key = t.externalId || t.id;
+            if (key in res.results) {
+              updates[t.id] = res.results[key];
+            }
           }
-        } catch {
-          // Ignore errors for saved check
+          setSavedTenders((prev) => ({ ...prev, ...updates }));
         }
+      } catch {
+        // Ignore errors for saved check
       }
     };
     if (tenders.length > 0) checkSaved();
