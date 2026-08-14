@@ -27,7 +27,9 @@ import {
   Building2, MapPin, Briefcase, Award, Verified, Send, Clock,
   MoreHorizontal, X, Plus, ChevronDown, Globe2, Handshake,
   Sparkles, TrendingUp, Star, Link2, Image, Trash2,
+  Paperclip, Smile, Film, Loader2,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 // ==========================================
 // Constants
@@ -57,6 +59,15 @@ const SKILL_COLORS: Record<string, string> = {
 };
 
 const REACTION_EMOJIS = ['👍', '❤️', '🎉', '💡'] as const;
+
+// Emoji categories for the emoji picker
+const EMOJI_CATEGORIES = [
+  { name: 'Smileys', emojis: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐'] },
+  { name: 'Gestures', emojis: ['👋','🤚','🖐️','✋','🖖','🫱','🫲','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄','🫦'] },
+  { name: 'Hearts', emojis: ['❤️','🧡','💛','💚','💙','💜','🤎','🖤','🤍','🩷','🩵','🩶','🩵','❤️‍🔥','❤️‍🩹','💕','💞','💓','💗','💖','💘','💝','💟','♥️'] },
+  { name: 'Objects', emojis: ['🎉','🎊','🎈','🎁','🏆','🥇','🥈','🥉','🏅','🎖️','📋','📌','📎','🔗','💡','🔥','⭐','🌟','✨','💎','🎯','🚀','⚡','💥','💫','🎵','🎶','🎤','🎬','📷','📹','💻','📱','📧','✅','❌','⚠️','🔒','🔑'] },
+  { name: 'Nature', emojis: ['🌱','🌿','🌳','🌴','🌵','🌾','🍀','🍁','🍂','🍃','🌸','🌺','🌻','🌹','🥀','💐','🍄','🌰','🪨','💧','💦','🌧️','⛅','🌈','☀️','🌤️','🌙','⭐','🦋','🐝','🐛','🦀','🐙','🐟','🐠','🐬','🐳','🦈'] },
+];
 
 const INDUSTRY_OPTIONS = [
   'Construction', 'IT & Technology', 'Supply Chain', 'Consulting',
@@ -381,6 +392,12 @@ function LeftSidebar() {
 
 // ─── Create Post Box ───
 
+interface AttachedMedia {
+  url: string;
+  type: 'image' | 'video';
+  name: string;
+}
+
 function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
   const { user } = useAuthStore();
   const [content, setContent] = useState('');
@@ -389,6 +406,11 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
   const [visibility, setVisibility] = useState('public');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [attachedMedia, setAttachedMedia] = useState<AttachedMedia[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const addTag = () => {
     const trimmed = tagInput.trim();
@@ -402,14 +424,98 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
     setTags(tags.filter((t) => t !== tag));
   };
 
+  const removeMedia = (index: number) => {
+    setAttachedMedia((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const insertEmoji = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newContent = content.substring(0, start) + emoji + content.substring(end);
+      setContent(newContent);
+      // Set cursor position after emoji
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+        textarea.focus();
+      }, 0);
+    } else {
+      setContent((prev) => prev + emoji);
+    }
+    setEmojiOpen(false);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const remaining = 10 - attachedMedia.length;
+    const toUpload = Array.from(files).slice(0, remaining);
+
+    if (toUpload.length === 0) {
+      toast.error('Maximum 10 media files allowed');
+      return;
+    }
+
+    setIsUploading(true);
+    const token = localStorage.getItem('tenet_token');
+
+    for (const file of toUpload) {
+      // Validate file size (25MB max)
+      if (file.size > 25 * 1024 * 1024) {
+        toast.error(`${file.name} is too large (max 25MB)`);
+        continue;
+      }
+
+      // Validate file type
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const validVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
+      const isValid = [...validImageTypes, ...validVideoTypes].includes(file.type);
+      if (!isValid) {
+        toast.error(`${file.name}: Only images (JPEG, PNG, WebP, GIF) and videos (MP4, WebM, MOV) are allowed`);
+        continue;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/social/upload', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          setAttachedMedia((prev) => [
+            ...prev,
+            { url: data.data.url, type: data.data.type, name: file.name },
+          ]);
+        } else {
+          toast.error(data.error || `Failed to upload ${file.name}`);
+        }
+      } catch {
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+
+    setIsUploading(false);
+    // Reset file input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleSubmit = async () => {
-    if (!content.trim()) return;
+    if (!content.trim() && attachedMedia.length === 0) return;
     setIsSubmitting(true);
     try {
+      const imageUrls = attachedMedia.map((m) => m.url);
       const res = await api.post('/social/posts', {
         content: content.trim(),
         tags: tags.join(','),
         visibility,
+        imageUrls,
       });
       if (res.success) {
         toast.success('Post created!');
@@ -418,6 +524,7 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
         setTagInput('');
         setVisibility('public');
         setIsExpanded(false);
+        setAttachedMedia([]);
         onPostCreated();
       } else {
         toast.error(res.error || 'Failed to create post');
@@ -431,6 +538,7 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
 
   const profile = user?.profile;
   const fullName = profile?.fullName || user?.email || 'User';
+  const hasContent = content.trim() || attachedMedia.length > 0;
 
   return (
     <Card className="mb-4">
@@ -439,6 +547,7 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
           <ProfileAvatar src={profile?.profilePhoto} name={fullName} className="h-10 w-10 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <Textarea
+              ref={textareaRef}
               placeholder="Share an update, insight, or opportunity..."
               value={content}
               onChange={(e) => {
@@ -449,6 +558,45 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
               className="min-h-[60px] resize-none border-0 bg-muted/50 focus-visible:ring-1 focus-visible:ring-emerald-500/30 p-3 text-sm"
               maxLength={5000}
             />
+
+            {/* Media Previews */}
+            {attachedMedia.length > 0 && (
+              <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {attachedMedia.map((media, index) => (
+                  <div key={index} className="relative group rounded-lg overflow-hidden border border-border bg-muted/30">
+                    {media.type === 'video' ? (
+                      <div className="relative h-28 flex items-center justify-center bg-black/5">
+                        <video
+                          src={media.url}
+                          className="h-full w-full object-cover"
+                          muted
+                          preload="metadata"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <Film className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={media.url}
+                        alt={`Attachment ${index + 1}`}
+                        className="h-28 w-full object-cover"
+                      />
+                    )}
+                    <button
+                      onClick={() => removeMedia(index)}
+                      className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <div className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5 bg-black/50 text-white text-[9px] truncate">
+                      {media.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {isExpanded && (
               <div className="mt-3 space-y-3">
                 {/* Tag Input */}
@@ -481,9 +629,100 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
                     ))}
                   </div>
                 )}
-                {/* Visibility + Post */}
+                {/* Toolbar: Attach, Emoji, Visibility, Post */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {/* Attach File / Video Button */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading || attachedMedia.length >= 10}
+                    >
+                      {isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Paperclip className="h-4 w-4" />
+                      )}
+                    </Button>
+
+                    {/* Add Image specifically */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = 'image/jpeg,image/png,image/webp,image/gif';
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      disabled={isUploading || attachedMedia.length >= 10}
+                      title="Add image"
+                    >
+                      <Image className="h-4 w-4" />
+                    </Button>
+
+                    {/* Add Video specifically */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = 'video/mp4,video/webm,video/quicktime';
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      disabled={isUploading || attachedMedia.length >= 10}
+                      title="Add video"
+                    >
+                      <Film className="h-4 w-4" />
+                    </Button>
+
+                    {/* Emoji Picker */}
+                    <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
+                        >
+                          <Smile className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 p-0" align="start" side="top">
+                        <div className="max-h-64 overflow-y-auto">
+                          {EMOJI_CATEGORIES.map((cat) => (
+                            <div key={cat.name} className="px-2 pt-2 pb-1">
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{cat.name}</p>
+                              <div className="grid grid-cols-8 gap-0.5">
+                                {cat.emojis.map((emoji, i) => (
+                                  <button
+                                    key={`${emoji}-${i}`}
+                                    onClick={() => insertEmoji(emoji)}
+                                    className="h-8 w-8 flex items-center justify-center text-lg hover:bg-muted rounded transition-colors"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* Visibility Select */}
                     <Select value={visibility} onValueChange={setVisibility}>
                       <SelectTrigger className="h-8 w-[130px] text-xs">
                         <Globe2 className="h-3.5 w-3.5 mr-1" />
@@ -498,7 +737,7 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
                   </div>
                   <Button
                     onClick={handleSubmit}
-                    disabled={!content.trim() || isSubmitting}
+                    disabled={!hasContent || isSubmitting}
                     className="h-8 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                   >
                     {isSubmitting ? (
@@ -713,20 +952,32 @@ function PostCard({
         <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
         {images.length > 0 && (
           <div className={`mt-3 grid gap-2 ${images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
-            {images.slice(0, 4).map((url, idx) => (
-              <div key={idx} className={`relative rounded-lg overflow-hidden bg-muted ${images.length > 2 && idx === 3 ? 'col-span-1' : ''}`}>
-                <img
-                  src={url}
-                  alt={`Post image ${idx + 1}`}
-                  className="w-full h-48 object-cover"
-                />
-                {images.length > 4 && idx === 3 && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-lg">
-                    +{images.length - 4}
-                  </div>
-                )}
-              </div>
-            ))}
+            {images.slice(0, 4).map((url, idx) => {
+              const isVideo = /\.(mp4|webm|mov|avi)$/i.test(url);
+              return (
+                <div key={idx} className={`relative rounded-lg overflow-hidden bg-muted ${images.length > 2 && idx === 3 ? 'col-span-1' : ''}`}>
+                  {isVideo ? (
+                    <video
+                      src={url}
+                      controls
+                      preload="metadata"
+                      className="w-full h-48 object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={url}
+                      alt={`Post media ${idx + 1}`}
+                      className="w-full h-48 object-cover"
+                    />
+                  )}
+                  {images.length > 4 && idx === 3 && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-lg">
+                      +{images.length - 4}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
         {tags.length > 0 && (
@@ -824,6 +1075,33 @@ function PostCard({
                 }}
                 className="h-8 text-xs"
               />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 px-1.5 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400">
+                    <Smile className="h-3.5 w-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="end" side="top">
+                  <div className="max-h-56 overflow-y-auto">
+                    {EMOJI_CATEGORIES.slice(0, 3).map((cat) => (
+                      <div key={cat.name} className="px-2 pt-2 pb-1">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{cat.name}</p>
+                        <div className="grid grid-cols-8 gap-0.5">
+                          {cat.emojis.map((emoji, i) => (
+                            <button
+                              key={`${emoji}-${i}`}
+                              onClick={() => setCommentText((prev) => prev + emoji)}
+                              className="h-7 w-7 flex items-center justify-center text-base hover:bg-muted rounded transition-colors"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Button
                 variant="ghost"
                 size="sm"

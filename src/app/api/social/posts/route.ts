@@ -142,9 +142,10 @@ export async function POST(request: NextRequest) {
     };
 
     const trimmedContent = typeof content === 'string' ? content.trim() : '';
-    if (!trimmedContent) {
+    const hasImages = Array.isArray(imageUrls) && imageUrls.length > 0;
+    if (!trimmedContent && !hasImages) {
       return NextResponse.json(
-        { success: false, error: 'Post content is required' },
+        { success: false, error: 'Post content or media is required' },
         { status: 400 }
       );
     }
