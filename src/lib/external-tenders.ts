@@ -2711,6 +2711,30 @@ interface CacheEntry {
 }
 const cache = new Map<string, CacheEntry>();
 
+// Track in-flight background refreshes to avoid duplicates
+const inFlightRefreshes = new Set<string>();
+
+/**
+ * Background refresh: fetches fresh data and updates cache.
+ * Fire-and-forget — does not block the response.
+ */
+function refreshInBackground(cacheKey: string, opts: { source?: string; search?: string; rows?: number; offset?: number }) {
+  if (inFlightRefreshes.has(cacheKey)) return; // Already refreshing
+  inFlightRefreshes.add(cacheKey);
+  
+  // Fetch directly from sources, bypassing cache logic
+  fetchLiveTenders({ ...opts, _skipCache: true })
+    .then((result) => {
+      cache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+    })
+    .catch(() => {
+      // Background refresh failed — keep existing stale data if any
+    })
+    .finally(() => {
+      inFlightRefreshes.delete(cacheKey);
+    });
+}
+
 /* ─────────────────────────────────────────────────────────────────────
  * Sample / fallback tenders (when live APIs are unreachable)
  * Generates realistic tender data from multiple "sources" so that
@@ -3224,11 +3248,46 @@ export async function fetchLiveTenders(opts: {
   search?: string;
   rows?: number;
   offset?: number;
+  /** Internal: skip cache, fetch directly from sources */
+  _skipCache?: boolean;
 }): Promise<FetchLiveTendersResult> {
   const cacheKey = `${opts.source || 'all'}::${opts.search || ''}::${opts.rows || 20}::${opts.offset || 0}`;
   const hit = cache.get(cacheKey);
-  if (hit && hit.expiresAt > Date.now()) {
-    return { ...hit.result, meta: { ...hit.result.meta, cachedAt: Date.now() } };
+  
+  // Skip cache logic for background refresh
+  if (!opts._skipCache) {
+    // Fresh cache hit — return immediately
+    if (hit && hit.expiresAt > Date.now()) {
+      return { ...hit.result, meta: { ...hit.result.meta, cachedAt: Date.now() } };
+    }
+    
+    // Stale cache hit — return stale data immediately, refresh in background
+    if (hit) {
+      refreshInBackground(cacheKey, opts);
+      return { ...hit.result, meta: { ...hit.result.meta, cachedAt: hit.result.meta.cachedAt, stale: true } };
+    }
+
+    // ── Cold start: No cache at all ──
+    // Return sample data IMMEDIATELY for fast UX, then fetch real data in background
+    const sampleTenders = generateSampleTenders(opts.rows ?? 20, opts.offset || 0, opts.search);
+    const sampleResult: FetchLiveTendersResult = {
+      tenders: sampleTenders,
+      meta: {
+        total: sampleTenders.length,
+        sources: [{ id: 'sample', name: 'Sample Data (loading live...)', live: false, ok: true, count: sampleTenders.length }],
+        fallback: true,
+        cachedAt: Date.now(),
+        loading: true,
+      },
+    };
+    
+    // Cache the sample data so next request gets instant response
+    cache.set(cacheKey, { result: sampleResult, expiresAt: Date.now() + (2 * 60 * 1000) });
+    
+    // Kick off background fetch for real data
+    refreshInBackground(cacheKey, opts);
+    
+    return sampleResult;
   }
 
   const rows = opts.rows ?? 20;
@@ -3574,8 +3633,8 @@ export async function fetchLiveTenders(opts: {
   }
 
   const settled = await Promise.all(tasks.map(async (t) => {
-    // Timeout each external API call after 8 seconds to prevent cascading hangs
-    const timeoutMs = 8_000;
+    // Timeout each external API call after 5 seconds to prevent cascading hangs
+    const timeoutMs = 5_000;
     const result = await Promise.race([
       t.p,
       new Promise<{ ok: false; tenders: never[]; error: string }>((resolve) =>
