@@ -492,3 +492,24 @@ Stage Summary:
 - API client properly handles non-JSON error responses from Vercel
 - Neon database URL resolution covers multiple env var naming patterns
 - Code committed locally - user needs to push to GitHub/deploy to Vercel manually
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix Vercel registration - add visible error display and better debugging
+
+Work Log:
+- User reported registration still not working on Vercel
+- Tested registration on tenetbid.vercel.app extensively: API, desktop browser, mobile viewport, network interception
+- All tests pass: registration returns 201, user created, token saved, dashboard loads
+- Added inline error display on step 4 (Review & Submit) with red box showing authError
+- Improved handleRegister: clear authError on step navigation, show specific API error messages, log caught exceptions
+- The error display will help user see exactly what's failing if there's an issue
+- Committed changes (6fd6ccc)
+- GitHub push still requires credentials
+- Anonymous Vercel deployment created at temporary URL
+
+Stage Summary:
+- Registration works in all automated tests on both local and Vercel
+- Added visible error display to help user debug any issue they're seeing
+- User may be experiencing browser-specific or session-specific issue
+- GitHub push and Vercel project deploy require user credentials
