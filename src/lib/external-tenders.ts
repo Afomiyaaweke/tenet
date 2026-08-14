@@ -2701,6 +2701,8 @@ export interface FetchLiveTendersResult {
     sources: { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[];
     fallback: boolean;
     cachedAt: number;
+    stale?: boolean;
+    loading?: boolean;
   };
 }
 
