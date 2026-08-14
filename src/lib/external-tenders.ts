@@ -3271,7 +3271,8 @@ export async function fetchLiveTenders(opts: {
 
     // ── Cold start: No cache at all ──
     // Return sample data IMMEDIATELY for fast UX, then fetch real data in background
-    const sampleTenders = generateSampleTenders(opts.rows ?? 20, opts.offset || 0, opts.search);
+    // Don't pass search to sample generation — always return samples for instant display
+    const sampleTenders = generateSampleTenders(opts.rows ?? 20, opts.offset || 0);
     const sampleResult: FetchLiveTendersResult = {
       tenders: sampleTenders,
       meta: {
