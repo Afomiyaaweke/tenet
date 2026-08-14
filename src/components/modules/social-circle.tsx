@@ -26,7 +26,7 @@ import {
   Users, UserPlus, Heart, ThumbsUp, MessageCircle, Share2, Search,
   Building2, MapPin, Briefcase, Award, Verified, Send, Clock,
   MoreHorizontal, X, Plus, ChevronDown, Globe2, Handshake,
-  Sparkles, TrendingUp, Star, Link2, Image, Trash2,
+  Sparkles, TrendingUp, Star, Link2, Image as ImageIcon, Trash2,
   Paperclip, Smile, Film, Loader2,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -597,6 +597,131 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
               </div>
             )}
 
+            {/* Toolbar: Attach, Emoji - ALWAYS VISIBLE */}
+            <div className="mt-2 flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                {/* Attach File Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2.5 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 gap-1"
+                  onClick={() => {
+                    if (!isExpanded) setIsExpanded(true);
+                    fileInputRef.current?.click();
+                  }}
+                  disabled={isUploading || attachedMedia.length >= 10}
+                >
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Paperclip className="h-4 w-4" />
+                  )}
+                  <span className="text-xs">Attach</span>
+                </Button>
+
+                {/* Add Image */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2.5 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 gap-1"
+                  onClick={() => {
+                    if (!isExpanded) setIsExpanded(true);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = 'image/jpeg,image/png,image/webp,image/gif';
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  disabled={isUploading || attachedMedia.length >= 10}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  <span className="text-xs">Photo</span>
+                </Button>
+
+                {/* Add Video */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2.5 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 gap-1"
+                  onClick={() => {
+                    if (!isExpanded) setIsExpanded(true);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = 'video/mp4,video/webm,video/quicktime';
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  disabled={isUploading || attachedMedia.length >= 10}
+                >
+                  <Film className="h-4 w-4" />
+                  <span className="text-xs">Video</span>
+                </Button>
+
+                {/* Emoji Picker */}
+                <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 gap-1"
+                    >
+                      <Smile className="h-4 w-4" />
+                      <span className="text-xs">Emoji</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0" align="start" side="top">
+                    <div className="max-h-72 overflow-y-auto">
+                      {EMOJI_CATEGORIES.map((cat) => (
+                        <div key={cat.name} className="px-2 pt-2 pb-1">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{cat.name}</p>
+                          <div className="grid grid-cols-8 gap-0.5">
+                            {cat.emojis.map((emoji, i) => (
+                              <button
+                                key={`${emoji}-${i}`}
+                                onClick={() => {
+                                  insertEmoji(emoji);
+                                  if (!isExpanded) setIsExpanded(true);
+                                }}
+                                className="h-8 w-8 flex items-center justify-center text-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded transition-colors"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Post button - always visible when there's content */}
+              {hasContent && (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="h-8 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                >
+                  {isSubmitting ? (
+                    <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5 mr-1" />
+                      Post
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {/* Expanded section: Tags, Visibility, Post */}
             {isExpanded && (
               <div className="mt-3 space-y-3">
                 {/* Tag Input */}
@@ -629,112 +754,19 @@ function CreatePostBox({ onPostCreated }: { onPostCreated: () => void }) {
                     ))}
                   </div>
                 )}
-                {/* Toolbar: Attach, Emoji, Visibility, Post */}
+                {/* Visibility & Post */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    {/* Attach File / Video Button */}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
-                      multiple
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading || attachedMedia.length >= 10}
-                    >
-                      {isUploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Paperclip className="h-4 w-4" />
-                      )}
-                    </Button>
-
-                    {/* Add Image specifically */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
-                      onClick={() => {
-                        if (fileInputRef.current) {
-                          fileInputRef.current.accept = 'image/jpeg,image/png,image/webp,image/gif';
-                          fileInputRef.current.click();
-                        }
-                      }}
-                      disabled={isUploading || attachedMedia.length >= 10}
-                      title="Add image"
-                    >
-                      <Image className="h-4 w-4" />
-                    </Button>
-
-                    {/* Add Video specifically */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
-                      onClick={() => {
-                        if (fileInputRef.current) {
-                          fileInputRef.current.accept = 'video/mp4,video/webm,video/quicktime';
-                          fileInputRef.current.click();
-                        }
-                      }}
-                      disabled={isUploading || attachedMedia.length >= 10}
-                      title="Add video"
-                    >
-                      <Film className="h-4 w-4" />
-                    </Button>
-
-                    {/* Emoji Picker */}
-                    <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
-                        >
-                          <Smile className="h-4 w-4" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-72 p-0" align="start" side="top">
-                        <div className="max-h-64 overflow-y-auto">
-                          {EMOJI_CATEGORIES.map((cat) => (
-                            <div key={cat.name} className="px-2 pt-2 pb-1">
-                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{cat.name}</p>
-                              <div className="grid grid-cols-8 gap-0.5">
-                                {cat.emojis.map((emoji, i) => (
-                                  <button
-                                    key={`${emoji}-${i}`}
-                                    onClick={() => insertEmoji(emoji)}
-                                    className="h-8 w-8 flex items-center justify-center text-lg hover:bg-muted rounded transition-colors"
-                                  >
-                                    {emoji}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-
-                    {/* Visibility Select */}
-                    <Select value={visibility} onValueChange={setVisibility}>
-                      <SelectTrigger className="h-8 w-[130px] text-xs">
-                        <Globe2 className="h-3.5 w-3.5 mr-1" />
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="public">🌐 Public</SelectItem>
-                        <SelectItem value="connections">🔗 Connections</SelectItem>
-                        <SelectItem value="private">🔒 Private</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select value={visibility} onValueChange={setVisibility}>
+                    <SelectTrigger className="h-8 w-[130px] text-xs">
+                      <Globe2 className="h-3.5 w-3.5 mr-1" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">🌐 Public</SelectItem>
+                      <SelectItem value="connections">🔗 Connections</SelectItem>
+                      <SelectItem value="private">🔒 Private</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     onClick={handleSubmit}
                     disabled={!hasContent || isSubmitting}
@@ -1102,6 +1134,14 @@ function PostCard({
                   </div>
                 </PopoverContent>
               </Popover>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-1.5 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
+                title="Attach file"
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
