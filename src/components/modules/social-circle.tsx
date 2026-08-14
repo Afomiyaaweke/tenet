@@ -27,7 +27,7 @@ import {
   Building2, MapPin, Briefcase, Award, Verified, Send, Clock,
   MoreHorizontal, X, Plus, ChevronDown, Globe2, Handshake,
   Sparkles, TrendingUp, Star, Link2, Image as ImageIcon, Trash2,
-  Paperclip, Smile, Film, Loader2,
+  Paperclip, Smile, Film, Loader2, Edit2, Save,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -869,10 +869,12 @@ function PostCard({
   post,
   onReact,
   onDelete,
+  onEdit,
 }: {
   post: SocialPost;
   onReact: (postId: string, emoji: string) => void;
   onDelete: (postId: string) => void;
+  onEdit: (postId: string, data: { content?: string; imageUrls?: string; tags?: string; visibility?: string }) => void;
 }) {
   const { user } = useAuthStore();
   const [showComments, setShowComments] = useState(false);
@@ -881,6 +883,11 @@ function PostCard({
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [editTags, setEditTags] = useState('');
+  const [editVisibility, setEditVisibility] = useState('public');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const isOwnPost = user?.id === post.userId;
   const images = parseImageUrls(post.imageUrls);
@@ -926,6 +933,48 @@ function PostCard({
     }
   };
 
+  const startEditing = () => {
+    setEditContent(post.content);
+    setEditTags(post.tags || '');
+    setEditVisibility(post.visibility || 'public');
+    setIsEditing(true);
+    setShowMenu(false);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditContent('');
+    setEditTags('');
+    setEditVisibility('public');
+  };
+
+  const saveEdit = async () => {
+    if (!editContent.trim()) {
+      toast.error('Post content cannot be empty');
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      const data: Record<string, string> = {};
+      if (editContent !== post.content) data.content = editContent;
+      if (editTags !== (post.tags || '')) data.tags = editTags;
+      if (editVisibility !== post.visibility) data.visibility = editVisibility;
+
+      if (Object.keys(data).length === 0) {
+        cancelEditing();
+        return;
+      }
+
+      onEdit(post.id, data);
+      setIsEditing(false);
+      toast.success('Post updated');
+    } catch {
+      toast.error('Failed to update post');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const authorName = post.user?.profile?.fullName || post.user?.email || 'User';
   const authorTitle = post.user?.profile?.jobTitle || '';
   const authorCompany = post.user?.company?.name || '';
@@ -967,6 +1016,13 @@ function PostCard({
               {showMenu && (
                 <div className="absolute right-0 top-8 bg-card border border-border rounded-md shadow-lg z-10 py-1 min-w-[120px]">
                   <button
+                    onClick={startEditing}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted w-full"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                    Edit Post
+                  </button>
+                  <button
                     onClick={() => { onDelete(post.id); setShowMenu(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 w-full"
                   >
@@ -981,43 +1037,97 @@ function PostCard({
       </CardHeader>
 
       <CardContent className="pb-2 px-4">
-        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
-        {images.length > 0 && (
-          <div className={`mt-3 grid gap-2 ${images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
-            {images.slice(0, 4).map((url, idx) => {
-              const isVideo = /\.(mp4|webm|mov|avi)$/i.test(url);
-              return (
-                <div key={idx} className={`relative rounded-lg overflow-hidden bg-muted ${images.length > 2 && idx === 3 ? 'col-span-1' : ''}`}>
-                  {isVideo ? (
-                    <video
-                      src={url}
-                      controls
-                      preload="metadata"
-                      className="w-full h-48 object-cover"
-                    />
-                  ) : (
-                    <img
-                      src={url}
-                      alt={`Post media ${idx + 1}`}
-                      className="w-full h-48 object-cover"
-                    />
-                  )}
-                  {images.length > 4 && idx === 3 && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-lg">
-                      +{images.length - 4}
+        {isEditing ? (
+          /* Edit Form */
+          <div className="space-y-3">
+            <Textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="min-h-[80px] resize-none bg-muted/50 focus-visible:ring-1 focus-visible:ring-emerald-500/30 p-3 text-sm"
+              maxLength={5000}
+              autoFocus
+            />
+            <div className="flex items-center gap-2">
+              <Input
+                value={editTags}
+                onChange={(e) => setEditTags(e.target.value)}
+                placeholder="Tags (comma separated)"
+                className="h-8 text-xs flex-1"
+              />
+              <Select value={editVisibility} onValueChange={setEditVisibility}>
+                <SelectTrigger className="h-8 w-[130px] text-xs">
+                  <Globe2 className="h-3.5 w-3.5 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">🌐 Public</SelectItem>
+                  <SelectItem value="connections">🔗 Connections</SelectItem>
+                  <SelectItem value="private">🔒 Private</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={cancelEditing} className="h-8 px-3 text-xs">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={saveEdit}
+                disabled={isSavingEdit || !editContent.trim()}
+                className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+              >
+                {isSavingEdit ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <>
+                    <Save className="h-3.5 w-3.5 mr-1" />
+                    Save
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
+            {images.length > 0 && (
+              <div className={`mt-3 grid gap-2 ${images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                {images.slice(0, 4).map((url, idx) => {
+                  const isVideo = /\.(mp4|webm|mov|avi)$/i.test(url);
+                  return (
+                    <div key={idx} className={`relative rounded-lg overflow-hidden bg-muted ${images.length > 2 && idx === 3 ? 'col-span-1' : ''}`}>
+                      {isVideo ? (
+                        <video
+                          src={url}
+                          controls
+                          preload="metadata"
+                          className="w-full h-48 object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={url}
+                          alt={`Post media ${idx + 1}`}
+                          className="w-full h-48 object-cover"
+                        />
+                      )}
+                      {images.length > 4 && idx === 3 && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-lg">
+                          +{images.length - 4}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {tags.map((tag) => (
-              <SkillBadge key={tag} skill={tag} />
-            ))}
-          </div>
+                  );
+                })}
+              </div>
+            )}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {tags.map((tag) => (
+                  <SkillBadge key={tag} skill={tag} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </CardContent>
 
@@ -1264,6 +1374,19 @@ function FeedTab() {
     }
   };
 
+  const handleEdit = async (postId: string, data: { content?: string; imageUrls?: string; tags?: string; visibility?: string }) => {
+    try {
+      const res = await api.put(`/social/posts/${postId}`, data);
+      if (res.success) {
+        setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, ...data, updatedAt: new Date().toISOString() } : p));
+      } else {
+        toast.error(res.error || 'Failed to update post');
+      }
+    } catch {
+      toast.error('Failed to update post');
+    }
+  };
+
   const handlePostCreated = () => {
     fetchPosts(1);
   };
@@ -1298,7 +1421,7 @@ function FeedTab() {
       ) : (
         <div>
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} onReact={handleReact} onDelete={handleDelete} />
+            <PostCard key={post.id} post={post} onReact={handleReact} onDelete={handleDelete} onEdit={handleEdit} />
           ))}
           <div ref={loadMoreRef} className="py-4 text-center">
             {loadingMore && (

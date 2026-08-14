@@ -189,6 +189,7 @@ export function ProfileView() {
   const [teamLoading, setTeamLoading] = useState(false);
   const [changingRole, setChangingRole] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const profile = user?.profile;
   const isVerified = profile?.verified ?? false;
@@ -199,6 +200,46 @@ export function ProfileView() {
   const completeness = getProfileCompleteness(profile as Record<string, unknown> | undefined | null);
   const approvedDocs = documents.filter(d => d.status === 'approved').length;
   const pendingDocs = documents.filter(d => d.status === 'pending').length;
+
+  // Handle profile photo upload
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Please upload a JPEG, PNG, or WebP image');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'profile');
+
+      const res = await api.upload('/profiles/upload-photo', formData);
+      if (res.success && res.data) {
+        // Update the user in the store so the photo appears everywhere
+        if (user && setUser) {
+          setUser({
+            ...user,
+            profile: { ...user.profile!, profilePhoto: res.data.profilePhoto },
+          });
+        }
+        toast.success('Profile photo updated');
+      } else {
+        toast.error(res.error || 'Failed to upload photo');
+      }
+    } catch {
+      toast.error('Failed to upload photo');
+    }
+
+    // Reset input
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
 
   // Load documents
   const loadDocs = useCallback(async () => {
@@ -539,10 +580,18 @@ export function ProfileView() {
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
               {/* Avatar */}
               <div className="relative flex-shrink-0 group">
-                <div className="w-20 h-20 rounded-2xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-200/40">
-                  <span className="text-white font-bold text-3xl">
-                    {(profile?.fullName || 'U')[0].toUpperCase()}
-                  </span>
+                <div className="w-20 h-20 rounded-2xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-200/40 overflow-hidden">
+                  {profile?.profilePhoto ? (
+                    <img
+                      src={profile.profilePhoto}
+                      alt={profile?.fullName || 'Profile'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-3xl">
+                      {(profile?.fullName || 'U')[0].toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 {isVerified && (
                   <span className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-xl border-3 border-white flex items-center justify-center shadow-md shadow-emerald-200">
@@ -550,8 +599,18 @@ export function ProfileView() {
                   </span>
                 )}
                 {editing && (
-                  <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <div
+                    className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center cursor-pointer hover:bg-black/50 transition-colors"
+                    onClick={() => photoInputRef.current?.click()}
+                  >
                     <Camera className="h-5 w-5 text-white" />
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                    />
                   </div>
                 )}
               </div>

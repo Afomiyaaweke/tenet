@@ -146,6 +146,137 @@ export async function DELETE(
 }
 
 /**
+ * PUT /api/social/posts/[id]
+ * Update own post content.
+ * Body: { content?: string, imageUrls?: string, tags?: string, visibility?: string }
+ */
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { user, error } = await requireAuth(request);
+    if (error) return error;
+
+    const { id } = await params;
+
+    const post = await db.socialPost.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+
+    if (!post) {
+      return NextResponse.json(
+        { success: false, error: 'Post not found' },
+        { status: 404 }
+      );
+    }
+
+    if (post.userId !== user!.id) {
+      return NextResponse.json(
+        { success: false, error: 'You can only edit your own posts' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { content, imageUrls, tags, visibility } = body as {
+      content?: string;
+      imageUrls?: string;
+      tags?: string;
+      visibility?: string;
+    };
+
+    const updateData: Record<string, unknown> = {};
+    if (content !== undefined) updateData.content = content;
+    if (imageUrls !== undefined) updateData.imageUrls = imageUrls;
+    if (tags !== undefined) updateData.tags = tags;
+    if (visibility !== undefined) {
+      if (!['public', 'connections', 'private'].includes(visibility)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid visibility value' },
+          { status: 400 }
+        );
+      }
+      updateData.visibility = visibility;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No fields to update' },
+        { status: 400 }
+      );
+    }
+
+    const updatedPost = await db.socialPost.update({
+      where: { id },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                fullName: true,
+                jobTitle: true,
+                profilePhoto: true,
+              },
+            },
+            company: {
+              select: {
+                id: true,
+                name: true,
+                industry: true,
+                verified: true,
+              },
+            },
+          },
+        },
+        reactions: {
+          select: {
+            id: true,
+            emoji: true,
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                profile: { select: { fullName: true, profilePhoto: true } },
+              },
+            },
+          },
+        },
+        _count: {
+          select: { postComments: true, reactions: true },
+        },
+      },
+    });
+
+    const reactionSummary = buildReactionSummary(
+      updatedPost.reactions,
+      user!.id
+    );
+    const { reactions, _count, ...postData } = updatedPost;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...postData,
+        commentCount: _count.postComments,
+        reactionSummary,
+        totalReactions: _count.reactions,
+      },
+    });
+  } catch (err) {
+    console.error('Update social post error:', err);
+    return NextResponse.json(
+      { success: false, error: 'An error occurred while updating the post' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * PATCH /api/social/posts/[id]
  * Toggle reaction (like/unlike) on a post.
  * Body: { emoji: string } (defaults to "👍")
