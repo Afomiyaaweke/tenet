@@ -535,6 +535,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
   const goNext = async () => {
     if (!canGoNext()) return;
+    setAuthError('');
     if (regStep < 4) setRegStep((regStep + 1) as RegStep);
   };
 
@@ -544,6 +545,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
   const handleRegister = async () => {
     setLoading(true);
+    setAuthError('');
     try {
       const result = await register(regData);
       if (!result.success) {
@@ -554,12 +556,16 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
           setLoginData(d => ({ ...d, email: regData.email || d.email }));
           setRegStep(1);
         } else {
-          toast.error(result.error || 'Registration failed. Please try again.');
+          const errMsg = result.error || 'Registration failed. Please try again.';
+          setAuthError(errMsg);
+          toast.error(errMsg);
         }
       }
       else toast.success('Welcome to TenetBid!');
-    } catch {
-      toast.error('Registration failed. Please check your connection and try again.');
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Registration failed. Please check your connection and try again.';
+      setAuthError(errMsg);
+      toast.error(errMsg);
     }
     setLoading(false);
   };
@@ -1525,6 +1531,13 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
 
                       </div>
+
+                      {authError && regStep === 4 && (
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+                          <XCircle className="w-4 h-4 shrink-0" />
+                          <span>{authError}</span>
+                        </div>
+                      )}
 
                       <Button
                         type="button"
