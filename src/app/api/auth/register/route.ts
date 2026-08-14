@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: errorMessage, debug: { code, message: msg.substring(0, 200), meta: error?.meta ? JSON.stringify(error.meta).substring(0, 300) : undefined } },
       { status: 500 },
     );
   }
