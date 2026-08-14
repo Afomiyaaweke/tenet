@@ -561,3 +561,26 @@ Stage Summary:
 - All Load More buttons now show "20k+" badge
 - Loading speed optimized: faster timeouts, longer cache, smaller initial fetch, compressed responses
 - Changes pushed to GitHub, Vercel will auto-deploy
+---
+Task ID: 2
+Agent: main
+Task: Add file/video attachment button and emoji picker to social circle
+
+Work Log:
+- Explored social-circle.tsx (1895 lines) - found CreatePostBox component at lines 382-521
+- Created /api/social/upload route for uploading images and videos (25MB max)
+- Added Paperclip, Image, Film buttons to post composer toolbar
+- Added emoji picker (Popover) with 5 categories: Smileys, Gestures, Hearts, Objects, Nature
+- Added media preview grid in composer showing uploaded images/videos with remove buttons
+- Added emoji picker to comment input as well
+- Updated PostCard to render videos (<video controls>) for .mp4/.webm/.mov URLs
+- Updated handleSubmit to include imageUrls in the API call (was missing before)
+- Updated /api/social/posts to allow posts with only media (no text required)
+- Pushed all changes to GitHub (commit 3a98003)
+
+Stage Summary:
+- Social circle post composer now has: 📎 Attach, 🖼️ Image, 🎬 Video, 😊 Emoji picker
+- Media uploads go to /api/social/upload → stored via uploadFile() (local or Vercel Blob)
+- Emoji picker inserts emoji at cursor position in the textarea
+- Videos render with controls in the feed
+- Posts can be created with just media (no text required)
