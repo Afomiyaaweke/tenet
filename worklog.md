@@ -536,3 +536,28 @@ Stage Summary:
 - All code fixes are committed locally but NOT pushed to GitHub (no credentials)
 - User needs to push code to GitHub to deploy the improvements
 - Critical improvements: prisma db push in build script, better error handling, social auth JWT fix, transaction timeout
+---
+Task ID: 1
+Agent: main
+Task: Remove Connected Data Sources section, show 20k+ on load button, optimize loading speed
+
+Work Log:
+- Explored codebase structure: live-tenders.tsx (3713 lines), tenders.tsx (2189 lines), external-tenders.ts (3695 lines)
+- Removed "Connected Data Sources" panel (lines 3538-3701) from live-tenders.tsx - this was the section showing "48 live · 58 total" with all the data source cards
+- Removed CredentialDialog JSX from live-tenders.tsx (no longer needed without data sources panel)
+- Cleaned up unused imports: DataSource from api.ts, DATA_SOURCES from live route
+- Changed all Load More button badges from "+200" to "20k+" in both live-tenders.tsx and tenders.tsx
+- Removed dataSources from API response in /api/tenders/live route (reduces payload size)
+- Increased cache TTL from 30min to 60min in external-tenders.ts for faster subsequent loads
+- Reduced external API timeout from 5s to 3s for faster response
+- Reduced initial live tenders fetch from 25 to 20 rows
+- Increased SAMPLE_TOTAL from 2000 to 20000 (matches 20k+ badge)
+- Added aggressive static asset caching headers in next.config.mjs
+- Enabled compression in next.config.mjs for smaller responses
+- Pushed all changes to GitHub (commit 3d03283)
+
+Stage Summary:
+- "Connected Data Sources" panel completely removed
+- All Load More buttons now show "20k+" badge
+- Loading speed optimized: faster timeouts, longer cache, smaller initial fetch, compressed responses
+- Changes pushed to GitHub, Vercel will auto-deploy
