@@ -513,3 +513,26 @@ Stage Summary:
 - Added visible error display to help user debug any issue they're seeing
 - User may be experiencing browser-specific or session-specific issue
 - GitHub push and Vercel project deploy require user credentials
+---
+Task ID: 1
+Agent: main
+Task: Fix Vercel registration issues and deploy
+
+Work Log:
+- Investigated all registration issues on Vercel (5 critical, 5 high, 4 medium issues found)
+- Fixed build script: added prisma db push to ensure Neon PostgreSQL has tables
+- Fixed social auth route: replaced direct jwt.sign() with centralized generateToken()
+- Improved register route: added 15s transaction timeout for Neon cold starts
+- Improved register route: added specific error messages for common failures (JWT_SECRET missing, DB not ready, timeouts, duplicate keys)
+- Added vercel.json with 30s maxDuration for auth endpoints
+- Created deployment script (scripts/deploy.sh)
+- Tested registration on live Vercel site (tenetbid.vercel.app) via curl - SUCCESS
+- Tested full registration flow in browser on Vercel - SUCCESS (user registered and redirected to dashboard)
+- Verified all fixes are committed locally (29 commits ahead of origin/main)
+- Attempted multiple deployment methods but no GitHub/Vercel credentials available
+
+Stage Summary:
+- Registration IS working on the live Vercel site
+- All code fixes are committed locally but NOT pushed to GitHub (no credentials)
+- User needs to push code to GitHub to deploy the improvements
+- Critical improvements: prisma db push in build script, better error handling, social auth JWT fix, transaction timeout
