@@ -64,11 +64,21 @@ const nextConfig = {
 
   serverExternalPackages: ["xlsx"],
 
+  // Performance optimizations for faster loading
+  compress: true,
+
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        // Cache static assets aggressively
+        source: "/_next/static/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
       },
     ];
   },

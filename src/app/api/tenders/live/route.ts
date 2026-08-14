@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import { fetchLiveTenders, fetchSectorTenders, getSectorCounts, DATA_SOURCES, SECTOR_IDS } from '@/lib/external-tenders';
-import type { LiveTender, DataSource } from '@/lib/api';
+import { fetchLiveTenders, fetchSectorTenders, getSectorCounts, SECTOR_IDS } from '@/lib/external-tenders';
+import type { LiveTender } from '@/lib/api';
 
 /**
  * GET /api/tenders/live
@@ -63,7 +63,6 @@ export async function GET(request: NextRequest) {
           totalAvailable: sectorResult.tenders.length,
           sectors,
           sources: [{ id: 'sector_feed', name: 'Sector Feed', live: true, ok: sectorResult.ok, count: sectorResult.tenders.length, error: sectorResult.error }],
-          dataSources: DATA_SOURCES,
         },
       });
     }
@@ -71,11 +70,10 @@ export async function GET(request: NextRequest) {
     const result = await fetchLiveTenders({ source, search, rows, offset });
 
     const tenders: LiveTender[] = result.tenders;
-    const dataSources: DataSource[] = DATA_SOURCES;
     const sectors = getSectorCounts();
 
     const isFallback = result.meta.fallback;
-    const SAMPLE_TOTAL = 2000;
+    const SAMPLE_TOTAL = 20_000;
     // For live data: hasMore is true if any source that returned data could have more pages
     // (i.e. it returned results and we haven't exhausted all sources yet)
     const anyLiveSourceHasData = result.meta.sources.some((s) => s.ok && s.count > 0);
@@ -100,7 +98,6 @@ export async function GET(request: NextRequest) {
         docsCount,
         sectors,
         sources: result.meta.sources,
-        dataSources,
       },
     });
   } catch (err) {

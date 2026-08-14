@@ -2706,7 +2706,7 @@ export interface FetchLiveTendersResult {
   };
 }
 
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes — tenders update infrequently
+const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes — tenders update infrequently, longer cache for faster loads
 interface CacheEntry {
   result: FetchLiveTendersResult;
   expiresAt: number;
@@ -3636,8 +3636,8 @@ export async function fetchLiveTenders(opts: {
   }
 
   const settled = await Promise.all(tasks.map(async (t) => {
-    // Timeout each external API call after 5 seconds to prevent cascading hangs
-    const timeoutMs = 5_000;
+    // Timeout each external API call after 3 seconds to prevent cascading hangs
+    const timeoutMs = 3_000;
     const result = await Promise.race([
       t.p,
       new Promise<{ ok: false; tenders: never[]; error: string }>((resolve) =>

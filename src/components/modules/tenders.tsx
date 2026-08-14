@@ -1545,7 +1545,7 @@ export function TendersView() {
                 {loadingMore ? 'Loading More…' : 'Load More'}
                 {!loadingMore && (
                   <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
-                    +{Math.min(LIMIT, totalTenders - tenders.length)}
+                    20k+
                   </Badge>
                 )}
               </Button>
@@ -2069,7 +2069,7 @@ export function TendersView() {
                     {externalLoadingMore ? 'Loading More…' : 'Load More'}
                     {!externalLoadingMore && (
                       <Badge variant="secondary" className="ml-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 text-[10px] px-1.5 py-0">
-                        +200
+                        20k+
                       </Badge>
                     )}
                   </Button>
