@@ -463,3 +463,32 @@ Stage Summary:
 - Prisma schema fixed: sqlite for local dev
 - Vercel deployed successfully (anonymous/temporary)
 - GitHub push needs user authentication
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix Vercel registration problem
+
+Work Log:
+- Investigated Vercel deployment at tenetbid.vercel.app - registration API works but build configuration was broken
+- Found root causes: (1) package.json build script didn't use vercel-build.sh that switches sqlite→postgresql, (2) addPasswordHistory called outside transaction could cause false 500 errors, (3) API client didn't check res.ok before JSON parsing, (4) db.ts Neon env var names were too specific, (5) whitespace-only strings could violate unique constraints
+- Fixed package.json: changed build script to "bash scripts/vercel-build.sh" (switches provider for Vercel)
+- Updated vercel-build.sh: more robust provider detection and switching
+- Fixed register route: wrapped addPasswordHistory and auditLog in try/catch (non-critical failures won't break registration)
+- Fixed register route: trimmed whitespace on tinNumber/registrationNo before null check
+- Fixed API client (api.ts): added res.ok check to all methods (get, post, put, patch, delete, upload) with proper error extraction
+- Fixed db.ts: expanded Neon env var resolution to try multiple naming patterns (POSTGRES_PRISMA_URL, tenet_POSTGRES_PRISMA_URL, POSTGRES_URL, etc.)
+- Fixed package.json trailing comma (JSON syntax error was breaking dev server)
+- Browser-verified: local registration flow works end-to-end (4-step form → dashboard)
+- Browser-verified: local login flow works
+- API-verified: Vercel registration API returns success at tenetbid.vercel.app
+- Committed all fixes (commit 4e28d4d)
+- GitHub push failed: no credentials available in this environment
+- Vercel deploy: anonymous deployment only (no token for user's project)
+
+Stage Summary:
+- 5 critical registration fixes applied and tested locally
+- Build configuration now properly switches sqlite→postgresql for Vercel
+- Non-critical operations (password history, audit log) won't cause false registration failures
+- API client properly handles non-JSON error responses from Vercel
+- Neon database URL resolution covers multiple env var naming patterns
+- Code committed locally - user needs to push to GitHub/deploy to Vercel manually
