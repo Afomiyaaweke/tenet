@@ -19,44 +19,28 @@ export async function GET(
     const { path: pathSegments } = await params;
     const filePath = path.join(UPLOAD_DIR, ...pathSegments);
 
-    // Security: prevent path traversal - ensure the resolved path is within UPLOAD_DIR
+    // Security: prevent path traversal
     const resolvedPath = path.resolve(filePath);
     const resolvedUploadDir = path.resolve(UPLOAD_DIR);
     if (!resolvedPath.startsWith(resolvedUploadDir)) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check if file exists
     const fileStat = await stat(resolvedPath);
     if (!fileStat.isFile()) {
-      return NextResponse.json(
-        { success: false, error: 'Not a file' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Not a file' }, { status: 404 });
     }
 
-    // Read the file
     const fileBuffer = await readFile(resolvedPath);
-
-    // Determine MIME type from extension
     const ext = pathSegments[pathSegments.length - 1].toLowerCase().split('.').pop() || '';
     const mimeMap: Record<string, string> = {
-      pdf: 'application/pdf',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      gif: 'image/gif',
-      webp: 'image/webp',
-      txt: 'text/plain',
-      doc: 'application/msword',
+      pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+      png: 'image/png', gif: 'image/gif', webp: 'image/webp',
+      txt: 'text/plain', doc: 'application/msword',
       docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     };
     const contentType = mimeMap[ext] || 'application/octet-stream';
 
-    // Return the file with appropriate headers
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
@@ -67,17 +51,10 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    // File not found or other error
     if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'ENOENT') {
-      return NextResponse.json(
-        { success: false, error: 'File not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'File not found' }, { status: 404 });
     }
     console.error('Upload file serve error:', err);
-    return NextResponse.json(
-      { success: false, error: 'Error serving file' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Error serving file' }, { status: 500 });
   }
 }
