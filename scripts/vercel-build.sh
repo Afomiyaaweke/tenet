@@ -1,12 +1,28 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# ─────────────────────────────────────────────────────────────
+# Vercel Build Script
+# - Swaps Prisma schema to PostgreSQL for production
+# - Generates Prisma client
+# - Runs Next.js build
+# ─────────────────────────────────────────────────────────────
+set -e
 
-echo "=== Vercel Build Script ==="
+echo "🔧 Vercel Build: Starting..."
 
-echo "Running prisma generate..."
+# Detect if we're in Vercel production
+if [ "$VERCEL" = "1" ] || [ "$NODE_ENV" = "production" ]; then
+  echo "📡 Production build detected — switching to PostgreSQL schema"
+  cp prisma/schema.prod.prisma prisma/schema.prisma
+else
+  echo "🖥️  Development build — keeping SQLite schema"
+fi
+
+# Generate Prisma client
+echo "🔄 Generating Prisma client..."
 npx prisma generate
 
-echo "Running next build with webpack..."
-npx next build --webpack
+# Run Next.js build
+echo "🏗️  Building Next.js..."
+next build --webpack
 
-echo "=== Vercel Build Complete ==="
+echo "✅ Build complete!"

@@ -53,6 +53,7 @@ const allowedDevOrigins = [
   appUrlHost,
   "tenet.space-z.ai",
   "preview-chat.space-z.ai",
+  "tenetbid.vercel.app",
 ];
 
 const nextConfig = {
