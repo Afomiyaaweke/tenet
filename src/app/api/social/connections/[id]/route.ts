@@ -63,7 +63,6 @@ export async function PATCH(
         requester: {
           select: {
             id: true,
-            email: true,
             profile: {
               select: {
                 fullName: true,
@@ -84,7 +83,6 @@ export async function PATCH(
         receiver: {
           select: {
             id: true,
-            email: true,
             profile: {
               select: {
                 fullName: true,

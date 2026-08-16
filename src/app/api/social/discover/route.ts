@@ -115,7 +115,6 @@ export async function GET(request: NextRequest) {
           user: {
             select: {
               id: true,
-              email: true,
               role: true,
               status: true,
             },

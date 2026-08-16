@@ -177,19 +177,6 @@ export function ProfileView() {
     bio: user?.profile?.bio || '',
     skillTags: user?.profile?.skillTags || '',
   }));
-  const [companyEditing, setCompanyEditing] = useState(false);
-  const [companyForm, setCompanyForm] = useState(() => ({
-    name: company?.name || '',
-    industry: company?.industry || 'General',
-    tinNumber: company?.tinNumber || '',
-    registrationNo: company?.registrationNo || '',
-    phone: company?.phone || '',
-    email: company?.email || '',
-    city: company?.city || '',
-    country: company?.country || 'Ethiopia',
-    address: company?.address || '',
-    website: company?.website || '',
-  }));
   const [selectedSkills, setSelectedSkills] = useState<string[]>(
     () => (user?.profile?.skillTags || '').split(',').map(s => s.trim()).filter(Boolean)
   );
@@ -202,7 +189,22 @@ export function ProfileView() {
   const [teamLoading, setTeamLoading] = useState(false);
   const [changingRole, setChangingRole] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(false);
+  const [companyForm, setCompanyForm] = useState(() => ({
+    name: company?.name || '',
+    industry: company?.industry || '',
+    tinNumber: company?.tinNumber || '',
+    registrationNo: company?.registrationNo || '',
+    phone: company?.phone || '',
+    city: company?.city || '',
+    country: company?.country || '',
+    email: company?.email || '',
+    website: company?.website || '',
+    address: company?.address || '',
+  }));
+  const [savingCompany, setSavingCompany] = useState(false);
 
   const profile = user?.profile;
   const isVerified = profile?.verified ?? false;
@@ -213,46 +215,6 @@ export function ProfileView() {
   const completeness = getProfileCompleteness(profile as Record<string, unknown> | undefined | null);
   const approvedDocs = documents.filter(d => d.status === 'approved').length;
   const pendingDocs = documents.filter(d => d.status === 'pending').length;
-
-  // Handle profile photo upload
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error('Please upload a JPEG, PNG, or WebP image');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be less than 5MB');
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', 'profile');
-
-      const res = await api.upload('/profiles/upload-photo', formData);
-      if (res.success && res.data) {
-        // Update the user in the store so the photo appears everywhere
-        if (user && setUser) {
-          setUser({
-            ...user,
-            profile: { ...user.profile!, profilePhoto: res.data.profilePhoto },
-          });
-        }
-        toast.success('Profile photo updated');
-      } else {
-        toast.error(res.error || 'Failed to upload photo');
-      }
-    } catch {
-      toast.error('Failed to upload photo');
-    }
-
-    // Reset input
-    if (photoInputRef.current) photoInputRef.current.value = '';
-  };
 
   // Load documents
   const loadDocs = useCallback(async () => {
@@ -269,8 +231,41 @@ export function ProfileView() {
     const res = await api.get(`/companies/${user.companyId}`);
     if (res.success) {
       setCompanyData(res.data);
+      // Also update company form when data loads
+      setCompanyForm({
+        name: res.data.name || '',
+        industry: res.data.industry || '',
+        tinNumber: res.data.tinNumber || '',
+        registrationNo: res.data.registrationNo || '',
+        phone: res.data.phone || '',
+        city: res.data.city || '',
+        country: res.data.country || '',
+        email: res.data.email || '',
+        website: res.data.website || '',
+        address: res.data.address || '',
+      });
     }
     setCompanyLoading(false);
+  };
+
+  // Save company edits (team_admin only)
+  const saveCompany = async () => {
+    if (!user?.companyId) return;
+    setSavingCompany(true);
+    try {
+      const res = await api.put(`/companies/${user.companyId}`, companyForm);
+      if (res.success) {
+        setCompanyData(res.data);
+        setEditingCompany(false);
+        toast.success('Company updated successfully');
+      } else {
+        toast.error(res.error || 'Failed to update company');
+      }
+    } catch {
+      toast.error('Failed to update company');
+    } finally {
+      setSavingCompany(false);
+    }
   };
 
   // Load team members (for team_admin)
@@ -327,37 +322,6 @@ export function ProfileView() {
       const meRes = await api.get('/auth/me');
       if (meRes.success) setUser(meRes.data);
     } else toast.error(res.error || 'Failed to update profile');
-  };
-
-  const handleCompanySave = async () => {
-    if (!companyData?.id) return;
-    const res = await api.put(`/companies/${companyData.id}`, companyForm);
-    if (res.success) {
-      toast.success('Company information updated!');
-      setCompanyEditing(false);
-      setCompanyData(res.data);
-      // Refresh user data so store stays in sync
-      const meRes = await api.get('/auth/me');
-      if (meRes.success) setUser(meRes.data);
-    } else {
-      toast.error(res.error || 'Failed to update company');
-    }
-  };
-
-  const startCompanyEdit = () => {
-    setCompanyForm({
-      name: companyData?.name || '',
-      industry: companyData?.industry || 'General',
-      tinNumber: companyData?.tinNumber || '',
-      registrationNo: companyData?.registrationNo || '',
-      phone: companyData?.phone || '',
-      email: companyData?.email || '',
-      city: companyData?.city || '',
-      country: companyData?.country || 'Ethiopia',
-      address: companyData?.address || '',
-      website: companyData?.website || '',
-    });
-    setCompanyEditing(true);
   };
 
   const toggleSkill = (skill: string) => {
@@ -450,26 +414,6 @@ export function ProfileView() {
                   <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> Verified
                 </Badge>
               )}
-              {isTeamAdmin && hasCompany && !companyEditing && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                  onClick={startCompanyEdit}
-                >
-                  <Edit2 className="h-3 w-3 mr-1" /> Edit
-                </Button>
-              )}
-              {companyEditing && (
-                <div className="ml-auto flex items-center gap-1">
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setCompanyEditing(false)}>
-                    <X className="h-3 w-3 mr-0.5" /> Cancel
-                  </Button>
-                  <Button size="sm" className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCompanySave}>
-                    <Save className="h-3 w-3 mr-0.5" /> Save
-                  </Button>
-                </div>
-              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -486,26 +430,15 @@ export function ProfileView() {
                     <Building className="h-5 w-5 text-teal-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    {companyEditing ? (
-                      <Input
-                        value={companyForm.name}
-                        onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
-                        className="h-8 text-sm font-bold"
-                        placeholder="Company name"
-                      />
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-foreground">{companyData.name}</h4>
-                          {companyData.verified && (
-                            <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{companyData.industry}</p>
-                      </>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-bold text-foreground">{companyData.name}</h4>
+                      {companyData.verified && (
+                        <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{companyData.industry}</p>
                   </div>
-                  {!companyEditing && (
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -514,172 +447,156 @@ export function ProfileView() {
                     >
                       View Details <ChevronRight className="h-3 w-3 ml-0.5" />
                     </Button>
-                  )}
+                    {isTeamAdmin && !editingCompany && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-lg text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                        onClick={() => {
+                          setCompanyForm({
+                            name: companyData.name || '',
+                            industry: companyData.industry || '',
+                            tinNumber: companyData.tinNumber || '',
+                            registrationNo: companyData.registrationNo || '',
+                            phone: companyData.phone || '',
+                            city: companyData.city || '',
+                            country: companyData.country || '',
+                            email: companyData.email || '',
+                            website: companyData.website || '',
+                            address: companyData.address || '',
+                          });
+                          setEditingCompany(true);
+                        }}
+                      >
+                        <Edit2 className="h-3 w-3 mr-0.5" /> Edit
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Company details grid */}
-                {companyEditing ? (
-                  <div className="space-y-3">
+                {/* Company details - Edit form or display */}
+                {editingCompany ? (
+                  <div className="space-y-3 pt-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Industry</Label>
-                        <Input
-                          value={companyForm.industry}
-                          onChange={(e) => setCompanyForm({ ...companyForm, industry: e.target.value })}
-                          className="h-8 text-xs mt-1"
-                          placeholder="e.g. Construction"
-                        />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Company Name</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.name} onChange={e => setCompanyForm(f => ({ ...f, name: e.target.value }))} />
                       </div>
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">TIN Number</Label>
-                        <Input
-                          value={companyForm.tinNumber}
-                          onChange={(e) => setCompanyForm({ ...companyForm, tinNumber: e.target.value })}
-                          className="h-8 text-xs mt-1"
-                          placeholder="TIN..."
-                        />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Industry</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.industry} onChange={e => setCompanyForm(f => ({ ...f, industry: e.target.value }))} />
                       </div>
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Registration No.</Label>
-                        <Input
-                          value={companyForm.registrationNo}
-                          onChange={(e) => setCompanyForm({ ...companyForm, registrationNo: e.target.value })}
-                          className="h-8 text-xs mt-1"
-                          placeholder="REG..."
-                        />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">TIN Number</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.tinNumber} onChange={e => setCompanyForm(f => ({ ...f, tinNumber: e.target.value }))} />
                       </div>
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Phone</Label>
-                        <Input
-                          value={companyForm.phone}
-                          onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
-                          className="h-8 text-xs mt-1"
-                          placeholder="+251..."
-                        />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Registration No.</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.registrationNo} onChange={e => setCompanyForm(f => ({ ...f, registrationNo: e.target.value }))} />
                       </div>
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Email</Label>
-                        <Input
-                          value={companyForm.email}
-                          onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
-                          className="h-8 text-xs mt-1"
-                          placeholder="info@company.com"
-                          type="email"
-                        />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Phone</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.phone} onChange={e => setCompanyForm(f => ({ ...f, phone: e.target.value }))} />
                       </div>
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Website</Label>
-                        <Input
-                          value={companyForm.website}
-                          onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
-                          className="h-8 text-xs mt-1"
-                          placeholder="https://company.com"
-                        />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.website} onChange={e => setCompanyForm(f => ({ ...f, website: e.target.value }))} />
                       </div>
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">City</Label>
-                        <Input
-                          value={companyForm.city}
-                          onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
-                          className="h-8 text-xs mt-1"
-                          placeholder="Addis Ababa"
-                        />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">City</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.city} onChange={e => setCompanyForm(f => ({ ...f, city: e.target.value }))} />
                       </div>
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Country</Label>
-                        <Input
-                          value={companyForm.country}
-                          onChange={(e) => setCompanyForm({ ...companyForm, country: e.target.value })}
-                          className="h-8 text-xs mt-1"
-                          placeholder="Ethiopia"
-                        />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Country</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.country} onChange={e => setCompanyForm(f => ({ ...f, country: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Address</Label>
+                        <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.address} onChange={e => setCompanyForm(f => ({ ...f, address: e.target.value }))} />
                       </div>
                     </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Address</Label>
-                      <Input
-                        value={companyForm.address}
-                        onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
-                        className="h-8 text-xs mt-1"
-                        placeholder="Street address"
-                      />
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        className="rounded-lg text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                        onClick={saveCompany}
+                        disabled={savingCompany}
+                      >
+                        {savingCompany ? (
+                          <><div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" /> Saving...</>
+                        ) : (
+                          <><Save className="h-3 w-3 mr-1" /> Save</>
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-lg text-xs"
+                        onClick={() => setEditingCompany(false)}
+                        disabled={savingCompany}
+                      >
+                        <X className="h-3 w-3 mr-1" /> Cancel
+                      </Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {companyData.city && (
-                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                        <MapPinned className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
-                          <p className="text-xs font-medium">{companyData.city}{companyData.country ? `, ${companyData.country}` : ''}</p>
-                        </div>
+                /* Company details grid (read-only) */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {companyData.city && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <MapPinned className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
+                        <p className="text-xs font-medium">{companyData.city}{companyData.country ? `, ${companyData.country}` : ''}</p>
                       </div>
-                    )}
-                    {companyData.tinNumber && (
-                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                        <Hash className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">TIN Number</p>
-                          <p className="text-xs font-medium">{companyData.tinNumber}</p>
-                        </div>
+                    </div>
+                  )}
+                  {companyData.tinNumber && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <Hash className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">TIN Number</p>
+                        <p className="text-xs font-medium">{companyData.tinNumber}</p>
                       </div>
-                    )}
-                    {companyData.registrationNo && (
-                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                        <FileText className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Registration No.</p>
-                          <p className="text-xs font-medium">{companyData.registrationNo}</p>
-                        </div>
+                    </div>
+                  )}
+                  {companyData.registrationNo && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <FileText className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Registration No.</p>
+                        <p className="text-xs font-medium">{companyData.registrationNo}</p>
                       </div>
-                    )}
-                    {companyData.industry && (
-                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                        <Briefcase className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Industry</p>
-                          <p className="text-xs font-medium">{companyData.industry}</p>
-                        </div>
+                    </div>
+                  )}
+                  {companyData.industry && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <Briefcase className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Industry</p>
+                        <p className="text-xs font-medium">{companyData.industry}</p>
                       </div>
-                    )}
-                    {companyData.phone && (
-                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                        <Phone className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Phone</p>
-                          <p className="text-xs font-medium">{companyData.phone}</p>
-                        </div>
+                    </div>
+                  )}
+                  {companyData.phone && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <Phone className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Phone</p>
+                        <p className="text-xs font-medium">{companyData.phone}</p>
                       </div>
-                    )}
-                    {companyData.website && (
-                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                        <Globe className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
-                          <p className="text-xs font-medium truncate max-w-[200px]">{companyData.website}</p>
-                        </div>
+                    </div>
+                  )}
+                  {companyData.website && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
+                      <Globe className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
+                        <p className="text-xs font-medium truncate max-w-[200px]">{companyData.website}</p>
                       </div>
-                    )}
-                    {companyData.email && (
-                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                        <Mail className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Email</p>
-                          <p className="text-xs font-medium">{companyData.email}</p>
-                        </div>
-                      </div>
-                    )}
-                    {companyData.address && (
-                      <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
-                        <MapPin className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Address</p>
-                          <p className="text-xs font-medium">{companyData.address}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                </div>
                 )}
               </div>
             ) : (
@@ -766,11 +683,7 @@ export function ProfileView() {
               <div className="relative flex-shrink-0 group">
                 <div className="w-20 h-20 rounded-2xl gradient-emerald flex items-center justify-center shadow-lg shadow-emerald-200/40 overflow-hidden">
                   {profile?.profilePhoto ? (
-                    <img
-                      src={profile.profilePhoto}
-                      alt={profile?.fullName || 'Profile'}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={profile.profilePhoto} alt={profile.fullName || 'Profile'} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-white font-bold text-3xl">
                       {(profile?.fullName || 'U')[0].toUpperCase()}
@@ -784,19 +697,51 @@ export function ProfileView() {
                 )}
                 {editing && (
                   <div
-                    className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center cursor-pointer hover:bg-black/50 transition-colors"
-                    onClick={() => photoInputRef.current?.click()}
+                    className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    onClick={() => photoRef.current?.click()}
                   >
-                    <Camera className="h-5 w-5 text-white" />
-                    <input
-                      ref={photoInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      onChange={handlePhotoUpload}
-                    />
+                    {uploadingPhoto ? (
+                      <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Camera className="h-5 w-5 text-white" />
+                    )}
                   </div>
                 )}
+                <input
+                  ref={photoRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploadingPhoto(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      formData.append('type', 'profile');
+                      const res = await api.upload('/profiles/upload-photo', formData);
+                      if (res.success) {
+                        // Update user profile with new photo URL
+                        const updatedProfile = res.data?.profile || res.data;
+                        if (user && updatedProfile) {
+                          setUser({
+                            ...user,
+                            profile: { ...user.profile!, profilePhoto: res.data?.url || updatedProfile.profilePhoto },
+                          });
+                        }
+                        toast.success('Profile photo updated');
+                      } else {
+                        toast.error(res.error || 'Failed to upload photo');
+                      }
+                    } catch {
+                      toast.error('Failed to upload photo');
+                    } finally {
+                      setUploadingPhoto(false);
+                      if (photoRef.current) photoRef.current.value = '';
+                    }
+                  }}
+                />
               </div>
 
               {/* Info */}
@@ -1226,10 +1171,10 @@ export function ProfileView() {
                             </div>
                             <div className="min-w-0">
                               <p className="text-sm font-medium truncate">
-                                {member.profile?.fullName || member.email}
+                                {member.profile?.fullName || 'Team Member'}
                               </p>
                               <p className="text-xs text-muted-foreground truncate">
-                                {member.profile?.jobTitle && `${member.profile.jobTitle} · `}{member.email}
+                                {member.profile?.jobTitle || 'Member'}
                               </p>
                             </div>
                           </div>

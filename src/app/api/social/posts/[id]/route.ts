@@ -22,7 +22,6 @@ export async function GET(
         user: {
           select: {
             id: true,
-            email: true,
             profile: {
               select: {
                 fullName: true,
@@ -364,7 +363,6 @@ export async function PATCH(
         user: {
           select: {
             id: true,
-            email: true,
             profile: {
               select: {
                 fullName: true,

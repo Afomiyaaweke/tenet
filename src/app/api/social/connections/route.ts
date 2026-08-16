@@ -61,7 +61,6 @@ export async function GET(request: NextRequest) {
           requester: {
             select: {
               id: true,
-              email: true,
               profile: {
                 select: {
                   fullName: true,
@@ -83,7 +82,6 @@ export async function GET(request: NextRequest) {
           receiver: {
             select: {
               id: true,
-              email: true,
               profile: {
                 select: {
                   fullName: true,
@@ -223,7 +221,6 @@ export async function POST(request: NextRequest) {
         requester: {
           select: {
             id: true,
-            email: true,
             profile: {
               select: {
                 fullName: true,
@@ -244,7 +241,6 @@ export async function POST(request: NextRequest) {
         receiver: {
           select: {
             id: true,
-            email: true,
             profile: {
               select: {
                 fullName: true,

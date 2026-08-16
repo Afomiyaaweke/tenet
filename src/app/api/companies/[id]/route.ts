@@ -22,7 +22,6 @@ export async function GET(
         users: {
           select: {
             id: true,
-            email: true,
             role: true,
             status: true,
             createdAt: true,
@@ -49,9 +48,19 @@ export async function GET(
       );
     }
 
+    // Only include email for team_admin viewing their own company
+    const isOwnCompanyAdmin = user!.role === 'team_admin' && user!.companyId === id;
+    const sanitizedCompany = {
+      ...company,
+      users: company.users.map((u) => ({
+        ...u,
+        email: isOwnCompanyAdmin ? (u as any).email : undefined,
+      })),
+    };
+
     return NextResponse.json({
       success: true,
-      data: company,
+      data: sanitizedCompany,
     });
   } catch (error) {
     console.error('Get company error:', error);
