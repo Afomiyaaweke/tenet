@@ -274,6 +274,7 @@ function formatDocContent(content: string): React.ReactNode[] {
 
 export function DocBuilderView() {
   const { user } = useAuthStore();
+  const { viewParams } = useNavStore();
   const role = user?.role || 'user';
 
   // UI State
@@ -283,6 +284,16 @@ export function DocBuilderView() {
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [generatedTemplateType, setGeneratedTemplateType] = useState<string | null>(null);
+
+  // Auto-select template and tender from viewParams (e.g. from "Start Bid Application")
+  useEffect(() => {
+    if (viewParams?.templateId && !selectedTemplate) {
+      setSelectedTemplate(viewParams.templateId);
+    }
+    if (viewParams?.tenderId && !inputData.tenderId) {
+      setInputData(prev => ({ ...prev, tenderId: viewParams.tenderId! }));
+    }
+  }, [viewParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Data
   const [tenders, setTenders] = useState<Tender[]>([]);

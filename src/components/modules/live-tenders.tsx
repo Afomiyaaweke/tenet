@@ -3008,10 +3008,10 @@ export function LiveTendersView() {
 
   /* ────── Start Bid Application ────── */
   const startBidApplication = useCallback(async (tender: LiveTender) => {
-    // If not saved yet, save first, then navigate to bids
-    if (!savedTenders[tender.id]) {
-      setSavingTender((prev) => ({ ...prev, [tender.id]: true }));
-      try {
+    setSavingTender((prev) => ({ ...prev, [tender.id]: true }));
+    try {
+      // Step 1: Save to saved tenders (if not already saved)
+      if (!savedTenders[tender.id]) {
         await api.post('/tenders/saved', {
           tenderId: tender.externalId || tender.id,
           source: tender.source,
@@ -3026,22 +3026,55 @@ export function LiveTendersView() {
           currency: tender.currency,
         });
         setSavedTenders((prev) => ({ ...prev, [tender.id]: true }));
-        toast.success('Moved to Bids', {
-          description: `"${tender.title}" is now in your bids list. Navigating to Bids…`,
-          action: {
-            label: 'Go to Bids',
-            onClick: () => useNavStore.getState().setView('bids', { tenderId: tender.id }),
-          },
-        });
-      } catch {
-        toast.error('Failed to save tender to bids');
-        setSavingTender((prev) => ({ ...prev, [tender.id]: false }));
-        return;
       }
-      setSavingTender((prev) => ({ ...prev, [tender.id]: false }));
+
+      // Step 2: Import the tender into local DB (if not already imported)
+      // We need the local tender ID to create a bid
+      const importRes = await api.post('/tenders', {
+        title: tender.title,
+        scope: tender.scope,
+        budgetMin: tender.budgetMin,
+        budgetMax: tender.budgetMax,
+        deadline: tender.deadline,
+        location: tender.location,
+        categoryTags: tender.categoryTags,
+        requiredDocs: `Source: ${SOURCE_LABELS[tender.source] || tender.source} | External ID: ${tender.externalId} | URL: ${tender.externalUrl}`,
+        externalUrl: tender.externalUrl,
+        externalSource: tender.source,
+        status: 'open',
+        currency: tender.currency,
+      });
+
+      const localTenderId = importRes.success ? importRes.data?.id : null;
+
+      if (localTenderId) {
+        // Step 3: Create a draft bid for this tender
+        try {
+          await api.post('/bids', {
+            tenderId: localTenderId,
+            technicalProposal: '',
+            financialProposal: 0,
+            timeline: '',
+            status: 'drafted',
+          });
+        } catch {
+          // Bid might already exist — that's fine, continue to doc-builder
+        }
+      }
+
+      toast.success('Bid application started!', {
+        description: `"${tender.title}" — draft bid created. Opening Doc Builder…`,
+      });
+
+      // Step 4: Navigate to Doc Builder with the tender pre-selected
+      useNavStore.getState().setView('doc-builder', {
+        ...(localTenderId ? { tenderId: localTenderId } : {}),
+        templateId: 'technical-proposal',
+      });
+    } catch {
+      toast.error('Failed to start bid application');
     }
-    // Navigate to bids view
-    useNavStore.getState().setView('bids', { tenderId: tender.id });
+    setSavingTender((prev) => ({ ...prev, [tender.id]: false }));
   }, [savedTenders]);
 
   /* ────── Render ────── */

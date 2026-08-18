@@ -409,24 +409,32 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
     if (!tender) return;
     setSubmittingBid(true);
     try {
-      // Create the bid record with placeholder values (real content will be in uploaded documents)
+      // Create the bid record as DRAFT (user will prepare documents in Doc Builder)
       const res = await api.post('/bids', {
         tenderId: tender.id,
         technicalProposal: '',
         financialProposal: 0,
         timeline: '',
+        status: 'drafted',
       });
       if (!res.success) {
-        toast.error(res.error || 'Failed to submit bid');
+        toast.error(res.error || 'Failed to create bid');
         setSubmittingBid(false);
         return;
       }
-      // Bid created - now show the upload area
       setCreatedBidId(res.data.id);
       setSubmittingBid(false);
-      toast.success('Bid record created! Now upload your documents.');
+      // Navigate to Doc Builder for bid preparation
+      toast.success('Draft bid created!', {
+        description: 'Opening Doc Builder to prepare your bid documents…',
+      });
+      handleCloseBidDialog();
+      useNavStore.getState().setView('doc-builder', {
+        tenderId: tender.id,
+        templateId: 'technical-proposal',
+      });
     } catch {
-      toast.error('Failed to submit bid');
+      toast.error('Failed to create bid');
       setSubmittingBid(false);
     }
   }, [tender]);
