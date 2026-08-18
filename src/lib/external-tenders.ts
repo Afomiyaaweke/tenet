@@ -644,7 +644,7 @@ export async function fetchWorldBankTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) {
@@ -728,7 +728,7 @@ export async function fetchEuTedTenders(opts: {
       signal: ctrl.signal,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(body),
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false };
@@ -788,7 +788,7 @@ export async function fetchUngmTenders(opts: {
     const res = await fetch('https://www.ungm.org/Public/Notice/RSS', {
       signal: ctrl.signal,
       headers: { 'User-Agent': 'Tenet-Tender-Ecosystem/1.0', Accept: 'application/rss+xml, text/xml, */*' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
 
@@ -860,7 +860,7 @@ export async function fetchSamGovTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false };
@@ -924,7 +924,7 @@ export async function fetchAfdbTenders(opts: {
     const res = await fetch(`https://www.afdb.org/en/projects-operations/procurement`, {
       signal: ctrl.signal,
       headers: { 'User-Agent': 'Tenet-Tender-Ecosystem/1.0', Accept: 'text/html,*/*' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
 
@@ -955,7 +955,7 @@ export async function fetchEuOpenTenders(opts: {
     const res = await fetch(`https://opentender.eu/api/tenders?limit=${rows}&q=${encodeURIComponent(opts.search || '')}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
 
@@ -1026,7 +1026,7 @@ export async function fetchAdbTenders(opts: {
     const res = await fetch(`https://www.adb.org/api/v1/business-opportunities?type=procurement&limit=${rows}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
 
@@ -1090,7 +1090,7 @@ export async function fetchUkContractsTenders(opts: {
     const res = await fetch(`https://www.contractsfinder.service.gov.uk/Published/V2/Notices/Search?${params.toString()}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
 
@@ -1165,7 +1165,7 @@ export async function fetchApifyGlobalTenders(opts: {
       {
         signal: ctrl.signal,
         headers: { Accept: 'application/json' },
-        cache: 'force-cache',
+        cache: 'no-store',
       },
     );
     clearTimeout(timer);
@@ -1224,7 +1224,7 @@ export async function fetchApifyProcurementTenders(opts: {
       {
         signal: ctrl.signal,
         headers: { Accept: 'application/json' },
-        cache: 'force-cache',
+        cache: 'no-store',
       },
     );
     clearTimeout(timer);
@@ -1291,7 +1291,7 @@ export async function fetchGovRiderTenders(opts: {
         limit: rows,
         sort: 'date_desc',
       }),
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `GovRider API returned ${res.status}` };
@@ -1356,7 +1356,7 @@ export async function fetchTenderwellTenders(opts: {
         Accept: 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Tenderwell API returned ${res.status}` };
@@ -1414,7 +1414,7 @@ export async function fetchCanadaBuyandsellTenders(opts: {
     const res = await fetch(`https://buyandsell.gc.ca/api/search/tender?${params.toString()}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
 
@@ -1471,7 +1471,7 @@ export async function fetchAusTenderTenders(opts: {
     const res = await fetch(`https://www.tenders.gov.au/api/current-tenders?limit=${rows}&search=${encodeURIComponent(opts.search || '')}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
 
@@ -1539,7 +1539,7 @@ export async function fetchPortugalBaseTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `BASE API returned ${res.status}` };
@@ -1647,7 +1647,7 @@ export async function fetchIndiaCpppTenders(opts: {
     const res = await fetch(`https://eprocure.gov.in/eprocure/app?${params.toString()}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: 'API unreachable' };
@@ -1707,7 +1707,7 @@ export async function fetchSouthAfricaTenders(opts: {
     const res = await fetch(`https://www.etenders.gov.za/api/tenders?${params.toString()}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (res.ok) {
@@ -1764,7 +1764,7 @@ export async function fetchPhilgepsTenders(opts: {
     const res = await fetch(`https://philgeps.gov.ph/api/tenders?${params.toString()}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (res.ok) {
@@ -1820,7 +1820,7 @@ export async function fetchSeeGeneBidTenders(opts: {
     const res = await fetch('https://changheesong.github.io/seegene-bid-mcp/data/tenders.json', {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `SeeGeneBid feed returned ${res.status}` };
@@ -1899,7 +1899,7 @@ export async function fetchColombiaSecopTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `SECOP API returned ${res.status}` };
@@ -1975,7 +1975,7 @@ export async function fetchMexicoCompranetTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `CompraNet API returned ${res.status}` };
@@ -2062,7 +2062,7 @@ export async function fetchChileMercadoTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Mercado Público returned ${res.status}` };
@@ -2138,7 +2138,7 @@ export async function fetchArgentinaComprarTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `COMPR.AR returned ${res.status}` };
@@ -2218,7 +2218,7 @@ export async function fetchUruguayComprasTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `Compras Estatales returned ${res.status}` };
@@ -2288,7 +2288,7 @@ export async function fetchUndpProcurementTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `UNDP API returned ${res.status}` };
@@ -2475,7 +2475,7 @@ export async function fetchEcuadorSercopTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `SERCOP API returned ${res.status}` };
@@ -2601,7 +2601,7 @@ export async function fetchParaguayDncpTenders(opts: {
     const res = await fetch(url, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json', 'User-Agent': 'Tenet-Tender-Ecosystem/1.0' },
-      cache: 'force-cache',
+      cache: 'no-store',
     });
     clearTimeout(timer);
     if (!res.ok) return { tenders: [], total: 0, ok: false, error: `DNCP API returned ${res.status}` };
@@ -2701,41 +2701,15 @@ export interface FetchLiveTendersResult {
     sources: { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[];
     fallback: boolean;
     cachedAt: number;
-    stale?: boolean;
-    loading?: boolean;
   };
 }
 
-const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes — tenders update infrequently, longer cache for faster loads
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 interface CacheEntry {
   result: FetchLiveTendersResult;
   expiresAt: number;
 }
 const cache = new Map<string, CacheEntry>();
-
-// Track in-flight background refreshes to avoid duplicates
-const inFlightRefreshes = new Set<string>();
-
-/**
- * Background refresh: fetches fresh data and updates cache.
- * Fire-and-forget — does not block the response.
- */
-function refreshInBackground(cacheKey: string, opts: { source?: string; search?: string; rows?: number; offset?: number }) {
-  if (inFlightRefreshes.has(cacheKey)) return; // Already refreshing
-  inFlightRefreshes.add(cacheKey);
-  
-  // Fetch directly from sources, bypassing cache logic
-  fetchLiveTenders({ ...opts, _skipCache: true })
-    .then((result) => {
-      cache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
-    })
-    .catch(() => {
-      // Background refresh failed — keep existing stale data if any
-    })
-    .finally(() => {
-      inFlightRefreshes.delete(cacheKey);
-    });
-}
 
 /* ─────────────────────────────────────────────────────────────────────
  * Sample / fallback tenders (when live APIs are unreachable)
@@ -3250,47 +3224,11 @@ export async function fetchLiveTenders(opts: {
   search?: string;
   rows?: number;
   offset?: number;
-  /** Internal: skip cache, fetch directly from sources */
-  _skipCache?: boolean;
 }): Promise<FetchLiveTendersResult> {
   const cacheKey = `${opts.source || 'all'}::${opts.search || ''}::${opts.rows || 20}::${opts.offset || 0}`;
   const hit = cache.get(cacheKey);
-  
-  // Skip cache logic for background refresh
-  if (!opts._skipCache) {
-    // Fresh cache hit — return immediately
-    if (hit && hit.expiresAt > Date.now()) {
-      return { ...hit.result, meta: { ...hit.result.meta, cachedAt: Date.now() } };
-    }
-    
-    // Stale cache hit — return stale data immediately, refresh in background
-    if (hit) {
-      refreshInBackground(cacheKey, opts);
-      return { ...hit.result, meta: { ...hit.result.meta, cachedAt: hit.result.meta.cachedAt, stale: true } };
-    }
-
-    // ── Cold start: No cache at all ──
-    // Return sample data IMMEDIATELY for fast UX, then fetch real data in background
-    // Don't pass search to sample generation — always return samples for instant display
-    const sampleTenders = generateSampleTenders(opts.rows ?? 20, opts.offset || 0);
-    const sampleResult: FetchLiveTendersResult = {
-      tenders: sampleTenders,
-      meta: {
-        total: sampleTenders.length,
-        sources: [{ id: 'sample', name: 'Sample Data (loading live...)', live: false, ok: true, count: sampleTenders.length }],
-        fallback: true,
-        cachedAt: Date.now(),
-        loading: true,
-      },
-    };
-    
-    // Cache the sample data so next request gets instant response
-    cache.set(cacheKey, { result: sampleResult, expiresAt: Date.now() + (2 * 60 * 1000) });
-    
-    // Kick off background fetch for real data
-    refreshInBackground(cacheKey, opts);
-    
-    return sampleResult;
+  if (hit && hit.expiresAt > Date.now()) {
+    return { ...hit.result, meta: { ...hit.result.meta, cachedAt: Date.now() } };
   }
 
   const rows = opts.rows ?? 20;
@@ -3635,19 +3573,53 @@ export async function fetchLiveTenders(opts: {
     tasks.push({ id: 'wfp_procurement', name: 'WFP', live: true, p: fetchWfpProcurementTenders({ search: opts.search, rows: Math.min(rows, 15), offset }) });
   }
 
-  const settled = await Promise.all(tasks.map(async (t) => {
-    // Timeout each external API call after 3 seconds to prevent cascading hangs
-    const timeoutMs = 3_000;
-    const result = await Promise.race([
-      t.p,
-      new Promise<{ ok: false; tenders: never[]; error: string }>((resolve) =>
-        setTimeout(() => resolve({ ok: false, tenders: [], error: `Timeout after ${timeoutMs / 1000}s` }), timeoutMs)
-      ),
-    ]);
-    return { ...t, res: result };
+  // When source=all, only fetch from the top 10 most reliable sources to stay
+  // within Vercel serverless function timeout. Users can select individual sources
+  // to fetch from secondary sources.
+  const TOP_SOURCES = new Set([
+    'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb',
+    'adb', 'uk_contracts', 'canada_buyandsell', 'austender', 'portugal_base',
+  ]);
+  const filteredTasks = wantSource === 'all'
+    ? tasks.filter((t) => TOP_SOURCES.has(t.id))
+    : tasks;
+
+  if (filteredTasks.length < tasks.length) {
+    console.log(`[fetchLiveTenders] source=all: fetching ${filteredTasks.length}/${tasks.length} sources (top-tier only)`);
+  }
+
+  const settled = await Promise.allSettled(filteredTasks.map(async (t) => {
+    // Timeout each external API call after 8 seconds to prevent cascading hangs
+    const timeoutMs = 8_000;
+    try {
+      const result = await Promise.race([
+        t.p,
+        new Promise<{ ok: false; tenders: never[]; error: string }>((resolve) =>
+          setTimeout(() => resolve({ ok: false, tenders: [], error: `Timeout after ${timeoutMs / 1000}s` }), timeoutMs)
+        ),
+      ]);
+      return { ...t, res: result };
+    } catch (err) {
+      // Catch unexpected errors from individual source fetchers
+      const errorMsg = err instanceof Error ? err.message : 'Internal error';
+      console.error(`[fetchLiveTenders] source=${t.id} unhandled error:`, errorMsg);
+      return { ...t, res: { ok: false, tenders: [], error: errorMsg } as const };
+    }
   }));
 
-  const sourcesMeta = settled.map((t) => ({
+  // Unwrap Promise.allSettled results; rejected items become error entries
+  const resolved = settled.map((s, i) => {
+    if (s.status === 'fulfilled') return s.value;
+    // Shouldn't happen (inner try/catch handles errors), but handle defensively
+    const task = filteredTasks[i];
+    console.error(`[fetchLiveTenders] source=${task?.id} settled rejected:`, s.reason);
+    return {
+      ...task,
+      res: { ok: false as const, tenders: [] as never[], error: 'Settled rejected' },
+    };
+  });
+
+  const sourcesMeta = resolved.map((t) => ({
     id: t.id,
     name: t.name,
     live: t.live,
@@ -3656,8 +3628,8 @@ export async function fetchLiveTenders(opts: {
     error: t.res.error,
   }));
 
-  const tenders = settled.flatMap((t) => t.res.tenders);
-  const totalLiveOk = settled.some((t) => t.res.ok && t.res.tenders.length > 0);
+  const tenders = resolved.flatMap((t) => t.res.tenders);
+  const totalLiveOk = resolved.some((t) => t.res.ok && t.res.tenders.length > 0);
   const fallback = !totalLiveOk;
 
   // If all live sources failed (e.g. no internet in sandbox), generate realistic sample data

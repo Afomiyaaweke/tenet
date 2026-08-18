@@ -3,6 +3,11 @@ import { requireAuth } from '@/lib/auth';
 import { fetchLiveTenders, fetchSectorTenders, getSectorCounts, SECTOR_IDS } from '@/lib/external-tenders';
 import type { LiveTender } from '@/lib/api';
 
+// Allow Vercel serverless function up to 60s (Hobby=10s, Pro=60s)
+export const maxDuration = 60;
+// Ensure this route is always dynamically rendered (never cached at edge)
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/tenders/live
  * Fetches tenders from external public procurement APIs or sector feeds.

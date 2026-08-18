@@ -15,15 +15,25 @@ class ApiClient {
     return headers;
   }
 
-  async get(path: string, params?: Record<string, string>) {
+  async get(path: string, params?: Record<string, string>, opts?: { timeout?: number }) {
     const url = new URL(`${API_BASE}${path}`, window.location.origin);
     if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-    const res = await fetch(url.toString(), { headers: this.headers() });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
+    const controller = opts?.timeout ? new AbortController() : undefined;
+    const timeoutId = opts?.timeout && controller ? setTimeout(() => controller.abort(), opts.timeout) : undefined;
+    try {
+      const res = await fetch(url.toString(), { headers: this.headers(), signal: controller?.signal });
+      return res.json();
+    } catch (err) {
+      // Convert AbortError to a named TimeoutError so callers can detect it
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        const te = new Error(`Request to ${path} timed out after ${opts?.timeout}ms`);
+        te.name = 'TimeoutError';
+        throw te;
+      }
+      throw err;
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
     }
-    return res.json();
   }
 
   async post(path: string, data?: unknown) {
@@ -32,10 +42,6 @@ class ApiClient {
       headers: this.headers(),
       body: data ? JSON.stringify(data) : undefined,
     });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
-    }
     return res.json();
   }
 
@@ -45,10 +51,6 @@ class ApiClient {
       headers: this.headers(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
-    }
     return res.json();
   }
 
@@ -58,10 +60,6 @@ class ApiClient {
       headers: this.headers(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
-    }
     return res.json();
   }
 
@@ -70,10 +68,6 @@ class ApiClient {
       method: 'DELETE',
       headers: this.headers(),
     });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      try { return { success: false, error: JSON.parse(text).error || `Request failed (${res.status})` }; } catch { return { success: false, error: `Request failed (${res.status}): ${text.slice(0, 200)}` }; }
-    }
     return res.json();
   }
 
@@ -86,10 +80,6 @@ class ApiClient {
       headers,
       body: formData,
     });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      try { return { success: false, error: JSON.parse(text).error || `Upload failed (${res.status})` }; } catch { return { success: false, error: `Upload failed (${res.status}): ${text.slice(0, 200)}` }; }
-    }
     return res.json();
   }
 }

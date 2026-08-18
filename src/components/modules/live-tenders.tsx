@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { api, LiveTender, Tender, Bid, Project } from '@/lib/api';
+import { api, LiveTender, DataSource, Tender, Bid, Project } from '@/lib/api';
 import { useAuthStore, useNavStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -2559,6 +2559,7 @@ function TenderCard({
 
 export function LiveTendersView() {
   const [tenders, setTenders] = useState<LiveTender[]>([]);
+  const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [sourceMeta, setSourceMeta] = useState<
     { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[]
   >([]);
@@ -2652,38 +2653,47 @@ export function LiveTendersView() {
       else setLoading(true);
 
       const currentOffset = append ? tendersLengthRef.current : 0;
-      const params: Record<string, string> = { rows: append ? '50' : '20', offset: String(currentOffset) };
+      const params: Record<string, string> = { rows: append ? '200' : '100', offset: String(currentOffset) };
       if (search) params.search = search;
       if (sourceFilter && sourceFilter !== 'all') params.source = sourceFilter;
       if (sectorFilter) params.sector = sectorFilter;
 
-      const res = await api.get('/tenders/live', params);
-      if (res.success) {
-        const newTenders = res.data as LiveTender[];
-        setTenders(append ? (prev: LiveTender[]) => {
-          const updated = [...prev, ...newTenders];
-          tendersLengthRef.current = updated.length;
-          return updated;
-        } : newTenders);
-        if (!append) tendersLengthRef.current = newTenders.length;
-        setSourceMeta(res.meta?.sources || []);
-        // dataSources removed
-        if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
-        // If appending and got 0 new tenders, there's nothing more to load
-        const apiHasMore = res.meta?.hasMore ?? false;
-        if (append && newTenders.length === 0) {
-          setHasMore(false);
+      try {
+        // 30s frontend timeout so the UI doesn't hang forever on Vercel
+        const res = await api.get('/tenders/live', params, { timeout: 30_000 });
+        if (res.success) {
+          const newTenders = res.data as LiveTender[];
+          setTenders(append ? (prev: LiveTender[]) => {
+            const updated = [...prev, ...newTenders];
+            tendersLengthRef.current = updated.length;
+            return updated;
+          } : newTenders);
+          if (!append) tendersLengthRef.current = newTenders.length;
+          setSourceMeta(res.meta?.sources || []);
+          if (Array.isArray(res.meta?.dataSources)) setDataSources(res.meta.dataSources);
+          if (Array.isArray(res.meta?.sectors)) setSectorCounts(res.meta.sectors);
+          // If appending and got 0 new tenders, there's nothing more to load
+          const apiHasMore = res.meta?.hasMore ?? false;
+          if (append && newTenders.length === 0) {
+            setHasMore(false);
+          } else {
+            setHasMore(apiHasMore);
+          }
+          if (res.meta?.totalAvailable) setTotalAvailable(res.meta.totalAvailable);
+          setLastRefreshed(new Date());
         } else {
-          setHasMore(apiHasMore);
+          toast.error(res.error || 'Failed to load live tenders');
         }
-        if (res.meta?.totalAvailable) setTotalAvailable(res.meta.totalAvailable);
-        setLastRefreshed(new Date());
-      } else {
-        toast.error(res.error || 'Failed to load live tenders');
+      } catch (err: unknown) {
+        const msg = err instanceof Error && err.name === 'TimeoutError'
+          ? 'Live tenders are taking too long to load. Try refreshing or selecting a specific source.'
+          : 'Failed to load live tenders. Please try again.';
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
       }
-      setLoading(false);
-      setRefreshing(false);
-      setLoadingMore(false);
     },
     [search, sourceFilter, sectorFilter],
   );
@@ -2697,7 +2707,7 @@ export function LiveTendersView() {
   useEffect(() => {
     if (!autoRefresh) return;
 
-    const POLL_INTERVAL = 5 * 60_000; // 5 minutes
+    const POLL_INTERVAL = 60_000; // 60 seconds
 
     const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -2739,30 +2749,23 @@ export function LiveTendersView() {
     return () => clearInterval(id);
   }, [lastRefreshed]);
 
-  // Check saved status for visible tenders — batched into a single API call
+  // Check saved status for visible tenders
   useEffect(() => {
     const checkSaved = async () => {
       const unchecked = tenders.filter(t => savedTenders[t.id] === undefined);
-      const batch = unchecked.slice(0, 50);
-      if (batch.length === 0) return;
-      try {
-        const items = batch.map(t => ({
-          tenderId: t.externalId || t.id,
-          source: t.source,
-        }));
-        const res = await api.post('/tenders/saved/batch-check', { items });
-        if (res.success && res.results) {
-          const updates: Record<string, boolean> = {};
-          for (const t of batch) {
-            const key = t.externalId || t.id;
-            if (key in res.results) {
-              updates[t.id] = res.results[key];
-            }
+      const batch = unchecked.slice(0, 20);
+      for (const t of batch) {
+        try {
+          const res = await api.get('/tenders/saved/check', {
+            tenderId: t.externalId || t.id,
+            source: t.source,
+          });
+          if (res.success) {
+            setSavedTenders((prev) => ({ ...prev, [t.id]: res.saved }));
           }
-          setSavedTenders((prev) => ({ ...prev, ...updates }));
+        } catch {
+          // Ignore errors for saved check
         }
-      } catch {
-        // Ignore errors for saved check
       }
     };
     if (tenders.length > 0) checkSaved();
@@ -3512,7 +3515,7 @@ export function LiveTendersView() {
                       : 'Load More Tenders'}
                   {!loadingMore && (
                     <Badge className="ml-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-0 text-[10px] px-1.5 py-0 h-5 min-w-[20px] flex items-center justify-center">
-                      20k+
+                      +200
                     </Badge>
                   )}
                 </Button>
@@ -3534,10 +3537,178 @@ export function LiveTendersView() {
           </div>
         )}
 
+        {/* ───────────────── Data Sources panel ───────────────── */}
+        <div className="pt-4 pb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <Database className="h-4 w-4 text-emerald-500" />
+            <h2 className="text-lg font-semibold text-foreground">Connected Data Sources</h2>
+            <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+              {dataSources.filter((s) => s.live).length} live · {dataSources.length + GATED_SOURCES.length} total
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Aggregated procurement from international data feeds.
+            Sources marked <span className="font-medium text-emerald-600 dark:text-emerald-400">Live</span> are
+            fetched in real time; others require credentials.
+          </p>
 
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {/* Live data sources from API */}
+            {dataSources.map((s) => {
+              const accent = SOURCE_ACCENT[s.id] || SOURCE_ACCENT.default;
+              const SourceIcon = accent.icon;
+              return (
+                <Card
+                  key={s.id}
+                  className={`bg-card border-border hover:border-primary/40 transition-colors ${s.live ? 'cursor-pointer' : 'opacity-70'}`}
+                  onClick={s.live ? () => setSourceFilter(s.id === sourceFilter ? 'all' : s.id) : undefined}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${s.live ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-muted'}`}>
+                          {s.live ? (
+                            <SourceIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-semibold text-foreground text-sm truncate">{s.name}</h4>
+                            <span
+                              className={`h-2 w-2 rounded-full shrink-0 ${ACCENT_DOT[s.accent] || 'bg-muted-foreground'}`}
+                            />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.coverage}</p>
+                        </div>
+                      </div>
+                      {s.live ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 shrink-0 text-[10px]">
+                          Live
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-border text-muted-foreground shrink-0 text-[10px]">
+                          Reference
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+                        <ShieldCheck className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{s.access}</span>
+                      </div>
+                      <a
+                        href={s.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Open
+                        <ArrowUpRight className="h-2.5 w-2.5" />
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {/* Credential-gated sources */}
+            {GATED_SOURCES.map((gs) => {
+              const accent = SOURCE_ACCENT[gs.id] || SOURCE_ACCENT.default;
+              const SourceIcon = accent.icon;
+              const isOpenSource = gs.credentialType === 'open_source';
+              return (
+                <Card
+                  key={gs.id}
+                  className="bg-card border-border hover:border-primary/40 transition-colors opacity-80"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 dark:bg-amber-950/40">
+                          <SourceIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-semibold text-foreground text-sm truncate">{gs.name}</h4>
+                            <span className={`h-2 w-2 rounded-full shrink-0 ${accent.dot}`} />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{gs.description}</p>
+                        </div>
+                      </div>
+                      {isOpenSource ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0 shrink-0 text-[10px]">
+                          Open Source
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 shrink-0 text-[10px] gap-1">
+                          <Lock className="h-2.5 w-2.5" />
+                          API Key
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
+                        {isOpenSource ? (
+                          <Globe2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                        ) : (
+                          <Lock className="h-3 w-3 shrink-0 text-amber-500" />
+                        )}
+                        <span className="truncate">
+                          {isOpenSource ? 'No credentials required' : `Requires ${gs.envVar}`}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[10px] gap-1 px-2 shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCredDialog(gs.id);
+                        }}
+                      >
+                        {isOpenSource ? (
+                          <>
+                            <Globe2 className="h-2.5 w-2.5" />
+                            Enable
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="h-2.5 w-2.5" />
+                            Enable
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-start gap-3">
+            <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">15 sources available</span>{' '}
+              Enable Apify, GovRider, Tenderwell, or SeeGeneBid by providing the required
+              API credentials. Each adapter follows the same{' '}
+              <code className="px-1 py-0.5 rounded bg-muted text-foreground">LiveTender</code> shape
+              and integrates directly into this feed.
+            </p>
+          </div>
+        </div>
       </div>
 
-
+      {/* Credential Dialog */}
+      <CredentialDialog
+        source={credDialogSource}
+        open={credDialogOpen}
+        onOpenChange={setCredDialogOpen}
+      />
     </div>
   );
 }
