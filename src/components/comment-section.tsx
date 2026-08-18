@@ -248,7 +248,7 @@ function ReviewForm({
         </div>
         <h4 className="text-lg font-bold text-foreground">Thank You!</h4>
         <p className="text-sm text-muted-foreground max-w-xs">
-          Your review has been submitted successfully. It helps our community grow!
+          Your review has been published! Thank you for sharing your experience.
         </p>
         <Button
           variant="outline"

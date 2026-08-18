@@ -2,22 +2,26 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/comments - Returns approved comments, ordered by createdAt desc, with stats
+// ?all=true returns ALL comments (including unapproved) for admin moderation
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
     const offset = parseInt(url.searchParams.get('offset') || '0');
+    const showAll = url.searchParams.get('all') === 'true';
+
+    const whereFilter = showAll ? {} : { approved: true };
 
     const [comments, total, ratingAgg] = await Promise.all([
       db.comment.findMany({
-        where: { approved: true },
+        where: whereFilter,
         orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }],
         take: limit,
         skip: offset,
       }),
-      db.comment.count({ where: { approved: true } }),
+      db.comment.count({ where: whereFilter }),
       db.comment.aggregate({
-        where: { approved: true },
+        where: whereFilter,
         _avg: { rating: true },
       }),
     ]);
@@ -30,9 +34,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // For accurate distribution, query all approved comments grouped by rating
+    // For accurate distribution, query all (approved or all) comments grouped by rating
     const allRatings = await db.comment.findMany({
-      where: { approved: true },
+      where: whereFilter,
       select: { rating: true },
     });
     const fullDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -106,13 +110,13 @@ export async function POST(request: NextRequest) {
         role: validRole,
         content: content.trim().slice(0, 2000),
         rating: validRating,
-        approved: false, // Requires admin approval - prevents spam/abuse
+        approved: true, // Auto-approve so reviews appear immediately; admins can unapprove via PATCH
         featured: false,
       },
     });
 
     return NextResponse.json(
-      { success: true, data: comment, message: 'Your comment has been submitted and is awaiting review.' },
+      { success: true, data: comment, message: 'Your review has been published. Thank you for your feedback!' },
       { status: 201 }
     );
   } catch (error) {
