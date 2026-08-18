@@ -499,3 +499,31 @@ The `/api/tenders/live` route fetched from 50+ external API sources in parallel,
 ### Impact
 - **Before**: 50+ sources × 15s timeout = could take 15s+ just for the slowest source; total function time easily exceeded Vercel's default 10s limit
 - **After**: 10 sources × 8s timeout = worst case ~8s; well within the 60s Pro limit and close to the 10s Hobby limit. Frontend also has a 30s abort timeout.
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix live tenders not working on Vercel
+
+Work Log:
+- Investigated the issue: the /api/tenders/live route fetches from 50+ external sources in parallel, each with 15s timeout
+- On Vercel serverless functions, this exceeds the default timeout (10s hobby, 60s pro)
+- Added `export const maxDuration = 60` and `export const dynamic = 'force-dynamic'` to the API route
+- Reduced per-source timeout from 15s to 8s in external-tenders.ts
+- When source=all, now only fetches top 10 most reliable sources (was 50+)
+- All other sources still accessible via individual selection from dropdown
+- Switched Promise.all to Promise.allSettled for error resilience
+- Added per-source try/catch to prevent unhandled rejections
+- Added 30s frontend timeout with AbortController in api.ts
+- Added user-friendly toast error messages on timeout
+- Fixed loading state: always clears in finally block
+- Verified locally: 100 tenders from 10 sources loading correctly
+- Verified no browser console errors
+- Could not deploy to Vercel (no auth credentials available)
+
+Stage Summary:
+- Live tenders now optimized for Vercel: 10 sources max on "all", 8s timeout, 60s maxDuration
+- All 50+ sources still individually accessible from dropdown
+- Frontend has 30s timeout with friendly error messages
+- Code committed locally but not pushed to GitHub (no credentials)
+- User needs to push to GitHub and deploy to Vercel to apply the fix
