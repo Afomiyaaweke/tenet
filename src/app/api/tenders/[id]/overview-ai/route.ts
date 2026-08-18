@@ -140,7 +140,23 @@ Generate the complete overview. Return ONLY a valid JSON object with the keys sp
       data: parsed,
     });
   } catch (err) {
-    console.error('Tender overview AI error:', err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('Tender overview AI error:', errMsg);
+
+    // Return specific error messages for common issues
+    if (errMsg.includes('JWT_SECRET')) {
+      return NextResponse.json(
+        { success: false, error: 'Server auth not configured. Please set JWT_SECRET environment variable.' },
+        { status: 500 },
+      );
+    }
+    if (errMsg.includes('timeout') || errMsg.includes('TIMEOUT') || errMsg.includes('timed out')) {
+      return NextResponse.json(
+        { success: false, error: 'AI overview timed out. Please try again.' },
+        { status: 504 },
+      );
+    }
+
     return NextResponse.json(
       { success: false, error: 'Failed to generate tender overview. Please try again.' },
       { status: 500 }

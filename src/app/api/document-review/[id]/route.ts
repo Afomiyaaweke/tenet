@@ -172,9 +172,16 @@ export async function POST(
       );
     }
   } catch (err) {
-    console.error('AI review route error:', err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('AI review route error:', errMsg);
+    if (errMsg.includes('JWT_SECRET')) {
+      return NextResponse.json(
+        { success: false, error: 'Server auth not configured. Please set JWT_SECRET environment variable.' },
+        { status: 500 },
+      );
+    }
     return NextResponse.json(
-      { success: false, error: 'An error occurred during AI review' },
+      { success: false, error: 'An error occurred during AI review. Please try again.' },
       { status: 500 }
     );
   }

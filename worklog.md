@@ -641,3 +641,26 @@ Stage Summary:
 - All AI API calls have 55s frontend timeout with AbortController
 - Vercel 504/502 timeout responses are detected and shown as user-friendly errors
 - Files modified: tender-detail.tsx, live-tenders.tsx, api.ts, documents.tsx, bids.tsx, ai-doc-studio.tsx
+
+---
+Task ID: 1-b
+Agent: main
+Task: Fix Deep Review AI failing on Vercel deployment (from screenshot)
+
+Work Log:
+- Analyzed Vercel screenshot showing "Failed to generate AI review" error on Live Tenders Deep Review
+- Identified root cause: Vercel serverless function timeout + possible missing JWT_SECRET env var
+- Added ZAI instance caching (zaiInstance) to save cold start time on serverless invocations
+- Added retry logic (2 attempts) with ZAI instance reset on first failure
+- Added specific error messages for JWT_SECRET, timeout, and other common failures
+- Added better error logging with error message extraction
+- Added JWT_SECRET to .env file for local development
+- Updated all AI routes with JWT_SECRET error detection: live/review, overview-ai, analyze-requirements, document-review
+- Updated api.ts to detect Vercel 504/502 timeout responses and non-JSON timeout pages
+
+Stage Summary:
+- Deep Review route now caches ZAI instance + retries on failure
+- All AI routes return specific error messages for JWT_SECRET and timeout issues
+- JWT_SECRET added to .env for local dev
+- User needs to set JWT_SECRET on Vercel for production to work
+- Files modified: tenders/live/review/route.ts, tenders/[id]/overview-ai/route.ts, ai/analyze-requirements/route.ts, document-review/[id]/route.ts, api.ts, .env
