@@ -356,15 +356,15 @@ function InlineTenderDetail({ tender, onClose, setView }: {
             AI Review
           </Button>
           {tender.externalUrl && (
-            <a
-              href={tender.externalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline h-auto p-0"
+              onClick={() => setView('tender-detail', { id: tender.id })}
             >
               <ExternalLink className="h-3.5 w-3.5" />
               View on {tender.externalSource || 'Source'}
-            </a>
+            </Button>
           )}
         </div>
       </div>
@@ -742,12 +742,18 @@ export function TendersView() {
       documentIds: createDocs.map(d => d.id),
     });
     if (res.success) {
+      const newTenderId = res.data?.id;
       toast.success('Tender created successfully!');
       setShowCreate(false);
       setCreateData({ title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '', location: '', categoryTags: '', requiredDocs: '' });
       setSelectedCategories([]);
       setCreateDocs([]);
-      loadTenders(1, false);
+      // Auto-navigate to the newly created tender detail page
+      if (newTenderId) {
+        setView('tender-detail', { id: newTenderId });
+      } else {
+        loadTenders(1, false);
+      }
     } else {
       toast.error(res.error || 'Failed to create tender');
     }

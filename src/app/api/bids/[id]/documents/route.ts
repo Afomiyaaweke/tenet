@@ -4,6 +4,10 @@ import { requireAuth } from '@/lib/auth';
 import { uploadFile, deleteFile, getFileBuffer } from '@/lib/storage';
 import path from 'path';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [

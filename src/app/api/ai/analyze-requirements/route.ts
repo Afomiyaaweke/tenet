@@ -3,6 +3,10 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Requirement Analyzer. You analyze tender requirements and provide comprehensive insights for bidders.
 
 ## Your Task

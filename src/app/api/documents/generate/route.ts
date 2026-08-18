@@ -3,6 +3,10 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const TEMPLATE_PROMPTS: Record<string, string> = {
   'company-profile': `You are a professional business document writer. Generate a comprehensive Company Profile document based on the provided information. The document should include:
 

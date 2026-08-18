@@ -1847,15 +1847,15 @@ function TenderCard({
           {/* ── External link preview ── */}
           {tender.externalUrl && (
             <div className="mt-3 flex items-center gap-2">
-              <a
-                href={tender.externalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-xs font-medium text-primary hover:underline h-auto p-0"
+                onClick={(e) => { e.stopPropagation(); onImport(); }}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 View on {SOURCE_LABELS[tender.source] || 'source site'}
-              </a>
+              </Button>
               <span className="text-[10px] text-muted-foreground truncate max-w-[200px]">
                 {(() => { try { return new URL(tender.externalUrl).hostname; } catch { return tender.externalUrl; } })()}
               </span>
@@ -1968,16 +1968,15 @@ function TenderCard({
                     </div>
                   </div>
                   {tender.externalUrl && (
-                    <a
-                      href={tender.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline shrink-0"
-                      onClick={(e) => e.stopPropagation()}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 text-xs font-medium text-primary hover:underline shrink-0 h-auto p-0"
+                      onClick={(e) => { e.stopPropagation(); onImport(); }}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                       View Full Document
-                    </a>
+                    </Button>
                   )}
                 </div>
 
@@ -2932,13 +2931,16 @@ export function LiveTendersView() {
         currency: tender.currency,
       });
       if (res.success) {
+        const newTenderId = res.data?.id;
         toast.success('Tender imported successfully', {
           description: `"${tender.title}" is now in your tenders list.`,
-          action: {
-            label: 'View',
-            onClick: () => useNavStore.getState().setView('tenders'),
-          },
         });
+        // Auto-navigate to the tender detail page
+        if (newTenderId) {
+          useNavStore.getState().setView('tender-detail', { id: newTenderId });
+        } else {
+          useNavStore.getState().setView('tenders');
+        }
       } else {
         toast.error(res.error || 'Failed to import tender');
       }

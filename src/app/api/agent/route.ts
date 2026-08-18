@@ -3,6 +3,10 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Assistant - an intelligent, helpful, and professional AI agent embedded within the Tenet procurement platform. You serve as a comprehensive guide, advisor, and assistant for all platform users.
 
 ## Your Identity

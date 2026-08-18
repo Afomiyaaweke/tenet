@@ -4,6 +4,10 @@ import { requireAuth } from '@/lib/auth';
 import { getFileBuffer } from '@/lib/storage';
 import ZAI from 'z-ai-web-dev-sdk';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 /**
  * Helper to determine MIME type from file extension
  */

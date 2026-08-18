@@ -3,6 +3,10 @@ import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import ZAI from 'z-ai-web-dev-sdk';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/documents/[id]/review
  * AI review of a document - analyzes the document content for

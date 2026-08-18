@@ -592,3 +592,28 @@ Stage Summary:
 - External URLs now point to specific bid/tender pages instead of source homepages
 - Imported tenders preserve externalUrl and externalSource for direct linking
 - PDF export and Deep Review now have maxDuration=60 for Vercel Pro compatibility
+---
+Task ID: 1
+Agent: main
+Task: Fix deep linking, import auto-navigation, PDF export, and review functionality
+
+Work Log:
+- Explored project structure to understand all relevant files
+- Fixed deep linking in live-tenders.tsx: Changed "View on source site" from external link to button that calls onImport() (imports tender and navigates to detail)
+- Fixed deep linking in tenders.tsx: Changed "View on Source" from external link to button that navigates to tender-detail
+- Fixed import auto-navigation in live-tenders.tsx: importTender() now auto-navigates to tender detail page using the returned tender ID
+- Fixed import auto-navigation in tenders.tsx: handleCreate() now auto-navigates to newly created tender detail page
+- Fixed PDF export in /api/tenders/[id]/export-pdf/route.ts: Added bufferPages:true to PDFDocument config (was causing bufferedPageRange() to fail), added null safety for location, budgetMin, budgetMax, categoryTags, requiredDocs
+- Fixed PDF export auth in tender-review-dialog.tsx: Added auth token header to PDF export fetch request (was missing, causing 401)
+- Improved error handling in tender-detail.tsx PDF export: Better error messages, blob size check
+- Added maxDuration=60 and dynamic='force-dynamic' to 20 API routes that use AI/external fetching (prevents Vercel timeout)
+- Added maxDuration=60 to /api/tenders/[id]/overview-ai/route.ts (was missing)
+- Verified all changes compile and work via Agent Browser testing
+
+Stage Summary:
+- Deep linking: "View on site" now imports tender and navigates to detail page (instead of opening external URL)
+- Import: Auto-navigates to tender detail after import/create (instead of just showing toast)
+- PDF export: Fixed bufferPages config, null safety, and missing auth token in TenderReviewDialog
+- Review: Added maxDuration to all AI routes to prevent Vercel timeout (was the root cause)
+- 20 API routes now have maxDuration=60 and force-dynamic exports
+- All changes verified with lint (0 errors) and Agent Browser testing

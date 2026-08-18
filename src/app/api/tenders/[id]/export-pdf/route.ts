@@ -48,6 +48,7 @@ export async function GET(
     const doc = new PDFDocument({
       size: 'A4',
       margins: { top: 50, bottom: 50, left: 50, right: 50 },
+      bufferPages: true,
       info: {
         Title: `Tender Requirements - ${tender.title}`,
         Author: 'TenetBid',
@@ -96,10 +97,10 @@ export async function GET(
     doc.moveDown(0.3);
 
     const details = [
-      ['Budget Range', `ETB ${tender.budgetMin.toLocaleString()} - ${tender.budgetMax.toLocaleString()}`],
+      ['Budget Range', `ETB ${(tender.budgetMin ?? 0).toLocaleString()} - ${(tender.budgetMax ?? 0).toLocaleString()}`],
       ['Deadline', new Date(tender.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })],
-      ['Location', tender.location],
-      ['Category', tender.categoryTags],
+      ['Location', tender.location || 'Not specified'],
+      ['Category', tender.categoryTags || 'N/A'],
       ['Published By', tender.company?.name || 'N/A'],
       ['Created', new Date(tender.createdAt).toLocaleDateString('en-GB')],
     ];
@@ -136,7 +137,7 @@ export async function GET(
       .text('REQUIRED DOCUMENTS', { width: pageWidth });
     doc.moveDown(0.4);
 
-    const requiredDocs = tender.requiredDocs.split(',').map(d => d.trim()).filter(Boolean);
+    const requiredDocs = (tender.requiredDocs || '').split(',').map(d => d.trim()).filter(Boolean);
     if (requiredDocs.length > 0) {
       for (const docName of requiredDocs) {
         doc.fillColor('#10b981').fontSize(10).text('●', 50, doc.y, { continued: true });

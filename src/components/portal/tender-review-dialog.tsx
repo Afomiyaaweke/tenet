@@ -32,9 +32,20 @@ export function TenderReviewDialog({
   const handleExportPdf = async () => {
     setExporting(true);
     try {
-      const res = await fetch(`/api/tenders/${tender.id}/export-pdf`);
-      if (!res.ok) throw new Error('Export failed');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('tenet_token') : null;
+      const headers: HeadersInit = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`/api/tenders/${tender.id}/export-pdf`, { headers });
+      if (!res.ok) {
+        try {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Export failed');
+        } catch {
+          throw new Error('Export failed');
+        }
+      }
       const blob = await res.blob();
+      if (blob.size < 100) throw new Error('Generated PDF is empty');
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -44,8 +55,8 @@ export function TenderReviewDialog({
       a.remove();
       window.URL.revokeObjectURL(url);
       toast.success('PDF exported successfully');
-    } catch {
-      toast.error('Failed to export PDF');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to export PDF');
     } finally {
       setExporting(false);
     }

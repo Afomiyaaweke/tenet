@@ -241,8 +241,17 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
       const res = await fetch(`/api/tenders/${tenderId}/export-pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Export failed');
+      if (!res.ok) {
+        // Try to get error message from JSON response
+        try {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Export failed');
+        } catch {
+          throw new Error('Export failed');
+        }
+      }
       const blob = await res.blob();
+      if (blob.size < 100) throw new Error('Generated PDF is empty');
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -252,8 +261,8 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       toast.success('PDF exported successfully!');
-    } catch {
-      toast.error('Failed to export PDF. Please try again.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to export PDF. Please try again.');
     }
     setExportingPdf(false);
   };

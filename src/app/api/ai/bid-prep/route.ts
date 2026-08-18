@@ -4,6 +4,10 @@ import { db } from '@/lib/db';
 import { enforceRateLimit, getRateLimitHeaders } from '@/lib/rate-limiter';
 import ZAI from 'z-ai-web-dev-sdk';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Bid Proposal Generator. You create professional, compelling bid proposals based on tender requirements and user capabilities.
 
 ## Your Task

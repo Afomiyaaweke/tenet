@@ -3,6 +3,10 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const SYSTEM_PROMPT = `You are a tender matching AI. Given a list of tenders and a user's skills/profile,
 calculate a match score (0-100) for each tender based on how well the user's skills align with the tender requirements.
 Return a JSON object where keys are tender IDs and values are match scores (numbers 0-100).
