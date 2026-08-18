@@ -617,3 +617,27 @@ Stage Summary:
 - Review: Added maxDuration to all AI routes to prevent Vercel timeout (was the root cause)
 - 20 API routes now have maxDuration=60 and force-dynamic exports
 - All changes verified with lint (0 errors) and Agent Browser testing
+
+---
+Task ID: 1
+Agent: main
+Task: Fix "Review with AI" functionality
+
+Work Log:
+- Explored all review/AI code across the codebase (6+ components, 10+ API routes)
+- Tested review features in browser - AI Overview API works (6s response), Deep Review works
+- Identified key issue: "Review with AI" button only switched to AI Overview tab but didn't auto-trigger generation
+- Fixed "Review with AI" button to auto-trigger AI overview generation when switching tabs
+- Added useEffect to auto-generate AI overview when navigating to ai-overview tab for the first time
+- Added timeout support (55s) to api.post() method matching existing api.get() timeout support
+- Added 55s frontend timeouts to all AI API calls: overview-ai, live/review, document-review, analyze-requirements, bid-analysis
+- Added Vercel timeout detection in api.ts: handles HTTP 504/502 responses and non-JSON timeout error pages
+- Added specific error messages for timeout vs network errors in all review handlers
+- Browser-verified all review features work end-to-end
+
+Stage Summary:
+- "Review with AI" button now auto-generates AI overview (no extra click needed)
+- "AI Review" button on tenders list navigates and auto-generates
+- All AI API calls have 55s frontend timeout with AbortController
+- Vercel 504/502 timeout responses are detected and shown as user-friendly errors
+- Files modified: tender-detail.tsx, live-tenders.tsx, api.ts, documents.tsx, bids.tsx, ai-doc-studio.tsx

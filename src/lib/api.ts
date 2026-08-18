@@ -22,6 +22,23 @@ class ApiClient {
     const timeoutId = opts?.timeout && controller ? setTimeout(() => controller.abort(), opts.timeout) : undefined;
     try {
       const res = await fetch(url.toString(), { headers: this.headers(), signal: controller?.signal });
+      // Handle Vercel/serverless timeout responses (504, 502)
+      if (res.status === 504 || res.status === 502) {
+        const te = new Error(`Server timed out (${res.status}). Please try again.`);
+        te.name = 'TimeoutError';
+        throw te;
+      }
+      // Handle non-JSON responses (e.g., Vercel error pages)
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        if (text.includes('FUNCTION_TIMEOUT') || text.includes('timed out') || text.includes('504')) {
+          const te = new Error('Server function timed out. Please try again.');
+          te.name = 'TimeoutError';
+          throw te;
+        }
+        return { success: false, error: `Unexpected response (${res.status})` };
+      }
       return res.json();
     } catch (err) {
       // Convert AbortError to a named TimeoutError so callers can detect it
@@ -36,13 +53,44 @@ class ApiClient {
     }
   }
 
-  async post(path: string, data?: unknown) {
-    const res = await fetch(`${API_BASE}${path}`, {
-      method: 'POST',
-      headers: this.headers(),
-      body: data ? JSON.stringify(data) : undefined,
-    });
-    return res.json();
+  async post(path: string, data?: unknown, opts?: { timeout?: number }) {
+    const controller = opts?.timeout ? new AbortController() : undefined;
+    const timeoutId = opts?.timeout && controller ? setTimeout(() => controller.abort(), opts.timeout) : undefined;
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: data ? JSON.stringify(data) : undefined,
+        signal: controller?.signal,
+      });
+      // Handle Vercel/serverless timeout responses (504, 502)
+      if (res.status === 504 || res.status === 502) {
+        const te = new Error(`Server timed out (${res.status}). Please try again.`);
+        te.name = 'TimeoutError';
+        throw te;
+      }
+      // Handle non-JSON responses (e.g., Vercel error pages)
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        if (text.includes('FUNCTION_TIMEOUT') || text.includes('timed out') || text.includes('504')) {
+          const te = new Error('Server function timed out. Please try again.');
+          te.name = 'TimeoutError';
+          throw te;
+        }
+        return { success: false, error: `Unexpected response (${res.status})` };
+      }
+      return res.json();
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        const te = new Error(`Request to ${path} timed out after ${opts?.timeout}ms`);
+        te.name = 'TimeoutError';
+        throw te;
+      }
+      throw err;
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    }
   }
 
   async put(path: string, data: unknown) {

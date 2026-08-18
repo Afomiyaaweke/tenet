@@ -646,7 +646,7 @@ export function AIDocStudio() {
     const prompt = reviewPrompts[docId]?.trim() || '';
     setReviewStatusMap(prev => ({ ...prev, [docId]: { loading: true } }));
     try {
-      const res = await api.post(`/document-review/${docId}`, prompt ? { prompt } : {});
+      const res = await api.post(`/document-review/${docId}`, prompt ? { prompt } : {}, { timeout: 55_000 });
       if (res.success) {
         toast.success('AI Review started');
         pollReviewStatus(docId);

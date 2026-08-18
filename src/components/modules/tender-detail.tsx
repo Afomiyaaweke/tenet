@@ -185,13 +185,20 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
   useEffect(() => {
     if (tenderId && activeTab === 'analysis') void loadAnalyses();
   }, [tenderId, activeTab, loadAnalyses]);
+
+  // Auto-trigger AI overview generation when switching to ai-overview tab for the first time
+  useEffect(() => {
+    if (activeTab === 'ai-overview' && tenderId && !aiOverview && !aiOverviewLoading) {
+      handleGetAIOverview();
+    }
+  }, [activeTab, tenderId]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleRunAnalysis = async () => {
     if (!tenderId) return;
     setAnalysisLoading(true);
     try {
-      const res = await api.post('/bid-analysis', { tenderId });
+      const res = await api.post('/bid-analysis', { tenderId }, { timeout: 55_000 });
       if (res.success) {
         toast.success('AI analysis completed successfully!');
         const analysesRes = await api.get('/bid-analysis', { tenderId });
@@ -204,8 +211,12 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
       } else {
         toast.error(res.error || 'Failed to run analysis');
       }
-    } catch {
-      toast.error('Failed to run AI analysis. Please try again.');
+    } catch (err: any) {
+      if (err?.name === 'TimeoutError') {
+        toast.error('Analysis timed out. The server may be busy — please try again.');
+      } else {
+        toast.error('Failed to run AI analysis. Please try again.');
+      }
     }
     setAnalysisLoading(false);
   };
@@ -218,15 +229,19 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
         tenderId,
         userName: user?.profile?.fullName || '',
         userSkills: user?.profile?.skillTags || '',
-      });
+      }, { timeout: 55_000 });
       if (res.success) {
         setReqAnalysis(res.data);
         toast.success('Requirements analyzed!');
       } else {
         toast.error(res.error || 'Failed to analyze requirements');
       }
-    } catch {
-      toast.error('Failed to analyze requirements. Please try again.');
+    } catch (err: any) {
+      if (err?.name === 'TimeoutError') {
+        toast.error('Requirements analysis timed out. Please try again.');
+      } else {
+        toast.error('Failed to analyze requirements. Please try again.');
+      }
     }
     setReqAnalysisLoading(false);
   };
@@ -373,15 +388,19 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
     if (!tenderId) return;
     setAiOverviewLoading(true);
     try {
-      const res = await api.get(`/tenders/${tenderId}/overview-ai`);
+      const res = await api.get(`/tenders/${tenderId}/overview-ai`, undefined, { timeout: 55_000 });
       if (res.success) {
         setAiOverview(res.data);
         toast.success('AI Overview generated!');
       } else {
         toast.error(res.error || 'Failed to generate AI overview');
       }
-    } catch {
-      toast.error('Failed to generate AI overview. Please try again.');
+    } catch (err: any) {
+      if (err?.name === 'TimeoutError') {
+        toast.error('AI Overview timed out. The server may be busy — please try again.');
+      } else {
+        toast.error('Failed to generate AI overview. Please try again.');
+      }
     }
     setAiOverviewLoading(false);
   };
@@ -1173,7 +1192,13 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                 <Button
                   variant="outline"
                   className="rounded-xl border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-all"
-                  onClick={() => setActiveTab('ai-overview')}
+                  onClick={() => {
+                    setActiveTab('ai-overview');
+                    // Auto-trigger AI overview generation if not already generated/loading
+                    if (!aiOverview && !aiOverviewLoading) {
+                      setTimeout(() => handleGetAIOverview(), 100);
+                    }
+                  }}
                 >
                   <Sparkles className="h-4 w-4 mr-2" /> Review with AI
                 </Button>

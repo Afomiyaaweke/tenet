@@ -2850,15 +2850,19 @@ export function LiveTendersView() {
         contractType: tender.contractType,
         region: tender.region,
         externalUrl: tender.externalUrl,
-      });
+      }, { timeout: 55_000 });
       if (res.success && res.data) {
         setAiReviewData((prev) => ({ ...prev, [id]: res.data as AIReview }));
       } else {
         toast.error(res.error || 'Failed to generate AI review');
         setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
       }
-    } catch {
-      toast.error('Failed to generate AI review');
+    } catch (err: any) {
+      if (err?.name === 'TimeoutError') {
+        toast.error('Deep Review timed out. The server may be busy — please try again.');
+      } else {
+        toast.error('Failed to generate AI review. Please try again.');
+      }
       setAiReviewExpanded((prev) => ({ ...prev, [id]: false }));
     }
     setAiReviewLoading((prev) => ({ ...prev, [id]: false }));

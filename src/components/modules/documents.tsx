@@ -169,7 +169,7 @@ export function DocumentsView() {
   const handleRunReview = useCallback(async (docId: string) => {
     setReviewLoading(prev => new Set(prev).add(docId));
     try {
-      const res = await api.post(`/document-review/${docId}`);
+      const res = await api.post(`/document-review/${docId}`, undefined, { timeout: 55_000 });
       if (!res.success && res.error?.includes('OCR must be completed')) {
         setReviewLoading(prev => { const s = new Set(prev); s.delete(docId); return s; });
         toast.error('Run OCR first before AI review');
