@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
       location,
       categoryTags,
       requiredDocs,
+      externalUrl,
+      externalSource,
       status,
       documentIds,
     } = body;
@@ -55,6 +57,8 @@ export async function POST(request: NextRequest) {
         location,
         categoryTags,
         requiredDocs: requiredDocs || '',
+        externalUrl: externalUrl || null,
+        externalSource: externalSource || null,
         status: status || 'open',
         createdBy: user!.id,
         companyId: user!.companyId || null,

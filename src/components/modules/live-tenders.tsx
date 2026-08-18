@@ -2926,12 +2926,18 @@ export function LiveTendersView() {
         location: tender.location,
         categoryTags: tender.categoryTags,
         requiredDocs: `Source: ${SOURCE_LABELS[tender.source] || tender.source} | External ID: ${tender.externalId} | URL: ${tender.externalUrl}`,
+        externalUrl: tender.externalUrl,
+        externalSource: tender.source,
         status: 'open',
         currency: tender.currency,
       });
       if (res.success) {
         toast.success('Tender imported successfully', {
           description: `"${tender.title}" is now in your tenders list.`,
+          action: {
+            label: 'View',
+            onClick: () => useNavStore.getState().setView('tenders'),
+          },
         });
       } else {
         toast.error(res.error || 'Failed to import tender');

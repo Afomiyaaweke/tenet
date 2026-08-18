@@ -231,6 +231,8 @@ export interface Tender {
   location: string;
   categoryTags: string;
   requiredDocs: string;
+  externalUrl?: string | null; // URL to the original bid on the source site (for imported live tenders)
+  externalSource?: string | null; // source identifier: worldbank, eu_ted, sam_gov, etc.
   status: 'draft' | 'open' | 'closed' | 'awarded' | 'cancelled';
   createdBy: string;
   createdAt: string;

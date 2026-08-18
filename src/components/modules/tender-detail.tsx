@@ -123,15 +123,27 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
   const [sourceExportingCsv, setSourceExportingCsv] = useState(false);
   const [sourceExpanded, setSourceExpanded] = useState(false);
 
-  // Extract external URL from requiredDocs (format: "Source: ... | External ID: ... | URL: https://...")
+  // Extract external URL: first check direct externalUrl field, then parse from requiredDocs
   const externalSourceUrl = useMemo(() => {
+    // Direct field from imported tender
+    if (tender?.externalUrl) return tender.externalUrl;
+    // Legacy: parse from requiredDocs (format: "Source: ... | External ID: ... | URL: https://...")
     if (!tender?.requiredDocs) return null;
     const urlMatch = tender.requiredDocs.match(/URL:\s*(https?:\/\/[^\s|]+)/i);
     if (urlMatch) return urlMatch[1];
     // Also check if requiredDocs itself is a URL
     if (tender.requiredDocs.startsWith('http')) return tender.requiredDocs;
     return null;
-  }, [tender?.requiredDocs]);
+  }, [tender?.requiredDocs, tender?.externalUrl]);
+
+  // Extract the external source name
+  const externalSourceName = useMemo(() => {
+    if (tender?.externalSource) return tender.externalSource;
+    if (!tender?.requiredDocs) return 'source site';
+    const sourceMatch = tender.requiredDocs.match(/Source:\s*([^|]+)/i);
+    if (sourceMatch) return sourceMatch[1].trim();
+    return 'source site';
+  }, [tender?.requiredDocs, tender?.externalSource]);
 
   const isAdminOrCreator = user?.role === 'team_admin' && tender?.createdBy === user.id;
   const isCreatorOrAdmin = tender?.createdBy === user?.id || (user?.role === 'team_admin' && tender?.createdBy === user.id);
@@ -683,7 +695,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                           <Globe2 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
                         </div>
                         <div>
-                          <span className="text-sm font-semibold text-foreground">Original Requirements from Source</span>
+                          <span className="text-sm font-semibold text-foreground">Original from {externalSourceName}</span>
                           <p className="text-[10px] text-muted-foreground truncate max-w-[280px] sm:max-w-md">
                             {(() => { try { return new URL(externalSourceUrl).hostname; } catch { return externalSourceUrl; } })()}
                           </p>

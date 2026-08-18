@@ -3,6 +3,10 @@ import { requireAuth } from '@/lib/auth';
 import ZAI from 'z-ai-web-dev-sdk';
 import PDFDocument from 'pdfkit';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/tenders/fetch-doc/export-pdf
  * Fetches content from an external URL and generates a downloadable PDF.

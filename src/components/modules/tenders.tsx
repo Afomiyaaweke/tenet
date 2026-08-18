@@ -272,20 +272,22 @@ function InlineTenderDetail({ tender, onClose, setView }: {
           )}
         </div>
 
-        {/* Live tender external link */}
-        {isLive && (tender as LiveTender).externalUrl && (
+        {/* External source link (live or imported tenders) */}
+        {tender.externalUrl && (
           <div className="rounded-lg border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/50 dark:bg-orange-950/20 p-3">
             <div className="flex items-center gap-2">
               <ExternalLink className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
-              <span className="text-xs font-medium text-orange-700 dark:text-orange-300">Live Tender Source</span>
+              <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
+                {isLive ? 'Live Tender Source' : 'Original Source'}
+              </span>
             </div>
             <a
-              href={(tender as LiveTender).externalUrl}
+              href={tender.externalUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-orange-600 dark:text-orange-400 underline underline-offset-2 mt-1 inline-flex items-center gap-1 hover:text-orange-800 dark:hover:text-orange-200 transition-colors"
             >
-              View on {(tender as LiveTender).source || 'original site'}
+              View on {isLive ? (tender as LiveTender).source : tender.externalSource || 'original site'}
               <ArrowRight className="h-3 w-3" />
             </a>
           </div>
@@ -353,6 +355,17 @@ function InlineTenderDetail({ tender, onClose, setView }: {
             <Sparkles className="h-3.5 w-3.5" />
             AI Review
           </Button>
+          {tender.externalUrl && (
+            <a
+              href={tender.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              View on {tender.externalSource || 'Source'}
+            </a>
+          )}
         </div>
       </div>
     </div>

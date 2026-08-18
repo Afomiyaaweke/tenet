@@ -556,3 +556,39 @@ Stage Summary:
 - Reviews now auto-approve and display immediately
 - Review Moderation admin page added for managing reviews
 - Fix Prisma schema to sqlite for local dev
+
+---
+Task ID: 1
+Agent: main
+Task: Fix all reported issues - View on Site links, Import with externalUrl, PDF export, Deep Review
+
+Work Log:
+- Added `externalUrl` and `externalSource` fields to Tender Prisma model
+- Ran `bun run db:push` to sync schema
+- Updated POST /api/tenders route to accept and store externalUrl/externalSource
+- Updated Tender TypeScript interface with externalUrl/externalSource
+- Updated importTender in live-tenders.tsx to include externalUrl and externalSource
+- Added "View on Source" link for imported tenders in tenders.tsx InlineTenderDetail
+- Added "View on Source" button in tender action buttons
+- Fixed external URLs in external-tenders.ts fetchers:
+  - SAM.gov: fallback from homepage to specific opp URL
+  - Portugal BASE: use docUrl instead of hardcoded homepage
+  - Mexico CompraNet: use docUrl or specific opportunity URL
+  - Argentina COMPR.AR: use docUrl or specific proceso URL
+  - Uruguay: use docUrl or specific llamado URL
+  - Chile Mercado: specific detail URL with ID
+  - Ecuador SERCOP: specific proceso URL with ID
+  - Paraguay DNCP: specific adjudicaciones URL with ID
+- Added `maxDuration = 60` and `dynamic = 'force-dynamic'` to:
+  - /api/tenders/live/review (Deep Review)
+  - /api/tenders/fetch-doc/export-pdf (PDF export from URL)
+  - /api/tenders/[id]/export-pdf (PDF export from local tender)
+- Updated tender-detail.tsx to use direct externalUrl/externalSource fields
+- Verified all features work via Agent Browser
+
+Stage Summary:
+- All 4 issues fixed: View on Site links, Import with URL, PDF export, Deep Review
+- Deep Review confirmed working: shows Overview/Strategy/Risk/Financial/Compliance/Timeline tabs
+- External URLs now point to specific bid/tender pages instead of source homepages
+- Imported tenders preserve externalUrl and externalSource for direct linking
+- PDF export and Deep Review now have maxDuration=60 for Vercel Pro compatibility

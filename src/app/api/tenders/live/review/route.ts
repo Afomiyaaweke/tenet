@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import ZAI from 'z-ai-web-dev-sdk';
 
+// Allow up to 60s on Vercel Pro (10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 // POST /api/tenders/live/review - Generate deep, multi-dimensional AI review for a live tender
 export async function POST(request: NextRequest) {
   try {
