@@ -21,8 +21,8 @@ fi
 echo "🔄 Generating Prisma client..."
 npx prisma generate
 
-# Run Next.js build
+# Run Next.js build (use npx to ensure command is found in PATH)
 echo "🏗️  Building Next.js..."
-next build --webpack
+npx next build
 
 echo "✅ Build complete!"

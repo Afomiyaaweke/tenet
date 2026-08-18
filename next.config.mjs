@@ -57,8 +57,6 @@ const allowedDevOrigins = [
 ];
 
 const nextConfig = {
-  output: "standalone",
-
   reactStrictMode: true,
 
   allowedDevOrigins,
