@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI, resetZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Requirement Analyzer. You analyze tender requirements and provide comprehensive insights for bidders.
@@ -33,15 +33,6 @@ Return your response as a JSON object with these exact keys:
 - Calculate matchScore based on the overlap between bidder skills and tender requirements
 - Be honest about risks and challenges
 - Use bullet points and numbered lists for clarity`;
-
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -136,7 +127,7 @@ Generate the complete analysis. Return ONLY a valid JSON object with the keys sp
         if (response) break;
       } catch (err) {
         if (attempt === 2) throw err;
-        zaiInstance = null;
+        resetZAI();
       }
     }
 

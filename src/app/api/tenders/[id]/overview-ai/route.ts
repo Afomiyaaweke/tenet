@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI, resetZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 const OVERVIEW_SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Overview Assistant. You help bidders/applicants understand tender requirements and prepare competitive bids.
@@ -29,15 +29,6 @@ Return your response as a JSON object with these exact keys:
 - Highlight what makes a bid competitive for this specific tender
 - Be honest about potential challenges
 - Consider the category and location when giving advice`;
-
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
 
 /**
  * GET /api/tenders/[id]/overview-ai
@@ -107,7 +98,7 @@ Generate the complete overview. Return ONLY a valid JSON object with the keys sp
         if (response) break;
       } catch (err) {
         if (attempt === 2) throw err;
-        zaiInstance = null;
+        resetZAI();
       }
     }
 

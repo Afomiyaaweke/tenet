@@ -61,10 +61,18 @@ const nextConfig = {
 
   allowedDevOrigins,
 
-  serverExternalPackages: ["xlsx"],
+  serverExternalPackages: ["xlsx", "pdfkit", "sharp"],
 
-  // Performance optimizations for faster loading
+  // Performance optimizations for faster loading & Vercel free tier
   compress: true,
+
+  // Tree-shake heavy packages at import time
+  experimental: {
+    optimizePackageImports: [
+      "recharts",
+      "lucide-react",
+    ],
+  },
 
   async headers() {
     return [

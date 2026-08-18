@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { uploadFile, deleteFile, getFileBuffer } from '@/lib/storage';
+import { getZAI } from '@/lib/zai';
 import path from 'path';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 
@@ -310,8 +311,7 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string,
       const mimeType = mimeMap[ext] || 'application/octet-stream';
       const dataUrl = `data:${mimeType};base64,${base64File}`;
 
-      const ZAI = (await import('z-ai-web-dev-sdk')).default;
-      const zai = await ZAI.create();
+      const zai = await getZAI();
 
       const contentItem = { type: 'image_url' as const, image_url: { url: dataUrl } };
 
@@ -375,8 +375,7 @@ async function triggerReviewAsync(docId: string, ocrText: string, customPrompt: 
       data: { aiReviewStatus: 'processing', ...(customPrompt ? { aiReviewPrompt: customPrompt } : {}) },
     });
 
-    const ZAI = (await import('z-ai-web-dev-sdk')).default;
-    const zai = await ZAI.create();
+    const zai = await getZAI();
 
     const systemPrompt = customPrompt
       ? `You are an expert document reviewer. The user has provided the following specific review criteria:\n\n"${customPrompt}"\n\nAnalyze the provided document text according to the user's criteria and produce a structured review in JSON format with these fields:\n- complianceScore: number 0-100\n- completenessScore: number 0-100\n- riskLevel: "low" | "medium" | "high"\n- findings: array of { type: "positive"|"negative"|"warning", title: string, description: string }\n- strengths: array of strings\n- weaknesses: array of strings\n- missingElements: array of strings\n- recommendations: array of strings\n- overallAssessment: string\n\nRespond ONLY with valid JSON, no other text.`

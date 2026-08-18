@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI, resetZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 // ============================================================
@@ -29,19 +29,6 @@ interface TenderPrepOutput {
   timeline: string;
   termsAndConditions: string;
   categoryTags: string;
-}
-
-// ============================================================
-// ZAI Singleton with retry/reset
-// ============================================================
-
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
 }
 
 // ============================================================
@@ -152,7 +139,7 @@ Please generate the complete tender document in the required JSON format.`;
       } catch (err) {
         if (attempt === 2) throw err;
         // Reset ZAI instance on failure for retry
-        zaiInstance = null;
+        resetZAI();
       }
     }
 

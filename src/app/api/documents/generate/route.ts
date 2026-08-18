@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI, resetZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 const TEMPLATE_PROMPTS: Record<string, string> = {
@@ -83,15 +83,6 @@ Format professionally. Be clear and unambiguous. Reference Ethiopian procurement
 Format professionally. Use ETB currency. Follow Ethiopian tax regulations (15% VAT).`,
 };
 
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
@@ -163,7 +154,7 @@ export async function POST(request: NextRequest) {
         if (response) break;
       } catch (err) {
         if (attempt === 2) throw err;
-        zaiInstance = null;
+        resetZAI();
       }
     }
 

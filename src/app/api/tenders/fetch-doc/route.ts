@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 /**
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use the z-ai-web-dev-sdk page_reader to fetch content
-    const zai = await ZAI.create();
+    const zai = await getZAI();
     const result = await zai.functions.invoke('page_reader', { url });
 
     if (!result || !result.data) {

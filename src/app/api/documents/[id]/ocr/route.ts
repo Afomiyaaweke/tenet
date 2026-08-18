@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { getFileBuffer } from '@/lib/storage';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 /**
@@ -88,7 +88,7 @@ export async function POST(
       const dataUrl = `data:${mimeType};base64,${base64File}`;
 
       // Use VLM to extract text from document
-      const zai = await ZAI.create();
+      const zai = await getZAI();
 
       // For PDFs and documents, use file_url type; for images, use image_url
       const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext || '');

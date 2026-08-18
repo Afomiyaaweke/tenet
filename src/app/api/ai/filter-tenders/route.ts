@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI, resetZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 const SYSTEM_PROMPT = `You are a tender matching AI. Given a list of tenders and a user's skills/profile,
@@ -12,15 +12,6 @@ calculate a match score (0-100) for each tender based on how well the user's ski
 Return a JSON object where keys are tender IDs and values are match scores (numbers 0-100).
 Also include a "reasoning" field with a brief explanation for each match.
 Format: { "matches": [{ "id": "tender_id", "score": 85, "reason": "..." }] }`;
-
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,7 +69,7 @@ Calculate match scores for each tender. Return ONLY valid JSON.`;
         if (response) break;
       } catch (err) {
         if (attempt === 2) throw err;
-        zaiInstance = null;
+        resetZAI();
       }
     }
 

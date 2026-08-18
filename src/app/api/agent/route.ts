@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI, resetZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Assistant - an intelligent, helpful, and professional AI agent embedded within the Tenet procurement platform. You serve as a comprehensive guide, advisor, and assistant for all platform users.
@@ -85,15 +85,6 @@ Tenet is a digital tender ecosystem designed for the Ethiopian procurement marke
 6. **Encourage trust**: Promote transparency, verification, and documentation
 7. **Format well**: Use bullet points, numbered steps, and clear sections for complex answers
 8. **Stay current**: Base advice on the user's actual data when available (open tenders, bid status, etc.)`;
-
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -254,7 +245,7 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         if (attempt === 2) throw err;
         // Reset ZAI instance on failure
-        zaiInstance = null;
+        resetZAI();
       }
     }
 

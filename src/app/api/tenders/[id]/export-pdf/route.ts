@@ -3,8 +3,8 @@ import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import PDFDocument from 'pdfkit';
 
-// Allow up to 60s on Vercel Pro
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 export async function GET(

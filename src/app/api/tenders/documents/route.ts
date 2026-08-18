@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { uploadFile, deleteFile, getFileBuffer } from '@/lib/storage';
+import { getZAI } from '@/lib/zai';
 import path from 'path';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 
@@ -285,8 +286,7 @@ async function triggerOcrAsync(docId: string, fileName: string, fileUrl: string,
       const mimeType = mimeMap[ext] || 'application/octet-stream';
       const dataUrl = `data:${mimeType};base64,${base64File}`;
 
-      const ZAI = (await import('z-ai-web-dev-sdk')).default;
-      const zai = await ZAI.create();
+      const zai = await getZAI();
 
       const contentItem = { type: 'image_url' as const, image_url: { url: dataUrl } };
 
@@ -350,8 +350,7 @@ async function triggerReviewAsync(docId: string, ocrText: string) {
       data: { aiReviewStatus: 'processing' },
     });
 
-    const ZAI = (await import('z-ai-web-dev-sdk')).default;
-    const zai = await ZAI.create();
+    const zai = await getZAI();
 
     const systemPrompt = `You are an expert procurement document reviewer specializing in tender/RFP documents. Analyze the provided document text and produce a structured review in JSON format with these fields:
 - complianceScore: number 0-100 (how well the document meets procurement standards)

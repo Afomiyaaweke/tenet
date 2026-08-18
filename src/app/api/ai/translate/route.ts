@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const truncatedText = text.length > 8000 ? text.slice(0, 8000) + '...' : text;
     const targetName = LANGUAGE_NAMES[targetLang];
 
-    const zai = await ZAI.create();
+    const zai = await getZAI();
     const completion = await zai.chat.completions.create({
       messages: [
         {

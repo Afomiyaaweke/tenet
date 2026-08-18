@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getZAI, resetZAI } from '@/lib/zai';
 
-// Allow up to 60s on Vercel Pro (10s on Hobby)
-export const maxDuration = 60;
+// Vercel Hobby tier: 10s max
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
-
-// Cache ZAI instance across invocations within the same function lifetime
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
 
 // Fallback review structure when AI fails
 function getFallbackReview(partialText = '') {
@@ -151,131 +142,14 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: 'assistant',
-              content: `You are a senior procurement strategist and tender analyst with 20+ years of experience across government, multilateral (World Bank, UN, AfDB, ADB), private sector, and healthcare procurement. You have deep expertise in bid strategy, compliance, risk management, financial modeling, and competitive positioning. Always respond with valid JSON matching the exact schema requested. Be thorough, specific, and actionable.`
+              content: `You are a senior procurement strategist. Respond with valid JSON only. Be concise and actionable.`
             },
             {
               role: 'user',
-              content: `Perform a comprehensive, multi-dimensional deep analysis of this tender opportunity. Return a JSON object with these exact fields:
+              content: `Analyze this tender. Return JSON with: executiveSummary (2-3 sentences), opportunityScore (1-100), winProbability (1-100), strategicAnalysis ({swot:{strengths:[],weaknesses:[],opportunities:[],threats:[]},strategicFit:"high/medium/low",strategicFitReasoning:"",marketPositioning:""}), financialAnalysis ({budgetFit:"well_within/within/above/significantly_above",budgetFitReasoning:"",estimatedROI:"low/medium/high",roiReasoning:"",paymentTermsRisk:"low/medium/high",paymentTermsNote:"",costStructureBreakdown:[],financialRisks:[],marginPotential:"thin/moderate/healthy/strong"}), technicalComplexity ({level:"low/medium/high",reasoning:"",keyTechnologies:[],expertiseRequired:[],implementationRisks:[],estimatedDuration:""}), complianceAnalysis ({overallCompliance:"fully_compliant/partially_compliant/non_compliant/unclear",regulatoryFramework:"",mandatoryCertifications:[],complianceGaps:[],documentationRequirements:[],complianceScore:1-100}), eligibilityDeepDive ({overallEligible:true/false,confidenceLevel:"high/medium/low",criteria:[{criterion:"",met:true/false,partial:true/false,note:"",severity:"blocker/warning/info"}],blockers:[],warnings:[]}), riskMatrix ({overallRiskLevel:"low/medium/high/critical",overallRiskScore:1-100,dimensions:{financial:{score:1-10,factors:[],mitigation:""},technical:{score:1-10,factors:[],mitigation:""},legal:{score:1-10,factors:[],mitigation:""},operational:{score:1-10,factors:[],mitigation:""},reputational:{score:1-10,factors:[],mitigation:""}},criticalRisks:[],dealBreakers:[]}), competitiveIntelligence ({estimatedBidders:"low/medium/high",competitionLevel:"low/medium/high",typicalCompetitors:[],differentiationStrategies:[],incumbentAdvantage:true/false,incumbentNote:"",pricingStrategy:"aggressive/competitive/premium/value_based",pricingNote:""}), bidStrategy ({recommendedApproach:"",priorityLevel:"must_win/high/medium/low/monitor",keyWinFactors:[],differentiationPoints:[],partnershipOpportunities:[],proposalHighlights:[],estimatedPrepTime:"",resourceRequirements:""}), timelineAnalysis ({deadlineAssessment:"comfortable/tight/very_tight/already_passed",daysToDeadline:0,recommendedStartDaysBefore:0,milestones:[{phase:"",duration:"",deadline:""}],criticalPathItems:[]}), valueAddOpportunities ([{opportunity:"",impact:"low/medium/high",effort:"low/medium/high"}]), redFlags ([]), actionableRecommendations ([{action:"",priority:"critical/high/medium/low",category:"compliance/financial/technical/strategy",timeline:""}]).
 
-{
-  "executiveSummary": "3-4 sentence strategic executive summary covering the opportunity, key challenge, and strategic recommendation",
-  "opportunityScore": 1-100,
-  "winProbability": 1-100,
-
-  "strategicAnalysis": {
-    "swot": {
-      "strengths": ["strength1", "strength2", "strength3"],
-      "weaknesses": ["weakness1", "weakness2"],
-      "opportunities": ["opportunity1", "opportunity2", "opportunity3"],
-      "threats": ["threat1", "threat2"]
-    },
-    "strategicFit": "high/medium/low",
-    "strategicFitReasoning": "1-2 sentence explanation",
-    "marketPositioning": "1-2 sentence advice on how to position for this tender"
-  },
-
-  "financialAnalysis": {
-    "budgetFit": "well_within/within/above/significantly_above",
-    "budgetFitReasoning": "1-2 sentence explanation of budget alignment",
-    "estimatedROI": "low/medium/high/very_high",
-    "roiReasoning": "1-2 sentence explanation",
-    "paymentTermsRisk": "low/medium/high",
-    "paymentTermsNote": "1 sentence on typical payment terms for this type",
-    "costStructureBreakdown": ["item1: %", "item2: %", "item3: %"],
-    "financialRisks": ["risk1", "risk2"],
-    "marginPotential": "thin/moderate/healthy/strong"
-  },
-
-  "technicalComplexity": {
-    "level": "low/medium/high/very_high",
-    "reasoning": "1-2 sentence explanation",
-    "keyTechnologies": ["tech1", "tech2"],
-    "expertiseRequired": ["expertise1", "expertise2", "expertise3"],
-    "implementationRisks": ["risk1", "risk2"],
-    "estimatedDuration": "e.g. 6-12 months"
-  },
-
-  "complianceAnalysis": {
-    "overallCompliance": "fully_compliant/partially_compliant/non_compliant/unclear",
-    "regulatoryFramework": "1 sentence on relevant regulations",
-    "mandatoryCertifications": ["cert1", "cert2"],
-    "voluntaryCertifications": ["cert1", "cert2"],
-    "complianceGaps": ["gap1", "gap2"],
-    "documentationRequirements": ["doc1", "doc2", "doc3", "doc4"],
-    "complianceScore": 1-100
-  },
-
-  "eligibilityDeepDive": {
-    "overallEligible": true/false,
-    "confidenceLevel": "high/medium/low",
-    "criteria": [
-      {"criterion": "name", "met": true/false, "partial": true/false, "note": "explanation", "severity": "blocker/warning/info"}
-    ],
-    "blockers": ["blocker1"],
-    "warnings": ["warning1"]
-  },
-
-  "riskMatrix": {
-    "overallRiskLevel": "low/medium/high/critical",
-    "overallRiskScore": 1-100,
-    "dimensions": {
-      "financial": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"},
-      "technical": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"},
-      "legal": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"},
-      "operational": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"},
-      "reputational": {"score": 1-10, "factors": ["factor1"], "mitigation": "strategy"}
-    },
-    "criticalRisks": ["risk1"],
-    "dealBreakers": ["dealbreaker1"]
-  },
-
-  "competitiveIntelligence": {
-    "estimatedBidders": "low(1-3)/medium(4-8)/high(9+)/very_high(15+)",
-    "competitionLevel": "low/medium/high/very_high",
-    "typicalCompetitors": ["type1", "type2", "type3"],
-    "differentiationStrategies": ["strategy1", "strategy2", "strategy3"],
-    "incumbentAdvantage": true/false,
-    "incumbentNote": "1 sentence if relevant",
-    "pricingStrategy": "aggressive/competitive/premium/value_based",
-    "pricingNote": "1 sentence explanation"
-  },
-
-  "bidStrategy": {
-    "recommendedApproach": "2-3 sentence strategic recommendation",
-    "priorityLevel": "must_win/high/medium/low/monitor",
-    "keyWinFactors": ["factor1", "factor2", "factor3"],
-    "differentiationPoints": ["point1", "point2"],
-    "partnershipOpportunities": ["partner1", "partner2"],
-    "proposalHighlights": ["highlight1", "highlight2", "highlight3"],
-    "estimatedPrepTime": "e.g. 2-4 weeks",
-    "resourceRequirements": "1 sentence on team/resources needed"
-  },
-
-  "timelineAnalysis": {
-    "deadlineAssessment": "comfortable/tight/very_tight/already_passed",
-    "daysToDeadline": estimated_number,
-    "recommendedStartDaysBefore": recommended_number,
-    "milestones": [
-      {"phase": "name", "duration": "e.g. 1 week", "deadline": "relative date"}
-    ],
-    "criticalPathItems": ["item1", "item2"]
-  },
-
-  "valueAddOpportunities": [
-    {"opportunity": "description", "impact": "low/medium/high", "effort": "low/medium/high"}
-  ],
-
-  "redFlags": ["flag1", "flag2"],
-
-  "actionableRecommendations": [
-    {"action": "description", "priority": "critical/high/medium/low", "category": "compliance/financial/technical/strategy", "timeline": "e.g. within 48h"}
-  ]
-}
-
-Tender details:
-${tenderInfo}
-
-Provide practical, specific, expert-level advice. Think like a senior bid manager at a top consulting firm. Be concise but comprehensive. Each field should contain genuinely useful insights, not generic filler.`
+Tender:
+${tenderInfo}`
             }
           ],
           thinking: { type: 'disabled' },
@@ -285,7 +159,7 @@ Provide practical, specific, expert-level advice. Think like a senior bid manage
       } catch (aiErr) {
         console.error(`AI review attempt ${attempt} failed:`, aiErr instanceof Error ? aiErr.message : aiErr);
         // Reset ZAI instance for retry
-        zaiInstance = null;
+        resetZAI();
         if (attempt === 2) throw aiErr;
       }
     }
