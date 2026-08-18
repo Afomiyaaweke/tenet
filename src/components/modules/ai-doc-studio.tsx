@@ -40,11 +40,13 @@ import {
   Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare, FileDown,
 } from 'lucide-react';
 import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
+import dynamic from 'next/dynamic';
+const AgentChatView = dynamic(() => import('./agent-chat').then(m => m.AgentChatView), { ssr: false });
 /* ══════════════════════════════════════════════════════════════
    TYPES
    ══════════════════════════════════════════════════════════════ */
 
-type RibbonTab = 'home' | 'insert' | 'review' | 'ai-tools' | 'sign' | 'doc-review' | 'ai-extract';
+type RibbonTab = 'home' | 'insert' | 'review' | 'ai-tools' | 'sign' | 'doc-review' | 'ai-extract' | 'agent';
 type AITool = 'tender-builder' | 'bid-builder' | 'requirement-analyzer' | 'applicant-analyzer';
 
 interface TenderOption {
@@ -1070,6 +1072,8 @@ export function AIDocStudio() {
     </div>
   );
 
+  const AgentRibbon = () => <div className="px-3 py-2 text-xs text-muted-foreground">AI Tender Agent — Upload documents, analyze tenders, extract bidders, generate compliance docs</div>;
+
   const RIBBON_MAP: Record<RibbonTab, () => React.JSX.Element> = {
     home: HomeRibbon,
     insert: InsertRibbon,
@@ -1078,6 +1082,7 @@ export function AIDocStudio() {
     sign: SignRibbon,
     'doc-review': DocReviewRibbon,
     'ai-extract': AIExtractRibbon,
+    agent: AgentRibbon,
   };
 
   /* ════════════════════════════════════════════════════════════
@@ -2688,7 +2693,7 @@ export function AIDocStudio() {
 
       {/* ── Ribbon Tabs ── */}
       <div className="flex items-center h-8 bg-card border-b border-border/40 px-2 flex-shrink-0 gap-0.5">
-        {(['home', 'insert', 'review', 'ai-tools', 'sign', 'doc-review', 'ai-extract'] as RibbonTab[]).map(tab => (
+        {(['home', 'insert', 'review', 'ai-tools', 'agent', 'sign', 'doc-review', 'ai-extract'] as RibbonTab[]).map(tab => (
           <button key={tab} onClick={() => setRibbonTab(tab)}
             className={`px-3 py-1 text-xs font-medium rounded-t transition-colors flex items-center gap-1 ${
               ribbonTab === tab
@@ -2696,6 +2701,7 @@ export function AIDocStudio() {
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             }`}>
             {tab === 'ai-tools' ? <><Sparkles className="h-3 w-3" /> AI Tools</> :
+             tab === 'agent' ? <><Bot className="h-3 w-3" /> AI Agent</> :
              tab === 'sign' ? <><Pen className="h-3 w-3" /> Sign</> :
              tab === 'doc-review' ? <><Bot className="h-3 w-3" /> Doc Review</> :
              tab === 'ai-extract' ? <><MessageSquare className="h-3 w-3" /> AI Extract</> :
@@ -2710,7 +2716,11 @@ export function AIDocStudio() {
       </div>
 
       {/* ── Main Area ── */}
-      {ribbonTab === 'doc-review' ? (
+      {ribbonTab === 'agent' ? (
+        <div className="flex-1 overflow-hidden">
+          <AgentChatView />
+        </div>
+      ) : ribbonTab === 'doc-review' ? (
         <DocReviewContent />
       ) : ribbonTab === 'ai-extract' ? (
         <AIExtractContent />
@@ -2765,7 +2775,7 @@ export function AIDocStudio() {
       )}
 
       {/* ── Status Bar ── */}
-      {ribbonTab !== 'doc-review' && ribbonTab !== 'ai-extract' && (
+      {ribbonTab !== 'doc-review' && ribbonTab !== 'ai-extract' && ribbonTab !== 'agent' && (
         <div className="flex items-center h-6 px-3 bg-card border-t border-border/40 text-[10px] text-muted-foreground flex-shrink-0">
           <div className="flex-1">Page 1 of 1</div>
           <div className="flex items-center gap-3">

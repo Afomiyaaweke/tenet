@@ -664,3 +664,38 @@ Stage Summary:
 - JWT_SECRET added to .env for local dev
 - User needs to set JWT_SECRET on Vercel for production to work
 - Files modified: tenders/live/review/route.ts, tenders/[id]/overview-ai/route.ts, ai/analyze-requirements/route.ts, document-review/[id]/route.ts, api.ts, .env
+---
+Task ID: 1
+Agent: Main Agent
+Task: Integrate tenetbid-ai-agent features from GitHub repo into existing AI Doc Studio
+
+Work Log:
+- Read and analyzed the GitHub repository https://github0.com/Afomiyaaweke/tenetbid-ai-agent
+- Identified key features: ReAct agent loop, multi-pass extraction, Excel/DOCX generation, streaming events, session management
+- Added 5 new Prisma models: AgentSession, AgentDocument, AgentMessage, AgentAnalysis, AgentArtifact
+- Installed mammoth and docx packages
+- Created src/lib/agent-document.ts: PDF/DOCX/XLSX/TXT parser with page-chunked extraction
+- Created src/lib/agent-extraction.ts: Multi-pass extraction with confidence scoring (4-pass pipeline)
+- Created src/lib/agent-excel.ts: Excel generation with 4-sheet workbooks
+- Created src/lib/agent-docgen.ts: Professional DOCX generation with compliance matrix
+- Created src/lib/agent-loop.ts: ReAct agent loop with 5 tools and streaming events
+- Created 6 API routes: sessions CRUD, documents upload, analyze, prepare, messages (NDJSON streaming)
+- Created src/components/modules/agent-chat.tsx: Full 3-panel agent chat UI
+- Integrated AgentChatView into AI Doc Studio as new "AI Agent" ribbon tab
+- Fixed search_documents tool to handle undefined query
+- Fixed agent synthesis to use non-streaming LLM calls (z-ai SDK compatibility)
+- Enhanced system7 system prompt for better chat responses
+- Fixed saveAssistantMessage timing in messages API route
+- Verified all features working via browser testing
+
+Stage Summary:
+- AI Agent tab fully integrated into AI Doc Studio alongside existing features
+- 3-panel resizable layout: Session sidebar (left), Agent chat (center), Analysis panel (right)
+- ReAct agent with intent classification, planning, tool execution, and answer synthesis
+- 5 built-in tools: search_documents, read_page, extract_tender_analysis, generate_compliance_doc, compare_tenders
+- Multi-pass extraction with confidence scoring for tender/bidder data
+- Excel generation (4-sheet workbooks) and DOCX generation (compliance documents)
+- NDJSON streaming for real-time agent event rendering
+- Bidder comparison charts using Recharts
+- Session-based document management with upload and analysis
+- All existing AI Doc Studio features preserved (word processor, OCR, AI review, etc.)
