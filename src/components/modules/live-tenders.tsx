@@ -3063,13 +3063,12 @@ export function LiveTendersView() {
       }
 
       toast.success('Bid application started!', {
-        description: `"${tender.title}" — draft bid created. Opening Doc Builder…`,
+        description: `"${tender.title}" — draft bid created. Opening AI Studio…`,
       });
 
-      // Step 4: Navigate to Doc Builder with the tender pre-selected
-      useNavStore.getState().setView('doc-builder', {
+      // Step 4: Navigate to AI Doc Studio with the tender pre-selected for bid preparation
+      useNavStore.getState().setView('ai-doc-studio', {
         ...(localTenderId ? { tenderId: localTenderId } : {}),
-        templateId: 'technical-proposal',
       });
     } catch {
       toast.error('Failed to start bid application');

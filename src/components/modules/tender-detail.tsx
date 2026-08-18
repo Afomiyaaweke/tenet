@@ -424,14 +424,13 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
       }
       setCreatedBidId(res.data.id);
       setSubmittingBid(false);
-      // Navigate to Doc Builder for bid preparation
+      // Navigate to AI Doc Studio for bid preparation
       toast.success('Draft bid created!', {
-        description: 'Opening Doc Builder to prepare your bid documents…',
+        description: 'Opening AI Studio to prepare your bid documents…',
       });
       handleCloseBidDialog();
-      useNavStore.getState().setView('doc-builder', {
+      useNavStore.getState().setView('ai-doc-studio', {
         tenderId: tender.id,
-        templateId: 'technical-proposal',
       });
     } catch {
       toast.error('Failed to create bid');

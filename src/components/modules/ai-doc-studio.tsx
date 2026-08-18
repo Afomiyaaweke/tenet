@@ -265,6 +265,7 @@ function SkillTagSelector({ selected, onChange }: { selected: string[]; onChange
 
 export function AIDocStudio() {
   /* ── State ── */
+  const { viewParams } = useNavStore();
   const editorRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -321,6 +322,24 @@ export function AIDocStudio() {
       if (res.success) setTenders(res.data || []);
     }).catch(() => {});
   }, []);
+
+  /* ── Auto-open bid builder when navigated from "Start Bid Application" ── */
+  useEffect(() => {
+    if (viewParams?.tenderId) {
+      setActiveAITool('bid-builder');
+      setAiPanelOpen(true);
+      setBidSelectedTender(viewParams.tenderId);
+      // Populate bid form from tender data once tenders are loaded
+      const t = tenders.find(t => t.id === viewParams.tenderId);
+      if (t) {
+        setBidForm(prev => ({
+          ...prev, tenderTitle: t.title, scope: t.scope || '',
+          budgetRange: t.budgetMin && t.budgetMax ? `${t.budgetMin} - ${t.budgetMax} ETB` : '',
+          category: t.categoryTags || '',
+        }));
+      }
+    }
+  }, [viewParams, tenders]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Load documents for review ── */
   const loadDocuments = useCallback(async () => {
