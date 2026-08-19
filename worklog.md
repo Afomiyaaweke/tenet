@@ -699,3 +699,33 @@ Stage Summary:
 - Bidder comparison charts using Recharts
 - Session-based document management with upload and analysis
 - All existing AI Doc Studio features preserved (word processor, OCR, AI review, etc.)
+---
+Task ID: 3
+Agent: main
+Task: Move document upload inside chat, add OCR support, add Import dialog
+
+Work Log:
+- Confirmed 'Share' button doesn't exist in session 3-dot menu (only rename + delete inline buttons)
+- Added Paperclip, FilePlus2, Gavel, ImageIcon imports to agent-chat.tsx
+- Added useNavStore and Tender/Bid type imports
+- Updated ACCEPTED_FILE_TYPES to include image formats (jpg, jpeg, png, webp, gif, bmp, tiff, tif)
+- Added import dialog state variables (showImportDialog, importTab, importTenders, importBids, importLiveTenders, importSearch, importLoading)
+- Added chatFileInputRef for the chat-area file upload
+- Modified createSession() to accept optional title and return session ID
+- Modified uploadFiles() to accept optional category parameter and support image file types
+- Added import functions: openImportDialog, importDocumentsFromTender, importDocumentsFromBid, importDocumentsFromLiveTender, handleChatFileUpload
+- Replaced chat input area: added Plus (New Session), Paperclip (Upload File), FilePlus2 (Import) buttons left of textarea
+- Created renderImportDialog() with 4 tabs: Local Files, My Tenders, Live Tenders, Bids
+- Added import dialog to both mobile and desktop layouts
+- Created /api/agent-sessions/[id]/documents/import/route.ts for importing documents from tenders/bids
+- Added image OCR support to agent-document.ts: parseImage() using VLM for jpg, jpeg, png, webp, gif, bmp, tiff, tif
+- Updated getMimeType() and getFiletype() mappings in agent-document.ts
+- Fixed missing closing brace on JSX comment ({/* Input Area */)
+- All changes pass lint (0 errors, 12 pre-existing warnings)
+- Browser-verified: chat input buttons visible, Import Dialog opens with all 4 tabs working, empty states show navigation links
+
+Stage Summary:
+- Document upload moved to chat input area with 3 action buttons
+- Import dialog supports 4 sources: local files, my tenders, live tenders, my bids
+- Image OCR support added for 8 image formats
+- Backend import endpoint created for tender/bid document importing

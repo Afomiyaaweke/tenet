@@ -86,6 +86,14 @@ function getFiletype(filename: string): string {
     xlsx: 'xlsx',
     xls: 'xls',
     csv: 'csv',
+    jpg: 'image',
+    jpeg: 'image',
+    png: 'image',
+    webp: 'image',
+    gif: 'image',
+    bmp: 'image',
+    tiff: 'image',
+    tif: 'image',
   };
   return typeMap[ext] || ext;
 }
@@ -104,6 +112,14 @@ function getMimeType(filename: string): string {
     xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     xls: 'application/vnd.ms-excel',
     csv: 'text/csv',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    bmp: 'image/bmp',
+    tiff: 'image/tiff',
+    tif: 'image/tiff',
   };
   return mimeMap[ext] || 'application/octet-stream';
 }
@@ -316,6 +332,63 @@ function parseSpreadsheet(filename: string, buffer: Buffer): ParsedDocument {
  * @param buffer    The raw file bytes
  * @returns         A ParsedDocument with pages of extracted text
  */
+
+/**
+ * Parse an image buffer using VLM (Vision Language Model) for OCR.
+ * Works the same way as PDF parsing — sends the image to the VLM to extract text.
+ */
+async function parseImage(filename: string, buffer: Buffer): Promise<ParsedDocument> {
+  const base64Data = buffer.toString('base64');
+  const mimeType = getMimeType(filename);
+  const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+  const zai = await getZAI();
+
+  const response = await zai.chat.completions.createVision({
+    model: 'default',
+    messages: [
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'You are an expert OCR system. Extract ALL text from the provided image precisely. Preserve structure, headings, tables, and formatting. Output only the extracted text, no other commentary.',
+          },
+        ],
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Extract all text from this image.',
+          },
+          { type: 'image_url', image_url: { url: dataUrl } },
+        ],
+      },
+    ],
+    thinking: { type: 'disabled' },
+  });
+
+  const rawText = response.choices?.[0]?.message?.content || '';
+
+  if (!rawText.trim()) {
+    return {
+      filename,
+      filetype: 'image',
+      pages: [{ pageNum: 1, text: '(No text could be extracted from this image)' }],
+      totalPages: 1,
+    };
+  }
+
+  return {
+    filename,
+    filetype: 'image',
+    pages: [{ pageNum: 1, text: rawText.trim() }],
+    totalPages: 1,
+  };
+}
+
 export async function parseDocument(
   filename: string,
   buffer: Buffer
@@ -338,6 +411,16 @@ export async function parseDocument(
     case 'xls':
     case 'csv':
       return parseSpreadsheet(filename, buffer);
+
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'webp':
+    case 'gif':
+    case 'bmp':
+    case 'tiff':
+    case 'tif':
+      return parseImage(filename, buffer);
 
     default: {
       // Unknown format — attempt to read as UTF-8 text as a best-effort fallback

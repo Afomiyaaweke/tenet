@@ -96,7 +96,13 @@ import {
   Building2,
   Hash,
   AlertCircle,
+  Paperclip,
+  FilePlus2,
+  Gavel,
+  Image as ImageIcon,
 } from 'lucide-react';
+import { useNavStore } from '@/store';
+import { type Tender, type Bid } from '@/lib/api';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
@@ -281,7 +287,7 @@ function getToolIcon(name: string) {
   return <Wrench className="size-4 text-muted-foreground" />;
 }
 
-const ACCEPTED_FILE_TYPES = '.pdf,.docx,.xlsx,.txt,.csv';
+const ACCEPTED_FILE_TYPES = '.pdf,.docx,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif';
 
 const CHART_COLORS = [
   '#0d9488', '#059669', '#0891b2', '#0284c7', '#7c3aed',
@@ -332,6 +338,16 @@ export function AgentChatView() {
   const [applicantName, setApplicantName] = useState('');
   const [prepareLoading, setPrepareLoading] = useState(false);
   const [showPrepareDialog, setShowPrepareDialog] = useState(false);
+
+  // --- Import Dialog State ---
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importTab, setImportTab] = useState<'local' | 'tenders' | 'live' | 'bids'>('local');
+  const [importTenders, setImportTenders] = useState<Tender[]>([]);
+  const [importBids, setImportBids] = useState<Bid[]>([]);
+  const [importLiveTenders, setImportLiveTenders] = useState<Tender[]>([]);
+  const [importSearch, setImportSearch] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id === selectedSessionId),
@@ -426,17 +442,19 @@ export function AgentChatView() {
      SESSION ACTIONS
      ──────────────────────────────────────────────────────────── */
 
-  const createSession = async () => {
+  const createSession = async (title?: string) => {
     try {
-      const res = await api.post('/agent-sessions', { title: 'New Tender Review' });
+      const res = await api.post('/agent-sessions', { title: title || 'New Tender Review' });
       if (res.success) {
         setSessions((prev) => [res.data, ...prev]);
         setSelectedSessionId(res.data.id);
         toast.success('Session created');
+        return res.data.id;
       }
     } catch {
       toast.error('Failed to create session');
     }
+    return null;
   };
 
   const renameSession = async (id: string, title: string) => {
@@ -469,20 +487,20 @@ export function AgentChatView() {
      DOCUMENT ACTIONS
      ──────────────────────────────────────────────────────────── */
 
-  const uploadFiles = async (files: FileList | File[]) => {
+  const uploadFiles = async (files: FileList | File[], category?: DocCategory) => {
     if (!selectedSessionId) return;
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
         const ext = file.name.split('.').pop()?.toLowerCase();
-        const allowed = ['pdf', 'docx', 'xlsx', 'txt', 'csv'];
+        const allowed = ['pdf', 'docx', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'];
         if (!allowed.includes(ext || '')) {
           toast.error(`Unsupported file type: .${ext}`);
           continue;
         }
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('category', docCategory);
+        formData.append('category', category || docCategory);
         const res = await api.upload(`/agent-sessions/${selectedSessionId}/documents`, formData);
         if (res.success) {
           setDocuments((prev) => [res.data, ...prev]);
@@ -526,6 +544,154 @@ export function AgentChatView() {
       toast.error(err?.message || 'Analysis failed');
     } finally {
       setAnalysisLoading(false);
+    }
+  };
+
+  /* ────────────────────────────────────────────────────────────
+     IMPORT DIALOG ACTIONS
+     ──────────────────────────────────────────────────────────── */
+
+  const openImportDialog = async () => {
+    // Ensure we have a session
+    let sessionId = selectedSessionId;
+    if (!sessionId) {
+      sessionId = await createSession('New Tender Review');
+      if (!sessionId) return;
+    }
+    setShowImportDialog(true);
+    setImportSearch('');
+    setImportLoading(true);
+    setImportTab('local');
+
+    // Fetch tenders, bids, and live tenders in parallel
+    try {
+      const [tendersRes, bidsRes, liveRes] = await Promise.all([
+        api.get('/tenders').catch(() => ({ success: false })),
+        api.get('/bids').catch(() => ({ success: false })),
+        api.get('/live-tenders/saved').catch(() => ({ success: false })),
+      ]);
+      if (tendersRes.success) setImportTenders(tendersRes.data || []);
+      if (bidsRes.success) setImportBids(bidsRes.data || []);
+      if (liveRes.success) setImportLiveTenders(liveRes.data || []);
+    } catch {
+      // Silently fail
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const importDocumentsFromTender = async (tenderId: string) => {
+    if (!selectedSessionId) return;
+    setImportLoading(true);
+    try {
+      const tenderRes = await api.get(`/tenders/${tenderId}`);
+      if (!tenderRes.success || !tenderRes.data?.documents?.length) {
+        toast.error('No documents found on this tender');
+        setImportLoading(false);
+        return;
+      }
+      const tender = tenderRes.data;
+      let imported = 0;
+      for (const doc of tender.documents) {
+        const res = await api.post(`/agent-sessions/${selectedSessionId}/documents/import`, {
+          fileUrl: doc.fileUrl,
+          fileName: doc.fileName,
+          category: 'tender',
+        });
+        if (res.success) {
+          setDocuments((prev) => [res.data, ...prev]);
+          imported++;
+        }
+      }
+      if (imported > 0) {
+        toast.success(`Imported ${imported} document${imported > 1 ? 's' : ''}`);
+        setShowImportDialog(false);
+      } else {
+        toast.error('Failed to import documents');
+      }
+    } catch {
+      toast.error('Import failed');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const importDocumentsFromBid = async (bidId: string) => {
+    if (!selectedSessionId) return;
+    setImportLoading(true);
+    try {
+      const bidRes = await api.get(`/bids/${bidId}`);
+      if (!bidRes.success || !bidRes.data?.documents?.length) {
+        toast.error('No documents found on this bid');
+        setImportLoading(false);
+        return;
+      }
+      const bid = bidRes.data;
+      let imported = 0;
+      for (const doc of bid.documents) {
+        const res = await api.post(`/agent-sessions/${selectedSessionId}/documents/import`, {
+          fileUrl: doc.fileUrl,
+          fileName: doc.fileName,
+          category: 'submission',
+        });
+        if (res.success) {
+          setDocuments((prev) => [res.data, ...prev]);
+          imported++;
+        }
+      }
+      if (imported > 0) {
+        toast.success(`Imported ${imported} document${imported > 1 ? 's' : ''}`);
+        setShowImportDialog(false);
+      } else {
+        toast.error('Failed to import documents');
+      }
+    } catch {
+      toast.error('Import failed');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const importDocumentsFromLiveTender = async (tenderId: string) => {
+    if (!selectedSessionId) return;
+    setImportLoading(true);
+    try {
+      const tender = importLiveTenders.find((t) => t.id === tenderId);
+      if (!tender) {
+        toast.error('Tender not found');
+        setImportLoading(false);
+        return;
+      }
+      // For live tenders, use documentUrl or externalUrl
+      const docUrl = (tender as any).documentUrl || tender.externalUrl;
+      if (!docUrl) {
+        toast.error('No documents available for this tender');
+        setImportLoading(false);
+        return;
+      }
+      const res = await api.post(`/agent-sessions/${selectedSessionId}/documents/import`, {
+        fileUrl: docUrl,
+        fileName: `${tender.title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50)}.pdf`,
+        category: 'tender',
+      });
+      if (res.success) {
+        setDocuments((prev) => [res.data, ...prev]);
+        toast.success('Document imported');
+        setShowImportDialog(false);
+      } else {
+        toast.error(res.error || 'Failed to import');
+      }
+    } catch {
+      toast.error('Import failed');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleChatFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      uploadFiles(e.target.files);
+      e.target.value = '';
     }
   };
 
@@ -1511,13 +1677,66 @@ export function AgentChatView() {
 
         {/* Input Area */}
         <div className="border-t px-4 py-3">
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 items-end">
+            <div className="flex gap-1 shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-10 rounded-xl text-muted-foreground hover:text-foreground"
+                    onClick={() => createSession()}
+                    title="New Session"
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New Session</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-10 rounded-xl text-muted-foreground hover:text-foreground"
+                    onClick={() => chatFileInputRef.current?.click()}
+                    title="Upload File"
+                    disabled={uploading}
+                  >
+                    {uploading ? <Loader2 className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Upload File (PDF, DOCX, XLSX, Images)</TooltipContent>
+              </Tooltip>
+              <input
+                ref={chatFileInputRef}
+                type="file"
+                multiple
+                accept={ACCEPTED_FILE_TYPES}
+                className="hidden"
+                onChange={handleChatFileUpload}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-10 rounded-xl text-muted-foreground hover:text-foreground"
+                    onClick={openImportDialog}
+                    title="Import from Tenders/Bids"
+                  >
+                    <FilePlus2 className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Import from Tenders / Bids</TooltipContent>
+              </Tooltip>
+            </div>
             <Textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about your tender documents..."
-              className="min-h-[40px] max-h-32 resize-none text-sm"
+              className="min-h-[40px] max-h-32 resize-none text-sm flex-1"
               disabled={isStreaming}
               rows={1}
             />
@@ -1897,6 +2116,288 @@ export function AgentChatView() {
   };
 
   /* ────────────────────────────────────────────────────────────
+     RENDER: IMPORT DIALOG
+     ──────────────────────────────────────────────────────────── */
+
+  const renderImportDialog = () => {
+    const filteredTenders = importTenders.filter((t) =>
+      t.title.toLowerCase().includes(importSearch.toLowerCase())
+    );
+    const filteredBids = importBids.filter((b) =>
+      (b.tender?.title || '').toLowerCase().includes(importSearch.toLowerCase())
+    );
+    const filteredLive = importLiveTenders.filter((t) =>
+      t.title.toLowerCase().includes(importSearch.toLowerCase())
+    );
+
+    return (
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FilePlus2 className="size-5 text-teal-500" />
+              Import Documents
+            </DialogTitle>
+            <DialogDescription>
+              Upload local files or import from your tenders and bids.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tenders or bids..."
+              className="pl-9"
+              value={importSearch}
+              onChange={(e) => setImportSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Tabs */}
+          <Tabs value={importTab} onValueChange={(v) => setImportTab(v as any)} className="flex-1 min-h-0">
+            <TabsList className="w-full">
+              <TabsTrigger value="local" className="flex-1 gap-1 text-xs">
+                <Upload className="size-3" /> Local Files
+              </TabsTrigger>
+              <TabsTrigger value="tenders" className="flex-1 gap-1 text-xs">
+                <FileText className="size-3" /> My Tenders
+              </TabsTrigger>
+              <TabsTrigger value="live" className="flex-1 gap-1 text-xs">
+                <Globe className="size-3" /> Live Tenders
+              </TabsTrigger>
+              <TabsTrigger value="bids" className="flex-1 gap-1 text-xs">
+                <Gavel className="size-3" /> Bids
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Local Files Tab */}
+            <TabsContent value="local" className="flex-1 min-h-0 mt-2">
+              <div
+                className={cn(
+                  'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer',
+                  uploading
+                    ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/20'
+                    : 'border-muted-foreground/20 hover:border-muted-foreground/40'
+                )}
+                onClick={() => {
+                  if (!uploading && selectedSessionId) fileInputRef.current?.click();
+                }}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept={ACCEPTED_FILE_TYPES}
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      uploadFiles(e.target.files);
+                      e.target.value = '';
+                      setShowImportDialog(false);
+                    }
+                  }}
+                />
+                {uploading ? (
+                  <Loader2 className="size-8 animate-spin text-teal-500" />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <FileUp className="size-8" />
+                      <ImageIcon className="size-8" />
+                      <FileText className="size-8" />
+                    </div>
+                    <p className="text-sm font-medium">Click to upload files</p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF, DOCX, XLSX, TXT, CSV, Images (JPG, PNG, WebP)
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/60">
+                      Images will be processed with AI OCR
+                    </p>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* My Tenders Tab */}
+            <TabsContent value="tenders" className="flex-1 min-h-0 mt-2">
+              {importLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredTenders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <FolderOpen className="size-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">
+                    {importSearch ? 'No tenders match your search' : 'No tenders yet'}
+                  </p>
+                  {!importSearch && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs mt-1"
+                      onClick={() => {
+                        setShowImportDialog(false);
+                        useNavStore.getState().setView('tenders');
+                      }}
+                    >
+                      Go to Tenders
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <ScrollArea className="max-h-64">
+                  <div className="space-y-1.5">
+                    {filteredTenders.map((tender) => (
+                      <div
+                        key={tender.id}
+                        className="flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-accent/30 transition-colors"
+                      >
+                        <FileText className="size-4 text-teal-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{tender.title}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {tender._count?.bids ? `${tender._count.bids} bid(s)` : 'No bids'}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="text-xs shrink-0 bg-teal-600 hover:bg-teal-700 text-white h-7"
+                          onClick={() => importDocumentsFromTender(tender.id)}
+                          disabled={importLoading}
+                        >
+                          {importLoading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                          Import
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </TabsContent>
+
+            {/* Live Tenders Tab */}
+            <TabsContent value="live" className="flex-1 min-h-0 mt-2">
+              {importLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredLive.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <Globe className="size-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">
+                    {importSearch ? 'No live tenders match your search' : 'No saved live tenders'}
+                  </p>
+                  {!importSearch && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs mt-1"
+                      onClick={() => {
+                        setShowImportDialog(false);
+                        useNavStore.getState().setView('live-tenders');
+                      }}
+                    >
+                      Go to Live Tenders
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <ScrollArea className="max-h-64">
+                  <div className="space-y-1.5">
+                    {filteredLive.map((tender) => (
+                      <div
+                        key={tender.id}
+                        className="flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-accent/30 transition-colors"
+                      >
+                        <Globe className="size-4 text-blue-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{tender.title}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {(tender as any).externalSource || 'External source'}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="text-xs shrink-0 bg-teal-600 hover:bg-teal-700 text-white h-7"
+                          onClick={() => importDocumentsFromLiveTender(tender.id)}
+                          disabled={importLoading}
+                        >
+                          {importLoading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                          Import
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </TabsContent>
+
+            {/* Bids Tab */}
+            <TabsContent value="bids" className="flex-1 min-h-0 mt-2">
+              {importLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredBids.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <Gavel className="size-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">
+                    {importSearch ? 'No bids match your search' : 'No bids yet'}
+                  </p>
+                  {!importSearch && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs mt-1"
+                      onClick={() => {
+                        setShowImportDialog(false);
+                        useNavStore.getState().setView('bids');
+                      }}
+                    >
+                      Go to Bids
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <ScrollArea className="max-h-64">
+                  <div className="space-y-1.5">
+                    {filteredBids.map((bid) => (
+                      <div
+                        key={bid.id}
+                        className="flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-accent/30 transition-colors"
+                      >
+                        <Gavel className="size-4 text-amber-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {bid.tender?.title || `Bid ${bid.id.slice(0, 8)}`}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Status: {bid.status} {bid.user?.profile?.fullName ? `· ${bid.user.profile.fullName}` : ''}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="text-xs shrink-0 bg-teal-600 hover:bg-teal-700 text-white h-7"
+                          onClick={() => importDocumentsFromBid(bid.id)}
+                          disabled={importLoading}
+                        >
+                          {importLoading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+                          Import
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  /* ────────────────────────────────────────────────────────────
      RENDER: MAIN LAYOUT
      ──────────────────────────────────────────────────────────── */
 
@@ -1975,6 +2476,8 @@ export function AgentChatView() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {renderImportDialog()}
       </div>
     );
   }
@@ -2037,6 +2540,8 @@ export function AgentChatView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {renderImportDialog()}
     </div>
   );
 }
