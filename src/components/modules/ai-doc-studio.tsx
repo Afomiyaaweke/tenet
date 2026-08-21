@@ -325,11 +325,9 @@ export function AIDocStudio() {
     }).catch(() => {});
   }, []);
 
-  /* ── Auto-open bid builder when navigated from "Start Bid Application" ── */
+  /* ── Auto-open bid builder or Agent tab when navigated from "Start Bid Application" ── */
   useEffect(() => {
     if (viewParams?.tenderId) {
-      setActiveAITool('bid-builder');
-      setAiPanelOpen(true);
       setBidSelectedTender(viewParams.tenderId);
       // Populate bid form from tender data once tenders are loaded
       const t = tenders.find(t => t.id === viewParams.tenderId);
@@ -340,6 +338,13 @@ export function AIDocStudio() {
           category: t.categoryTags || '',
         }));
       }
+    }
+    // If openAgent flag is set, switch to Agent tab (takes priority over bid-builder)
+    if (viewParams?.openAgent === 'true') {
+      setRibbonTab('agent');
+    } else if (viewParams?.tenderId) {
+      setActiveAITool('bid-builder');
+      setAiPanelOpen(true);
     }
   }, [viewParams, tenders]); // eslint-disable-line react-hooks/exhaustive-deps
 

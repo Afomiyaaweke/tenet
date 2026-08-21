@@ -3066,9 +3066,19 @@ export function LiveTendersView() {
         description: `"${tender.title}" — draft bid created. Opening AI Studio…`,
       });
 
-      // Step 4: Navigate to AI Doc Studio with the tender pre-selected for bid preparation
+      // Step 4: Navigate to AI Doc Studio with tender pre-selected + open Agent tab with description
       useNavStore.getState().setView('ai-doc-studio', {
         ...(localTenderId ? { tenderId: localTenderId } : {}),
+        openAgent: 'true',
+        agentMessage: `I'm starting a bid application for the following tender. Please analyze it and help me prepare:
+
+**${tender.title}**
+
+${tender.scope || 'No description available.'}
+
+${tender.location ? `**Location:** ${tender.location}` : ''}
+${tender.deadline ? `**Deadline:** ${tender.deadline}` : ''}
+${tender.budgetMin || tender.budgetMax ? `**Budget:** ${tender.currency || 'ETB'} ${tender.budgetMin || '?'} - ${tender.budgetMax || '?'} ` : ''}`.trim(),
       });
     } catch {
       toast.error('Failed to start bid application');

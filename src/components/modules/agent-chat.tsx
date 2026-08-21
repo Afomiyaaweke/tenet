@@ -418,6 +418,29 @@ export function AgentChatView() {
     fetchSessions();
   }, [fetchSessions]);
 
+  // Auto-create session with tender description when navigated from "Start Bid Application"
+  const initialMessageSent = useRef(false);
+  useEffect(() => {
+    const { viewParams } = useNavStore.getState();
+    const agentMsg = viewParams?.agentMessage as string | undefined;
+    if (agentMsg && !initialMessageSent.current) {
+      initialMessageSent.current = true;
+      // Create a new session, then send the tender description as the first message
+      (async () => {
+        const sessionId = await createSession('Tender Analysis');
+        if (sessionId) {
+          await sendMessage(agentMsg);
+          // Clear the param so it doesn't re-trigger on re-render
+          useNavStore.getState().setView('ai-doc-studio', {
+            ...viewParams,
+            agentMessage: undefined,
+            openAgent: undefined,
+          });
+        }
+      })();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!selectedSessionId) {
       setDocuments([]);
