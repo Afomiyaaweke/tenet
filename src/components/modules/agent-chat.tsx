@@ -981,7 +981,7 @@ export function AgentChatView() {
         <h2 className="text-sm font-semibold text-foreground">Sessions</h2>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-7" onClick={createSession}>
+            <Button variant="ghost" size="icon" className="size-7" onClick={() => createSession()}>
               <Plus className="size-4" />
             </Button>
           </TooltipTrigger>
