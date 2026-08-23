@@ -729,3 +729,23 @@ Stage Summary:
 - Import dialog supports 4 sources: local files, my tenders, live tenders, my bids
 - Image OCR support added for 8 image formats
 - Backend import endpoint created for tender/bid document importing
+
+---
+Task ID: 1
+Agent: main
+Task: Sync GitHub code with local preview and push to Vercel
+
+Work Log:
+- Found GitHub had diverged (commit 470eb64 → ad71ca8 → 18d9291) from local (ac9572a)
+- Remote had different src/store/index.ts removing agentMessage/openAgent support
+- Remote also had different Dockerfile and package-lock.json
+- Force pushed local commit ac9572a to GitHub main
+- Verified zero diff between local and origin/main
+- Verified both prisma/schema.prisma and prisma/schema.prod.prisma have identical 43 models
+- Verified all 5 Agent models present in production schema
+- Verified vercel-build.sh exists on remote
+
+Stage Summary:
+- GitHub now matches local preview exactly (commit ac9572a)
+- Vercel will auto-deploy from the synced code
+- All previous fixes included: Agent schema models, onClick TypeScript fix, db push in build script
