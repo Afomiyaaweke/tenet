@@ -811,3 +811,61 @@ Stage Summary:
 - Agent connection bug fixed (race condition on auto-create + better error messages)
 - ensureAgentTables fallback now matches Prisma schema exactly
 - 4 files modified, 1 file deleted
+---
+Task ID: 4
+Agent: fullstack-developer
+Task: Redesign AI Doc Studio to match reference two-panel layout
+
+Work Log:
+- Read the full 3259-line ai-doc-studio.tsx component to understand all state, handlers, sub-components
+- Added new imports: Avatar/AvatarImage/AvatarFallback from shadcn/ui, Send/MessageCircle/Settings2 from lucide-react
+- Added new state variables: viewMode ('editor'|'doc-review'|'ai-extract'), templateSource ('live-tender'|'external'), sidebarSection ('template'|'chat'|'ai-tools'|'sign')
+- Completely rewrote the return JSX from a ribbon-tab-based layout to a clean two-panel layout:
+  - Header (60px): teal Sparkles icon + "AI Doc Studio" title, pill-shaped search input, Tools dropdown (for switching to Doc Review/AI Extract views), Export button (outline teal), Save Changes button (solid teal), user Avatar
+  - Left Sidebar (w-[340px], bg-gray-50/50): Section tabs (Templates, Agent Chat, AI Tools, Sign) with teal active state
+    - Template Generator: Radio-style selection cards for "Pull from Live Tender" and "External Sources", tender selector dropdown, Generate Template button (teal bg)
+    - Agent Chat: Embeds existing AgentChatView component
+    - AI Tools: Reuses existing AIPanelContent component
+    - Sign: Draw/Upload signature buttons, stamp templates, saved signatures gallery with placement support
+    - Quick chat input at bottom of template section with send button
+  - Center Panel (flex-1, bg-slate-100/50): Clean formatting toolbar (Undo/Redo | Bold/Italic/Underline | Align Left/Center/Right | Bullet/Numbered lists | Style dropdown), scrollable document canvas (white paper, max-w-816px, rounded-lg, shadow-md, p-16), teal-themed document header, contentEditable editor (text-[15px] leading-relaxed), status bar
+- Changed primary color from emerald to teal throughout the new layout JSX
+- Preserved ALL existing state variables, handlers, sub-components (SkillTagSelector, GenerateButton, ReviewResultDisplay, RibbonBtn, all ribbon content functions, AIPanelContent, DocReviewContent, AIExtractContent, signature/stamp logic, AI generation forms, OCR/review state)
+- Moved Doc Review and AI Extract views behind a Tools dropdown in the header (accessible via viewMode state)
+- Removed top ribbon tabs and signature gallery overlay; moved signature management into sidebar Sign section
+- Cleaned up unused imports (FileSearch2, Globe)
+- Verified: 0 lint errors, dev server compiles successfully, 200 responses
+
+Stage Summary:
+- AI Doc Studio redesigned from ribbon-tab layout to modern two-panel (sidebar + editor) layout
+- Color scheme changed from emerald to teal for primary brand color
+- All existing functionality preserved (template generation, AI tools, signing, doc review, AI extract, formatting)
+- File reduced from 3259 to ~3425 lines (net addition from new sidebar sections)
+- 0 ESLint errors, clean compilation
+---
+Task ID: 4
+Agent: main + fullstack-developer subagent
+Task: Redesign AI Doc Studio to match reference two-panel layout
+
+Work Log:
+- Analyzed reference screenshot with VLM for pixel-perfect layout description
+- Delegated full redesign to fullstack-developer subagent
+- Subagent restructured AI Doc Studio from ribbon-tab layout to two-panel layout:
+  - White header with teal AI Doc Studio branding, pill search, Export/Save buttons, user avatar
+  - Left sidebar (340px, light bg) with section tabs (Templates, Agent Chat, AI Tools, Sign)
+  - Template Generator with radio-style source selection cards
+  - Agent Chat integration in sidebar
+  - Center panel with formatting toolbar and white document canvas
+  - Status bar with word/char counts and zoom
+- Changed primary color from emerald to teal throughout
+- Made AI Doc Studio full-screen by hiding app-shell sidebar/header when active
+- Added back arrow button to return to dashboard
+- Changed studio height from calc(100vh-3.5rem) to 100vh for full-screen
+- Verified with Agent Browser: dark sidebar gone, white header, light sidebar, white canvas all confirmed
+- 0 lint errors
+
+Stage Summary:
+- AI Doc Studio completely redesigned to match reference two-panel layout
+- Full-screen mode when active (no outer app-shell chrome)
+- 3 files modified: ai-doc-studio.tsx (layout), app-shell.tsx (full-screen logic), store/index.ts (View type cleanup)
+- 1 file deleted: review-moderation.tsx

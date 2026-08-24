@@ -560,19 +560,25 @@ export function AppShell() {
 
   const sidebarProps = { user, role, company, navSections, view, setView, unreadCount, logout, collapsed: sidebarCollapsed, onToggleCollapse: toggleSidebarCollapse };
 
+  // AI Doc Studio renders its own full-screen layout (header + sidebar + editor)
+  const isFullScreenView = view === 'ai-doc-studio';
+
   return (
     <div className="min-h-screen flex bg-background">
       {/* ── Desktop Sidebar ── */}
+      {!isFullScreenView && (
       <aside
         className="hidden md:flex border-r border-white/5 flex-col flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden"
         style={{ width: sidebarCollapsed ? '68px' : '260px' }}
       >
         <SidebarContent {...sidebarProps} />
       </aside>
+      )}
 
       {/* ── Main Area ── */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* ── Top Bar ── */}
+        {!isFullScreenView && (
         <header className="h-14 bg-background/80 backdrop-blur-md border-b border-border/50 flex items-center px-4 gap-3 flex-shrink-0 sticky top-0 z-30">
           {/* Mobile hamburger */}
           <Sheet>
@@ -660,9 +666,10 @@ export function AppShell() {
             </DropdownMenu>
           </div>
         </header>
+        )}
 
         {/* ── Content Area ── */}
-        <main className="flex-1 overflow-auto">
+        <main className={isFullScreenView ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto'}>
           <div key={view} className="view-enter">
             <Suspense fallback={<ViewLoader />}>
               {renderView()}
