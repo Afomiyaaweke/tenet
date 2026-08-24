@@ -789,3 +789,25 @@ Stage Summary:
 - BLOCKER: User must set DATABASE_URL (PostgreSQL) in Vercel project settings
 - Auto-migration will create Agent tables on first API call once DATABASE_URL is set
 - All code is on GitHub (commit 7931660)
+---
+Task ID: 3
+Agent: main
+Task: Remove review moderation and fix agent connection issue
+
+Work Log:
+- Removed 'review-moderation' from View type in src/store/index.ts
+- Removed ReviewModerationView dynamic import from src/components/app-shell.tsx
+- Removed Star icon import (no longer needed)
+- Removed review-moderation nav item from team_admin nav section
+- Removed review-moderation case from renderView switch
+- Deleted src/components/modules/review-moderation.tsx
+- Fixed agent sendMessage race condition: added overrideSessionId parameter so auto-created sessions can immediately send messages without waiting for React state update
+- Improved agent error handling: replaced generic 'Failed to connect to agent' with actual server error message (status code + error body)
+- Fixed ensureAgentTables: updated all CREATE TABLE statements to match actual Prisma schema column names (filename, filetype, filepath, fileSize, pageCount, pageTexts, summary, category, status for AgentDocument; thinking, events, citations, intent, confidence for AgentMessage; title for AgentAnalysis; title, filename, filepath, meta for AgentArtifact)
+- Verified: 0 lint errors, only pre-existing warnings
+
+Stage Summary:
+- Review moderation feature completely removed from codebase
+- Agent connection bug fixed (race condition on auto-create + better error messages)
+- ensureAgentTables fallback now matches Prisma schema exactly
+- 4 files modified, 1 file deleted

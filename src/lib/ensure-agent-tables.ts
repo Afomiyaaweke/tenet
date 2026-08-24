@@ -2,6 +2,8 @@
  * Auto-creates Agent tables if they don't exist.
  * Uses raw SQL so it works even if Prisma schema is out of sync.
  * Safe to call repeatedly (IF NOT EXISTS).
+ *
+ * IMPORTANT: Column names MUST match the Prisma schema exactly.
  */
 import { db } from './db';
 
@@ -12,7 +14,7 @@ async function runSQL(sql: string) {
     await db.$executeRawUnsafe(sql);
     return true;
   } catch (err) {
-    console.error('SQL failed:', sql.substring(0, 80), err);
+    console.error('SQL failed:', sql.substring(0, 100), err);
     return false;
   }
 }
@@ -34,55 +36,68 @@ export async function ensureAgentTables() {
   const isPostgres = process.env.DATABASE_URL?.startsWith('postgres');
   const ts = isPostgres ? 'TIMESTAMP(3)' : 'DATETIME';
   const tsDef = isPostgres ? 'NOT NULL DEFAULT CURRENT_TIMESTAMP' : 'NOT NULL DEFAULT CURRENT_TIMESTAMP';
+  const tsUpd = isPostgres ? 'NOT NULL DEFAULT CURRENT_TIMESTAMP' : 'NOT NULL DEFAULT CURRENT_TIMESTAMP';
 
+  // AgentSession — matches Prisma schema exactly
   const ok1 = await runSQL(`CREATE TABLE IF NOT EXISTS "AgentSession" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "title" TEXT NOT NULL DEFAULT 'New Tender Review',
     "summary" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'active',
     "createdAt" ${ts} ${tsDef},
-    "updatedAt" ${ts} ${tsDef}
+    "updatedAt" ${ts} ${tsUpd}
   )`);
 
+  // AgentDocument — matches Prisma schema exactly
   const ok2 = await runSQL(`CREATE TABLE IF NOT EXISTS "AgentDocument" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "sessionId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "type" TEXT NOT NULL DEFAULT 'pdf',
-    "size" INTEGER NOT NULL DEFAULT 0,
-    "url" TEXT,
-    "content" TEXT,
-    "createdAt" ${ts} ${tsDef}
+    "filename" TEXT NOT NULL,
+    "filetype" TEXT NOT NULL DEFAULT 'pdf',
+    "filepath" TEXT NOT NULL DEFAULT '',
+    "fileSize" INTEGER NOT NULL DEFAULT 0,
+    "pageCount" INTEGER NOT NULL DEFAULT 0,
+    "pageTexts" TEXT NOT NULL DEFAULT '[]',
+    "summary" TEXT,
+    "category" TEXT NOT NULL DEFAULT 'tender',
+    "status" TEXT NOT NULL DEFAULT 'uploaded',
+    "createdAt" ${ts} ${tsDef},
+    "updatedAt" ${ts} ${tsUpd}
   )`);
 
+  // AgentMessage — matches Prisma schema exactly
   const ok3 = await runSQL(`CREATE TABLE IF NOT EXISTS "AgentMessage" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "sessionId" TEXT NOT NULL,
     "role" TEXT NOT NULL,
-    "content" TEXT NOT NULL,
+    "content" TEXT NOT NULL DEFAULT '',
+    "thinking" TEXT,
+    "events" TEXT,
+    "citations" TEXT,
+    "intent" TEXT,
+    "confidence" DOUBLE PRECISION,
     "createdAt" ${ts} ${tsDef}
   )`);
 
-  const scoreType = isPostgres ? 'DOUBLE PRECISION' : 'REAL';
+  // AgentAnalysis — matches Prisma schema exactly
   const ok4 = await runSQL(`CREATE TABLE IF NOT EXISTS "AgentAnalysis" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "sessionId" TEXT NOT NULL,
     "type" TEXT NOT NULL DEFAULT 'general',
+    "title" TEXT NOT NULL DEFAULT '',
     "content" TEXT,
-    "score" ${scoreType},
-    "criteria" TEXT,
-    "createdAt" ${ts} ${tsDef},
-    "updatedAt" ${ts} ${tsDef}
+    "createdAt" ${ts} ${tsDef}
   )`);
 
+  // AgentArtifact — matches Prisma schema exactly
   const ok5 = await runSQL(`CREATE TABLE IF NOT EXISTS "AgentArtifact" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "sessionId" TEXT NOT NULL,
     "type" TEXT NOT NULL DEFAULT 'text',
-    "name" TEXT,
-    "content" TEXT,
-    "url" TEXT,
+    "title" TEXT NOT NULL DEFAULT '',
+    "filename" TEXT NOT NULL DEFAULT '',
+    "filepath" TEXT NOT NULL DEFAULT '',
+    "meta" TEXT,
     "createdAt" ${ts} ${tsDef}
   )`);
 

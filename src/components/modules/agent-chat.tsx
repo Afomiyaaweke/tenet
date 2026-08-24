@@ -430,7 +430,7 @@ export function AgentChatView() {
         try {
           const sessionId = await createSession('Tender Analysis');
           if (sessionId) {
-            await sendMessage(agentMsg);
+            await sendMessage(agentMsg, sessionId);
           }
         } catch (err) {
           console.error('Auto-session creation failed:', err);
@@ -751,8 +751,9 @@ export function AgentChatView() {
      STREAMING CHAT
      ──────────────────────────────────────────────────────────── */
 
-  const sendMessage = async (text: string) => {
-    if (!selectedSessionId || !text.trim() || isStreaming) return;
+  const sendMessage = async (text: string, overrideSessionId?: string) => {
+    const sessionId = overrideSessionId || selectedSessionId;
+    if (!sessionId || !text.trim() || isStreaming) return;
 
     const userMsg: AgentMessage = {
       id: `temp-user-${Date.now()}`,
@@ -782,7 +783,7 @@ export function AgentChatView() {
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const res = await fetch(`/api/agent-sessions/${selectedSessionId}/messages`, {
+      const res = await fetch(`/api/agent-sessions/${sessionId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -791,8 +792,17 @@ export function AgentChatView() {
         body: JSON.stringify({ message: text.trim(), history }),
       });
 
-      if (!res.ok || !res.body) {
-        throw new Error('Failed to connect to agent');
+      if (!res.ok) {
+        let errorMsg = `Agent error (${res.status})`;
+        try {
+          const errBody = await res.json();
+          errorMsg = errBody.error || errorMsg;
+        } catch { /* ignore */ }
+        throw new Error(errorMsg);
+      }
+
+      if (!res.body) {
+        throw new Error('No response stream from agent');
       }
 
       const reader = res.body.getReader();
@@ -835,7 +845,7 @@ export function AgentChatView() {
       }
 
       // Reload messages from server after stream completes
-      await fetchMessages(selectedSessionId);
+      await fetchMessages(sessionId);
     } catch (err: any) {
       toast.error(err?.message || 'Agent communication error');
       setStreamingMsg((prev) => prev ? { ...prev, error: err?.message || 'Connection error' } : prev);
