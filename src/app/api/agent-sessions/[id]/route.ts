@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { ensureAgentTables } from '@/lib/ensure-agent-tables';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureAgentTables();
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
@@ -62,6 +64,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureAgentTables();
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
@@ -121,6 +124,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureAgentTables();
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
