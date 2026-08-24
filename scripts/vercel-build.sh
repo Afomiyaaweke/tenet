@@ -17,7 +17,12 @@ if [ "$VERCEL" = "1" ] || [ "$NODE_ENV" = "production" ]; then
 
   # Sync database schema — creates missing tables without dropping existing data
   echo "🗄️  Syncing database schema..."
-  npx prisma db push --accept-data-loss 2>&1 || echo "⚠️  DB sync warning (non-fatal)"
+  if npx prisma db push --accept-data-loss 2>&1; then
+    echo "✅ Database schema synced successfully"
+  else
+    echo "❌ Database schema sync FAILED — aborting build"
+    exit 1
+  fi
 else
   echo "🖥️  Development build — keeping SQLite schema"
 fi

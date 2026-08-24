@@ -427,10 +427,16 @@ export function AgentChatView() {
       initialMessageSent.current = true;
       // Create a new session, then send the tender description as the first message
       (async () => {
-        const sessionId = await createSession('Tender Analysis');
-        if (sessionId) {
-          await sendMessage(agentMsg);
-          // Clear the param so it doesn't re-trigger on re-render
+        try {
+          const sessionId = await createSession('Tender Analysis');
+          if (sessionId) {
+            await sendMessage(agentMsg);
+          }
+        } catch (err) {
+          console.error('Auto-session creation failed:', err);
+          toast.error('Could not create AI session. The Agent tables may not be set up yet.');
+        } finally {
+          // Always clear the param so it doesn't re-trigger
           const { agentMessage: _, openAgent: __, ...rest } = viewParams;
           useNavStore.getState().setView('ai-doc-studio', rest);
         }
