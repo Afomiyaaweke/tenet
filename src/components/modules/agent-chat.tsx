@@ -431,11 +431,8 @@ export function AgentChatView() {
         if (sessionId) {
           await sendMessage(agentMsg);
           // Clear the param so it doesn't re-trigger on re-render
-          useNavStore.getState().setView('ai-doc-studio', {
-            ...viewParams,
-            agentMessage: undefined,
-            openAgent: undefined,
-          });
+          const { agentMessage: _, openAgent: __, ...rest } = viewParams;
+          useNavStore.getState().setView('ai-doc-studio', rest);
         }
       })();
     }
