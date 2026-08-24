@@ -869,3 +869,34 @@ Stage Summary:
 - Full-screen mode when active (no outer app-shell chrome)
 - 3 files modified: ai-doc-studio.tsx (layout), app-shell.tsx (full-screen logic), store/index.ts (View type cleanup)
 - 1 file deleted: review-moderation.tsx
+---
+Task ID: 3
+Agent: full-stack-developer
+Task: Redesign AI Doc Studio layout to match uploaded reference image
+
+Work Log:
+- Analyzed target design from VLM image description
+- Updated imports to add History, Bell, Paperclip icons from lucide-react
+- Added setView to useNavStore destructure
+- Added sidebar inline chat state (sidebarMessages, sidebarChatInput, sidebarChatLoading)
+- Added sendSidebarChat function that calls /api/ai/chat
+- Completely rewrote the RENDER section with new layout:
+  - Clean header (h-16) with emerald Sparkles branding, search pill (bg-gray-100), History + Bell buttons with green dot, Tools dropdown, Export/Save buttons, user Avatar
+  - Left sidebar (w-80, bg-gray-50) with icon-only tab bar (Template, Chat, AI Tools, Sign)
+  - Template tab: Template Generator header, radio cards with emerald accent, tender selector, Generate Template button (bg-emerald-500), inline chat messages with user/AI bubbles, Paperclip + input + Send chat input
+  - Chat tab: AgentChatView embedded
+  - AI Tools tab: AIPanelContent component
+  - Sign tab: Draw/Upload signature buttons, stamp templates, saved signatures gallery
+  - Toolbar (h-11): Style dropdown, Font dropdown (Inter), B/I/U, alignment, lists, Undo/Redo
+  - Clean document canvas (max-w-900px, Inter font, no TenetBid branding header)
+  - Status bar with save status, word/char counts, zoom controls
+  - Color palette changed from teal to emerald-500/600
+- Ran lint: 0 errors, 13 pre-existing warnings
+- Dev server compiles successfully (200 responses)
+
+Stage Summary:
+- AI Doc Studio redesigned to match reference design with emerald color palette
+- All existing functionality preserved (template gen, AI tools, signatures, doc review, AI extract)
+- New inline sidebar chat for quick questions without leaving editor
+- Clean document canvas without TenetBid branding
+- Icon-only sidebar tabs for cleaner look
