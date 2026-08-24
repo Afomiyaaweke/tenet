@@ -769,3 +769,23 @@ Stage Summary:
 - Root cause: aletcloud webhook kept reverting code + TypeScript build error prevented deployment
 - Vercel deployment 6056924301 succeeded for commit 65cd0e3
 - tenetbid.vercel.app now serves the latest code matching the local preview
+
+---
+Task ID: 3
+Agent: main
+Task: Diagnose and fix Agent tables not existing on Vercel
+
+Work Log:
+- Found agent-sessions API returning 500 on Vercel
+- Created auto-migration (ensureAgentTables) to create tables at runtime
+- Fixed multi-statement SQL issue (PostgreSQL requires individual statements)
+- Created diagnostic endpoint - discovered DATABASE_URL=file:...db/custom.db (SQLite!)
+- Root cause: committed .env file had local SQLite DATABASE_URL, overriding Vercel PostgreSQL
+- Removed DATABASE_URL from .env, moved to .env.local (gitignored)
+- Without Vercel DATABASE_URL env var, no database connection exists
+
+Stage Summary:
+- Code changes are correct and build succeeds
+- BLOCKER: User must set DATABASE_URL (PostgreSQL) in Vercel project settings
+- Auto-migration will create Agent tables on first API call once DATABASE_URL is set
+- All code is on GitHub (commit 7931660)
