@@ -749,3 +749,31 @@ Stage Summary:
 - GitHub now matches local preview exactly (commit ac9572a)
 - Vercel will auto-deploy from the synced code
 - All previous fixes included: Agent schema models, onClick TypeScript fix, db push in build script
+
+---
+Task ID: redesign-ai-doc-studio
+Agent: main
+Task: Completely redesign AI Doc Studio to match user's uploaded reference image (light theme, teal accents, left "Template Generator" chat sidebar + document editor canvas + top header)
+
+Work Log:
+- Analyzed reference image with VLM: light theme, teal-600 (#0D9488) accent, 3-panel layout (header + left Template Generator sidebar + main editor canvas), chat-centric
+- Created new API route src/app/api/ai/chat/route.ts (POST) using z-ai-web-dev-sdk LLM for free-form sidebar chat (capped history, document-title context)
+- Added chat state to AIDocStudio: chatMessages[], chatInput, chatSending, genTenderId
+- Added pushChat(), sendChat() (posts to /api/ai/chat), and runTemplateGenerator() (runs the active AI tool + logs to chat thread)
+- Completely rewrote the AIDocStudio render (was title-bar + ribbon-tabs + tabs; now):
+  * Top header (h-16, white): teal logo + "AI Doc Studio" + pill search + History/Notifications + mode dropdown (Editor/Doc Review/AI Extract/AI Agent) + Export + teal Save Changes + avatar
+  * Left sidebar (w-80, Template Generator): tool source cards (4 AI tools as radio cards) + optional live-tender selector + teal Generate Template button + chat thread + input box (Ask the AI assistant + paperclip + send)
+  * Main editor: Home/Insert/Review/Sign sub-tabs + ActiveRibbon formatting toolbar + centered white document canvas (editable title + contentEditable + footer) + status bar
+  * Mode switcher preserves Doc Review / AI Extract / AI Agent full-screen views
+  * Signature drawing dialog + signature gallery preserved (Sign sub-tab)
+- Restyled RibbonBtn + HomeRibbon popover triggers to use explicit gray-600/gray-200 (was faint muted-foreground/border) for clear visibility
+- Added CSS to globals.css: contentEditable [data-placeholder] styling + .thin-scroll thin scrollbar utility
+- Reset local DB user password to Admin123 (was stale) to enable verification
+
+Stage Summary:
+- AI Doc Studio now matches the reference image: light teal-accented 3-panel layout with a permanent left "Template Generator" chat sidebar (functional AI chat via new /api/ai/chat endpoint) and a clean document editor canvas
+- Agent Browser verification: header (teal logo, pill search, Export, Save Changes, avatar), sidebar (4 tool cards, Generate button, chat thread with real AI response, input box), editor (tabs + visible formatting toolbar + document canvas) — all PASS
+- Chat interaction verified end-to-end: user message → /api/ai/chat 200 → AI response about Ethiopian tender documents
+- Mode switcher verified: Editor → Doc Review (Document Vault) → back
+- Lint: 0 errors (13 pre-existing warnings). Dev server compiles cleanly.
+- All existing logic preserved (generate tender/bid/req/applicant, sign, doc-review, ai-extract, agent)

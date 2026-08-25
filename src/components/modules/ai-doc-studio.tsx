@@ -38,6 +38,7 @@ import {
   Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
   Award, Zap, AlertTriangle, CheckCircle2, XCircle,
   Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare, FileDown,
+  Layers, Bell, Paperclip, Send, History,
 } from 'lucide-react';
 import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
 import dynamic from 'next/dynamic';
@@ -316,6 +317,15 @@ export function AIDocStudio() {
   // AI Extract tab: per-document extraction history (allows multiple extractions with different prompts)
   const [extractHistory, setExtractHistory] = useState<Record<string, Array<{ prompt: string; result: string; timestamp: string }>>>({});
 
+  // Sidebar AI chat thread (Template Generator assistant)
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string; kind?: 'text' | 'generated' }>>([
+    { id: 'welcome', role: 'assistant', kind: 'text', content: "Hello! I'm your AI Doc Studio assistant. Pick a template type on the left, then hit Generate Template — or just ask me anything below." },
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  // Sidebar document generation source: which live tender to pull from (bid-builder / req-analyzer / applicant)
+  const [genTenderId, setGenTenderId] = useState('');
+
   const { user } = useAuthStore();
 
   /* ── Load tenders ── */
@@ -574,6 +584,62 @@ export function AIDocStudio() {
   };
 
   /* ════════════════════════════════════════════════════════════
+     SIDEBAR AI CHAT (Template Generator assistant)
+     ════════════════════════════════════════════════════════════ */
+  const pushChat = (role: 'user' | 'assistant', content: string, kind?: 'text' | 'generated') => {
+    setChatMessages(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, role, content, kind }]);
+  };
+
+  const sendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatSending) return;
+    pushChat('user', text);
+    setChatInput('');
+    setChatSending(true);
+    try {
+      const res = await api.post('/ai/chat', { message: text, documentTitle: docTitle });
+      if (res.success && res.data?.reply) {
+        pushChat('assistant', res.data.reply);
+      } else {
+        pushChat('assistant', res.error || 'Sorry, I could not process that. Please try again.');
+      }
+    } catch {
+      pushChat('assistant', 'Connection error. Please try again.');
+    } finally {
+      setChatSending(false);
+    }
+  };
+
+  /* Run the currently-selected AI tool from the sidebar "Generate Template" button,
+     and reflect activity into the chat thread. */
+  const runTemplateGenerator = async () => {
+    const tool = AI_TOOLS.find(t => t.id === activeAITool);
+    const label = tool?.label || activeAITool;
+
+    // For tender/bid/req tools, optionally pull from a live tender
+    if (genTenderId && (activeAITool === 'bid-builder' || activeAITool === 'requirement-analyzer')) {
+      if (activeAITool === 'bid-builder') selectBidTender(genTenderId);
+      else selectReqTender(genTenderId);
+    }
+
+    pushChat('user', `Generate a ${label}${genTenderId ? ' from live tender' : ''}.`);
+    await new Promise(r => setTimeout(r, 50)); // let state settle
+
+    const before = editorRef.current?.innerHTML || '';
+    if (activeAITool === 'tender-builder') await generateTender();
+    else if (activeAITool === 'bid-builder') await generateBid();
+    else if (activeAITool === 'requirement-analyzer') await generateReq();
+    else if (activeAITool === 'applicant-analyzer') await generateApplicant();
+
+    const after = editorRef.current?.innerHTML || '';
+    if (after && after !== before) {
+      pushChat('assistant', `Your ${label} has been generated and inserted into the document. Review and refine it on the right — you can ask me to summarise or tweak any section.`, 'generated');
+    } else {
+      pushChat('assistant', `Please fill in the required fields for the ${label} in the Template Generator panel, then try again.`, 'generated');
+    }
+  };
+
+  /* ════════════════════════════════════════════════════════════
      DOC REVIEW: Upload
      ════════════════════════════════════════════════════════════ */
   const handleFileUpload = async (files: FileList | File[]) => {
@@ -792,7 +858,7 @@ export function AIDocStudio() {
      RIBBON: HOME TAB
      ════════════════════════════════════════════════════════════ */
   const HomeRibbon = () => (
-    <div className="flex items-center gap-1 flex-wrap px-2 py-1.5">
+    <div className="flex items-center gap-1 flex-wrap px-3 py-2">
       {/* Undo / Redo */}
       <RibbonBtn icon={Undo2} title="Undo" onClick={() => handleFormat('undo')} />
       <RibbonBtn icon={Redo2} title="Redo" onClick={() => handleFormat('redo')} />
@@ -801,16 +867,16 @@ export function AIDocStudio() {
       {/* Heading */}
       <Popover>
         <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+          <button className="flex items-center gap-1 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors">
             <Type className="h-3.5 w-3.5" />
             Heading
-            <ChevronDown className="h-3 w-3" />
+            <ChevronDown className="h-3 w-3 text-gray-400" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-40 p-1" align="start">
           {['Normal', 'H1', 'H2', 'H3'].map(h => (
             <button key={h} onClick={() => handleFormat('formatBlock', h === 'Normal' ? '<p>' : `<${h.toLowerCase()}>`)}
-              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-gray-100 transition-colors text-gray-700"
               style={h !== 'Normal' ? { fontSize: h === 'H1' ? 18 : h === 'H2' ? 16 : 14, fontWeight: 700 } : {}}>
               {h}
             </button>
@@ -821,15 +887,15 @@ export function AIDocStudio() {
       {/* Font Family */}
       <Popover>
         <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors max-w-[110px]">
+          <button className="flex items-center gap-1 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors max-w-[110px]">
             <span className="truncate">Font</span>
-            <ChevronDown className="h-3 w-3 flex-shrink-0" />
+            <ChevronDown className="h-3 w-3 text-gray-400 flex-shrink-0" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-44 p-1" align="start">
           {FONT_FAMILIES.map(f => (
             <button key={f} onClick={() => handleFormat('fontName', f)}
-              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-gray-100 transition-colors text-gray-700"
               style={{ fontFamily: f }}>
               {f}
             </button>
@@ -840,15 +906,15 @@ export function AIDocStudio() {
       {/* Font Size */}
       <Popover>
         <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 h-7 px-2 text-xs border border-border rounded hover:bg-muted transition-colors">
+          <button className="flex items-center gap-1 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors">
             <span>Size</span>
-            <ChevronDown className="h-3 w-3" />
+            <ChevronDown className="h-3 w-3 text-gray-400" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-32 p-1" align="start">
           {FONT_SIZES.map(s => (
             <button key={s} onClick={() => handleFormat('fontSize', s)}
-              className="w-full text-left px-3 py-1 text-xs rounded hover:bg-muted transition-colors">
+              className="w-full text-left px-3 py-1 text-xs rounded hover:bg-gray-100 transition-colors text-gray-700">
               {s}pt
             </button>
           ))}
@@ -867,7 +933,7 @@ export function AIDocStudio() {
       {/* Text Color */}
       <Popover>
         <PopoverTrigger asChild>
-          <button className="h-7 w-7 rounded border border-border hover:bg-muted transition-colors flex items-center justify-center" title="Text Color">
+          <button className="h-8 w-8 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center text-gray-600 hover:text-gray-900" title="Text Color">
             <div className="flex flex-col items-center">
               <span className="text-[10px] font-bold leading-none">A</span>
               <div className="w-4 h-1 rounded-sm mt-0.5" style={{ backgroundColor: '#000000' }} />
@@ -887,7 +953,7 @@ export function AIDocStudio() {
       {/* Highlight */}
       <Popover>
         <PopoverTrigger asChild>
-          <button className="h-7 w-7 rounded border border-border hover:bg-muted transition-colors flex items-center justify-center" title="Highlight">
+          <button className="h-8 w-8 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center" title="Highlight">
             <div className="flex flex-col items-center">
               <span className="text-[10px] font-bold leading-none bg-yellow-200 px-0.5">A</span>
             </div>
@@ -2664,154 +2730,299 @@ export function AIDocStudio() {
   // Check if ocrDone for the selected doc
   const ocrDone = selectedDocId ? (documents.find(d => d.id === selectedDocId)?.ocrStatus === 'completed') : false;
 
+  // Whether we're in the main "Editor" experience (sidebar + canvas)
+  const editorMode = ribbonTab === 'home' || ribbonTab === 'insert' || ribbonTab === 'review' || ribbonTab === 'sign' || ribbonTab === 'ai-tools';
+  const avatarInitial = (user?.profile?.fullName || user?.email || 'U').charAt(0).toUpperCase();
+
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/30 view-enter">
-      {/* ── Title Bar ── */}
-      <div className="flex items-center h-10 px-3 bg-card border-b border-border/60 flex-shrink-0 gap-2">
-        {/* Left: Logo + Doc Title */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="w-6 h-6 rounded gradient-emerald flex items-center justify-center flex-shrink-0">
-            <Sparkles className="h-3.5 w-3.5 text-white" />
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-gray-50 view-enter">
+      {/* ══ Top Header ══ */}
+      <header className="flex items-center h-16 px-6 bg-white border-b border-gray-200 flex-shrink-0 gap-4">
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center shadow-sm">
+            <FileText className="h-5 w-5 text-white" />
           </div>
-          <Input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }}
-            className="h-7 text-sm font-medium border-0 bg-transparent focus:bg-muted/50 px-1 max-w-[240px]" />
+          <span className="text-lg font-bold text-gray-900 tracking-tight">AI Doc Studio</span>
         </div>
-        {/* Center: Save status */}
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          {saveStatus === 'saved' && <><Check className="h-3 w-3 text-emerald-600" /> Saved</>}
-          {saveStatus === 'saving' && <><span className="animate-pulse">Saving...</span></>}
-          {saveStatus === 'unsaved' && <><span className="text-amber-600">Unsaved</span></>}
-        </div>
-        {/* Right: Actions */}
-        <div className="flex items-center gap-1 flex-1 justify-end">
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleSave}>
-            <Save className="h-3.5 w-3.5 mr-1" /> Save
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.info('PDF export coming soon')}>
-            <Download className="h-3.5 w-3.5 mr-1" /> Export
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => window.print()}>
-            <Printer className="h-3.5 w-3.5 mr-1" /> Print
-          </Button>
-        </div>
-      </div>
 
-      {/* ── Ribbon Tabs ── */}
-      <div className="flex items-center h-8 bg-card border-b border-border/40 px-2 flex-shrink-0 gap-0.5">
-        {(['home', 'insert', 'review', 'ai-tools', 'agent', 'sign', 'doc-review', 'ai-extract'] as RibbonTab[]).map(tab => (
-          <button key={tab} onClick={() => setRibbonTab(tab)}
-            className={`px-3 py-1 text-xs font-medium rounded-t transition-colors flex items-center gap-1 ${
-              ribbonTab === tab
-                ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-            }`}>
-            {tab === 'ai-tools' ? <><Sparkles className="h-3 w-3" /> AI Tools</> :
-             tab === 'agent' ? <><Bot className="h-3 w-3" /> AI Agent</> :
-             tab === 'sign' ? <><Pen className="h-3 w-3" /> Sign</> :
-             tab === 'doc-review' ? <><Bot className="h-3 w-3" /> Doc Review</> :
-             tab === 'ai-extract' ? <><MessageSquare className="h-3 w-3" /> AI Extract</> :
-             tab.charAt(0).toUpperCase() + tab.slice(1)}
+        {/* Search */}
+        <div className="flex-1 flex justify-center px-4">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              placeholder="Search documents..."
+              className="w-full h-10 pl-10 pr-4 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-500/15 transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Right actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button title="History" className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors">
+            <History className="h-4 w-4" />
           </button>
-        ))}
-      </div>
+          <button title="Notifications" className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors relative">
+            <Bell className="h-4 w-4" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+          </button>
 
-      {/* ── Ribbon Controls ── */}
-      <div className="bg-card border-b border-border/40 flex-shrink-0 min-h-[40px]">
-        <ActiveRibbon />
-      </div>
+          <div className="w-px h-6 bg-gray-200 mx-1" />
 
-      {/* ── Main Area ── */}
-      {ribbonTab === 'agent' ? (
-        <div className="flex-1 overflow-hidden">
-          <AgentChatView />
+          {/* Mode switcher */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-1.5 h-9 px-3 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <Layers className="h-4 w-4 text-teal-600" />
+                {ribbonTab === 'doc-review' ? 'Doc Review' : ribbonTab === 'ai-extract' ? 'AI Extract' : ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}
+                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-44 p-1" align="end">
+              {[
+                { id: 'home', label: 'Editor', icon: FileText },
+                { id: 'doc-review', label: 'Doc Review', icon: Bot },
+                { id: 'ai-extract', label: 'AI Extract', icon: MessageSquare },
+                { id: 'agent', label: 'AI Agent', icon: Bot },
+              ].map(m => {
+                const Icon = m.icon;
+                const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode);
+                return (
+                  <button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                      active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
+                    }`}>
+                    <Icon className="h-4 w-4" /> {m.label}
+                  </button>
+                );
+              })}
+            </PopoverContent>
+          </Popover>
+
+          <button onClick={() => toast.info('Exporting document...')} className="flex items-center gap-1.5 h-9 px-3.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <Download className="h-4 w-4" /> Export
+          </button>
+          <button onClick={handleSave} className="flex items-center gap-1.5 h-9 px-4 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm">
+            <Save className="h-4 w-4" />
+            {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
+            {saveStatus === 'saved' && <Check className="h-3.5 w-3.5 text-teal-100" />}
+          </button>
+
+          {/* Avatar */}
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold ring-2 ring-white shadow-sm ml-1">
+            {avatarInitial}
+          </div>
         </div>
-      ) : ribbonTab === 'doc-review' ? (
-        <DocReviewContent />
-      ) : ribbonTab === 'ai-extract' ? (
-        <AIExtractContent />
-      ) : (
-        <div className="flex-1 flex overflow-hidden">
-          {/* Document Canvas Area */}
-          <div className="flex-1 overflow-auto bg-muted/60 p-6" onClick={() => { if (placementMode) { /* handled by editor click */ } }}>
-            <div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
-              <div
-                className="bg-white shadow-lg relative"
-                style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}
-              >
-                {/* Document Header */}
-                <div className="border-b-2 border-emerald-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
-                  <div className="text-center">
-                    <p className="text-[11px] tracking-[0.3em] text-emerald-700 font-bold uppercase">TenetBid Procurement Platform</p>
-                    <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
-                  </div>
+      </header>
+
+      {/* ══ Body: Sidebar + Main ══ */}
+      <div className="flex-1 flex overflow-hidden">
+        {editorMode ? (
+          <>
+            {/* ── Left Sidebar — Template Generator + Chat ── */}
+            <aside className="w-80 flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
+              {/* Template Generator header */}
+              <div className="px-5 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-teal-600" />
+                  <span className="text-base font-semibold text-gray-900">Template Generator</span>
                 </div>
+              </div>
 
-                {/* Editable Area */}
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={handleDocChange}
-                  onClick={handleCanvasClick}
-                  className="outline-none min-h-[800px] text-[13px] leading-[1.6] text-gray-800"
-                  style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }}
-                  data-placeholder="Start typing or use AI tools to generate content..."
-                />
+              {/* Tool source cards */}
+              <div className="px-5 py-4 space-y-2.5 border-b border-gray-100">
+                {AI_TOOLS.map(tool => {
+                  const Icon = tool.icon;
+                  const isActive = activeAITool === tool.id;
+                  return (
+                    <button key={tool.id} onClick={() => setActiveAITool(tool.id)}
+                      className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
+                        isActive ? 'border-teal-500 bg-teal-50/50 ring-1 ring-teal-500/20' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}>
+                      <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        isActive ? 'border-teal-500' : 'border-gray-300'
+                      }`}>
+                        {isActive && <div className="w-2.5 h-2.5 rounded-full bg-teal-500" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-teal-600' : 'text-gray-400'}`} />
+                          <span className="text-sm font-semibold text-gray-900">{tool.label}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {tool.id === 'tender-builder' && 'Create a new tender document'}
+                          {tool.id === 'bid-builder' && 'Draft a winning bid proposal'}
+                          {tool.id === 'requirement-analyzer' && 'Analyse tender requirements'}
+                          {tool.id === 'applicant-analyzer' && 'Rank applicants for a tender'}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
 
-                {/* Document Footer */}
-                <div className="absolute bottom-8 left-0 right-0 text-center">
-                  <div className="border-t border-gray-200 pt-2">
-                    <p className="text-[10px] text-gray-400">Page 1 of 1</p>
+                {/* Tender source selector (for bid/req/applicant) */}
+                {activeAITool !== 'tender-builder' && tenders.length > 0 && (
+                  <div className="pt-1">
+                    <label className="text-[11px] font-medium text-gray-500 flex items-center gap-1 mb-1">
+                      <Link2 className="h-3 w-3" /> Pull from live tender
+                    </label>
+                    <Select value={genTenderId} onValueChange={setGenTenderId}>
+                      <SelectTrigger className="h-9 text-xs bg-gray-50 border-gray-200">
+                        <SelectValue placeholder="Choose a tender (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Generate Template button */}
+                <button onClick={runTemplateGenerator} disabled={aiLoading}
+                  className="w-full h-11 mt-1 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                  {aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}
+                </button>
+              </div>
+
+              {/* Chat thread */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 thin-scroll">
+                {chatMessages.map(m => (
+                  <div key={m.id} className={`flex gap-2.5 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'
+                    }`}>
+                      {m.role === 'assistant' ? <Bot className="h-4 w-4 text-teal-600" /> : <span className="text-xs font-semibold text-gray-600">{avatarInitial}</span>}
+                    </div>
+                    <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                      m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'
+                    }`}>
+                      {m.content.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-1.5' : ''}>{line}</p>)}
+                      {m.kind === 'generated' && (
+                        <button onClick={() => editorRef.current?.focus()} className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
+                          <Plus className="h-3 w-3" /> Inserted into document
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {chatSending && (
+                  <div className="flex gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                      <Loader2 className="h-4 w-4 text-teal-600 animate-spin" />
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs text-gray-400 shadow-sm">Thinking...</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Input area */}
+              <div className="p-4 border-t border-gray-100">
+                <div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all">
+                  <textarea
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                    placeholder="Ask the AI assistant..."
+                    rows={1}
+                    className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none"
+                  />
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                    <button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                    <button onClick={sendChat} disabled={!chatInput.trim() || chatSending}
+                      className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </aside>
 
-          {/* Right Panel: AI Assistant */}
-          {aiPanelOpen && (
-              <div
- className="border-l border-border/60 bg-card flex-shrink-0 overflow-hidden transition-[width] duration-700" style={{ width: 350 }}
- >
-                <AIPanelContent />
+            {/* ── Main editor area ── */}
+            <main className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+              {/* Editor sub-tabs + formatting toolbar */}
+              <div className="bg-white border-b border-gray-200 flex-shrink-0">
+                <div className="flex items-center px-4 pt-2 gap-1 border-b border-gray-100">
+                  {(['home', 'insert', 'review', 'sign'] as RibbonTab[]).map(tab => (
+                    <button key={tab} onClick={() => setRibbonTab(tab)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors flex items-center gap-1.5 -mb-px border-b-2 ${
+                        ribbonTab === tab ? 'border-teal-600 text-teal-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      }`}>
+                      {tab === 'sign' ? <><Pen className="h-3 w-3" /> Sign</> :
+                       tab === 'home' ? 'Home' : tab === 'insert' ? 'Insert' : 'Review'}
+                    </button>
+                  ))}
+                </div>
+                <div className="min-h-[44px] flex items-center">
+                  <ActiveRibbon />
+                </div>
               </div>
-            )}
-        </div>
-      )}
 
-      {/* ── Status Bar ── */}
-      {ribbonTab !== 'doc-review' && ribbonTab !== 'ai-extract' && ribbonTab !== 'agent' && (
-        <div className="flex items-center h-6 px-3 bg-card border-t border-border/40 text-[10px] text-muted-foreground flex-shrink-0">
-          <div className="flex-1">Page 1 of 1</div>
-          <div className="flex items-center gap-3">
-            <span>{wordCount} words</span>
-            <span>{charCount} chars</span>
-          </div>
-          <div className="flex-1 flex items-center justify-end gap-1">
-            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.max(75, zoom - 25))}>
-              <ZoomOut className="h-3 w-3" />
-            </Button>
-            <Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}>
-              <SelectTrigger className="h-4 w-14 text-[10px] border-0 p-0 bg-transparent">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => setZoom(Math.min(150, zoom + 25))}>
-              <ZoomIn className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-      )}
+              {/* Document canvas */}
+              <div className="flex-1 overflow-auto bg-gray-100 p-6" onClick={() => { if (placementMode) { /* handled by editor click */ } }}>
+                <div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+                  <div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}>
+                    {/* Document Header */}
+                    <div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
+                      <div className="text-center">
+                        <p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p>
+                        <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
+                      </div>
+                    </div>
+                    {/* Title (editable) */}
+                    <input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }}
+                      placeholder="Document title"
+                      className="w-full text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} />
+                    {/* Editable Area */}
+                    <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick}
+                      className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700"
+                      style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }}
+                      data-placeholder="Start typing or use the Template Generator to populate this document..." />
+                    {/* Document Footer */}
+                    <div className="absolute bottom-8 left-0 right-0 text-center">
+                      <div className="border-t border-gray-200 pt-2">
+                        <p className="text-[10px] text-gray-400">Page 1 of 1</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status bar */}
+              <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0">
+                <div className="flex-1">Page 1 of 1</div>
+                <div className="flex items-center gap-3">
+                  <span>{wordCount} words</span>
+                  <span>{charCount} chars</span>
+                  {placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}
+                </div>
+                <div className="flex-1 flex items-center justify-end gap-1">
+                  <button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button>
+                  <Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}>
+                    <SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger>
+                    <SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent>
+                  </Select>
+                  <button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button>
+                </div>
+              </div>
+            </main>
+          </>
+        ) : ribbonTab === 'agent' ? (
+          <div className="flex-1 overflow-hidden"><AgentChatView /></div>
+        ) : ribbonTab === 'doc-review' ? (
+          <DocReviewContent />
+        ) : (
+          <AIExtractContent />
+        )}
+      </div>
 
       {/* ── Signature Drawing Dialog ── */}
       <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pen className="h-4 w-4 text-emerald-600" /> Draw Your Signature
+              <Pen className="h-4 w-4 text-teal-600" /> Draw Your Signature
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
@@ -2834,7 +3045,7 @@ export function AIDocStudio() {
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button>
                 <Button size="sm" onClick={saveDrawnSignature}
-                  className="text-xs gradient-emerald text-white border-0 premium-shadow hover:opacity-90">
+                  className="text-xs bg-teal-600 hover:bg-teal-700 text-white border-0">
                   <Check className="h-3.5 w-3.5 mr-1" /> Save Signature
                 </Button>
               </div>
@@ -2843,33 +3054,31 @@ export function AIDocStudio() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Signature Gallery (shows when Sign tab is active) ── */}
+      {/* ── Signature Gallery (shows when Sign sub-tab is active) ── */}
       {ribbonTab === 'sign' && savedSignatures.length > 0 && (
-          <div
- className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]"
- >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold">Saved Signatures &amp; Stamps</span>
-              <span className="text-[10px] text-muted-foreground">Click to place on document</span>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {savedSignatures.map(sig => (
-                <div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative">
-                  <button onClick={() => startPlacement(sig.dataUrl)}
-                    className="w-20 h-16 border border-border rounded hover:border-emerald-400 transition-colors overflow-hidden bg-white p-1">
-                    <img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" />
-                  </button>
-                  <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{sig.label}</span>
-                  <button onClick={() => deleteSignature(sig.id)}
-                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-900">Saved Signatures &amp; Stamps</span>
+            <span className="text-[10px] text-gray-400">Click to place on document</span>
           </div>
-        )}
-</div>
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {savedSignatures.map(sig => (
+              <div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative">
+                <button onClick={() => startPlacement(sig.dataUrl)}
+                  className="w-20 h-16 border border-gray-200 rounded-lg hover:border-teal-400 transition-colors overflow-hidden bg-white p-1">
+                  <img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" />
+                </button>
+                <span className="text-[9px] text-gray-500 truncate max-w-[80px]">{sig.label}</span>
+                <button onClick={() => deleteSignature(sig.id)}
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -3237,8 +3446,8 @@ function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; promp
 function RibbonBtn({ icon: Icon, title, onClick }: { icon: React.ElementType; title: string; onClick: () => void }) {
   return (
     <button onClick={onClick} title={title}
-      className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted transition-colors text-foreground">
-      <Icon className="h-4 w-4" />
+      className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900">
+      <Icon className="h-[18px] w-[18px]" />
     </button>
   );
 }
