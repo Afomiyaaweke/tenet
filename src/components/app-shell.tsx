@@ -45,7 +45,7 @@ const PrivacyPolicyView = dynamic(() => import('@/components/modules/privacy-pol
 const SocialCircleView = dynamic(() => import('@/components/modules/social-circle').then(m => ({ default: m.SocialCircleView })), { ssr: false });
 const RateLimitsView = dynamic(() => import('@/components/modules/rate-limits').then(m => ({ default: m.RateLimitsView })), { ssr: false });
 const AIDocStudioView = dynamic(() => import('@/components/modules/ai-doc-studio').then(m => ({ default: m.AIDocStudio })), { ssr: false });
-const DocBuilderView = dynamic(() => import('@/components/modules/doc-builder').then(m => ({ default: m.DocBuilderView })), { ssr: false });
+
 const TenderAnalyzerView = dynamic(() => import('@/components/modules/tender-analyzer').then(m => ({ default: m.TenderAnalyzerView })), { ssr: false });
 const TeamManagementView = dynamic(() => import('@/components/modules/team-management').then(m => ({ default: m.TeamManagementView })), { ssr: false });
 const ReviewModerationView = dynamic(() => import('@/components/modules/review-moderation').then(m => ({ default: m.ReviewModerationView })), { ssr: false });
@@ -127,7 +127,6 @@ function getNavItemsForRole(role: string): NavSection[] {
       { id: 'profile', label: 'Profile', icon: User },
       { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'ai-doc-studio', label: 'AI Doc Studio', icon: Bot },
-      { id: 'doc-builder', label: 'Doc Builder', icon: PenTool },
       { id: 'tender-analyzer', label: 'Tender Analyzer', icon: BarChart3 },
     ],
   };
@@ -173,7 +172,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio' | 'doc-builder' | 'tender-analyzer' | 'agent' | 'staff' | 'team-management' | 'contact-us' | 'privacy-policy' | 'admin' |'social-circle' | 'rate-limits' | 'review-moderation';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio'  | 'tender-analyzer' | 'agent' | 'staff' | 'team-management' | 'contact-us' | 'privacy-policy' | 'admin' |'social-circle' | 'rate-limits' | 'review-moderation';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -515,9 +514,7 @@ export function AppShell() {
         return <DocumentsView />;
       case 'ai-doc-studio':
         return <AIDocStudioView />;
-      case 'doc-builder':
-        return <DocBuilderView />;
-      case 'tender-analyzer':
+case 'tender-analyzer':
         return <TenderAnalyzerView />;
       case 'agent':
         return <AgentView />;

@@ -325,6 +325,8 @@ export function AIDocStudio() {
   const [chatSending, setChatSending] = useState(false);
   // Sidebar document generation source: which live tender to pull from (bid-builder / req-analyzer / applicant)
   const [genTenderId, setGenTenderId] = useState('');
+  // Source selection: 'live-tender' or 'external'
+  const [sourceMode, setSourceMode] = useState<'live-tender' | 'external'>('live-tender');
 
   const { user } = useAuthStore();
 
@@ -2726,11 +2728,104 @@ export function AIDocStudio() {
      RENDER
      ════════════════════════════════════════════════════════════ */
   const ActiveRibbon = RIBBON_MAP[ribbonTab];
-
-  // Check if ocrDone for the selected doc
   const ocrDone = selectedDocId ? (documents.find(d => d.id === selectedDocId)?.ocrStatus === 'completed') : false;
+  const editorMode = ribbonTab === 'home' || ribbonTab === 'insert' || ribbonTab === 'review' || ribbonTab === 'sign' || ribbonTab === 'ai-tools';
+  const avatarInitial = (user?.profile?.fullName || user?.email || 'U').charAt(0).toUpperCase();
 
-  // Whether we're in the main "Editor" experience (sidebar + canvas)
+  return (
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-gray-50 view-enter relative">
+      {/* ══ Top Header ══ */}
+      <header className="flex items-center h-12 px-4 bg-white border-b border-gray-200 flex-shrink-0 gap-3">
+        <div className="flex-1">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input placeholder="Search documents..." className="w-full h-9 pl-10 pr-4 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-500/15 transition-all" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button title="History" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"><History className="h-4 w-4" /></button>
+          <button title="Notifications" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors relative"><Bell className="h-4 w-4" /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-500 ring-2 ring-white" /></button>
+          <Popover><PopoverTrigger asChild><button className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"><Layers className="h-4 w-4 text-teal-600" />{ribbonTab === 'doc-review' ? 'Doc Review' : ribbonTab === 'ai-extract' ? 'AI Extract' : ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}<ChevronDown className="h-3 w-3 text-gray-400" /></button></PopoverTrigger><PopoverContent className="w-40 p-1" align="end">{[{ id: 'home', label: 'Editor', icon: FileText }, { id: 'doc-review', label: 'Doc Review', icon: Bot }, { id: 'ai-extract', label: 'AI Extract', icon: MessageSquare }, { id: 'agent', label: 'AI Agent', icon: Bot }].map(m => { const Icon = m.icon; const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode); return (<button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}><Icon className="h-4 w-4" /> {m.label}</button>); })}</PopoverContent></Popover>
+          <button onClick={() => toast.info('Exporting...')} className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"><Download className="h-3.5 w-3.5" /> Export</button>
+          <button onClick={handleSave} className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm"><Save className="h-3.5 w-3.5" />{saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}{saveStatus === 'saved' && <Check className="h-3 w-3 text-teal-100" /></button>
+          <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">{avatarInitial}</div>
+        </div>
+      </header>
+      <div className="flex-1 flex overflow-hidden">
+        {editorMode ? (
+          <>
+            <aside className="w-72 flex flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
+              <div className="px-5 py-4 border-b border-gray-100"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-gray-900 tracking-tight">AI Doc Studio</span></div></div>
+              <div className="px-5 py-4 space-y-2 border-b border-gray-100">
+                <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-gray-900">Template Generator</span></div>
+                <button onClick={() => setSourceMode('live-tender')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'live-tender' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'live-tender' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'live-tender' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
+                    <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-gray-900 block">Pull from Live Tender</span><span className="text-xs text-gray-500 mt-0.5 block">RFP_Gov_Infrastructure_2024.pdf</span></div>
+                </button>
+                <button onClick={() => setSourceMode('external')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'external' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'external' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'external' && <div className="w-2 h-2 rounded-full bg-gray-900" /></div>
+                    <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-gray-900 block">External Sources</span><span className="text-xs text-gray-500 mt-0.5 block">Connect to knowledge base or web</span></div>
+                </button>
+                {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-gray-50 border-gray-200"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
+                <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</button>
+                <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"><Plus className="h-3 w-3" /> Insert into document</button>
+              </div>
+              {chatMessages.length > 1 && <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 thin-scroll">{chatMessages.slice(1).map(m => (<div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}><div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'}`}>{m.role === 'assistant' ? <Bot className="h-3 w-3 text-teal-600" /> : <span className="text-[10px] font-semibold text-gray-600">{avatarInitial}</span>}</div><div className={`max-w-[85%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'}`}>{m.content.split('
+').map((line, i) => <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>}{m.kind === 'generated' && <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700"><Plus className="h-3 w-3" /> Inserted</button>}</div></div></div>))}{chatSending && <div className="flex gap-2"><div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center flex-shrink-0"><Loader2 className="h-3 w-3 text-teal-600 animate-spin" /></div><div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-[11px] text-gray-400 shadow-sm">Thinking...</div></div>}</div>}
+              <div className="p-3 mt-auto border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI assistant..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div></div>
+            </aside>
+            <main className="flex-1 flex flex-col overflow-hidden bg-gray-50 pb-16">
+              <div className="bg-white border-b border-gray-200 flex-shrink-0"><div className="min-h-[44px] flex items-center px-3 py-2"><ActiveRibbon /></div></div>
+              <div className="flex-1 overflow-auto bg-gray-100 p-6" onClick={() => { if (placementMode) { /* handled */ } }}><div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}><div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}><div className="text-center"><p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p><p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p></div></div><input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }} placeholder="Document title" className="w-full text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} /><div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick} className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700" style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }} data-placeholder="Start typing or use the Template Generator to populate this document..." /><div className="absolute bottom-8 left-0 right-0 text-center"><div className="border-t border-gray-200 pt-2"><p className="text-[10px] text-gray-400">Page 1 of 1</p></div></div></div></div></div></div>
+              <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0"><div className="flex-1">Page 1 of 1</div><div className="flex items-center gap-3"><span>{wordCount} words</span><span>{charCount} chars</span>{placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}</div><div className="flex-1 flex items-center justify-end gap-1"><button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button><Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}><SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger><SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent></Select><button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button></div></div></div>
+            </main>
+          </>
+        ) : ribbonTab === 'agent' ? (
+          <div className="flex-1 overflow-hidden"><AgentChatView /></div>
+        ) : ribbonTab === 'doc-review' ? (
+          <DocReviewContent />
+        ) : (
+          <AIExtractContent />
+        )}
+      </div>
+      {/* ══ Dark Bottom Dock ══ */}
+      {editorMode && (
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-slate-800 flex items-center justify-center gap-2 z-40 border-t border-slate-700">
+          <div className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center text-white text-xs font-bold mr-4 shadow-md">{avatarInitial}</div>
+          <div className="w-px h-8 bg-slate-700" />
+          {dockItems.map(item => {
+            const Icon = item.icon;
+            const isActive = activeAITool === item.id;
+            const isOcr = item.id === 'ocr';
+            return (
+              <button key={item.id}
+                onClick={() => isOcr ? setRibbonTab('doc-review') : setActiveAITool(item.id as AITool)}
+                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg transition-all min-w-[60px] ${
+                  isActive ? 'bg-teal-600 text-white shadow-md shadow-teal-500/25' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                }`}>
+                <Icon className="h-[18px] w-[18px]" />
+                <span className="text-[10px] leading-tight text-center whitespace-nowrap">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {/* ── Signature Drawing Dialog ── */}
+      <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}><DialogContent className="sm:max-w-[500px]"><DialogHeader><DialogTitle className="flex items-center gap-2"><Pen className="h-4 w-4 text-teal-600" /> Draw Your Signature</DialogTitle></DialogHeader><div className="space-y-3"><div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white"><canvas ref={canvasRef} width={460} height={200} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} className="w-full cursor-crosshair touch-none" /></div><div className="flex items-center justify-between"><Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs"><Eraser className="h-3.5 w-3.5 mr-1" /> Clear</Button><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button><Button size="sm" onClick={saveDrawnSignature} className="text-xs bg-teal-600 hover:bg-teal-700 text-white border-0"><Check className="h-3.5 w-3.5 mr-1" /> Save Signature</Button></div></div></div></div></DialogContent></Dialog>
+      {/* ── Signature Gallery ── */}
+      {ribbonTab === 'sign' && savedSignatures.length > 0 && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]">
+          <div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-gray-900">Saved Signatures &amp; Stamps</span><span className="text-[10px] text-gray-400">Click to place on document</span></div>
+          <div className="flex gap-3 overflow-x-auto pb-1">{savedSignatures.map(sig => (<div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative"><button onClick={() => startPlacement(sig.dataUrl)} className="w-20 h-16 border border-gray-200 rounded-lg hover:border-teal-400 transition-colors overflow-hidden bg-white p-1"><img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" /></button><span className="text-[9px] text-gray-500 truncate max-w-[80px]">{sig.label}</span><button onClick={() => deleteSignature(sig.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-2.5 w-2.5" /></button></div></div>)}</div></div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   REVIEW RESULT DISPLAY COMPONENT
+   ══════════════════════════════════════════════════════════ */
+"Editor" experience (sidebar + canvas)
   const editorMode = ribbonTab === 'home' || ribbonTab === 'insert' || ribbonTab === 'review' || ribbonTab === 'sign' || ribbonTab === 'ai-tools';
   const avatarInitial = (user?.profile?.fullName || user?.email || 'U').charAt(0).toUpperCase();
 
