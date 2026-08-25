@@ -96,6 +96,11 @@ const AI_TOOLS: { id: AITool; label: string; icon: React.ElementType }[] = [
   { id: 'applicant-analyzer', label: 'Applicant Rank', icon: Users },
 ];
 
+const dockItems = [
+  ...AI_TOOLS,
+  { id: 'ocr' as string, label: 'OCR Scan', icon: FileSearch },
+];
+
 const DOC_TYPE_OPTIONS = [
   { value: 'external_doc', label: 'External Document' },
   { value: 'business_license', label: 'Business License' },
