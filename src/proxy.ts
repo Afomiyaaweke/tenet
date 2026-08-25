@@ -405,6 +405,9 @@ export function proxy(request: NextRequest) {
 
   // ── Security headers for non-API routes ──
   const response = NextResponse.next();
+  // Force-clear browser HTTP cache (needed after fixing Cache-Control: immutable
+  // which permanently cached stale Turbopack runtime chunks).
+  response.headers.set('Clear-Site-Data', '"cache"');
   return addSecurityHeaders(response);
 }
 
