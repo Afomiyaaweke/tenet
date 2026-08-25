@@ -431,6 +431,29 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
       handleCloseBidDialog();
       useNavStore.getState().setView('ai-doc-studio', {
         tenderId: tender.id,
+        // Pass the tender form to the AI agent so it can analyze it directly
+        openAgent: 'true',
+        agentMessage: `I'm starting a bid application for the following tender. Please analyze it and help me prepare:
+
+**${tender.title}**
+
+${tender.scope || 'No description available.'}
+
+${tender.location ? `**Location:** ${tender.location}` : ''}
+${tender.deadline ? `**Deadline:** ${tender.deadline}` : ''}
+${tender.budgetMin || tender.budgetMax ? `**Budget:** ETB ${tender.budgetMin || '?'} - ${tender.budgetMax || '?'}` : ''}`.trim(),
+        tender: {
+          id: tender.id,
+          title: tender.title,
+          scope: tender.scope,
+          location: tender.location,
+          deadline: tender.deadline,
+          budgetMin: tender.budgetMin ?? null,
+          budgetMax: tender.budgetMax ?? null,
+          currency: 'ETB',
+          categoryTags: tender.categoryTags,
+          requiredDocs: tender.requiredDocs,
+        },
       });
     } catch {
       toast.error('Failed to create bid');

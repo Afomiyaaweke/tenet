@@ -846,3 +846,25 @@ Stage Summary:
   - READ: assistant receives the live editor text as context and can reference/summarize it
   - WRITE: assistant emits ```doc``` blocks that render as interactive cards; Insert appends, Replace overwrites, Copy to clipboard
 - Files changed: src/components/modules/ai-doc-studio.tsx, src/app/api/ai/chat/route.ts
+
+---
+Task ID: agent-takes-tender-form-and-black-text
+Agent: main
+Task: Make the AI agent receive the tender form data (not just free-text), and make the assistant chat text black
+
+Work Log:
+- Investigation: Found that the tender form (title/scope/budget/deadline) only reached the agent as a flattened markdown string in `message` (from live-tenders.startBidApplication). tender-detail.handleSubmitBid only passed `{ tenderId }` — no agentMessage, no openAgent. Backend AgentContext had no tender field.
+- Backend agent-loop.ts: Added `AgentTender` interface and `tender?` field to `AgentContext`. Updated chat-intent system prompt to include a "Tender form data" section (Title/Scope/Location/Deadline/Budget/Categories/Required docs) and instruct the agent to use it as the authoritative source of truth.
+- Backend API route /api/agent-sessions/[id]/messages: Accept optional `tender` object in request body; validate each field; pass as `agentContext.tender` to runAgentLoop.
+- Frontend store/index.ts: Widened `viewParams` type from `Record<string, string>` to `Record<string, unknown>` to allow passing a structured tender object.
+- Frontend agent-chat.tsx: Added `tenderRef` to capture `viewParams.tender` on mount; `sendMessage` now includes `tender: tenderRef.current` in the POST body so every message carries the tender context.
+- Frontend live-tenders.tsx: `startBidApplication` now passes a structured `tender` object alongside the existing `agentMessage` markdown.
+- Frontend tender-detail.tsx: `handleSubmitBid` now passes `openAgent: 'true'`, an `agentMessage` built from the tender, AND a structured `tender` object (id/title/scope/location/deadline/budget/categoryTags/requiredDocs).
+- Text color: Replaced gray `prose` default on both assistant chat bubbles (saved message line 1419 + streaming message line 1558) with `text-foreground prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-foreground` so the text renders black (in light mode) / white (in dark mode).
+- Verification: (1) curl POST to /api/agent-sessions/[id]/messages with a tender object — the AI correctly referenced "Test Road Construction Tender", "ETB 5,000,000 - 8,000,000", "December 31, 2026", "15km asphalt road construction in Addis Ababa". (2) Agent Browser confirmed the assistant bubble now has `text-foreground` classes and VLM described the text as "Dark Grey/Black". (3) Lint: 0 errors.
+- Cleaned up test tender + sessions created during verification.
+
+Stage Summary:
+- The AI agent now receives the structured tender form (title, scope, location, deadline, budget, categories, required docs) via both `tender-detail.handleSubmitBid` and `live-tenders.startBidApplication` flows, and uses it as authoritative context.
+- Assistant chat answer text now renders in black (light mode) instead of washed-out gray.
+- Files changed: src/lib/agent-loop.ts, src/app/api/agent-sessions/[id]/messages/route.ts, src/store/index.ts, src/components/modules/agent-chat.tsx, src/components/modules/live-tenders.tsx, src/components/modules/tender-detail.tsx

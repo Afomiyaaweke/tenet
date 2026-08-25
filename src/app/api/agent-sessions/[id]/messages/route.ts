@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { runAgentLoop, type AgentContext, type AgentEvent } from '@/lib/agent-loop';
+import { runAgentLoop, type AgentContext, type AgentTender, type AgentEvent } from '@/lib/agent-loop';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +33,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { message, history = [] } = body;
+    const { message, history = [], tender } = body;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -89,6 +89,26 @@ export async function POST(
       }),
     ]);
 
+    // Optional structured tender form passed from the UI (e.g. when the user
+    // starts an analysis from the tender detail / live tender page). This gives
+    // the agent the authoritative tender data without relying solely on the
+    // free-text user message.
+    const tenderContext: AgentTender | undefined =
+      tender && typeof tender === 'object'
+        ? {
+            id: typeof tender.id === 'string' ? tender.id : undefined,
+            title: typeof tender.title === 'string' ? tender.title : undefined,
+            scope: typeof tender.scope === 'string' ? tender.scope : undefined,
+            location: typeof tender.location === 'string' ? tender.location : undefined,
+            deadline: typeof tender.deadline === 'string' ? tender.deadline : undefined,
+            budgetMin: typeof tender.budgetMin === 'number' ? tender.budgetMin : undefined,
+            budgetMax: typeof tender.budgetMax === 'number' ? tender.budgetMax : undefined,
+            currency: typeof tender.currency === 'string' ? tender.currency : undefined,
+            categoryTags: typeof tender.categoryTags === 'string' ? tender.categoryTags : undefined,
+            requiredDocs: typeof tender.requiredDocs === 'string' ? tender.requiredDocs : undefined,
+          }
+        : undefined;
+
     const agentContext: AgentContext = {
       documents: documents.map((d) => ({
         id: d.id,
@@ -108,6 +128,7 @@ export async function POST(
         title: art.title,
         filename: art.filename,
       })),
+      tender: tenderContext,
     };
 
     // Build conversation history

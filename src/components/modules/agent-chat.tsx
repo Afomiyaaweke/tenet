@@ -420,9 +420,26 @@ export function AgentChatView() {
 
   // Auto-create session with tender description when navigated from "Start Bid Application"
   const initialMessageSent = useRef(false);
+  // Capture the structured tender form (if provided when navigating here) so it
+  // can be sent with every message — the agent then "sees" the tender's title,
+  // scope, budget, deadline and required docs as authoritative context.
+  const tenderRef = useRef<{
+    id?: string;
+    title?: string;
+    scope?: string;
+    location?: string;
+    deadline?: string;
+    budgetMin?: number | null;
+    budgetMax?: number | null;
+    currency?: string;
+    categoryTags?: string;
+    requiredDocs?: string;
+  } | null>(null);
   useEffect(() => {
     const { viewParams } = useNavStore.getState();
     const agentMsg = viewParams?.agentMessage as string | undefined;
+    const tenderParam = viewParams?.tender as typeof tenderRef.current | undefined;
+    if (tenderParam) tenderRef.current = tenderParam;
     if (agentMsg && !initialMessageSent.current) {
       initialMessageSent.current = true;
       // Create a new session, then send the tender description as the first message
@@ -785,7 +802,7 @@ export function AgentChatView() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text.trim(), history }),
+        body: JSON.stringify({ message: text.trim(), history, tender: tenderRef.current || undefined }),
       });
 
       if (!res.ok || !res.body) {
@@ -1399,7 +1416,7 @@ export function AgentChatView() {
 
           {/* Answer */}
           {msg.content && (
-            <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 prose prose-sm dark:prose-invert max-w-none">
+            <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 prose prose-sm dark:prose-invert max-w-none text-foreground prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-foreground prose-strong:text-foreground">
               <ReactMarkdown>{msg.content}</ReactMarkdown>
             </div>
           )}
@@ -1538,7 +1555,7 @@ export function AgentChatView() {
 
           {/* Answer */}
           {streamingMsg.answer && (
-            <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 prose prose-sm dark:prose-invert max-w-none">
+            <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 prose prose-sm dark:prose-invert max-w-none text-foreground prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-foreground prose-strong:text-foreground">
               <ReactMarkdown>{streamingMsg.answer}</ReactMarkdown>
               <span className="animate-pulse text-foreground">▌</span>
             </div>

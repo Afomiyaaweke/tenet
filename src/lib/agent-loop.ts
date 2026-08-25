@@ -85,11 +85,26 @@ export interface AgentArtifact {
   filename: string;
 }
 
-/** Agent context — documents, prior analyses, generated artifacts */
+/** A tender form passed to the agent for analysis context */
+export interface AgentTender {
+  id?: string;
+  title?: string;
+  scope?: string;
+  location?: string;
+  deadline?: string;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  currency?: string;
+  categoryTags?: string;
+  requiredDocs?: string;
+}
+
+/** Agent context — documents, prior analyses, generated artifacts, and an optional tender form */
 export interface AgentContext {
   documents: AgentDocument[];
   analyses: AgentAnalysis[];
   artifacts: AgentArtifact[];
+  tender?: AgentTender;
 }
 
 /** A single step in the agent's plan */
@@ -848,6 +863,32 @@ async function* synthesizeAnswer(
     }
   }
 
+  // Include the tender form (if provided) so the agent has the structured
+  // tender data the user is working on, not just free-text messages.
+  let tenderContext = '';
+  if (context.tender) {
+    const t = context.tender;
+    const lines: string[] = [];
+    if (t.title) lines.push(`- Title: ${t.title}`);
+    if (t.scope) lines.push(`- Scope: ${t.scope}`);
+    if (t.location) lines.push(`- Location: ${t.location}`);
+    if (t.deadline) lines.push(`- Deadline: ${t.deadline}`);
+    if (t.budgetMin != null || t.budgetMax != null) {
+      const cur = t.currency || 'ETB';
+      lines.push(`- Budget: ${cur} ${t.budgetMin ?? '?'} - ${t.budgetMax ?? '?'}`);
+    }
+    if (t.categoryTags) lines.push(`- Categories: ${t.categoryTags}`);
+    if (t.requiredDocs) lines.push(`- Required documents: ${t.requiredDocs}`);
+    if (lines.length > 0) {
+      tenderContext = `Tender form data (the tender the user is working on):\n${lines.join('\n')}\n\n`;
+    }
+  }
+
+  const tenderInstruction = tenderContext
+    ? tenderContext +
+      'When the user asks about this tender, use the tender form data above as the authoritative source of truth for the tender title, scope, budget, deadline and required documents. '
+    : '';
+
   const systemPrompt =
     intent === 'compare'
       ? 'You are a procurement analyst comparing tender analyses. Provide a clear, structured comparison highlighting differences in pricing, scores, compliance, and key terms. Use markdown tables and bullet points.'
@@ -858,7 +899,7 @@ async function* synthesizeAnswer(
 - **Document Search**: Search through uploaded documents for specific information
 - **Tender Comparison**: Compare multiple tender analyses side by side
 
-Answer the user's question helpfully. If they haven't uploaded documents yet, suggest they do so to unlock the full analysis capabilities. Use markdown for formatting. Cite sources using [filename p.X] format when referencing documents.`;
+${tenderInstruction}Answer the user's question helpfully. If they haven't uploaded documents yet, suggest they do so to unlock the full analysis capabilities. Use markdown for formatting. Cite sources using [filename p.X] format when referencing documents.`;
 
   const userPrompt = contextForLLM
     ? `Context:\n${contextForLLM}\n\nUser question: ${message}`

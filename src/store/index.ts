@@ -80,8 +80,9 @@ type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender
 
 interface NavState {
   view: View;
-  viewParams: Record<string, string>;
-  setView: (view: View, params?: Record<string, string>) => void;
+  // Allow structured values (e.g. `tender` object) in addition to plain strings.
+  viewParams: Record<string, unknown>;
+  setView: (view: View, params?: Record<string, unknown>) => void;
 }
 
 export const useNavStore = create<NavState>((set) => ({

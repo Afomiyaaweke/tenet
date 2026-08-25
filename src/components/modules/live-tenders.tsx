@@ -3079,6 +3079,18 @@ ${tender.scope || 'No description available.'}
 ${tender.location ? `**Location:** ${tender.location}` : ''}
 ${tender.deadline ? `**Deadline:** ${tender.deadline}` : ''}
 ${tender.budgetMin || tender.budgetMax ? `**Budget:** ${tender.currency || 'ETB'} ${tender.budgetMin || '?'} - ${tender.budgetMax || '?'} ` : ''}`.trim(),
+        // Structured tender form so the agent receives the actual tender data,
+        // not just the free-text summary above.
+        tender: {
+          id: localTenderId,
+          title: tender.title,
+          scope: tender.scope,
+          location: tender.location,
+          deadline: tender.deadline,
+          budgetMin: tender.budgetMin ?? null,
+          budgetMax: tender.budgetMax ?? null,
+          currency: tender.currency,
+        },
       });
     } catch {
       toast.error('Failed to start bid application');
