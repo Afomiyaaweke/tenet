@@ -240,6 +240,83 @@ function getFileExtBadge(fileName: string): { color: string; label: string } {
   return map[ext] || { color: 'bg-gray-100 text-gray-600', label: ext.toUpperCase() };
 }
 
+/* ── Chat ↔ Editor bridge ──
+   The assistant can embed content that should go INTO the document by wrapping
+   it in a fenced block tagged "doc":
+       ```doc
+       <content>
+       ```
+   parseChatSegments splits a raw assistant reply into alternating prose and
+   doc segments so the UI can render interactive "Insert / Replace" controls
+   for the document-bound pieces. */
+export interface ChatSegment {
+  type: 'text' | 'doc';
+  content: string;
+}
+export function parseChatSegments(raw: string): ChatSegment[] {
+  if (!raw) return [];
+  const segments: ChatSegment[] = [];
+  const regex = /```doc\s*\n([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(raw)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: 'text', content: raw.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: 'doc', content: match[1].replace(/\s+$/, '') });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < raw.length) {
+    segments.push({ type: 'text', content: raw.slice(lastIndex) });
+  }
+  return segments;
+}
+
+// Convert plain-text (with "# " headings, "- " bullets and blank-line
+// paragraphs) into HTML nodes suitable for the contentEditable editor.
+function textToEditorNodes(text: string): HTMLElement[] {
+  const nodes: HTMLElement[] = [];
+  const blocks = text.replace(/\r\n/g, '\n').split(/\n{2,}/);
+  for (const block of blocks) {
+    const trimmed = block.replace(/^\n+|\n+$/g, '');
+    if (!trimmed) continue;
+    if (trimmed.startsWith('## ')) {
+      const h = document.createElement('h3');
+      h.textContent = trimmed.replace(/^##\s+/, '');
+      h.style.fontSize = '14px';
+      h.style.fontWeight = '700';
+      h.style.margin = '10px 0 4px';
+      h.style.color = '#0f766e';
+      nodes.push(h);
+    } else if (trimmed.startsWith('# ')) {
+      const h = document.createElement('h2');
+      h.textContent = trimmed.replace(/^#\s+/, '');
+      h.style.fontSize = '16px';
+      h.style.fontWeight = '700';
+      h.style.margin = '12px 0 6px';
+      h.style.color = '#0f766e';
+      nodes.push(h);
+    } else if (/^[-*]\s/m.test(trimmed)) {
+      const ul = document.createElement('ul');
+      ul.style.margin = '4px 0 8px 20px';
+      for (const line of trimmed.split('\n')) {
+        if (/^[-*]\s/.test(line)) {
+          const li = document.createElement('li');
+          li.textContent = line.replace(/^[-*]\s+/, '');
+          ul.appendChild(li);
+        }
+      }
+      nodes.push(ul);
+    } else {
+      const p = document.createElement('p');
+      p.textContent = trimmed;
+      p.style.margin = '0 0 8px';
+      nodes.push(p);
+    }
+  }
+  return nodes;
+}
+
 // Signature loading/saving is now handled by useStampSignature hook
 
 /* ══════════════════════════════════════════════════════════════
@@ -871,6 +948,43 @@ export function AIDocStudio() {
     }
   };
 
+  // Append AI-generated text content to the end of the document in the editor.
+  const insertIntoEditor = (text: string) => {
+    const el = editorRef.current;
+    if (!el) return;
+    const nodes = textToEditorNodes(text);
+    if (nodes.length === 0) return;
+    if (el.innerText.trim()) {
+      el.appendChild(document.createElement('br'));
+    }
+    for (const n of nodes) el.appendChild(n);
+    el.focus();
+    // place caret at the end
+    const sel = window.getSelection();
+    if (sel) {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    setSaveStatus('unsaved');
+    updateCounts();
+    toast.success('Inserted into document');
+  };
+
+  // Replace the entire document with AI-generated text content.
+  const replaceDocument = (text: string) => {
+    const el = editorRef.current;
+    if (!el) return;
+    el.innerHTML = '';
+    for (const n of textToEditorNodes(text)) el.appendChild(n);
+    el.focus();
+    setSaveStatus('unsaved');
+    updateCounts();
+    toast.success('Document updated');
+  };
+
   /* ════════════════════════════════════════════════════════════
      SIDEBAR AI CHAT (Template Generator assistant)
      ════════════════════════════════════════════════════════════ */
@@ -885,7 +999,18 @@ export function AIDocStudio() {
     setChatInput('');
     setChatSending(true);
     try {
-      const res = await api.post('/ai/chat', { message: text, documentTitle: docTitle });
+      // Give the assistant live context of what is in the editor so it can read,
+      // reference and refine the document the user is working on.
+      const documentContent = editorRef.current?.innerText?.slice(0, 6000) || '';
+      const history = chatMessages
+        .slice(1)
+        .map(m => ({ role: m.role, content: m.content }));
+      const res = await api.post('/ai/chat', {
+        message: text,
+        documentTitle: docTitle,
+        documentContent,
+        history,
+      });
       if (res.success && res.data?.reply) {
         pushChat('assistant', res.data.reply);
       } else {
@@ -3066,17 +3191,53 @@ export function AIDocStudio() {
               </div>
               {chatMessages.length > 1 && (
                 <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 thin-scroll">
-                  {chatMessages.slice(1).map(m => (
+                  {chatMessages.slice(1).map(m => {
+                    const segments = m.role === 'assistant' ? parseChatSegments(m.content) : [];
+                    return (
                     <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                       <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'}`}>
                         {m.role === 'assistant'
                           ? <Bot className="h-3 w-3 text-teal-600" />
                           : <span className="text-[10px] font-semibold text-gray-600">{avatarInitial}</span>}
                       </div>
-                      <div className={`max-w-[85%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'}`}>
-                        {m.content.split('\n').map((line, i) => (
-                          <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
-                        ))}
+                      <div className={`max-w-[88%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'}`}>
+                        {m.role === 'assistant' ? (
+                          segments.map((seg, i) => (
+                            seg.type === 'doc' ? (
+                              <div key={i} className="mt-2 first:mt-0 rounded-lg border border-teal-200 bg-teal-50/40 overflow-hidden">
+                                <div className="px-2.5 py-1 border-b border-teal-200/70 flex items-center gap-1.5 bg-teal-50">
+                                  <FileDown className="h-3 w-3 text-teal-600" />
+                                  <span className="text-[10px] font-semibold text-teal-700">Document content</span>
+                                  <span className="text-[9px] text-teal-600/70 ml-auto">{seg.content.split(/\s+/).filter(Boolean).length} words</span>
+                                </div>
+                                <pre className="px-2.5 py-2 text-[10px] leading-relaxed text-gray-700 whitespace-pre-wrap max-h-44 overflow-y-auto thin-scroll font-sans m-0">{seg.content}</pre>
+                                <div className="px-2 py-1.5 border-t border-teal-200/70 bg-white flex gap-1.5">
+                                  <button onClick={() => insertIntoEditor(seg.content)} title="Append to the end of the document" className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-600 text-white text-[10px] font-medium hover:bg-teal-700 transition-colors">
+                                    <Plus className="h-3 w-3" /> Insert
+                                  </button>
+                                  <button onClick={() => replaceDocument(seg.content)} title="Replace the whole document with this content" className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-teal-300 text-teal-700 text-[10px] font-medium hover:bg-teal-50 transition-colors">
+                                    <RefreshCw className="h-3 w-3" /> Replace
+                                  </button>
+                                  <button onClick={() => { navigator.clipboard?.writeText(seg.content); toast.success('Copied'); }} title="Copy to clipboard" className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-md text-gray-500 text-[10px] font-medium hover:bg-gray-100 transition-colors">
+                                    <Copy className="h-3 w-3" /> Copy
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              seg.content && seg.content.trim() ? (
+                                <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
+                                  {seg.content.split('\n').map((line, j) => (
+                                    <p key={j} className={j > 0 ? 'mt-1' : ''}>{line}</p>
+                                  ))}
+                                </div>
+                              ) : null
+                            )
+                          ))
+                        ) : (
+                          m.content.split('\n').map((line, i) => (
+                            <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
+                          ))
+                        )}
                         {m.kind === 'generated' && (
                           <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
                             <Plus className="h-3 w-3" /> Inserted
@@ -3084,7 +3245,8 @@ export function AIDocStudio() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   {chatSending && (
                     <div className="flex gap-2">
                       <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center flex-shrink-0">
@@ -3095,9 +3257,9 @@ export function AIDocStudio() {
                   )}
                 </div>
               )}
-              <div className="p-3 mt-auto border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI assistant..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
+              <div className="p-3 pb-12 mt-auto border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
             </aside>
-            <main className="flex-1 flex flex-col overflow-hidden bg-gray-50 pb-16">
+            <main className="flex-1 flex flex-col overflow-hidden bg-gray-50 pb-12">
               <div className="bg-white border-b border-gray-200 flex-shrink-0"><div className="min-h-[44px] flex items-center px-3 py-2"><ActiveRibbon /></div></div>
               <div className="flex-1 overflow-auto bg-gray-100 p-6" onClick={() => { if (placementMode) { /* handled */ } }}><div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}><div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}><div className="text-center"><p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p><p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p></div></div><input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }} placeholder="Document title" className="w-full text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} /><div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick} className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700" style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }} data-placeholder="Start typing or use the Template Generator to populate this document..."></div><div className="absolute bottom-8 left-0 right-0 text-center"><div className="border-t border-gray-200 pt-2"><p className="text-[10px] text-gray-400">Page 1 of 1</p></div></div></div></div></div>
               <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0"><div className="flex-1">Page 1 of 1</div><div className="flex items-center gap-3"><span>{wordCount} words</span><span>{charCount} chars</span>{placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}</div><div className="flex-1 flex items-center justify-end gap-1"><button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button><Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}><SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger><SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent></Select><button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button></div></div>
@@ -3113,9 +3275,9 @@ export function AIDocStudio() {
       </div>
       {/* ══ Dark Bottom Dock ══ */}
       {editorMode && (
-        <div className="absolute bottom-0 left-0 right-0 h-16 bg-slate-800 flex items-center justify-center gap-2 z-40 border-t border-slate-700">
-          <div className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center text-white text-xs font-bold mr-4 shadow-md">{avatarInitial}</div>
-          <div className="w-px h-8 bg-slate-700" />
+        <div className="absolute bottom-0 left-0 right-0 h-11 bg-slate-800 flex items-center justify-center gap-1.5 z-40 border-t border-slate-700">
+          <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white text-[10px] font-bold mr-2 shadow-sm">{avatarInitial}</div>
+          <div className="w-px h-5 bg-slate-700" />
           {dockItems.map(item => {
             const Icon = item.icon;
             const isActive = activeAITool === item.id;
@@ -3123,11 +3285,11 @@ export function AIDocStudio() {
             return (
               <button key={item.id}
                 onClick={() => isOcr ? setRibbonTab('doc-review') : setActiveAITool(item.id as AITool)}
-                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg transition-all min-w-[60px] ${
-                  isActive ? 'bg-teal-600 text-white shadow-md shadow-teal-500/25' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
+                  isActive ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                 }`}>
-                <Icon className="h-[18px] w-[18px]" />
-                <span className="text-[10px] leading-tight text-center whitespace-nowrap">{item.label}</span>
+                <Icon className="h-3.5 w-3.5" />
+                <span className="text-[11px] leading-none font-medium whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}

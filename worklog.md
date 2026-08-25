@@ -821,3 +821,28 @@ Stage Summary:
 - CORS and BarChart3 Turbopack errors are fully resolved
 - Doc Builder functionality is integrated into AI Doc Studio's Template Generator sidebar
 - Key files modified: next.config.mjs, app-shell.tsx, ai-doc-studio.tsx
+
+---
+Task ID: doc-studio-smaller-dock-and-ai-editor-interaction
+Agent: main
+Task: Make the bottom dock section (Tender Builder / Bid Proposal / Req Analyzer / Applicant Rank / OCR Scan) smaller, and make the AI chat interact with the document editor (read + write)
+
+Work Log:
+- Made the dark bottom dock compact: h-16 (64px) -> h-11 (44px); switched dock items from vertical icon+label stack to a horizontal pill layout (icon h-3.5 + label text-[11px]); shrank avatar circle (w-9 -> w-6) and separator (h-8 -> h-5)
+- Adjusted editor main `pb-16` -> `pb-12` and chat input wrapper `p-3` -> `p-3 pb-12` so content clears the shorter dock
+- Backend (/api/ai/chat/route.ts): accept `documentContent` in the request body; include a trimmed (6k char) preview of the editor content in the system prompt; instruct the model to wrap content that should go INTO the document in a fenced block tagged `doc` (```doc ... ```) and to keep prose outside the block
+- Frontend sendChat(): now sends editorRef.current.innerText (capped 6k) as `documentContent` plus recent `history` so the assistant sees and references the live document
+- Added module-level `parseChatSegments()` (splits an assistant reply into alternating text/doc segments) and `textToEditorNodes()` (converts markdown-ish text: # headings, - bullets, blank-line paragraphs into editor DOM nodes)
+- Added component methods `insertIntoEditor(text)` (appends nodes + caret to end + toast) and `replaceDocument(text)` (replaces whole document + toast)
+- Rewrote the chat message bubble: assistant replies are parsed into segments; doc segments render as teal-bordered "Document content" cards with word count, scrollable preview, and Insert / Replace / Copy action buttons; prose segments render as normal chat text
+- Updated chat placeholder to "Ask the AI — it can read & edit your document..."
+- Reset existing user (afomiyaaweke20@gmail.com) password to TestPass123 for browser verification
+- Verified with Agent Browser: logged in, opened AI Doc Studio, confirmed dock buttons are 22px tall (compact), sent a draft request -> AI returned a doc block card -> clicked Insert -> content appeared in editor; then asked AI to summarize the document -> it correctly read the inserted editor content
+- Lint: 0 errors. Dev server: healthy (GET / 200, POST /api/ai/chat 200)
+
+Stage Summary:
+- Bottom dock is now a compact single-row bar (~44px) instead of a 64px stacked icon dock, reclaiming editor space
+- AI chat now has full bidirectional interaction with the document editor:
+  - READ: assistant receives the live editor text as context and can reference/summarize it
+  - WRITE: assistant emits ```doc``` blocks that render as interactive cards; Insert appends, Replace overwrites, Copy to clipboard
+- Files changed: src/components/modules/ai-doc-studio.tsx, src/app/api/ai/chat/route.ts
