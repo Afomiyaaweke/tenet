@@ -723,6 +723,27 @@ export function AIDocStudio() {
     }
   }, [viewParams, tenders]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── Insert content from the AI Agent into the editor ── */
+  useEffect(() => {
+    const content = viewParams?.insertContent as string | undefined;
+    if (!content || !editorRef.current) return;
+    // Convert markdown-like text into editor DOM nodes and append
+    const nodes = textToEditorNodes(content);
+    const el = editorRef.current;
+    if (nodes.length === 0) return;
+    if (el.innerText.trim()) el.appendChild(document.createElement('br'));
+    for (const n of nodes) el.appendChild(n);
+    el.focus();
+    const sel = window.getSelection();
+    if (sel) { const range = document.createRange(); range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range); }
+    setSaveStatus('unsaved');
+    updateCounts();
+    toast.success('Agent analysis inserted into document');
+    // Switch to editor mode and clear the param so it doesn't re-trigger
+    setRibbonTab('home');
+    useNavStore.getState().setView('ai-doc-studio', { ...viewParams, insertContent: undefined });
+  }, [viewParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── Load documents for review ── */
   const loadDocuments = useCallback(async () => {
     setDocsLoading(true);

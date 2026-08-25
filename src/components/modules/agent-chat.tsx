@@ -1416,8 +1416,20 @@ export function AgentChatView() {
 
           {/* Answer */}
           {msg.content && (
-            <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 prose prose-sm dark:prose-invert max-w-none text-foreground prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-foreground prose-strong:text-foreground">
+            <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 text-foreground text-sm leading-relaxed max-w-none">
               <ReactMarkdown>{msg.content}</ReactMarkdown>
+              {msg.content && (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      useNavStore.getState().setView('ai-doc-studio', { insertContent: msg.content });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-600 text-white text-[10px] font-medium hover:bg-teal-700 transition-colors"
+                  >
+                    <FileDown className="h-3 w-3" /> Insert into Document
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1555,7 +1567,7 @@ export function AgentChatView() {
 
           {/* Answer */}
           {streamingMsg.answer && (
-            <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 prose prose-sm dark:prose-invert max-w-none text-foreground prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-a:text-foreground prose-strong:text-foreground">
+            <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 text-foreground text-sm leading-relaxed max-w-none">
               <ReactMarkdown>{streamingMsg.answer}</ReactMarkdown>
               <span className="animate-pulse text-foreground">▌</span>
             </div>
