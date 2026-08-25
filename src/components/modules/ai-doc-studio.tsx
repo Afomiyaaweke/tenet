@@ -263,6 +263,287 @@ function SkillTagSelector({ selected, onChange }: { selected: string[]; onChange
 }
 
 /* ══════════════════════════════════════════════════════════════
+   REVIEW UTILITIES
+   ══════════════════════════════════════════════════════════════ */
+
+function formatReviewAsText(review: Record<string, unknown>, prompt: string): string {
+  const complianceScore = typeof review.complianceScore === 'number' ? review.complianceScore : null;
+  const completenessScore = typeof review.completenessScore === 'number' ? review.completenessScore : null;
+  const riskLevel = typeof review.riskLevel === 'string' ? review.riskLevel : null;
+  const findings = Array.isArray(review.findings) ? review.findings : [];
+  const strengths = Array.isArray(review.strengths) ? review.strengths : [];
+  const weaknesses = Array.isArray(review.weaknesses) ? review.weaknesses : [];
+  const missingElements = Array.isArray(review.missingElements) ? review.missingElements : [];
+  const recommendations = Array.isArray(review.recommendations) ? review.recommendations : [];
+  const overallAssessment = typeof review.overallAssessment === 'string' ? review.overallAssessment : null;
+  const summary = typeof review.summary === 'string' ? review.summary : null;
+
+  const lines: string[] = [];
+  lines.push('AI Review Report');
+  lines.push('================');
+  if (complianceScore !== null) lines.push(`Compliance Score: ${complianceScore}/100`);
+  if (completenessScore !== null) lines.push(`Completeness Score: ${completenessScore}/100`);
+  if (riskLevel) lines.push(`Risk Level: ${riskLevel.toUpperCase()}`);
+  lines.push('');
+
+  if (overallAssessment || summary) {
+    lines.push('Overall Assessment:');
+    lines.push(overallAssessment || summary || '');
+    lines.push('');
+  }
+
+  if (findings.length > 0) {
+    lines.push('Key Findings:');
+    findings.forEach((f) => {
+      const finding = f as Record<string, string>;
+      const type = finding.type ? finding.type.toUpperCase() : 'INFO';
+      const category = finding.title || finding.category || '';
+      const desc = finding.description || '';
+      lines.push(`- [${type}] ${category}${desc ? ': ' + desc : ''}`);
+    });
+    lines.push('');
+  }
+
+  if (strengths.length > 0) {
+    lines.push('Strengths:');
+    strengths.forEach((s) => lines.push(`- ${String(s)}`));
+    lines.push('');
+  }
+
+  if (weaknesses.length > 0) {
+    lines.push('Weaknesses:');
+    weaknesses.forEach((w) => lines.push(`- ${String(w)}`));
+    lines.push('');
+  }
+
+  if (missingElements.length > 0) {
+    lines.push('Missing Elements:');
+    missingElements.forEach((m) => lines.push(`- ${String(m)}`));
+    lines.push('');
+  }
+
+  if (recommendations.length > 0) {
+    lines.push('Recommendations:');
+    recommendations.forEach((r) => lines.push(`- ${String(r)}`));
+    lines.push('');
+  }
+
+  if (prompt) {
+    lines.push('Custom Review Prompt:');
+    lines.push(`"${prompt}"`);
+  }
+
+  return lines.join('\n');
+}
+
+function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; prompt: string }) {
+  let review: Record<string, unknown> = {};
+  try {
+    review = JSON.parse(reviewJson);
+  } catch {
+    return (
+      <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+        <div className="p-3 border-b border-border/30 bg-muted/20 flex items-center justify-between">
+          <h4 className="text-xs font-semibold flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+            AI Review Result
+          </h4>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => { navigator.clipboard.writeText(reviewJson); toast.success('Review result copied'); }}>
+              <Copy className="h-3 w-3 mr-1" /> Copy
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => { exportAsTxt(reviewJson, 'ai-review-result.txt'); toast.success('Exported as TXT'); }}>
+              <FileDown className="h-3 w-3 mr-1" /> TXT
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => { exportAsPdf('AI Review Result', reviewJson, 'ai-review-result.pdf'); toast.success('Export as PDF - use print dialog'); }}>
+              <Download className="h-3 w-3 mr-1" /> PDF
+            </Button>
+          </div>
+        </div>
+        <ScrollArea className="max-h-[400px]">
+          <div className="p-3 text-xs whitespace-pre-wrap">{reviewJson}</div>
+        </ScrollArea>
+      </div>
+    );
+  }
+
+  const complianceScore = typeof review.complianceScore === 'number' ? review.complianceScore : null;
+  const completenessScore = typeof review.completenessScore === 'number' ? review.completenessScore : null;
+  const riskLevel = typeof review.riskLevel === 'string' ? review.riskLevel : null;
+  const findings = Array.isArray(review.findings) ? review.findings : [];
+  const strengths = Array.isArray(review.strengths) ? review.strengths : [];
+  const weaknesses = Array.isArray(review.weaknesses) ? review.weaknesses : [];
+  const missingElements = Array.isArray(review.missingElements) ? review.missingElements : [];
+  const recommendations = Array.isArray(review.recommendations) ? review.recommendations : [];
+  const overallAssessment = typeof review.overallAssessment === 'string' ? review.overallAssessment : null;
+  const summary = typeof review.summary === 'string' ? review.summary : null;
+
+  const riskColorMap: Record<string, string> = { low: 'bg-emerald-100 text-emerald-700', medium: 'bg-amber-100 text-amber-700', high: 'bg-rose-100 text-rose-700', critical: 'bg-rose-200 text-rose-800' };
+  const findingIconMap: Record<string, React.ElementType> = { positive: CheckCircle2, negative: XCircle, warning: AlertTriangle };
+  const findingColorMap: Record<string, string> = { positive: 'text-emerald-600', negative: 'text-rose-600', warning: 'text-amber-600' };
+  const findingBgMap: Record<string, string> = { positive: 'bg-emerald-50', negative: 'bg-rose-50', warning: 'bg-amber-50' };
+
+  return (
+    <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+      <div className="p-3 border-b border-border/30 bg-muted/20 flex items-center justify-between">
+        <h4 className="text-xs font-semibold flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+          AI Review Result
+        </h4>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => { const text = formatReviewAsText(review, prompt); navigator.clipboard.writeText(text); toast.success('Review result copied'); }}>
+            <Copy className="h-3 w-3 mr-1" /> Copy
+          </Button>
+          <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => { const text = formatReviewAsText(review, prompt); exportAsTxt(text, 'ai-review-result.txt'); toast.success('Exported as TXT'); }}>
+            <FileDown className="h-3 w-3 mr-1" /> TXT
+          </Button>
+          <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => { const text = formatReviewAsText(review, prompt); exportAsPdf('AI Review Result', text, 'ai-review-result.pdf'); toast.success('Export as PDF - use print dialog'); }}>
+            <Download className="h-3 w-3 mr-1" /> PDF
+          </Button>
+          {prompt && <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">Custom Prompt</Badge>}
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
+        <div className="grid grid-cols-3 gap-3">
+          {complianceScore !== null && (
+            <div className="text-center p-3 rounded-lg bg-muted/30">
+              <p className="text-2xl font-bold" style={{ color: complianceScore >= 70 ? '#10b981' : complianceScore >= 40 ? '#f59e0b' : '#ef4444' }}>{complianceScore}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Compliance</p>
+            </div>
+          )}
+          {completenessScore !== null && (
+            <div className="text-center p-3 rounded-lg bg-muted/30">
+              <p className="text-2xl font-bold" style={{ color: completenessScore >= 70 ? '#10b981' : completenessScore >= 40 ? '#f59e0b' : '#ef4444' }}>{completenessScore}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Completeness</p>
+            </div>
+          )}
+          {riskLevel && (
+            <div className="text-center p-3 rounded-lg bg-muted/30">
+              <Badge className={`text-xs px-3 py-1 border-0 ${riskColorMap[riskLevel] || 'bg-gray-100 text-gray-700'}`}>{riskLevel.toUpperCase()}</Badge>
+              <p className="text-[10px] text-muted-foreground mt-1">Risk Level</p>
+            </div>
+          )}
+        </div>
+        {(overallAssessment || summary) && (
+          <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-100">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 mb-1">Overall Assessment</p>
+            <p className="text-xs text-foreground leading-relaxed">{overallAssessment || summary}</p>
+          </div>
+        )}
+        {findings.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Key Findings</p>
+            <div className="space-y-1.5">
+              {findings.map((f, i) => {
+                const finding = f as Record<string, string>;
+                const Icon = findingIconMap[finding.type] || AlertTriangle;
+                const color = findingColorMap[finding.type] || 'text-muted-foreground';
+                const bg = findingBgMap[finding.type] || 'bg-muted/50';
+                return (
+                  <div key={i} className={`flex items-start gap-2 p-2 rounded ${bg}`}>
+                    <Icon className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${color}`} />
+                    <div>
+                      <p className="text-xs font-medium">{finding.title || finding.category}</p>
+                      <p className="text-[11px] text-muted-foreground">{finding.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          {strengths.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 mb-1.5 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Strengths</p>
+              <ul className="space-y-1">
+                {strengths.map((s, i) => (
+                  <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
+                    <Check className="h-3 w-3 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <span>{String(s)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {weaknesses.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 mb-1.5 flex items-center gap-1"><XCircle className="h-3 w-3" /> Weaknesses</p>
+              <ul className="space-y-1">
+                {weaknesses.map((w, i) => (
+                  <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
+                    <X className="h-3 w-3 text-rose-500 mt-0.5 flex-shrink-0" />
+                    <span>{String(w)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        {missingElements.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 mb-1.5 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Missing Elements</p>
+            <ul className="space-y-1">
+              {missingElements.map((m, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
+                  <Minus className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <span>{String(m)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {recommendations.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-600 mb-1.5 flex items-center gap-1"><Zap className="h-3 w-3" /> Recommendations</p>
+            <ul className="space-y-1">
+              {recommendations.map((r, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
+                  <ChevronRight className="h-3 w-3 text-teal-500 mt-0.5 flex-shrink-0" />
+                  <span>{String(r)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {prompt && (
+          <div className="p-2 rounded bg-muted/30 border border-border/30">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Custom Review Prompt</p>
+            <p className="text-[11px] text-muted-foreground italic">&ldquo;{prompt}&rdquo;</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HELPER COMPONENTS
+   ══════════════════════════════════════════════════════════════ */
+
+function RibbonBtn({ icon: Icon, title, onClick }: { icon: React.ElementType; title: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} title={title}
+      className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900">
+      <Icon className="h-[18px] w-[18px]" />
+    </button>
+  );
+}
+
+function GenerateButton({ onClick, loading, disabled }: { onClick: () => void; loading: boolean; disabled?: boolean }) {
+  return (
+    <Button onClick={onClick} disabled={loading || disabled}
+      className="w-full text-white bg-teal-600 hover:bg-teal-700 border-0 h-9 text-xs">
+      {loading ? (
+        <><Sparkles className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating...</>
+      ) : (
+        <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate with AI</>
+      )}
+    </Button>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ══════════════════════════════════════════════════════════════ */
 
@@ -2747,7 +3028,14 @@ export function AIDocStudio() {
           <button title="Notifications" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors relative"><Bell className="h-4 w-4" /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-500 ring-2 ring-white" /></button>
           <Popover><PopoverTrigger asChild><button className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"><Layers className="h-4 w-4 text-teal-600" />{ribbonTab === 'doc-review' ? 'Doc Review' : ribbonTab === 'ai-extract' ? 'AI Extract' : ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}<ChevronDown className="h-3 w-3 text-gray-400" /></button></PopoverTrigger><PopoverContent className="w-40 p-1" align="end">{[{ id: 'home', label: 'Editor', icon: FileText }, { id: 'doc-review', label: 'Doc Review', icon: Bot }, { id: 'ai-extract', label: 'AI Extract', icon: MessageSquare }, { id: 'agent', label: 'AI Agent', icon: Bot }].map(m => { const Icon = m.icon; const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode); return (<button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}><Icon className="h-4 w-4" /> {m.label}</button>); })}</PopoverContent></Popover>
           <button onClick={() => toast.info('Exporting...')} className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"><Download className="h-3.5 w-3.5" /> Export</button>
-          <button onClick={handleSave} className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm"><Save className="h-3.5 w-3.5" />{saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}{saveStatus === 'saved' && <Check className="h-3 w-3 text-teal-100" /></button>
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
+            {saveStatus === 'saved' && <Check className="h-3 w-3 text-teal-100" />}
+          </button>
           <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">{avatarInitial}</div>
         </div>
       </header>
@@ -2763,21 +3051,50 @@ export function AIDocStudio() {
                     <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-gray-900 block">Pull from Live Tender</span><span className="text-xs text-gray-500 mt-0.5 block">RFP_Gov_Infrastructure_2024.pdf</span></div>
                 </button>
                 <button onClick={() => setSourceMode('external')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'external' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'external' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'external' && <div className="w-2 h-2 rounded-full bg-gray-900" /></div>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'external' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'external' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
                     <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-gray-900 block">External Sources</span><span className="text-xs text-gray-500 mt-0.5 block">Connect to knowledge base or web</span></div>
                 </button>
                 {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-gray-50 border-gray-200"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
-                <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</button>
+                <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
                 <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"><Plus className="h-3 w-3" /> Insert into document</button>
               </div>
-              {chatMessages.length > 1 && <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 thin-scroll">{chatMessages.slice(1).map(m => (<div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}><div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'}`}>{m.role === 'assistant' ? <Bot className="h-3 w-3 text-teal-600" /> : <span className="text-[10px] font-semibold text-gray-600">{avatarInitial}</span>}</div><div className={`max-w-[85%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'}`}>{m.content.split('
-').map((line, i) => <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>}{m.kind === 'generated' && <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700"><Plus className="h-3 w-3" /> Inserted</button>}</div></div></div>))}{chatSending && <div className="flex gap-2"><div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center flex-shrink-0"><Loader2 className="h-3 w-3 text-teal-600 animate-spin" /></div><div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-[11px] text-gray-400 shadow-sm">Thinking...</div></div>}</div>}
-              <div className="p-3 mt-auto border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI assistant..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div></div>
+              {chatMessages.length > 1 && (
+                <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 thin-scroll">
+                  {chatMessages.slice(1).map(m => (
+                    <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'}`}>
+                        {m.role === 'assistant'
+                          ? <Bot className="h-3 w-3 text-teal-600" />
+                          : <span className="text-[10px] font-semibold text-gray-600">{avatarInitial}</span>}
+                      </div>
+                      <div className={`max-w-[85%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'}`}>
+                        {m.content.split('\n').map((line, i) => (
+                          <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
+                        ))}
+                        {m.kind === 'generated' && (
+                          <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
+                            <Plus className="h-3 w-3" /> Inserted
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {chatSending && (
+                    <div className="flex gap-2">
+                      <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center flex-shrink-0">
+                        <Loader2 className="h-3 w-3 text-teal-600 animate-spin" />
+                      </div>
+                      <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-[11px] text-gray-400 shadow-sm">Thinking...</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="p-3 mt-auto border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI assistant..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
             </aside>
             <main className="flex-1 flex flex-col overflow-hidden bg-gray-50 pb-16">
               <div className="bg-white border-b border-gray-200 flex-shrink-0"><div className="min-h-[44px] flex items-center px-3 py-2"><ActiveRibbon /></div></div>
-              <div className="flex-1 overflow-auto bg-gray-100 p-6" onClick={() => { if (placementMode) { /* handled */ } }}><div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}><div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}><div className="text-center"><p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p><p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p></div></div><input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }} placeholder="Document title" className="w-full text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} /><div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick} className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700" style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }} data-placeholder="Start typing or use the Template Generator to populate this document..." /><div className="absolute bottom-8 left-0 right-0 text-center"><div className="border-t border-gray-200 pt-2"><p className="text-[10px] text-gray-400">Page 1 of 1</p></div></div></div></div></div></div>
-              <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0"><div className="flex-1">Page 1 of 1</div><div className="flex items-center gap-3"><span>{wordCount} words</span><span>{charCount} chars</span>{placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}</div><div className="flex-1 flex items-center justify-end gap-1"><button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button><Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}><SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger><SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent></Select><button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button></div></div></div>
+              <div className="flex-1 overflow-auto bg-gray-100 p-6" onClick={() => { if (placementMode) { /* handled */ } }}><div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}><div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}><div className="text-center"><p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p><p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p></div></div><input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }} placeholder="Document title" className="w-full text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} /><div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick} className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700" style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }} data-placeholder="Start typing or use the Template Generator to populate this document..."></div><div className="absolute bottom-8 left-0 right-0 text-center"><div className="border-t border-gray-200 pt-2"><p className="text-[10px] text-gray-400">Page 1 of 1</p></div></div></div></div></div>
+              <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0"><div className="flex-1">Page 1 of 1</div><div className="flex items-center gap-3"><span>{wordCount} words</span><span>{charCount} chars</span>{placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}</div><div className="flex-1 flex items-center justify-end gap-1"><button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button><Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}><SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger><SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent></Select><button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button></div></div>
             </main>
           </>
         ) : ribbonTab === 'agent' ? (
@@ -2811,752 +3128,13 @@ export function AIDocStudio() {
         </div>
       )}
       {/* ── Signature Drawing Dialog ── */}
-      <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}><DialogContent className="sm:max-w-[500px]"><DialogHeader><DialogTitle className="flex items-center gap-2"><Pen className="h-4 w-4 text-teal-600" /> Draw Your Signature</DialogTitle></DialogHeader><div className="space-y-3"><div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white"><canvas ref={canvasRef} width={460} height={200} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} className="w-full cursor-crosshair touch-none" /></div><div className="flex items-center justify-between"><Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs"><Eraser className="h-3.5 w-3.5 mr-1" /> Clear</Button><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button><Button size="sm" onClick={saveDrawnSignature} className="text-xs bg-teal-600 hover:bg-teal-700 text-white border-0"><Check className="h-3.5 w-3.5 mr-1" /> Save Signature</Button></div></div></div></div></DialogContent></Dialog>
+      <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}><DialogContent className="sm:max-w-[500px]"><DialogHeader><DialogTitle className="flex items-center gap-2"><Pen className="h-4 w-4 text-teal-600" /> Draw Your Signature</DialogTitle></DialogHeader><div className="space-y-3"><div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white"><canvas ref={canvasRef} width={460} height={200} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} className="w-full cursor-crosshair touch-none" /></div><div className="flex items-center justify-between"><Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs"><Eraser className="h-3.5 w-3.5 mr-1" /> Clear</Button><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button><Button size="sm" onClick={saveDrawnSignature} className="text-xs bg-teal-600 hover:bg-teal-700 text-white border-0"><Check className="h-3.5 w-3.5 mr-1" /> Save Signature</Button></div></div></div></DialogContent></Dialog>
       {/* ── Signature Gallery ── */}
       {ribbonTab === 'sign' && savedSignatures.length > 0 && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]">
           <div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-gray-900">Saved Signatures &amp; Stamps</span><span className="text-[10px] text-gray-400">Click to place on document</span></div>
-          <div className="flex gap-3 overflow-x-auto pb-1">{savedSignatures.map(sig => (<div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative"><button onClick={() => startPlacement(sig.dataUrl)} className="w-20 h-16 border border-gray-200 rounded-lg hover:border-teal-400 transition-colors overflow-hidden bg-white p-1"><img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" /></button><span className="text-[9px] text-gray-500 truncate max-w-[80px]">{sig.label}</span><button onClick={() => deleteSignature(sig.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-2.5 w-2.5" /></button></div></div>)}</div></div>
+          <div className="flex gap-3 overflow-x-auto pb-1">{savedSignatures.map(sig => (<div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative"><button onClick={() => startPlacement(sig.dataUrl)} className="w-20 h-16 border border-gray-200 rounded-lg hover:border-teal-400 transition-colors overflow-hidden bg-white p-1"><img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" /></button><span className="text-[9px] text-gray-500 truncate max-w-[80px]">{sig.label}</span><button onClick={() => deleteSignature(sig.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-2.5 w-2.5" /></button></div>))}</div></div>
       )}
     </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
-   REVIEW RESULT DISPLAY COMPONENT
-   ══════════════════════════════════════════════════════════ */
-"Editor" experience (sidebar + canvas)
-  const editorMode = ribbonTab === 'home' || ribbonTab === 'insert' || ribbonTab === 'review' || ribbonTab === 'sign' || ribbonTab === 'ai-tools';
-  const avatarInitial = (user?.profile?.fullName || user?.email || 'U').charAt(0).toUpperCase();
-
-  return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-gray-50 view-enter">
-      {/* ══ Top Header ══ */}
-      <header className="flex items-center h-16 px-6 bg-white border-b border-gray-200 flex-shrink-0 gap-4">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center shadow-sm">
-            <FileText className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-lg font-bold text-gray-900 tracking-tight">AI Doc Studio</span>
-        </div>
-
-        {/* Search */}
-        <div className="flex-1 flex justify-center px-4">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              placeholder="Search documents..."
-              className="w-full h-10 pl-10 pr-4 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-500/15 transition-all"
-            />
-          </div>
-        </div>
-
-        {/* Right actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button title="History" className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors">
-            <History className="h-4 w-4" />
-          </button>
-          <button title="Notifications" className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors relative">
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
-          </button>
-
-          <div className="w-px h-6 bg-gray-200 mx-1" />
-
-          {/* Mode switcher */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex items-center gap-1.5 h-9 px-3 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <Layers className="h-4 w-4 text-teal-600" />
-                {ribbonTab === 'doc-review' ? 'Doc Review' : ribbonTab === 'ai-extract' ? 'AI Extract' : ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-44 p-1" align="end">
-              {[
-                { id: 'home', label: 'Editor', icon: FileText },
-                { id: 'doc-review', label: 'Doc Review', icon: Bot },
-                { id: 'ai-extract', label: 'AI Extract', icon: MessageSquare },
-                { id: 'agent', label: 'AI Agent', icon: Bot },
-              ].map(m => {
-                const Icon = m.icon;
-                const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode);
-                return (
-                  <button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                      active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
-                    }`}>
-                    <Icon className="h-4 w-4" /> {m.label}
-                  </button>
-                );
-              })}
-            </PopoverContent>
-          </Popover>
-
-          <button onClick={() => toast.info('Exporting document...')} className="flex items-center gap-1.5 h-9 px-3.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            <Download className="h-4 w-4" /> Export
-          </button>
-          <button onClick={handleSave} className="flex items-center gap-1.5 h-9 px-4 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm">
-            <Save className="h-4 w-4" />
-            {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
-            {saveStatus === 'saved' && <Check className="h-3.5 w-3.5 text-teal-100" />}
-          </button>
-
-          {/* Avatar */}
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold ring-2 ring-white shadow-sm ml-1">
-            {avatarInitial}
-          </div>
-        </div>
-      </header>
-
-      {/* ══ Body: Sidebar + Main ══ */}
-      <div className="flex-1 flex overflow-hidden">
-        {editorMode ? (
-          <>
-            {/* ── Left Sidebar — Template Generator + Chat ── */}
-            <aside className="w-80 flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
-              {/* Template Generator header */}
-              <div className="px-5 py-4 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-teal-600" />
-                  <span className="text-base font-semibold text-gray-900">Template Generator</span>
-                </div>
-              </div>
-
-              {/* Tool source cards */}
-              <div className="px-5 py-4 space-y-2.5 border-b border-gray-100">
-                {AI_TOOLS.map(tool => {
-                  const Icon = tool.icon;
-                  const isActive = activeAITool === tool.id;
-                  return (
-                    <button key={tool.id} onClick={() => setActiveAITool(tool.id)}
-                      className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
-                        isActive ? 'border-teal-500 bg-teal-50/50 ring-1 ring-teal-500/20' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}>
-                      <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                        isActive ? 'border-teal-500' : 'border-gray-300'
-                      }`}>
-                        {isActive && <div className="w-2.5 h-2.5 rounded-full bg-teal-500" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-teal-600' : 'text-gray-400'}`} />
-                          <span className="text-sm font-semibold text-gray-900">{tool.label}</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {tool.id === 'tender-builder' && 'Create a new tender document'}
-                          {tool.id === 'bid-builder' && 'Draft a winning bid proposal'}
-                          {tool.id === 'requirement-analyzer' && 'Analyse tender requirements'}
-                          {tool.id === 'applicant-analyzer' && 'Rank applicants for a tender'}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-
-                {/* Tender source selector (for bid/req/applicant) */}
-                {activeAITool !== 'tender-builder' && tenders.length > 0 && (
-                  <div className="pt-1">
-                    <label className="text-[11px] font-medium text-gray-500 flex items-center gap-1 mb-1">
-                      <Link2 className="h-3 w-3" /> Pull from live tender
-                    </label>
-                    <Select value={genTenderId} onValueChange={setGenTenderId}>
-                      <SelectTrigger className="h-9 text-xs bg-gray-50 border-gray-200">
-                        <SelectValue placeholder="Choose a tender (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Generate Template button */}
-                <button onClick={runTemplateGenerator} disabled={aiLoading}
-                  className="w-full h-11 mt-1 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
-                  {aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}
-                </button>
-              </div>
-
-              {/* Chat thread */}
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 thin-scroll">
-                {chatMessages.map(m => (
-                  <div key={m.id} className={`flex gap-2.5 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'
-                    }`}>
-                      {m.role === 'assistant' ? <Bot className="h-4 w-4 text-teal-600" /> : <span className="text-xs font-semibold text-gray-600">{avatarInitial}</span>}
-                    </div>
-                    <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
-                      m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'
-                    }`}>
-                      {m.content.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-1.5' : ''}>{line}</p>)}
-                      {m.kind === 'generated' && (
-                        <button onClick={() => editorRef.current?.focus()} className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
-                          <Plus className="h-3 w-3" /> Inserted into document
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {chatSending && (
-                  <div className="flex gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
-                      <Loader2 className="h-4 w-4 text-teal-600 animate-spin" />
-                    </div>
-                    <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs text-gray-400 shadow-sm">Thinking...</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Input area */}
-              <div className="p-4 border-t border-gray-100">
-                <div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all">
-                  <textarea
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
-                    placeholder="Ask the AI assistant..."
-                    rows={1}
-                    className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none"
-                  />
-                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-                    <button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
-                      <Paperclip className="h-4 w-4" />
-                    </button>
-                    <button onClick={sendChat} disabled={!chatInput.trim() || chatSending}
-                      className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                      <Send className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </aside>
-
-            {/* ── Main editor area ── */}
-            <main className="flex-1 flex flex-col overflow-hidden bg-gray-50">
-              {/* Editor sub-tabs + formatting toolbar */}
-              <div className="bg-white border-b border-gray-200 flex-shrink-0">
-                <div className="flex items-center px-4 pt-2 gap-1 border-b border-gray-100">
-                  {(['home', 'insert', 'review', 'sign'] as RibbonTab[]).map(tab => (
-                    <button key={tab} onClick={() => setRibbonTab(tab)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors flex items-center gap-1.5 -mb-px border-b-2 ${
-                        ribbonTab === tab ? 'border-teal-600 text-teal-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                      }`}>
-                      {tab === 'sign' ? <><Pen className="h-3 w-3" /> Sign</> :
-                       tab === 'home' ? 'Home' : tab === 'insert' ? 'Insert' : 'Review'}
-                    </button>
-                  ))}
-                </div>
-                <div className="min-h-[44px] flex items-center">
-                  <ActiveRibbon />
-                </div>
-              </div>
-
-              {/* Document canvas */}
-              <div className="flex-1 overflow-auto bg-gray-100 p-6" onClick={() => { if (placementMode) { /* handled by editor click */ } }}>
-                <div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
-                  <div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}>
-                    {/* Document Header */}
-                    <div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
-                      <div className="text-center">
-                        <p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p>
-                        <p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p>
-                      </div>
-                    </div>
-                    {/* Title (editable) */}
-                    <input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }}
-                      placeholder="Document title"
-                      className="w-full text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} />
-                    {/* Editable Area */}
-                    <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick}
-                      className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700"
-                      style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }}
-                      data-placeholder="Start typing or use the Template Generator to populate this document..." />
-                    {/* Document Footer */}
-                    <div className="absolute bottom-8 left-0 right-0 text-center">
-                      <div className="border-t border-gray-200 pt-2">
-                        <p className="text-[10px] text-gray-400">Page 1 of 1</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Status bar */}
-              <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0">
-                <div className="flex-1">Page 1 of 1</div>
-                <div className="flex items-center gap-3">
-                  <span>{wordCount} words</span>
-                  <span>{charCount} chars</span>
-                  {placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}
-                </div>
-                <div className="flex-1 flex items-center justify-end gap-1">
-                  <button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button>
-                  <Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}>
-                    <SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger>
-                    <SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent>
-                  </Select>
-                  <button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button>
-                </div>
-              </div>
-            </main>
-          </>
-        ) : ribbonTab === 'agent' ? (
-          <div className="flex-1 overflow-hidden"><AgentChatView /></div>
-        ) : ribbonTab === 'doc-review' ? (
-          <DocReviewContent />
-        ) : (
-          <AIExtractContent />
-        )}
-      </div>
-
-      {/* ── Signature Drawing Dialog ── */}
-      <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pen className="h-4 w-4 text-teal-600" /> Draw Your Signature
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white">
-              <canvas
-                ref={canvasRef}
-                width={460}
-                height={200}
-                onMouseDown={startDraw}
-                onMouseMove={draw}
-                onMouseUp={endDraw}
-                onMouseLeave={endDraw}
-                className="w-full cursor-crosshair touch-none"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs">
-                <Eraser className="h-3.5 w-3.5 mr-1" /> Clear
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button>
-                <Button size="sm" onClick={saveDrawnSignature}
-                  className="text-xs bg-teal-600 hover:bg-teal-700 text-white border-0">
-                  <Check className="h-3.5 w-3.5 mr-1" /> Save Signature
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Signature Gallery (shows when Sign sub-tab is active) ── */}
-      {ribbonTab === 'sign' && savedSignatures.length > 0 && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50 max-w-[600px] animate-[fadeIn_0.3s_ease-out]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-900">Saved Signatures &amp; Stamps</span>
-            <span className="text-[10px] text-gray-400">Click to place on document</span>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {savedSignatures.map(sig => (
-              <div key={sig.id} className="flex flex-col items-center gap-1 flex-shrink-0 group relative">
-                <button onClick={() => startPlacement(sig.dataUrl)}
-                  className="w-20 h-16 border border-gray-200 rounded-lg hover:border-teal-400 transition-colors overflow-hidden bg-white p-1">
-                  <img src={sig.dataUrl} alt={sig.label} className="max-w-full max-h-full object-contain" />
-                </button>
-                <span className="text-[9px] text-gray-500 truncate max-w-[80px]">{sig.label}</span>
-                <button onClick={() => deleteSignature(sig.id)}
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
-   REVIEW RESULT DISPLAY COMPONENT
-   ══════════════════════════════════════════════════════════════ */
-
-function formatReviewAsText(review: Record<string, unknown>, prompt: string): string {
-  const complianceScore = typeof review.complianceScore === 'number' ? review.complianceScore : null;
-  const completenessScore = typeof review.completenessScore === 'number' ? review.completenessScore : null;
-  const riskLevel = typeof review.riskLevel === 'string' ? review.riskLevel : null;
-  const findings = Array.isArray(review.findings) ? review.findings : [];
-  const strengths = Array.isArray(review.strengths) ? review.strengths : [];
-  const weaknesses = Array.isArray(review.weaknesses) ? review.weaknesses : [];
-  const missingElements = Array.isArray(review.missingElements) ? review.missingElements : [];
-  const recommendations = Array.isArray(review.recommendations) ? review.recommendations : [];
-  const overallAssessment = typeof review.overallAssessment === 'string' ? review.overallAssessment : null;
-  const summary = typeof review.summary === 'string' ? review.summary : null;
-
-  const lines: string[] = [];
-  lines.push('AI Review Report');
-  lines.push('================');
-  if (complianceScore !== null) lines.push(`Compliance Score: ${complianceScore}/100`);
-  if (completenessScore !== null) lines.push(`Completeness Score: ${completenessScore}/100`);
-  if (riskLevel) lines.push(`Risk Level: ${riskLevel.toUpperCase()}`);
-  lines.push('');
-
-  if (overallAssessment || summary) {
-    lines.push('Overall Assessment:');
-    lines.push(overallAssessment || summary || '');
-    lines.push('');
-  }
-
-  if (findings.length > 0) {
-    lines.push('Key Findings:');
-    findings.forEach((f) => {
-      const finding = f as Record<string, string>;
-      const type = finding.type ? finding.type.toUpperCase() : 'INFO';
-      const category = finding.title || finding.category || '';
-      const desc = finding.description || '';
-      lines.push(`- [${type}] ${category}${desc ? ': ' + desc : ''}`);
-    });
-    lines.push('');
-  }
-
-  if (strengths.length > 0) {
-    lines.push('Strengths:');
-    strengths.forEach((s) => lines.push(`- ${String(s)}`));
-    lines.push('');
-  }
-
-  if (weaknesses.length > 0) {
-    lines.push('Weaknesses:');
-    weaknesses.forEach((w) => lines.push(`- ${String(w)}`));
-    lines.push('');
-  }
-
-  if (missingElements.length > 0) {
-    lines.push('Missing Elements:');
-    missingElements.forEach((m) => lines.push(`- ${String(m)}`));
-    lines.push('');
-  }
-
-  if (recommendations.length > 0) {
-    lines.push('Recommendations:');
-    recommendations.forEach((r) => lines.push(`- ${String(r)}`));
-    lines.push('');
-  }
-
-  if (prompt) {
-    lines.push('Custom Review Prompt:');
-    lines.push(`"${prompt}"`);
-  }
-
-  return lines.join('\n');
-}
-
-function ReviewResultDisplay({ reviewJson, prompt }: { reviewJson: string; prompt: string }) {
-  let review: Record<string, unknown> = {};
-  try {
-    review = JSON.parse(reviewJson);
-  } catch {
-    // If not JSON, display as raw text
-    return (
-      <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
-        <div className="p-3 border-b border-border/30 bg-muted/20 flex items-center justify-between">
-          <h4 className="text-xs font-semibold flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-            AI Review Result
-          </h4>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[10px]"
-              onClick={() => {
-                navigator.clipboard.writeText(reviewJson);
-                toast.success('Review result copied');
-              }}
-            >
-              <Copy className="h-3 w-3 mr-1" /> Copy
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[10px]"
-              onClick={() => {
-                exportAsTxt(reviewJson, 'ai-review-result.txt');
-                toast.success('Exported as TXT');
-              }}
-            >
-              <FileDown className="h-3 w-3 mr-1" /> TXT
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[10px]"
-              onClick={() => {
-                exportAsPdf('AI Review Result', reviewJson, 'ai-review-result.pdf');
-                toast.success('Export as PDF - use print dialog');
-              }}
-            >
-              <Download className="h-3 w-3 mr-1" /> PDF
-            </Button>
-          </div>
-        </div>
-        <ScrollArea className="max-h-[400px]">
-          <div className="p-3 text-xs whitespace-pre-wrap">{reviewJson}</div>
-        </ScrollArea>
-      </div>
-    );
-  }
-
-  const complianceScore = typeof review.complianceScore === 'number' ? review.complianceScore : null;
-  const completenessScore = typeof review.completenessScore === 'number' ? review.completenessScore : null;
-  const riskLevel = typeof review.riskLevel === 'string' ? review.riskLevel : null;
-  const findings = Array.isArray(review.findings) ? review.findings : [];
-  const strengths = Array.isArray(review.strengths) ? review.strengths : [];
-  const weaknesses = Array.isArray(review.weaknesses) ? review.weaknesses : [];
-  const missingElements = Array.isArray(review.missingElements) ? review.missingElements : [];
-  const recommendations = Array.isArray(review.recommendations) ? review.recommendations : [];
-  const overallAssessment = typeof review.overallAssessment === 'string' ? review.overallAssessment : null;
-  const summary = typeof review.summary === 'string' ? review.summary : null;
-
-  const riskColorMap: Record<string, string> = {
-    low: 'bg-emerald-100 text-emerald-700',
-    medium: 'bg-amber-100 text-amber-700',
-    high: 'bg-rose-100 text-rose-700',
-    critical: 'bg-rose-200 text-rose-800',
-  };
-
-  const findingIconMap: Record<string, React.ElementType> = {
-    positive: CheckCircle2,
-    negative: XCircle,
-    warning: AlertTriangle,
-  };
-  const findingColorMap: Record<string, string> = {
-    positive: 'text-emerald-600',
-    negative: 'text-rose-600',
-    warning: 'text-amber-600',
-  };
-  const findingBgMap: Record<string, string> = {
-    positive: 'bg-emerald-50',
-    negative: 'bg-rose-50',
-    warning: 'bg-amber-50',
-  };
-
-  return (
-    <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
-      <div className="p-3 border-b border-border/30 bg-muted/20 flex items-center justify-between">
-        <h4 className="text-xs font-semibold flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-          AI Review Result
-        </h4>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px]"
-            onClick={() => {
-              const text = formatReviewAsText(review, prompt);
-              navigator.clipboard.writeText(text);
-              toast.success('Review result copied');
-            }}
-          >
-            <Copy className="h-3 w-3 mr-1" /> Copy
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px]"
-            onClick={() => {
-              const text = formatReviewAsText(review, prompt);
-              exportAsTxt(text, 'ai-review-result.txt');
-              toast.success('Exported as TXT');
-            }}
-          >
-            <FileDown className="h-3 w-3 mr-1" /> TXT
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px]"
-            onClick={() => {
-              const text = formatReviewAsText(review, prompt);
-              exportAsPdf('AI Review Result', text, 'ai-review-result.pdf');
-              toast.success('Export as PDF - use print dialog');
-            }}
-          >
-            <Download className="h-3 w-3 mr-1" /> PDF
-          </Button>
-          {prompt && (
-            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0 hover:bg-emerald-100">
-              Custom Prompt
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {/* Score Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          {complianceScore !== null && (
-            <div className="text-center p-3 rounded-lg bg-muted/30">
-              <p className="text-2xl font-bold" style={{ color: complianceScore >= 70 ? '#10b981' : complianceScore >= 40 ? '#f59e0b' : '#ef4444' }}>
-                {complianceScore}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Compliance</p>
-            </div>
-          )}
-          {completenessScore !== null && (
-            <div className="text-center p-3 rounded-lg bg-muted/30">
-              <p className="text-2xl font-bold" style={{ color: completenessScore >= 70 ? '#10b981' : completenessScore >= 40 ? '#f59e0b' : '#ef4444' }}>
-                {completenessScore}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Completeness</p>
-            </div>
-          )}
-          {riskLevel && (
-            <div className="text-center p-3 rounded-lg bg-muted/30">
-              <Badge className={`text-xs px-3 py-1 border-0 ${riskColorMap[riskLevel] || 'bg-gray-100 text-gray-700'}`}>
-                {riskLevel.toUpperCase()}
-              </Badge>
-              <p className="text-[10px] text-muted-foreground mt-1">Risk Level</p>
-            </div>
-          )}
-        </div>
-
-        {/* Overall Assessment */}
-        {(overallAssessment || summary) && (
-          <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-100">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 mb-1">Overall Assessment</p>
-            <p className="text-xs text-foreground leading-relaxed">{overallAssessment || summary}</p>
-          </div>
-        )}
-
-        {/* Findings */}
-        {findings.length > 0 && (
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Key Findings</p>
-            <div className="space-y-1.5">
-              {findings.map((f, i) => {
-                const finding = f as Record<string, string>;
-                const Icon = findingIconMap[finding.type] || AlertTriangle;
-                const color = findingColorMap[finding.type] || 'text-muted-foreground';
-                const bg = findingBgMap[finding.type] || 'bg-muted/50';
-                return (
-                  <div key={i} className={`flex items-start gap-2 p-2 rounded ${bg}`}>
-                    <Icon className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${color}`} />
-                    <div>
-                      <p className="text-xs font-medium">{finding.title || finding.category}</p>
-                      <p className="text-[11px] text-muted-foreground">{finding.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Strengths & Weaknesses in 2 columns */}
-        <div className="grid grid-cols-2 gap-3">
-          {strengths.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 mb-1.5 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Strengths
-              </p>
-              <ul className="space-y-1">
-                {strengths.map((s, i) => (
-                  <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
-                    <Check className="h-3 w-3 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <span>{String(s)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {weaknesses.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 mb-1.5 flex items-center gap-1">
-                <XCircle className="h-3 w-3" /> Weaknesses
-              </p>
-              <ul className="space-y-1">
-                {weaknesses.map((w, i) => (
-                  <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
-                    <X className="h-3 w-3 text-rose-500 mt-0.5 flex-shrink-0" />
-                    <span>{String(w)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* Missing Elements */}
-        {missingElements.length > 0 && (
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 mb-1.5 flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> Missing Elements
-            </p>
-            <ul className="space-y-1">
-              {missingElements.map((m, i) => (
-                <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
-                  <Minus className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <span>{String(m)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Recommendations */}
-        {recommendations.length > 0 && (
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-600 mb-1.5 flex items-center gap-1">
-              <Zap className="h-3 w-3" /> Recommendations
-            </p>
-            <ul className="space-y-1">
-              {recommendations.map((r, i) => (
-                <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">
-                  <ChevronRight className="h-3 w-3 text-teal-500 mt-0.5 flex-shrink-0" />
-                  <span>{String(r)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Custom Prompt Used */}
-        {prompt && (
-          <div className="p-2 rounded bg-muted/30 border border-border/30">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Custom Review Prompt</p>
-            <p className="text-[11px] text-muted-foreground italic">&ldquo;{prompt}&rdquo;</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
-   SMALL UTILITY COMPONENTS
-   ══════════════════════════════════════════════════════════════ */
-
-function RibbonBtn({ icon: Icon, title, onClick }: { icon: React.ElementType; title: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick} title={title}
-      className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900">
-      <Icon className="h-[18px] w-[18px]" />
-    </button>
-  );
-}
-
-function GenerateButton({ onClick, loading, disabled }: { onClick: () => void; loading: boolean; disabled?: boolean }) {
-  return (
-    <Button onClick={onClick} disabled={loading || disabled}
-      className="w-full gradient-emerald text-white border-0 premium-shadow hover:opacity-90 h-9 text-xs">
-      {loading ? (
-        <><span
- className="inline-block"><Sparkles className="h-3.5 w-3.5 mr-1.5" /></span>Generating...</>
-      ) : (
-        <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Generate with AI</>
-      )}
-    </Button>
   );
 }
