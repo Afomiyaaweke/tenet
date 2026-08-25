@@ -70,7 +70,6 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: [
       "recharts",
-      "lucide-react",
     ],
   },
 

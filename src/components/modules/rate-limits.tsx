@@ -17,7 +17,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   Shield, ShieldAlert, ShieldCheck, Plus, Trash2, RotateCcw,
   Activity, Ban, Clock, Zap, TrendingUp, AlertTriangle, Settings2,
-  BarChart3, RefreshCw, ChevronDown, ChevronUp,
+  ChartColumn, RefreshCw, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
 interface RateLimitConfig {
@@ -58,7 +58,7 @@ const CATEGORY_GROUPS: Record<string, { label: string; icon: React.ReactNode; co
   auth: { label: 'Authentication', icon: <ShieldAlert className="h-4 w-4" />, color: 'text-red-500' },
   ai: { label: 'AI & Intelligence', icon: <Zap className="h-4 w-4" />, color: 'text-purple-500' },
   document: { label: 'Documents', icon: <Activity className="h-4 w-4" />, color: 'text-blue-500' },
-  bid: { label: 'Bids & Tenders', icon: <BarChart3 className="h-4 w-4" />, color: 'text-green-500' },
+  bid: { label: 'Bids & Tenders', icon: <ChartColumn className="h-4 w-4" />, color: 'text-green-500' },
   communication: { label: 'Communication', icon: <Shield className="h-4 w-4" />, color: 'text-cyan-500' },
   public: { label: 'Public APIs', icon: <ShieldCheck className="h-4 w-4" />, color: 'text-orange-500' },
   general: { label: 'General', icon: <Settings2 className="h-4 w-4" />, color: 'text-gray-500' },

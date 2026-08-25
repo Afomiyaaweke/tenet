@@ -15,7 +15,7 @@ import {
   Search, Filter, CloudUpload, FileUp, Trash2, Eye,
   Stamp, FileSignature, X, Languages,
   ScanSearch, Brain, Loader2, AlertTriangle, ChevronDown, ChevronUp,
-  ThumbsUp, ThumbsDown, AlertOctagon, BarChart3, Sparkles,
+  ThumbsUp, ThumbsDown, AlertOctagon, ChartColumn, Sparkles,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator } from '@/components/translator';
@@ -684,7 +684,7 @@ export function DocumentsView() {
                                 className="h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg"
                                 onClick={() => { setReviewDialogDocId(doc.id); setReviewDialogOpen(true); }}
                               >
-                                <BarChart3 className="h-3 w-3 mr-1" />
+                                <ChartColumn className="h-3 w-3 mr-1" />
                                 Review
                               </Button>
                             )}

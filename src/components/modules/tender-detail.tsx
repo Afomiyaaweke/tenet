@@ -17,7 +17,7 @@ import {
   ChevronDown, ChevronUp, Award, AlertCircle, CheckCircle, X, ArrowRight,
   Briefcase, TrendingUp, Timer, CircleDot, Eye, Building2,
   ListChecks, FileStack, CircleCheck, Target, Ban, GitCompareArrows,
-  Sparkles, BarChart3, ShieldAlert, ShieldCheck, ShieldQuestion,
+  Sparkles, ChartColumn, ShieldAlert, ShieldCheck, ShieldQuestion,
   TrendingDown, Loader2, BrainCircuit, AlertTriangle, Lightbulb,
   FileCheck, Wallet, Clock3, ClipboardCheck, Stamp, FileSignature, Languages, Upload,
   Download, FileDown, ExternalLink, Globe2, FileSpreadsheet, Copy,
@@ -1543,7 +1543,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                       {reqAnalysis.evaluationBreakdown && (
                         <div className="bg-muted/30 rounded-xl p-4">
                           <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
-                            <BarChart3 className="h-3.5 w-3.5 text-orange-600" /> Evaluation Breakdown
+                            <ChartColumn className="h-3.5 w-3.5 text-orange-600" /> Evaluation Breakdown
                           </p>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{reqAnalysis.evaluationBreakdown}</p>
                         </div>
@@ -2170,7 +2170,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                             : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                       >
-                        <BarChart3 className="h-3 w-3" />
+                        <ChartColumn className="h-3 w-3" />
                         <span>Analysis {analyses.length - idx}</span>
                         <span className={selectedAnalysisId === a.id ? 'text-white/70' : 'text-muted-foreground'}>
                           {new Date(a.createdAt).toLocaleDateString()}
@@ -2194,7 +2194,7 @@ export function TenderDetailView({ tenderId, initialTab }: { tenderId?: string; 
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base font-semibold flex items-center gap-2">
                         <div className="p-1.5 rounded-lg gradient-emerald">
-                          <BarChart3 className="h-3.5 w-3.5 text-white" />
+                          <ChartColumn className="h-3.5 w-3.5 text-white" />
                         </div>
                         Analysis Summary
                       </CardTitle>

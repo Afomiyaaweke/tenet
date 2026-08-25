@@ -777,3 +777,23 @@ Stage Summary:
 - Mode switcher verified: Editor → Doc Review (Document Vault) → back
 - Lint: 0 errors (13 pre-existing warnings). Dev server compiles cleanly.
 - All existing logic preserved (generate tender/bid/req/applicant, sign, doc-review, ai-extract, agent)
+---
+Task ID: 1
+Agent: main
+Task: Fix "BarChart3 is not defined" runtime error
+
+Work Log:
+- Investigated the error: BarChart3 referenced at runtime in getNavItemsForRole but undefined
+- Confirmed source code had BarChart3 imported correctly from lucide-react
+- Discovered the compiled chunk used optimizePackageImports to transform barrel import into individual icon imports
+- Found that Turbopack mapped BarChart3 to chart-column.js, which exports ChartColumn (renamed in v0.525.0)
+- The compiled code accessed module["BarChart3"] but the module only had ChartColumn as default export
+- Discovered Next.js 16 hardcodes lucide-react in optimizePackageImports (node_modules/next/dist/server/config.js line 935) — cannot be disabled via config
+- Fixed by replacing all BarChart3 imports/usages with ChartColumn across 14 files in src/
+- Also removed lucide-react from user optimizePackageImports config (redundant since Next.js adds it back)
+- Verified fix with agent-browser: login, dashboard, sidebar all render with zero runtime errors
+
+Stage Summary:
+- Root cause: lucide-react v0.525.0 renamed BarChart3 to ChartColumn, but Turbopack's optimizePackageImports maps the old name to the new file then fails to resolve the export
+- Fix: Replaced all BarChart3 references with ChartColumn in 14 files
+- The app now loads cleanly with no runtime errors

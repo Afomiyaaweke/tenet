@@ -12,7 +12,7 @@ import {
   Sparkles,
   ArrowRight,
   CheckCircle,
-  BarChart3,
+  ChartColumn,
   Bot,
   Users,
   Zap,
@@ -288,7 +288,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               delay="0.4s"
             />
             <FeatureCard
-              icon={<BarChart3 className="w-6 h-6 text-white" />}
+              icon={<ChartColumn className="w-6 h-6 text-white" />}
               title="Tender Analytics"
               description="Comprehensive dashboards with export capabilities. Analyze trends, track performance, and make informed decisions."
               delay="0.5s"

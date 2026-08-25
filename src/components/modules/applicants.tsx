@@ -29,7 +29,7 @@ import {
   Hourglass, ArrowLeft,
   FileText, ScanSearch, Brain, Upload, FileCheck, FileX,
   Loader2, AlertTriangle, X, CheckCircle2, Info, ThumbsUp,
-  ThumbsDown, AlertOctagon, BarChart3, FolderOpen,
+  ThumbsDown, AlertOctagon, ChartColumn, FolderOpen,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -1590,7 +1590,7 @@ function DocumentDetailPanel({ docId, type, ocrText, reviewData, onClose }: Docu
         {recommendations.length > 0 && (
           <div className="mb-3">
             <h6 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
-              <BarChart3 className="h-3 w-3" /> Recommendations
+              <ChartColumn className="h-3 w-3" /> Recommendations
             </h6>
             <ul className="space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
               {recommendations.map((r, i) => <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1"><ChevronRight className="h-2.5 w-2.5 text-violet-500 mt-0.5 shrink-0" />{r}</li>)}

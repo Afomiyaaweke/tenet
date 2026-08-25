@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Users, Building2, FileSearch, Gavel, FolderKanban, FileText,
-  Activity, TrendingUp, Clock, Shield, BarChart3, Eye,
+  Activity, TrendingUp, Clock, Shield, ChartColumn, Eye,
   UserPlus, Calendar, ArrowUpRight, AlertCircle, RefreshCw,
   Monitor, Globe2, ChevronRight,
 } from 'lucide-react';
@@ -72,7 +72,7 @@ const ACTION_ICONS: Record<string, React.ElementType> = {
   project_create: FolderKanban,
   document_upload: FileText,
   profile_update: Activity,
-  ai_analysis: BarChart3,
+  ai_analysis: ChartColumn,
 };
 
 function formatNumber(n: number): string {
@@ -312,7 +312,7 @@ export function AuditView() {
         <Card className="border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-amber-500" /> Top Actions (30d)
+              <ChartColumn className="w-4 h-4 text-amber-500" /> Top Actions (30d)
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">

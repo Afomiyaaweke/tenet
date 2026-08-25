@@ -90,7 +90,7 @@ import {
   Award,
   DollarSign,
   Percent,
-  BarChart3,
+  ChartColumn,
   Globe,
   Calendar,
   Building2,
@@ -283,7 +283,7 @@ function getToolIcon(name: string) {
   if (name.includes('extract') || name.includes('analysis')) return <Search className="size-4 text-violet-500" />;
   if (name.includes('excel') || name.includes('export')) return <FileSpreadsheet className="size-4 text-emerald-500" />;
   if (name.includes('docx') || name.includes('doc') || name.includes('compliance')) return <FileText className="size-4 text-blue-500" />;
-  if (name.includes('compare')) return <BarChart3 className="size-4 text-amber-500" />;
+  if (name.includes('compare')) return <ChartColumn className="size-4 text-amber-500" />;
   return <Wrench className="size-4 text-muted-foreground" />;
 }
 
@@ -1790,7 +1790,7 @@ export function AgentChatView() {
       return (
         <div className="flex h-full items-center justify-center p-4">
           <div className="text-center space-y-2">
-            <BarChart3 className="mx-auto size-8 text-muted-foreground/30" />
+            <ChartColumn className="mx-auto size-8 text-muted-foreground/30" />
             <p className="text-xs text-muted-foreground">Select a session</p>
           </div>
         </div>
@@ -2453,7 +2453,7 @@ export function AgentChatView() {
                 <MessageSquare className="size-3" /> Chat
               </TabsTrigger>
               <TabsTrigger value="analysis" className="flex-1 gap-1">
-                <BarChart3 className="size-3" /> Analysis
+                <ChartColumn className="size-3" /> Analysis
               </TabsTrigger>
             </TabsList>
           </div>

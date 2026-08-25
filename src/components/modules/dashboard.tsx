@@ -24,7 +24,7 @@ import {
   Shield, GraduationCap, Bell, CheckCircle, AlertCircle,
   Info, AlertTriangle, Lightbulb, ArrowRight, Clock,
   Calendar, TrendingUp, TrendingDown, Sparkles, Plus, Search, Upload,
-  MessageSquare, Eye, BarChart3, Target, Briefcase,
+  MessageSquare, Eye, ChartColumn, Target, Briefcase,
   Award, ChevronRight, Sun, Moon, Sunrise,
   ArrowUpRight, ArrowDownRight, Activity, Bot,
   UserPlus, ClipboardList, Crown as CrownIcon, ShieldCheck,
@@ -722,7 +722,7 @@ export function DashboardView() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <div className="p-1.5 rounded-lg gradient-amber">
-                  <BarChart3 className="h-3.5 w-3.5 text-white" />
+                  <ChartColumn className="h-3.5 w-3.5 text-white" />
                 </div>
                 Monthly Activity
               </CardTitle>

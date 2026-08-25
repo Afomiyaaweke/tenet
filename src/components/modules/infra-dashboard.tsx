@@ -21,7 +21,7 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
-  Shield, BarChart3, Globe, Activity, Bug, Server, RefreshCw,
+  Shield, ChartColumn, Globe, Activity, Bug, Server, RefreshCw,
   Database, HardDrive, Cloud, Zap, Lock, Plug, Key, Webhook,
   Eye, AlertTriangle, CheckCircle2, XCircle, MinusCircle,
   Settings, RotateCcw, Send, Clock, TrendingUp, Loader2,
@@ -55,7 +55,7 @@ function buildConcerns(healthData: Record<string, unknown> | null, metricsData: 
         { label: 'Provider', value: 'JWT + bcrypt' }, { label: 'Min Password', value: '8 chars' },
         { label: '2FA', value: 'Configured' }, { label: 'Sessions', value: String(m.activeSessions || 0) },
       ]},
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, tab: 'data',
+    { id: 'analytics', label: 'Analytics', icon: ChartColumn, tab: 'data',
       status: s('analytics'), metrics: [
         { label: 'API Calls (24h)', value: String(m.apiCalls24h || 0) }, { label: 'Avg Response', value: `${m.avgResponseTime || 0}ms` },
         { label: 'Error Rate', value: `${m.errorRate || 0}%` },

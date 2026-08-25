@@ -20,7 +20,7 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 import {
-  FileSearch, BarChart3, DollarSign, Clock, TrendingUp,
+  FileSearch, ChartColumn, DollarSign, Clock, TrendingUp,
   Calendar, ArrowDownToLine, Loader2, AlertTriangle,
   CheckCircle2, XCircle, Ban, Gavel, Users, Target,
   Download, ChevronRight, Briefcase, Flame, Snowflake,
@@ -437,7 +437,7 @@ export function TenderAnalyzerView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-2xl gradient-emerald flex-shrink-0">
-            <BarChart3 className="h-6 w-6 text-white" />
+            <ChartColumn className="h-6 w-6 text-white" />
           </div>
           <div>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
@@ -542,7 +542,7 @@ export function TenderAnalyzerView() {
           <CardContent>
             {categoryData.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                <BarChart3 className="h-10 w-10 mb-2 opacity-30" />
+                <ChartColumn className="h-10 w-10 mb-2 opacity-30" />
                 <p className="text-sm">No category data available</p>
               </div>
             ) : (
@@ -783,7 +783,7 @@ export function TenderAnalyzerView() {
         <Card className="premium-shadow rounded-xl border-0 bg-white overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-emerald-500" />
+              <ChartColumn className="h-4 w-4 text-emerald-500" />
               Tender Status Overview
             </CardTitle>
           </CardHeader>

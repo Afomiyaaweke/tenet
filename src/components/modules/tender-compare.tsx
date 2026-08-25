@@ -12,7 +12,7 @@ import {
   ArrowLeft, MapPin, Calendar, DollarSign, Tag, FileText, Gavel, Clock, Users,
   ChevronRight, TrendingUp, Timer, Target, Award, CheckCircle, X,
   Briefcase, GitCompareArrows, Zap, Eye, Building2, CircleCheck,
-  BarChart3, Scale, FileStack,
+  ChartColumn, Scale, FileStack,
 } from 'lucide-react';
 
 function daysUntil(dateStr: string): number {
@@ -347,7 +347,7 @@ export function TenderCompareView({ tenderIds }: { tenderIds?: string }) {
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <div className="p-1.5 rounded-lg gradient-emerald">
-                <BarChart3 className="h-3.5 w-3.5 text-white" />
+                <ChartColumn className="h-3.5 w-3.5 text-white" />
               </div>
               Budget Comparison
             </CardTitle>
@@ -853,7 +853,7 @@ export function BidCompareView({ tenderId }: { tenderId?: string }) {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <div className="p-1.5 rounded-lg gradient-emerald">
-                  <BarChart3 className="h-3.5 w-3.5 text-white" />
+                  <ChartColumn className="h-3.5 w-3.5 text-white" />
                 </div>
                 Financial Proposal Comparison
               </CardTitle>

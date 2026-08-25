@@ -18,7 +18,7 @@ import {
   Bookmark, MapPin, Calendar, ExternalLink, Trash2, PenLine,
   ScanSearch, Brain, Loader2, AlertTriangle, Upload, FileText,
   CloudUpload, FileUp, ThumbsUp, ThumbsDown, AlertOctagon,
-  BarChart3, CheckCircle2, XCircle, Globe, MessageSquare, Copy,
+  ChartColumn, CheckCircle2, XCircle, Globe, MessageSquare, Copy,
   FileDown, FileSpreadsheet,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
@@ -1345,7 +1345,7 @@ export function BidsView() {
                                                   }}
                                                   title="View AI review report"
                                                 >
-                                                  <BarChart3 className="h-2.5 w-2.5" />
+                                                  <ChartColumn className="h-2.5 w-2.5" />
                                                 </Button>
                                               )}
                                               {/* Submit Link button */}

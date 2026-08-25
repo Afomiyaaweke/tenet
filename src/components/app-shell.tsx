@@ -16,7 +16,7 @@ import {
   GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
-  BarChart3, FileCode, Shield, PanelLeftClose, PanelLeftOpen, Star,
+  ChartColumn, FileCode, Shield, PanelLeftClose, PanelLeftOpen, Star,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
@@ -126,7 +126,7 @@ function getNavItemsForRole(role: string): NavSection[] {
       { id: 'profile', label: 'Profile', icon: User },
       { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'ai-doc-studio', label: 'AI Doc Studio', icon: Bot },
-      { id: 'tender-analyzer', label: 'Tender Analyzer', icon: BarChart3 },
+      { id: 'tender-analyzer', label: 'Tender Analyzer', icon: ChartColumn },
     ],
   };
 

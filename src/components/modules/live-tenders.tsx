@@ -22,7 +22,7 @@ import {
   Loader2, Clock, Landmark, Plane, Flag, Cpu,
   CheckCircle2, ExternalLink, TrendingUp, ChevronRight, Languages,
   Bookmark, BookmarkCheck, XCircle, AlertTriangle, Lightbulb,
-  Target, BarChart3, Users, Zap, Eye, Gavel,
+  Target, ChartColumn, Users, Zap, Eye, Gavel,
   CircleCheck, Send, FileSearch, FolderKanban, FileDown, FileSpreadsheet,
   Trophy, Swords, Scale, Wrench, HeartPulse, Briefcase, Award,
   OctagonAlert, CircleDashed, ArrowRight, Timer, Milestone,
