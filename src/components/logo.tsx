@@ -1,8 +1,18 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import Image from 'next/image';
+
+const emptySubscribe = () => () => {};
+
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,  // client snapshot: always mounted
+    () => false  // server snapshot: never mounted
+  );
+}
 
 interface TenetLogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -12,12 +22,7 @@ interface TenetLogoProps {
 
 export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: TenetLogoProps) {
   const { theme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+  const mounted = useIsMounted();
   const isDark = mounted && theme === 'dark';
 
   const sizes = {

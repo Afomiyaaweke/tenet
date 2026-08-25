@@ -74,17 +74,19 @@ const nextConfig = {
   },
 
   async headers() {
+    // In dev, never cache static chunks (Turbopack reuses filenames with HMR updates).
+    // In production, Vercel handles caching automatically.
+    const staticHeaders = process.env.NODE_ENV === 'production'
+      ? [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]
+      : [{ key: "Cache-Control", value: "no-store" }];
     return [
       {
         source: "/(.*)",
         headers: securityHeaders,
       },
       {
-        // Cache static assets aggressively
         source: "/_next/static/(.*)",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
+        headers: staticHeaders,
       },
     ];
   },
