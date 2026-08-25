@@ -12,12 +12,12 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import {
-  LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
-  GraduationCap, User, FileText, Bot, Menu, LogOut, Bell,
+  Menu, LogOut, Bell, User, FileText,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
-  Search, Verified, Globe2, Building2, Users, Mail, Lock, ClipboardList,
-  ChartColumn, FileCode, Shield, PanelLeftClose, PanelLeftOpen, Star,
+  Search, Verified, Building2, Users,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
+import { getNavItemsForRole, type NavSection } from '@/lib/nav-config';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { TenetLogo } from '@/components/logo';
 
@@ -85,78 +85,7 @@ const NOTIFICATION_BG: Record<string, string> = {
   info: 'bg-orange-50 dark:bg-orange-950/30',
 };
 
-interface NavItem {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-interface NavSection {
-  label: string;
-  items: NavItem[];
-}
-
-/* ──────────────────── Role-aware navigation ──────────────────── */
-
-function getNavItemsForRole(role: string): NavSection[] {
-  const main: NavSection = {
-    label: 'MAIN',
-    items: [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'tenders', label: 'Tenders', icon: FileSearch },
-      { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
-      { id: 'bids', label: 'Bids', icon: Gavel },
-      { id: 'applicants', label: 'Published Tenders', icon: ClipboardList },
-    ],
-  };
-
-  const manage: NavSection = {
-    label: 'MANAGE',
-    items: [
-      { id: 'projects', label: 'Projects', icon: FolderKanban },
-      { id: 'chat', label: 'Messages', icon: MessageSquare },
-      { id: 'events', label: 'Workshops', icon: GraduationCap },
-      { id: 'social-circle', label: 'Social Circle', icon: Users },
-    ],
-  };
-
-  const tools: NavSection = {
-    label: 'TOOLS',
-    items: [
-      { id: 'profile', label: 'Profile', icon: User },
-      { id: 'documents', label: 'Documents', icon: FileText },
-      { id: 'ai-doc-studio', label: 'AI Doc Studio', icon: Bot },
-      { id: 'tender-analyzer', label: 'Tender Analyzer', icon: ChartColumn },
-    ],
-  };
-
-  const support: NavSection = {
-    label: 'SUPPORT',
-    items: [
-      { id: 'contact-us', label: 'Contact Us', icon: Mail },
-      { id: 'privacy-policy', label: 'Privacy Policy', icon: Lock },
-    ],
-  };
-
-  if (role === 'team_admin') {
-    return [
-      main,
-      {
-        label: 'MANAGE',
-        items: [
-          { id: 'team-management', label: 'Team Management', icon: Users },
-          { id: 'social-circle', label: 'Social Circle', icon: Users },
-          { id: 'review-moderation', label: 'Review Moderation', icon: Star },
-        ],
-      },
-      tools,
-      support,
-    ];
-  }
-
-  // Regular user
-  return [main, { label: 'MANAGE', items: [{ id: 'team-management', label: 'Team Management', icon: Users }, { id: 'social-circle', label: 'Social Circle', icon: Users }] }, tools, support];
-}
+/* ──────────────────── Role-aware navigation (see src/lib/nav-config.ts) ──────────────────── */
 
 /* ──────────────────── Role badge config ──────────────────── */
 
