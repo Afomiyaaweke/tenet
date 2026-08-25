@@ -52,7 +52,7 @@ const allowedDevOrigins = [
   "localhost:3000",
   appUrlHost,
   "tenet.space-z.ai",
-  "preview-chat.space-z.ai",
+  "*.space-z.ai",
   "tenetbid.vercel.app",
 ];
 

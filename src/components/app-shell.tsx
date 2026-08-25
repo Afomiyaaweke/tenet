@@ -490,6 +490,17 @@ case 'tender-analyzer':
 
   const sidebarProps = { user, role, company, navSections, view, setView, unreadCount, logout, collapsed: sidebarCollapsed, onToggleCollapse: toggleSidebarCollapse };
 
+  // AI Doc Studio renders as a full-page standalone layout (no app-shell chrome)
+  if (view === 'ai-doc-studio') {
+    return (
+      <div key="ai-doc-studio-fullpage" className="view-enter">
+        <Suspense fallback={<ViewLoader />}>
+          <AIDocStudioView />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex bg-background">
       {/* ── Desktop Sidebar ── */}

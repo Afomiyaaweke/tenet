@@ -38,7 +38,7 @@ import {
   Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
   Award, Zap, AlertTriangle, CheckCircle2, XCircle,
   Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare, FileDown,
-  Layers, Bell, Paperclip, Send, History,
+  Layers, Bell, Paperclip, Send, History, ArrowLeft,
 } from 'lucide-react';
 import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
 import dynamic from 'next/dynamic';
@@ -3019,9 +3019,10 @@ export function AIDocStudio() {
   const avatarInitial = (user?.profile?.fullName || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-gray-50 view-enter relative">
+    <div className="h-screen flex flex-col bg-gray-50 relative">
       {/* ══ Top Header ══ */}
       <header className="flex items-center h-12 px-4 bg-white border-b border-gray-200 flex-shrink-0 gap-3">
+        <button onClick={() => useNavStore.getState().setView('dashboard')} title="Back to Dashboard" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0"><ArrowLeft className="h-4 w-4" /></button>
         <div className="flex-1">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -3047,7 +3048,7 @@ export function AIDocStudio() {
       <div className="flex-1 flex overflow-hidden">
         {editorMode ? (
           <>
-            <aside className="w-72 flex flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
+            <aside className="w-80 flex flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
               <div className="px-5 py-4 border-b border-gray-100"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-gray-900 tracking-tight">AI Doc Studio</span></div></div>
               <div className="px-5 py-4 space-y-2 border-b border-gray-100">
                 <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-gray-900">Template Generator</span></div>

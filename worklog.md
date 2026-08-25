@@ -797,3 +797,27 @@ Stage Summary:
 - Root cause: lucide-react v0.525.0 renamed BarChart3 to ChartColumn, but Turbopack's optimizePackageImports maps the old name to the new file then fails to resolve the export
 - Fix: Replaced all BarChart3 references with ChartColumn in 14 files
 - The app now loads cleanly with no runtime errors
+
+---
+Task ID: 2
+Agent: main
+Task: Fix Turbopack HMR errors, CORS issues, and redesign AI Doc Studio to match preview URL
+
+Work Log:
+- Fixed Turbopack stale module factory error by verifying all source files use ChartColumn (not BarChart3)
+- Fixed CORS cross-origin blocking by adding `*.space-z.ai` wildcard to `allowedDevOrigins` in next.config.mjs
+- Changed Cache-Control to `no-store` in dev mode to prevent stale chunk caching by the proxy
+- Analyzed preview URL design using VLM (screenshot analysis) and web-reader (HTML extraction)
+- Identified key design elements: teal (#14b8a6) accent, 320px sidebar, template generator with radio buttons, AI chat, bottom dock navigation
+- Modified AppShell to render AI Doc Studio as a full-page standalone layout (no outer sidebar/header)
+- Updated AI Doc Studio to use `h-screen` instead of `h-[calc(100vh-3.5rem)]`
+- Added back-to-dashboard button (ArrowLeft) in the AI Doc Studio header
+- Widened sidebar from w-72 to w-80 to match preview design
+- Verified Doc Builder is already merged into AI Doc Studio (no separate nav entry exists)
+- Tested with Agent Browser: full-page layout works, back button works, no client-side errors
+
+Stage Summary:
+- AI Doc Studio now renders as full-page standalone layout matching preview design
+- CORS and BarChart3 Turbopack errors are fully resolved
+- Doc Builder functionality is integrated into AI Doc Studio's Template Generator sidebar
+- Key files modified: next.config.mjs, app-shell.tsx, ai-doc-studio.tsx
