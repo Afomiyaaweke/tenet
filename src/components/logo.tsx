@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from 'next-themes';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
 interface TenetLogoProps {
@@ -11,7 +12,13 @@ interface TenetLogoProps {
 
 export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: TenetLogoProps) {
   const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted && theme === 'dark';
 
   const sizes = {
     sm: { icon: 32, text: 'text-sm' },
@@ -25,7 +32,6 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
 
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
-      {/* TenetBid Logo - using uploaded logo image */}
       <Image
         src="/logo.png"
         alt="TenetBid Logo"
@@ -35,12 +41,10 @@ export function TenetLogo({ size = 'md', iconOnly = false, className = '' }: Ten
         priority
         unoptimized
       />
-
-      {/* Text - only show if not iconOnly */}
       {!iconOnly && (
-        <span className={`${s.text} font-bold tracking-tight whitespace-nowrap`}>
-          <span style={{ color: darkColor }}>Ten</span>
-          <span style={{ color: accentColor }}>ets</span>
+        <span className={`${s.text} font-bold tracking-tight whitespace-nowrap`} suppressHydrationWarning>
+          <span style={{ color: darkColor }} suppressHydrationWarning>Ten</span>
+          <span style={{ color: accentColor }} suppressHydrationWarning>ets</span>
         </span>
       )}
     </div>
