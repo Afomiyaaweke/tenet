@@ -51,6 +51,7 @@ function createPrismaClient(): PrismaClient {
   }
 
   return new PrismaClient({
+    datasourceUrl: databaseUrl || 'file:/home/z/my-project/db/custom.db',
     log: isProduction ? [{ level: 'error', emit: 'stdout' }] : ['error', 'warn', 'query'],
   })
 }
