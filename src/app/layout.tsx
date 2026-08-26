@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MicrosoftClarity } from "@/components/analytics/clarity";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,6 +53,7 @@ export default function RootLayout({
         >
           {children}
           <Toaster richColors position="top-right" style={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
