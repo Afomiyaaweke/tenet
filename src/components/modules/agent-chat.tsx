@@ -62,7 +62,6 @@ import {
   FileText,
   FileSpreadsheet,
   Download,
-  Upload,
   Loader2,
   CheckCircle2,
   AlertTriangle,
@@ -343,7 +342,7 @@ export function AgentChatView() {
 
   // --- Import Dialog State ---
   const [showImportDialog, setShowImportDialog] = useState(false);
-  const [importTab, setImportTab] = useState<'local' | 'tenders' | 'live' | 'bids'>('local');
+  const [importTab, setImportTab] = useState<'tenders' | 'live' | 'bids'>('tenders');
   const [importTenders, setImportTenders] = useState<Tender[]>([]);
   const [importBids, setImportBids] = useState<Bid[]>([]);
   const [importLiveTenders, setImportLiveTenders] = useState<Tender[]>([]);
@@ -603,7 +602,7 @@ export function AgentChatView() {
     setShowImportDialog(true);
     setImportSearch('');
     setImportLoading(true);
-    setImportTab('local');
+    setImportTab('tenders');
 
     // Fetch tenders, bids, and live tenders in parallel
     try {
@@ -1735,40 +1734,6 @@ export function AgentChatView() {
           </div>
         </ScrollArea>
 
-        {/* Quick Actions */}
-        <div className="flex gap-1.5 px-4 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-[11px] gap-1 h-7"
-            onClick={() => sendMessage('Analyze the tender documents I have uploaded')}
-            disabled={isStreaming || documents.length === 0}
-          >
-            <Sparkles className="size-3" />
-            Analyze Tender
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-[11px] gap-1 h-7"
-            onClick={() => sendMessage('Extract the analysis results to Excel')}
-            disabled={isStreaming || !analysis}
-          >
-            <FileSpreadsheet className="size-3" />
-            Extract to Excel
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-[11px] gap-1 h-7"
-            onClick={() => setShowPrepareDialog(true)}
-            disabled={isStreaming || !analysis}
-          >
-            <FileDown className="size-3" />
-            Generate Compliance Doc
-          </Button>
-        </div>
-
         {/* Input Area */}
         <div className="border-t px-4 py-3">
           <div className="flex gap-1.5 items-end">
@@ -2293,7 +2258,7 @@ export function AgentChatView() {
                   {gapWarnings.map((warning, i) => (
                     <div key={i} className="flex items-start gap-2 rounded-md bg-amber-50 dark:bg-amber-950/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-400">
                       <AlertTriangle className="size-3 shrink-0 mt-0.5" />
-                      <span>{typeof warning === 'string' ? warning : String(warning)}</span>
+                      <span>{typeof warning === 'string' ? warning : warning?.message || warning?.text || JSON.stringify(warning)}</span>
                     </div>
                   ))}
                 </div>
@@ -2384,7 +2349,7 @@ export function AgentChatView() {
               Import Documents
             </DialogTitle>
             <DialogDescription>
-              Upload local files or import from your tenders and bids.
+              Import from your existing tenders and bids.
             </DialogDescription>
           </DialogHeader>
 
@@ -2402,9 +2367,6 @@ export function AgentChatView() {
           {/* Tabs */}
           <Tabs value={importTab} onValueChange={(v) => setImportTab(v as any)} className="flex-1 min-h-0">
             <TabsList className="w-full">
-              <TabsTrigger value="local" className="flex-1 gap-1 text-xs">
-                <Upload className="size-3" /> Local Files
-              </TabsTrigger>
               <TabsTrigger value="tenders" className="flex-1 gap-1 text-xs">
                 <FileText className="size-3" /> My Tenders
               </TabsTrigger>
@@ -2415,54 +2377,6 @@ export function AgentChatView() {
                 <Gavel className="size-3" /> Bids
               </TabsTrigger>
             </TabsList>
-
-            {/* Local Files Tab */}
-            <TabsContent value="local" className="flex-1 min-h-0 mt-2">
-              <div
-                className={cn(
-                  'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer',
-                  uploading
-                    ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/20'
-                    : 'border-muted-foreground/20 hover:border-muted-foreground/40'
-                )}
-                onClick={() => {
-                  if (!uploading && selectedSessionId) fileInputRef.current?.click();
-                }}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept={ACCEPTED_FILE_TYPES}
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      uploadFiles(e.target.files);
-                      e.target.value = '';
-                      setShowImportDialog(false);
-                    }
-                  }}
-                />
-                {uploading ? (
-                  <Loader2 className="size-8 animate-spin text-teal-500" />
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <FileUp className="size-8" />
-                      <ImageIcon className="size-8" />
-                      <FileText className="size-8" />
-                    </div>
-                    <p className="text-sm font-medium">Click to upload files</p>
-                    <p className="text-xs text-muted-foreground">
-                      PDF, DOCX, XLSX, TXT, CSV, Images (JPG, PNG, WebP)
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/60">
-                      Images will be processed with AI OCR
-                    </p>
-                  </>
-                )}
-              </div>
-            </TabsContent>
 
             {/* My Tenders Tab */}
             <TabsContent value="tenders" className="flex-1 min-h-0 mt-2">
