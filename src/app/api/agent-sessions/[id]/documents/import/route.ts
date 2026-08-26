@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { ensureAgentTables } from '@/lib/ensure-agent-tables';
 import { parseDocument, summarizeDocument } from '@/lib/agent-document';
 import fs from 'fs';
 import path from 'path';
@@ -21,6 +22,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureAgentTables();
     const { user, error } = await requireAuth(request);
     if (error) return error;
 

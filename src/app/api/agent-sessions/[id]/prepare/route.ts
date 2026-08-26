@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { ensureAgentTables } from '@/lib/ensure-agent-tables';
 import { getZAI } from '@/lib/zai';
 import { generateComplianceDocx, type ApplicationDocInput, type ComplianceRequirement } from '@/lib/agent-docgen';
 import fs from 'fs';
@@ -17,6 +18,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureAgentTables();
     const { user, error } = await requireAuth(request);
     if (error) return error;
 

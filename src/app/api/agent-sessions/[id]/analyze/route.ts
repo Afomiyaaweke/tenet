@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { ensureAgentTables } from '@/lib/ensure-agent-tables';
 import { buildDocContext, type ParsedDocument, type ParsedPage } from '@/lib/agent-document';
 import { runFullExtraction } from '@/lib/agent-extraction';
 import { generateExcel, type BidderRow, type TenderInfo, type KeyTermRow } from '@/lib/agent-excel';
@@ -18,6 +19,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureAgentTables();
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
