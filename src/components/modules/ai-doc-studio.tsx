@@ -38,9 +38,11 @@ import {
   Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
   Award, Zap, AlertTriangle, CheckCircle2, XCircle,
   Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare, FileDown,
-  Layers, Bell, Paperclip, Send, History, ArrowLeft,
+  Layers, Bell, Paperclip, Send, History, ArrowLeft, Menu,
 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import dynamic from 'next/dynamic';
 const AgentChatView = dynamic(() => import('./agent-chat').then(m => m.AgentChatView), { ssr: false });
 /* ══════════════════════════════════════════════════════════════
@@ -694,6 +696,8 @@ export function AIDocStudio() {
   // Source selection: 'live-tender' or 'external'
   const [sourceMode, setSourceMode] = useState<'live-tender' | 'external'>('live-tender');
 
+  const isMobile = useIsMobile();
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const { user } = useAuthStore();
 
   /* ── Load tenders ── */
@@ -1917,7 +1921,7 @@ export function AIDocStudio() {
     return (
       <div className="flex-1 flex overflow-hidden bg-muted/30">
         {/* Left: Document List */}
-        <div className="w-[380px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+        <div className={`${isMobile && selectedDocId ? 'hidden' : ''} w-full md:w-[380px] border-r border-border/60 bg-card flex flex-col ${isMobile ? 'flex-1' : 'flex-shrink-0'}`}>
           <div className="p-3 border-b border-border/40">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
               <FileSearch className="h-4 w-4 text-emerald-600" />
@@ -2341,9 +2345,14 @@ export function AIDocStudio() {
         </div>
 
         {/* Right: Document Detail / Results */}
-        <div className="flex-1 overflow-auto bg-muted/30">
+        <div className={`${isMobile && !selectedDocId ? 'hidden' : ''} flex-1 overflow-auto bg-muted/30`}>
           {selectedDoc ? (
             <div className="p-4 space-y-4 max-w-3xl mx-auto">
+              {isMobile && (
+                <button onClick={() => setSelectedDocId(null)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3">
+                  <ArrowLeft className="h-4 w-4" /> Back to documents
+                </button>
+              )}
               {/* Document Header */}
               <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/40">
                 <div className="p-3 rounded-xl gradient-emerald shadow-sm">
@@ -2860,7 +2869,7 @@ export function AIDocStudio() {
     return (
       <div className="flex-1 flex overflow-hidden bg-muted/30">
         {/* Left: OCR-Ready Document List */}
-        <div className="w-[320px] border-r border-border/60 bg-card flex flex-col flex-shrink-0">
+        <div className={`${isMobile && localSelectedDocId ? 'hidden' : ''} w-full md:w-[320px] border-r border-border/60 bg-card flex flex-col ${isMobile ? 'flex-1' : 'flex-shrink-0'}`}>
           <div className="p-3 border-b border-border/40">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-emerald-600" />
@@ -2989,9 +2998,14 @@ export function AIDocStudio() {
         </div>
 
         {/* Right: Extract Interface */}
-        <div className="flex-1 overflow-auto bg-muted/30">
+        <div className={`${isMobile && !localSelectedDocId ? 'hidden' : ''} flex-1 overflow-auto bg-muted/30`}>
           {selectedDoc ? (
             <div className="p-4 space-y-4 max-w-3xl mx-auto">
+              {isMobile && (
+                <button onClick={() => setLocalSelectedDocId(null)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3">
+                  <ArrowLeft className="h-4 w-4" /> Back to documents
+                </button>
+              )}
               {/* Document Header */}
               <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/40">
                 <div className="p-3 rounded-xl gradient-emerald shadow-sm">
@@ -3258,8 +3272,18 @@ export function AIDocStudio() {
     <div className="h-screen flex flex-col bg-gray-50 relative">
       {/* ══ Top Header ══ */}
       <header className="flex items-center h-12 px-4 bg-white border-b border-gray-200 flex-shrink-0 gap-3">
-        <button onClick={() => useNavStore.getState().setView('dashboard')} title="Back to Dashboard" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0"><ArrowLeft className="h-4 w-4" /></button>
-        <div className="flex-1">
+        <button onClick={() => {
+          if (ribbonTab === 'agent') { setRibbonTab('home'); return; }
+          if (ribbonTab === 'doc-review' || ribbonTab === 'ai-extract') {
+            if (selectedDocId) { setSelectedDocId(null); return; }
+            setRibbonTab('home'); return;
+          }
+          useNavStore.getState().setView('dashboard');
+        }} title="Back" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0"><ArrowLeft className="h-4 w-4" /></button>
+        {isMobile && editorMode && (
+          <button onClick={() => setLeftSidebarOpen(true)} title="Menu" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0"><Menu className="h-4 w-4" /></button>
+        )}
+        <div className="flex-1 hidden md:block">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input placeholder="Search documents..." className="w-full h-9 pl-10 pr-4 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-500/15 transition-all" />
@@ -3267,15 +3291,15 @@ export function AIDocStudio() {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={() => setShowEditorHistory(v => !v)} title="Chat History" className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showEditorHistory ? 'bg-teal-100 text-teal-700' : 'hover:bg-gray-100 text-gray-500'}`}><History className="h-4 w-4" /></button>
-          <button title="Notifications" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors relative"><Bell className="h-4 w-4" /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-500 ring-2 ring-white" /></button>
-          <Popover><PopoverTrigger asChild><button className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"><Layers className="h-4 w-4 text-teal-600" />{ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}<ChevronDown className="h-3 w-3 text-gray-400" /></button></PopoverTrigger><PopoverContent className="w-40 p-1" align="end">{[{ id: 'home', label: 'Editor', icon: FileText }, { id: 'agent', label: 'AI Agent', icon: Bot }].map(m => { const Icon = m.icon; const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode); return (<button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}><Icon className="h-4 w-4" /> {m.label}</button>); })}</PopoverContent></Popover>
-          <button onClick={() => toast.info('Exporting...')} className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"><Download className="h-3.5 w-3.5" /> Export</button>
+          <button title="Notifications" className="hidden md:flex w-8 h-8 rounded-full hover:bg-gray-100 items-center justify-center text-gray-500 transition-colors relative"><Bell className="h-4 w-4" /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-500 ring-2 ring-white" /></button>
+          <Popover><PopoverTrigger asChild><button className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"><Layers className="h-4 w-4 text-teal-600" /><span className="hidden md:inline">{ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}</span><ChevronDown className="h-3 w-3 text-gray-400" /></button></PopoverTrigger><PopoverContent className="w-40 p-1" align="end">{[{ id: 'home', label: 'Editor', icon: FileText }, { id: 'agent', label: 'AI Agent', icon: Bot }].map(m => { const Icon = m.icon; const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode); return (<button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}><Icon className="h-4 w-4" /> {m.label}</button>); })}</PopoverContent></Popover>
+          <button onClick={() => toast.info('Exporting...')} className="hidden md:flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"><Download className="h-3.5 w-3.5" /> Export</button>
           <button
             onClick={handleSave}
             className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
           >
             <Save className="h-3.5 w-3.5" />
-            {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
+            <span className="hidden md:inline">{saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}</span>
             {saveStatus === 'saved' && <Check className="h-3 w-3 text-teal-100" />}
           </button>
           <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">{avatarInitial}</div>
@@ -3284,6 +3308,7 @@ export function AIDocStudio() {
       <div className="flex-1 flex overflow-hidden">
         {editorMode ? (
           <>
+            {!isMobile && (
             <aside className="w-80 flex flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
               <div className="px-5 py-4 border-b border-gray-100"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-gray-900 tracking-tight">AI Doc Studio</span></div></div>
               <div className="px-5 py-4 space-y-2 border-b border-gray-100">
@@ -3302,13 +3327,38 @@ export function AIDocStudio() {
               </div>
               <div className="p-3 pb-12 mt-auto border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
             </aside>
+            )}
+            {isMobile && (
+            <Sheet open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
+              <SheetContent side="left" className="w-80 p-0 overflow-y-auto">
+                <SheetHeader className="px-5 py-4 border-b border-gray-100"><SheetTitle className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-gray-900 tracking-tight">AI Doc Studio</span></SheetTitle></SheetHeader>
+                <div className="px-5 py-4 space-y-2 border-b border-gray-100">
+                  <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-gray-900">Template Generator</span></div>
+                  <button onClick={() => setSourceMode('live-tender')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'live-tender' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'live-tender' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'live-tender' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
+                      <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-gray-900 block">Pull from Live Tender</span><span className="text-xs text-gray-500 mt-0.5 block">RFP_Gov_Infrastructure_2024.pdf</span></div>
+                  </button>
+                  <button onClick={() => setSourceMode('external')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'external' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'external' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'external' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
+                      <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-gray-900 block">External Sources</span><span className="text-xs text-gray-500 mt-0.5 block">Connect to knowledge base or web</span></div>
+                  </button>
+                  {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-gray-50 border-gray-200"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
+                  <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
+                  <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"><Plus className="h-3 w-3" /> Insert into document</button>
+                </div>
+                <div className="p-3 pb-12 mt-auto border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
+              </SheetContent>
+            </Sheet>
+            )}
             <main className="flex-1 flex flex-col overflow-hidden bg-gray-50 pb-12">
               <div className="bg-white border-b border-gray-200 flex-shrink-0"><div className="min-h-[44px] flex items-center px-3 py-2"><ActiveRibbon /></div></div>
-              <div className="flex-1 overflow-auto bg-gray-100 p-6" onClick={() => { if (placementMode) { /* handled */ } }}><div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}><div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}><div className="text-center"><p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p><p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p></div></div><input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }} placeholder="Document title" className="w-full text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} /><div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick} className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700" style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }} data-placeholder="Start typing or use the Template Generator to populate this document..."></div><div className="absolute bottom-8 left-0 right-0 text-center"><div className="border-t border-gray-200 pt-2"><p className="text-[10px] text-gray-400">Page 1 of 1</p></div></div></div></div></div>
+              <div className="flex-1 overflow-auto bg-gray-100 p-2 md:p-6" onClick={() => { if (placementMode) { /* handled */ } }}><div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: isMobile ? '24px 20px 32px 20px' : '72px 72px 96px 72px' }}><div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}><div className="text-center"><p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p><p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p></div></div><input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }} placeholder="Document title" className="w-full text-xl md:text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} /><div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick} className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700" style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }} data-placeholder="Start typing or use the Template Generator to populate this document..."></div><div className="absolute bottom-8 left-0 right-0 text-center"><div className="border-t border-gray-200 pt-2"><p className="text-[10px] text-gray-400">Page 1 of 1</p></div></div></div></div></div>
               <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0"><div className="flex-1">Page 1 of 1</div><div className="flex items-center gap-3"><span>{wordCount} words</span><span>{charCount} chars</span>{placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}</div><div className="flex-1 flex items-center justify-end gap-1"><button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button><Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}><SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger><SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent></Select><button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button></div></div>
             </main>
             {showEditorHistory && (
-              <aside className="w-[300px] flex-shrink-0 border-l border-gray-200 bg-white overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
+              <>
+              {isMobile && <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowEditorHistory(false)} />}
+              <aside className={`${isMobile ? 'fixed inset-y-0 right-0 z-50' : ''} w-[300px] flex-shrink-0 border-l border-gray-200 bg-white overflow-hidden flex flex-col animate-in slide-in-from-right duration-300`}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
                   <h3 className="text-sm font-semibold text-gray-900">Chat History</h3>
                   <button onClick={() => setShowEditorHistory(false)} className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
@@ -3393,6 +3443,7 @@ export function AIDocStudio() {
                 )}
                 <div className="p-3 border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
               </aside>
+              </>
             )}
           </>
         ) : ribbonTab === 'agent' ? (
@@ -3405,8 +3456,8 @@ export function AIDocStudio() {
       </div>
       {/* ══ Dark Bottom Dock ══ */}
       <div className="absolute bottom-0 left-0 right-0 h-11 bg-slate-800 flex items-center justify-center gap-1.5 z-40 border-t border-slate-700">
-          <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white text-[10px] font-bold mr-2 shadow-sm">{avatarInitial}</div>
-          <div className="w-px h-5 bg-slate-700" />
+          <div className="hidden md:flex w-6 h-6 rounded-full bg-teal-500 items-center justify-center text-white text-[10px] font-bold mr-2 shadow-sm">{avatarInitial}</div>
+          <div className="hidden md:block w-px h-5 bg-slate-700" />
           {dockItems.map(item => {
             const Icon = item.icon;
             const isOcr = item.id === 'ocr';
@@ -3429,7 +3480,7 @@ export function AIDocStudio() {
                   isActive ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                 }`}>
                 <Icon className="h-3.5 w-3.5" />
-                <span className="text-[11px] leading-none font-medium whitespace-nowrap">{item.label}</span>
+                <span className="hidden md:inline text-[11px] leading-none font-medium whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}
