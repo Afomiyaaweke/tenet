@@ -2262,6 +2262,19 @@ export function AIDocStudio() {
                                           <Button
                                             variant="ghost"
                                             size="sm"
+                                            className="h-4 text-[9px] px-1 text-teal-600 hover:text-teal-700"
+                                            onClick={() => {
+                                              insertIntoEditor(extractResults[doc.id]);
+                                              setRibbonTab('home');
+                                              toast.success('Extracted info imported to editor');
+                                            }}
+                                            title="Import to Editor"
+                                          >
+                                            <FileUp className="h-2.5 w-2.5" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
                                             className="h-4 text-[9px] px-1"
                                             onClick={() => {
                                               navigator.clipboard.writeText(extractResults[doc.id]);
@@ -2481,6 +2494,19 @@ export function AIDocStudio() {
                         className="h-6 text-[10px]"
                         onClick={() => {
                           const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
+                          insertIntoEditor(text);
+                          setRibbonTab('home');
+                          toast.success('OCR text imported to editor');
+                        }}
+                      >
+                        <FileUp className="h-3 w-3 mr-1" /> Import to Editor
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px]"
+                        onClick={() => {
+                          const text = selectedDoc.ocrText || ocrStatusMap[selectedDoc.id]?.text || '';
                           navigator.clipboard.writeText(text);
                           toast.success('OCR text copied');
                         }}
@@ -2525,10 +2551,34 @@ export function AIDocStudio() {
 
               {/* AI Review Result Display */}
               {(selectedDoc.aiReviewStatus === 'completed' || reviewStatusMap[selectedDoc.id]?.result) && (
-                <ReviewResultDisplay
-                  reviewJson={selectedDoc.aiReview || reviewStatusMap[selectedDoc.id]?.result || ''}
-                  prompt={selectedDoc.aiReviewPrompt || reviewPrompts[selectedDoc.id] || ''}
-                />
+                <>
+                  <div className="flex items-center justify-end">
+                    <Button
+                      size="sm"
+                      className="h-7 text-[10px] bg-teal-600 text-white border-0 hover:bg-teal-700"
+                      onClick={() => {
+                        const raw = selectedDoc.aiReview || reviewStatusMap[selectedDoc.id]?.result || '';
+                        try {
+                          const parsed = JSON.parse(raw);
+                          const text = formatReviewAsText(parsed, selectedDoc.aiReviewPrompt || reviewPrompts[selectedDoc.id] || '');
+                          insertIntoEditor(text);
+                          setRibbonTab('home');
+                          toast.success('Review result imported to editor');
+                        } catch {
+                          insertIntoEditor(raw);
+                          setRibbonTab('home');
+                          toast.success('Review result imported to editor');
+                        }
+                      }}
+                    >
+                      <FileUp className="h-3 w-3 mr-1" /> Import Review to Editor
+                    </Button>
+                  </div>
+                  <ReviewResultDisplay
+                    reviewJson={selectedDoc.aiReview || reviewStatusMap[selectedDoc.id]?.result || ''}
+                    prompt={selectedDoc.aiReviewPrompt || reviewPrompts[selectedDoc.id] || ''}
+                  />
+                </>
               )}
 
               {/* AI Extract Panel */}
@@ -2618,6 +2668,18 @@ export function AIDocStudio() {
                           <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted Information</span>
                             <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 text-[10px] px-1.5 text-teal-600 hover:text-teal-700"
+                                onClick={() => {
+                                  insertIntoEditor(extractResults[selectedDoc.id]);
+                                  setRibbonTab('home');
+                                  toast.success('Extracted info imported to editor');
+                                }}
+                              >
+                                <FileUp className="h-3 w-3 mr-0.5" /> Import to Editor
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -3206,7 +3268,7 @@ export function AIDocStudio() {
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={() => setShowEditorHistory(v => !v)} title="Chat History" className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showEditorHistory ? 'bg-teal-100 text-teal-700' : 'hover:bg-gray-100 text-gray-500'}`}><History className="h-4 w-4" /></button>
           <button title="Notifications" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors relative"><Bell className="h-4 w-4" /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-500 ring-2 ring-white" /></button>
-          <Popover><PopoverTrigger asChild><button className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"><Layers className="h-4 w-4 text-teal-600" />{ribbonTab === 'doc-review' ? 'Doc Review' : ribbonTab === 'ai-extract' ? 'AI Extract' : ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}<ChevronDown className="h-3 w-3 text-gray-400" /></button></PopoverTrigger><PopoverContent className="w-40 p-1" align="end">{[{ id: 'home', label: 'Editor', icon: FileText }, { id: 'doc-review', label: 'Doc Review', icon: Bot }, { id: 'ai-extract', label: 'AI Extract', icon: MessageSquare }, { id: 'agent', label: 'AI Agent', icon: Bot }].map(m => { const Icon = m.icon; const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode); return (<button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}><Icon className="h-4 w-4" /> {m.label}</button>); })}</PopoverContent></Popover>
+          <Popover><PopoverTrigger asChild><button className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"><Layers className="h-4 w-4 text-teal-600" />{ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}<ChevronDown className="h-3 w-3 text-gray-400" /></button></PopoverTrigger><PopoverContent className="w-40 p-1" align="end">{[{ id: 'home', label: 'Editor', icon: FileText }, { id: 'agent', label: 'AI Agent', icon: Bot }].map(m => { const Icon = m.icon; const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode); return (<button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}><Icon className="h-4 w-4" /> {m.label}</button>); })}</PopoverContent></Popover>
           <button onClick={() => toast.info('Exporting...')} className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"><Download className="h-3.5 w-3.5" /> Export</button>
           <button
             onClick={handleSave}
@@ -3342,17 +3404,27 @@ export function AIDocStudio() {
         )}
       </div>
       {/* ══ Dark Bottom Dock ══ */}
-      {editorMode && (
-        <div className="absolute bottom-0 left-0 right-0 h-11 bg-slate-800 flex items-center justify-center gap-1.5 z-40 border-t border-slate-700">
+      <div className="absolute bottom-0 left-0 right-0 h-11 bg-slate-800 flex items-center justify-center gap-1.5 z-40 border-t border-slate-700">
           <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white text-[10px] font-bold mr-2 shadow-sm">{avatarInitial}</div>
           <div className="w-px h-5 bg-slate-700" />
           {dockItems.map(item => {
             const Icon = item.icon;
-            const isActive = activeAITool === item.id;
             const isOcr = item.id === 'ocr';
+            const isActive = isOcr
+              ? ribbonTab === 'doc-review'
+              : editorMode && activeAITool === item.id;
             return (
               <button key={item.id}
-                onClick={() => isOcr ? setRibbonTab('doc-review') : setActiveAITool(item.id as AITool)}
+                onClick={() => {
+                  if (isOcr) {
+                    setRibbonTab('doc-review');
+                    loadDocuments();
+                  } else {
+                    setRibbonTab('home');
+                    setActiveAITool(item.id as AITool);
+                    setAiPanelOpen(true);
+                  }
+                }}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                   isActive ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                 }`}>
@@ -3362,7 +3434,6 @@ export function AIDocStudio() {
             );
           })}
         </div>
-      )}
       {/* ── Signature Drawing Dialog ── */}
       <Dialog open={drawDialogOpen} onOpenChange={setDrawDialogOpen}><DialogContent className="sm:max-w-[500px]"><DialogHeader><DialogTitle className="flex items-center gap-2"><Pen className="h-4 w-4 text-teal-600" /> Draw Your Signature</DialogTitle></DialogHeader><div className="space-y-3"><div className="border-2 border-dashed border-border rounded-lg overflow-hidden bg-white"><canvas ref={canvasRef} width={460} height={200} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} className="w-full cursor-crosshair touch-none" /></div><div className="flex items-center justify-between"><Button variant="ghost" size="sm" onClick={clearCanvas} className="text-xs"><Eraser className="h-3.5 w-3.5 mr-1" /> Clear</Button><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setDrawDialogOpen(false)} className="text-xs">Cancel</Button><Button size="sm" onClick={saveDrawnSignature} className="text-xs bg-teal-600 hover:bg-teal-700 text-white border-0"><Check className="h-3.5 w-3.5 mr-1" /> Save Signature</Button></div></div></div></DialogContent></Dialog>
       {/* ── Signature Gallery ── */}
