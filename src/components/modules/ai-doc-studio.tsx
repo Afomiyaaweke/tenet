@@ -637,6 +637,7 @@ export function AIDocStudio() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [ribbonTab, setRibbonTab] = useState<RibbonTab>('home');
+  const pendingInsertRef = useRef<string | null>(null);
   const [docTitle, setDocTitle] = useState('Untitled Document');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [zoom, setZoom] = useState(100);
@@ -726,23 +727,48 @@ export function AIDocStudio() {
   /* ── Insert content from the AI Agent into the editor ── */
   useEffect(() => {
     const content = viewParams?.insertContent as string | undefined;
-    if (!content || !editorRef.current) return;
-    // Convert markdown-like text into editor DOM nodes and append
-    const nodes = textToEditorNodes(content);
-    const el = editorRef.current;
-    if (nodes.length === 0) return;
-    if (el.innerText.trim()) el.appendChild(document.createElement('br'));
-    for (const n of nodes) el.appendChild(n);
-    el.focus();
-    const sel = window.getSelection();
-    if (sel) { const range = document.createRange(); range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range); }
-    setSaveStatus('unsaved');
-    updateCounts();
-    toast.success('Agent analysis inserted into document');
-    // Switch to editor mode and clear the param so it doesn't re-trigger
-    setRibbonTab('home');
-    useNavStore.getState().setView('ai-doc-studio', { ...viewParams, insertContent: undefined });
+    if (!content) return;
+    // If editor is mounted, insert immediately
+    if (editorRef.current) {
+      const nodes = textToEditorNodes(content);
+      const el = editorRef.current;
+      if (nodes.length === 0) return;
+      if (el.innerText.trim()) el.appendChild(document.createElement('br'));
+      for (const n of nodes) el.appendChild(n);
+      el.focus();
+      const sel = window.getSelection();
+      if (sel) { const range = document.createRange(); range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range); }
+      setSaveStatus('unsaved');
+      updateCounts();
+      toast.success('Content inserted into document');
+      setRibbonTab('home');
+      useNavStore.getState().setView('ai-doc-studio', { ...viewParams, insertContent: undefined });
+    } else {
+      // Editor not mounted (agent tab active) — store pending content and switch tab
+      pendingInsertRef.current = content;
+      setRibbonTab('home');
+      useNavStore.getState().setView('ai-doc-studio', { ...viewParams, insertContent: undefined });
+    }
   }, [viewParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Apply pending insert content when editor mounts after tab switch ── */
+  useEffect(() => {
+    if (ribbonTab === 'home' && pendingInsertRef.current && editorRef.current) {
+      const content = pendingInsertRef.current;
+      pendingInsertRef.current = null;
+      const nodes = textToEditorNodes(content);
+      const el = editorRef.current;
+      if (nodes.length === 0) return;
+      if (el.innerText.trim()) el.appendChild(document.createElement('br'));
+      for (const n of nodes) el.appendChild(n);
+      el.focus();
+      const sel = window.getSelection();
+      if (sel) { const range = document.createRange(); range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range); }
+      setSaveStatus('unsaved');
+      updateCounts();
+      toast.success('Content inserted into document');
+    }
+  }, [ribbonTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Load documents for review ── */
   const loadDocuments = useCallback(async () => {

@@ -868,3 +868,25 @@ Stage Summary:
 - The AI agent now receives the structured tender form (title, scope, location, deadline, budget, categories, required docs) via both `tender-detail.handleSubmitBid` and `live-tenders.startBidApplication` flows, and uses it as authoritative context.
 - Assistant chat answer text now renders in black (light mode) instead of washed-out gray.
 - Files changed: src/lib/agent-loop.ts, src/app/api/agent-sessions/[id]/messages/route.ts, src/store/index.ts, src/components/modules/agent-chat.tsx, src/components/modules/live-tenders.tsx, src/components/modules/tender-detail.tsx
+---
+Task ID: 5
+Agent: main
+Task: Make agent output flow to editor, fix analysis panel, fix history, fix import flow
+
+Work Log:
+- Fixed agent-to-editor content flow: When agent tab is active, editorRef is null so insertContent was silently failing. Added pendingInsertRef to store content, switch to editor tab, then apply on mount.
+- Added "Insert into Document" and "Copy" buttons on every saved assistant message in agent chat.
+- Added "Send to Editor" button on Conversation History panel (right side) that formats all messages and sends to editor.
+- Added "Send to Editor" button on Analysis Summary card when analysis results exist.
+- Redesigned Analysis panel: when no analysis exists, shows Conversation History (last 10 messages with timestamps), Documents list (with status icons and file sizes), and Document Analysis section with Analyze button.
+- Added sendToEditor(), sendAnalysisToEditor(), sendChatHistoryToEditor() helper functions.
+- Fixed import flow: importDocumentsFromTender() now sets tenderRef with structured tender data (id, title, scope, location, deadline, budget, currency, categoryTags, requiredDocs) and auto-sends a message to the agent about the imported tender.
+- Same fix applied to importDocumentsFromLiveTender().
+- Added Copy and History icon imports from lucide-react.
+- Verified all changes via Agent Browser: Insert into Document switches to editor and inserts content, Conversation History shows in right panel, Send to Editor works.
+
+Stage Summary:
+- Agent chat output now flows seamlessly to the document editor
+- Analysis panel redesigned to be useful even without extraction results
+- Import flow passes structured tender data to agent context
+- Files changed: agent-chat.tsx (+120 lines, modified ~80 lines), ai-doc-studio.tsx (+30 lines, modified ~15 lines)

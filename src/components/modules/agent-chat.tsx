@@ -100,6 +100,8 @@ import {
   FilePlus2,
   Gavel,
   Image as ImageIcon,
+  Copy,
+  History,
 } from 'lucide-react';
 import { useNavStore } from '@/store';
 import { type Tender, type Bid } from '@/lib/api';
@@ -631,6 +633,21 @@ export function AgentChatView() {
         return;
       }
       const tender = tenderRes.data;
+
+      // Set structured tender data for the agent
+      tenderRef.current = {
+        id: tender.id,
+        title: tender.title,
+        scope: tender.scope || undefined,
+        location: tender.location || undefined,
+        deadline: tender.deadline || undefined,
+        budgetMin: tender.budgetMin,
+        budgetMax: tender.budgetMax,
+        currency: 'ETB',
+        categoryTags: tender.categoryTags || undefined,
+        requiredDocs: tender.requiredDocs || undefined,
+      };
+
       let imported = 0;
       for (const doc of tender.documents) {
         const res = await api.post(`/agent-sessions/${selectedSessionId}/documents/import`, {
@@ -646,6 +663,9 @@ export function AgentChatView() {
       if (imported > 0) {
         toast.success(`Imported ${imported} document${imported > 1 ? 's' : ''}`);
         setShowImportDialog(false);
+        // Auto-send a message about the imported tender so the agent is aware
+        const info = `I've imported the tender "${tender.title}" with ${imported} document(s). Please analyze the tender details and help me prepare a bid proposal.`;
+        await sendMessage(info);
       } else {
         toast.error('Failed to import documents');
       }
@@ -702,6 +722,21 @@ export function AgentChatView() {
         setImportLoading(false);
         return;
       }
+
+      // Set structured tender data for the agent
+      tenderRef.current = {
+        id: tender.id,
+        title: tender.title,
+        scope: (tender as any).scope || undefined,
+        location: tender.location || undefined,
+        deadline: tender.deadline || undefined,
+        budgetMin: tender.budgetMin,
+        budgetMax: tender.budgetMax,
+        currency: 'ETB',
+        categoryTags: tender.categoryTags || undefined,
+        requiredDocs: tender.requiredDocs || undefined,
+      };
+
       // For live tenders, use documentUrl or externalUrl
       const docUrl = (tender as any).documentUrl || tender.externalUrl;
       if (!docUrl) {
@@ -718,6 +753,9 @@ export function AgentChatView() {
         setDocuments((prev) => [res.data, ...prev]);
         toast.success('Document imported');
         setShowImportDialog(false);
+        // Auto-send a message about the imported tender
+        const info = `I've imported the live tender "${tender.title}". Please analyze the tender details and help me prepare a bid proposal.`;
+        await sendMessage(info);
       } else {
         toast.error(res.error || 'Failed to import');
       }
@@ -1421,12 +1459,16 @@ export function AgentChatView() {
               {msg.content && (
                 <div className="mt-2 flex items-center gap-2">
                   <button
-                    onClick={() => {
-                      useNavStore.getState().setView('ai-doc-studio', { insertContent: msg.content });
-                    }}
+                    onClick={() => sendToEditor(msg.content)}
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-600 text-white text-[10px] font-medium hover:bg-teal-700 transition-colors"
                   >
                     <FileDown className="h-3 w-3" /> Insert into Document
+                  </button>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(msg.content); toast.success('Copied to clipboard'); }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-muted text-foreground text-[10px] font-medium hover:bg-muted/80 transition-colors"
+                  >
+                    <Copy className="h-3 w-3" /> Copy
                   </button>
                 </div>
               )}
@@ -1569,7 +1611,7 @@ export function AgentChatView() {
           {streamingMsg.answer && (
             <div className="rounded-2xl rounded-tl-md bg-muted/40 px-4 py-2.5 text-foreground text-sm leading-relaxed max-w-none">
               <ReactMarkdown>{streamingMsg.answer}</ReactMarkdown>
-              <span className="animate-pulse text-foreground">▌</span>
+              {isStreaming && <span className="animate-pulse text-foreground">▌</span>}
             </div>
           )}
 
@@ -1811,6 +1853,66 @@ export function AgentChatView() {
   };
 
   /* ────────────────────────────────────────────────────────────
+     HELPER: Format content for editor
+     ──────────────────────────────────────────────────────────── */
+
+  const sendToEditor = (content: string) => {
+    useNavStore.getState().setView('ai-doc-studio', { insertContent: content });
+  };
+
+  const sendAnalysisToEditor = () => {
+    if (!analysisData) return;
+    const lines: string[] = [];
+    lines.push('# Tender Analysis Report');
+    lines.push('');
+    if (metadata.title?.value) lines.push(`**Title:** ${metadata.title.value}`);
+    if (metadata.tenderNumber?.value) lines.push(`**Tender Number:** ${metadata.tenderNumber.value}`);
+    if (metadata.issuingAuthority?.value) lines.push(`**Issuing Authority:** ${metadata.issuingAuthority.value}`);
+    if (metadata.publishedDate?.value) lines.push(`**Published:** ${metadata.publishedDate.value}`);
+    if (metadata.closingDate?.value) lines.push(`**Closing Date:** ${metadata.closingDate.value}`);
+    if (metadata.estimatedValue?.raw != null) lines.push(`**Estimated Value:** ${metadata.estimatedValue.raw.toLocaleString()}`);
+    if (metadata.category?.value) lines.push(`**Category:** ${metadata.category.value}`);
+    lines.push('');
+    if (overallConfidence !== null) lines.push(`**Overall Confidence:** ${(overallConfidence * 100).toFixed(1)}%`);
+    lines.push('');
+    if (bidderChartData.length > 0) {
+      lines.push('## Bidder Comparison');
+      for (const b of bidderChartData) {
+        lines.push(`- **${b.name}**: Price ${b.bidPrice ?? 'N/A'} | Score ${b.totalScore ?? 'N/A'} | Rank ${b.rank ?? 'N/A'}`);
+      }
+      lines.push('');
+    }
+    if (keyTerms.length > 0) {
+      lines.push('## Key Terms');
+      for (const kt of keyTerms) {
+        lines.push(`- **${kt.term}** (${kt.category}): ${kt.description}`);
+      }
+      lines.push('');
+    }
+    if (gapWarnings.length > 0) {
+      lines.push('## Gap Warnings');
+      for (const w of gapWarnings) {
+        lines.push(`- ⚠️ ${typeof w === 'string' ? w : String(w)}`);
+      }
+    }
+    sendToEditor(lines.join('\n'));
+  };
+
+  const sendChatHistoryToEditor = () => {
+    if (messages.length === 0) return;
+    const lines: string[] = [];
+    lines.push(`# ${selectedSession?.title || 'Agent'} Conversation`);
+    lines.push('');
+    for (const m of messages) {
+      const label = m.role === 'user' ? 'You' : 'AI Agent';
+      lines.push(`## ${label}`);
+      lines.push(m.content);
+      lines.push('');
+    }
+    sendToEditor(lines.join('\n'));
+  };
+
+  /* ────────────────────────────────────────────────────────────
      RENDER: ANALYSIS PANEL
      ──────────────────────────────────────────────────────────── */
 
@@ -1838,23 +1940,104 @@ export function AgentChatView() {
 
     if (!analysis) {
       return (
-        <div className="flex h-full items-center justify-center p-4">
-          <div className="text-center space-y-3">
-            <Sparkles className="mx-auto size-8 text-muted-foreground/30" />
-            <h4 className="text-sm font-medium text-muted-foreground">
-              Run analysis to see extraction results
-            </h4>
-            <Button
-              size="sm"
-              className="text-xs gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
-              onClick={runAnalysis}
-              disabled={analysisLoading || documents.length === 0}
-            >
-              {analysisLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-              Analyze
-            </Button>
+        <ScrollArea className="h-full">
+          <div className="p-4 space-y-4">
+            {/* Send chat history to editor */}
+            {messages.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2 px-4 pt-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <History className="size-4 text-violet-500" />
+                      Conversation History
+                    </CardTitle>
+                    <Button
+                      size="sm"
+                      className="text-[10px] gap-1 h-6 bg-teal-600 hover:bg-teal-700 text-white"
+                      onClick={sendChatHistoryToEditor}
+                    >
+                      <FileDown className="size-3" />
+                      Send to Editor
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  <ScrollArea className="max-h-64">
+                    <div className="space-y-2">
+                      {messages.slice(-10).map((m) => (
+                        <div key={m.id} className="text-xs">
+                          <div className={cn(
+                            'font-semibold text-[10px] mb-0.5',
+                            m.role === 'user' ? 'text-foreground' : 'text-violet-600'
+                          )}>
+                            {m.role === 'user' ? 'You' : 'AI Agent'}
+                            <span className="text-muted-foreground font-normal ml-1.5">
+                              {formatRelativeTime(m.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground text-[11px] line-clamp-3 whitespace-pre-wrap">
+                            {m.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Documents list */}
+            {documents.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2 px-4 pt-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <FileText className="size-4 text-teal-500" />
+                    Documents ({documents.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  <ScrollArea className="max-h-48">
+                    <div className="space-y-1.5">
+                      {documents.map((doc) => (
+                        <div key={doc.id} className="flex items-center gap-2 text-xs">
+                          {getStatusIcon(doc.status)}
+                          <span className="flex-1 truncate text-foreground">{doc.filename}</span>
+                          <span className="text-[10px] text-muted-foreground">{formatFileSize(doc.fileSize)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Analyze button */}
+            <Card>
+              <CardContent className="px-4 py-4">
+                <div className="flex flex-col items-center gap-3">
+                  <Sparkles className="size-8 text-muted-foreground/30" />
+                  <h4 className="text-sm font-medium text-foreground">
+                    Document Analysis
+                  </h4>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {documents.length > 0
+                      ? 'Run AI extraction on your uploaded documents'
+                      : 'Upload documents to enable AI extraction'}
+                  </p>
+                  <Button
+                    size="sm"
+                    className="text-xs gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
+                    onClick={runAnalysis}
+                    disabled={analysisLoading || documents.length === 0}
+                  >
+                    {analysisLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                    Analyze Documents
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        </ScrollArea>
       );
     }
 
@@ -1864,10 +2047,20 @@ export function AgentChatView() {
           {/* Summary Card */}
           <Card>
             <CardHeader className="pb-2 px-4 pt-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Award className="size-4 text-teal-500" />
-                Analysis Summary
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Award className="size-4 text-teal-500" />
+                  Analysis Summary
+                </CardTitle>
+                <Button
+                  size="sm"
+                  className="text-[10px] gap-1 h-6 bg-teal-600 hover:bg-teal-700 text-white"
+                  onClick={sendAnalysisToEditor}
+                >
+                  <FileDown className="size-3" />
+                  Send to Editor
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="px-4 pb-3 space-y-2">
               <div className="grid grid-cols-2 gap-2">
