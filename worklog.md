@@ -931,3 +931,48 @@ Stage Summary:
 - Editor layout is now: [Left: Template Gen + input] [Center: Editor] [Right: Chat History (toggleable)]
 - File changed: src/components/modules/ai-doc-studio.tsx
 - 0 lint errors
+
+---
+Task ID: 3b
+Agent: main
+Task: Re-apply responsive changes to AI Doc Studio (lost in git reset)
+
+Work Log:
+- Added imports: `useIsMobile` hook, `Menu` icon from lucide-react, `Sheet/SheetContent/SheetHeader/SheetTitle` from shadcn/ui
+- Added state: `isMobile` (from useIsMobile hook), `leftSidebarOpen` for mobile sidebar sheet
+- Back button: replaced simple dashboard navigation with context-aware logic (agent→home, doc-review/ai-extract→deselect doc then home)
+- Header: added hamburger Menu button (mobile + editorMode only), hid search bar on mobile (`hidden md:block`), hid Notifications and Export buttons on mobile, wrapped Save text and Editor/Agent label in `hidden md:inline`
+- Left sidebar: wrapped desktop `<aside>` in `{!isMobile && (...)}`, added mobile `<Sheet>` version with same content
+- Right history sidebar: added dark backdrop overlay on mobile (`fixed inset-0 z-40 bg-black/50`), made aside fixed on mobile (`fixed inset-y-0 right-0 z-50`)
+- Doc Review content: left panel responsive hide/show with `selectedDocId`, right panel responsive hide/show, added "Back to documents" button on mobile
+- AI Extract content: same responsive pattern as Doc Review using `localSelectedDocId`
+- Bottom dock: hid avatar and divider on mobile (`hidden md:flex/block`), hid text labels on mobile (`hidden md:inline`)
+- Editor paper: container padding `p-2 md:p-6`, paper padding ternary `isMobile ? '24px 20px 32px 20px' : '72px 72px 96px 72px'`, title input `text-xl md:text-2xl`
+- Lint: 0 new errors (only pre-existing warnings)
+
+Stage Summary:
+- All 10 responsive changes re-applied to ai-doc-studio.tsx
+- Mobile: sidebar becomes Sheet, search/notifications/export hidden, back button context-aware, doc-review/ai-extract mobile list→detail navigation
+- File changed: src/components/modules/ai-doc-studio.tsx
+- 0 lint errors
+---
+Task ID: 3b
+Agent: main
+Task: Remove test users from Vercel social circle + re-push responsive changes
+
+Work Log:
+- Analyzed social circle data model: SocialPost, SocialPostReaction, SocialPostComment, Connection, Endorsement
+- Created /api/admin/cleanup-social-tests endpoint that:
+  - Detects test users by email patterns (test, demo, sample, fake, etc.) and name patterns
+  - Supports dry-run (default) and confirmed deletion
+  - Deletes all social data: posts, reactions, comments, connections, endorsements, profiles, users
+  - Requires team_admin role
+  - Protected real user (afomiyaaweke20@gmail.com) from deletion
+- Pushed cleanup endpoint to GitHub (commit a85d626)
+- Re-applied responsive AI Doc Studio changes that were lost during git reset
+- Pushed responsive changes (commit 10774d7)
+
+Stage Summary:
+- Cleanup endpoint deployed at /api/admin/cleanup-social-tests
+- User needs to: 1) Login on Vercel, 2) Visit the endpoint in browser (GET for dry-run), 3) POST with {confirm: 'DELETE_ALL_TEST_USERS'} to actually delete
+- Responsive AI Doc Studio changes re-pushed to GitHub
