@@ -706,7 +706,7 @@ export function AIDocStudio() {
   /* ── Auto-open bid builder or Agent tab when navigated from "Start Bid Application" ── */
   useEffect(() => {
     if (viewParams?.tenderId) {
-      setBidSelectedTender(viewParams.tenderId);
+      setBidSelectedTender(viewParams.tenderId as string);
       // Populate bid form from tender data once tenders are loaded
       const t = tenders.find(t => t.id === viewParams.tenderId);
       if (t) {

@@ -2271,7 +2271,7 @@ export function AgentChatView() {
                   {gapWarnings.map((warning, i) => (
                     <div key={i} className="flex items-start gap-2 rounded-md bg-amber-50 dark:bg-amber-950/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-400">
                       <AlertTriangle className="size-3 shrink-0 mt-0.5" />
-                      <span>{typeof warning === 'string' ? warning : warning?.message || warning?.text || JSON.stringify(warning)}</span>
+                      <span>{typeof warning === 'string' ? warning : (warning as Record<string, string>)?.message || (warning as Record<string, string>)?.text || JSON.stringify(warning)}</span>
                     </div>
                   ))}
                 </div>

@@ -413,11 +413,11 @@ export function AppShell() {
       case 'live-tenders':
         return <LiveTendersView />;
       case 'tender-detail':
-        return <TenderDetailView tenderId={viewParams.id} initialTab={viewParams.tab as any} />;
+        return <TenderDetailView tenderId={viewParams.id as string} initialTab={viewParams.tab as any} />;
       case 'tender-compare':
-        return <TenderCompareView tenderIds={viewParams.ids} />;
+        return <TenderCompareView tenderIds={viewParams.ids as string} />;
       case 'bid-compare':
-        return <BidCompareView tenderId={viewParams.tenderId} />;
+        return <BidCompareView tenderId={viewParams.tenderId as string} />;
       case 'bid-analysis':
         return <BidsView />;
       case 'bids':
@@ -427,11 +427,11 @@ export function AppShell() {
       case 'projects':
         return <ProjectsView />;
       case 'project-detail':
-        return <ProjectDetailView projectId={viewParams.id} />;
+        return <ProjectDetailView projectId={viewParams.id as string} />;
       case 'chat':
-        return <ChatView chatId={viewParams.id} />;
+        return <ChatView chatId={viewParams.id as string} />;
       case 'finance':
-        return <ProjectDetailView projectId={viewParams.id} />;
+        return <ProjectDetailView projectId={viewParams.id as string} />;
       case 'events':
         return <EventsView />;
       case 'profile':

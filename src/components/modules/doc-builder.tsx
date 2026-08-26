@@ -288,10 +288,10 @@ export function DocBuilderView() {
   // Auto-select template and tender from viewParams (e.g. from "Start Bid Application")
   useEffect(() => {
     if (viewParams?.templateId && !selectedTemplate) {
-      setSelectedTemplate(viewParams.templateId);
+      setSelectedTemplate(viewParams.templateId as string);
     }
     if (viewParams?.tenderId && !inputData.tenderId) {
-      setInputData(prev => ({ ...prev, tenderId: viewParams.tenderId! }));
+      setInputData(prev => ({ ...prev, tenderId: viewParams.tenderId as string }));
     }
   }, [viewParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
