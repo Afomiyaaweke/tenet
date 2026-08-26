@@ -687,6 +687,8 @@ export function AIDocStudio() {
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
+  // Right sidebar: show AI chat history alongside the editor
+  const [showEditorHistory, setShowEditorHistory] = useState(false);
   // Sidebar document generation source: which live tender to pull from (bid-builder / req-analyzer / applicant)
   const [genTenderId, setGenTenderId] = useState('');
   // Source selection: 'live-tender' or 'external'
@@ -3202,7 +3204,7 @@ export function AIDocStudio() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button title="History" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"><History className="h-4 w-4" /></button>
+          <button onClick={() => setShowEditorHistory(v => !v)} title="Chat History" className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showEditorHistory ? 'bg-teal-100 text-teal-700' : 'hover:bg-gray-100 text-gray-500'}`}><History className="h-4 w-4" /></button>
           <button title="Notifications" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors relative"><Bell className="h-4 w-4" /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-500 ring-2 ring-white" /></button>
           <Popover><PopoverTrigger asChild><button className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"><Layers className="h-4 w-4 text-teal-600" />{ribbonTab === 'doc-review' ? 'Doc Review' : ribbonTab === 'ai-extract' ? 'AI Extract' : ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}<ChevronDown className="h-3 w-3 text-gray-400" /></button></PopoverTrigger><PopoverContent className="w-40 p-1" align="end">{[{ id: 'home', label: 'Editor', icon: FileText }, { id: 'doc-review', label: 'Doc Review', icon: Bot }, { id: 'ai-extract', label: 'AI Extract', icon: MessageSquare }, { id: 'agent', label: 'AI Agent', icon: Bot }].map(m => { const Icon = m.icon; const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode); return (<button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}><Icon className="h-4 w-4" /> {m.label}</button>); })}</PopoverContent></Popover>
           <button onClick={() => toast.info('Exporting...')} className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"><Download className="h-3.5 w-3.5" /> Export</button>
@@ -3236,74 +3238,6 @@ export function AIDocStudio() {
                 <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
                 <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"><Plus className="h-3 w-3" /> Insert into document</button>
               </div>
-              {chatMessages.length > 1 && (
-                <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 thin-scroll">
-                  {chatMessages.slice(1).map(m => {
-                    const segments = m.role === 'assistant' ? parseChatSegments(m.content) : [];
-                    return (
-                    <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'}`}>
-                        {m.role === 'assistant'
-                          ? <Bot className="h-3 w-3 text-teal-600" />
-                          : <span className="text-[10px] font-semibold text-gray-600">{avatarInitial}</span>}
-                      </div>
-                      <div className={`max-w-[88%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'}`}>
-                        {m.role === 'assistant' ? (
-                          segments.map((seg, i) => (
-                            seg.type === 'doc' ? (
-                              <div key={i} className="mt-2 first:mt-0 rounded-lg border border-teal-200 bg-teal-50/40 overflow-hidden">
-                                <div className="px-2.5 py-1 border-b border-teal-200/70 flex items-center gap-1.5 bg-teal-50">
-                                  <FileDown className="h-3 w-3 text-teal-600" />
-                                  <span className="text-[10px] font-semibold text-teal-700">Document content</span>
-                                  <span className="text-[9px] text-teal-600/70 ml-auto">{seg.content.split(/\s+/).filter(Boolean).length} words</span>
-                                </div>
-                                <pre className="px-2.5 py-2 text-[10px] leading-relaxed text-gray-700 whitespace-pre-wrap max-h-44 overflow-y-auto thin-scroll font-sans m-0">{seg.content}</pre>
-                                <div className="px-2 py-1.5 border-t border-teal-200/70 bg-white flex gap-1.5">
-                                  <button onClick={() => insertIntoEditor(seg.content)} title="Append to the end of the document" className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-600 text-white text-[10px] font-medium hover:bg-teal-700 transition-colors">
-                                    <Plus className="h-3 w-3" /> Insert
-                                  </button>
-                                  <button onClick={() => replaceDocument(seg.content)} title="Replace the whole document with this content" className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-teal-300 text-teal-700 text-[10px] font-medium hover:bg-teal-50 transition-colors">
-                                    <RefreshCw className="h-3 w-3" /> Replace
-                                  </button>
-                                  <button onClick={() => { navigator.clipboard?.writeText(seg.content); toast.success('Copied'); }} title="Copy to clipboard" className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-md text-gray-500 text-[10px] font-medium hover:bg-gray-100 transition-colors">
-                                    <Copy className="h-3 w-3" /> Copy
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              seg.content && seg.content.trim() ? (
-                                <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
-                                  {seg.content.split('\n').map((line, j) => (
-                                    <p key={j} className={j > 0 ? 'mt-1' : ''}>{line}</p>
-                                  ))}
-                                </div>
-                              ) : null
-                            )
-                          ))
-                        ) : (
-                          m.content.split('\n').map((line, i) => (
-                            <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
-                          ))
-                        )}
-                        {m.kind === 'generated' && (
-                          <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
-                            <Plus className="h-3 w-3" /> Inserted
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    );
-                  })}
-                  {chatSending && (
-                    <div className="flex gap-2">
-                      <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center flex-shrink-0">
-                        <Loader2 className="h-3 w-3 text-teal-600 animate-spin" />
-                      </div>
-                      <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-[11px] text-gray-400 shadow-sm">Thinking...</div>
-                    </div>
-                  )}
-                </div>
-              )}
               <div className="p-3 pb-12 mt-auto border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
             </aside>
             <main className="flex-1 flex flex-col overflow-hidden bg-gray-50 pb-12">
@@ -3311,6 +3245,93 @@ export function AIDocStudio() {
               <div className="flex-1 overflow-auto bg-gray-100 p-6" onClick={() => { if (placementMode) { /* handled */ } }}><div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: '72px 72px 96px 72px' }}><div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}><div className="text-center"><p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p><p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p></div></div><input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }} placeholder="Document title" className="w-full text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} /><div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick} className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700" style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }} data-placeholder="Start typing or use the Template Generator to populate this document..."></div><div className="absolute bottom-8 left-0 right-0 text-center"><div className="border-t border-gray-200 pt-2"><p className="text-[10px] text-gray-400">Page 1 of 1</p></div></div></div></div></div>
               <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0"><div className="flex-1">Page 1 of 1</div><div className="flex items-center gap-3"><span>{wordCount} words</span><span>{charCount} chars</span>{placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}</div><div className="flex-1 flex items-center justify-end gap-1"><button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button><Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}><SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger><SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent></Select><button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button></div></div>
             </main>
+            {showEditorHistory && (
+              <aside className="w-[300px] flex-shrink-0 border-l border-gray-200 bg-white overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
+                  <h3 className="text-sm font-semibold text-gray-900">Chat History</h3>
+                  <button onClick={() => setShowEditorHistory(false)} className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {chatMessages.length > 1 ? (
+                  <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 thin-scroll">
+                    {chatMessages.slice(1).map(m => {
+                      const segments = m.role === 'assistant' ? parseChatSegments(m.content) : [];
+                      return (
+                      <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'}`}>
+                          {m.role === 'assistant'
+                            ? <Bot className="h-3 w-3 text-teal-600" />
+                            : <span className="text-[10px] font-semibold text-gray-600">{avatarInitial}</span>}
+                        </div>
+                        <div className={`max-w-[88%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-gray-100 text-gray-700' : 'bg-white border border-gray-200 text-gray-700 shadow-sm'}`}>
+                          {m.role === 'assistant' ? (
+                            segments.map((seg, i) => (
+                              seg.type === 'doc' ? (
+                                <div key={i} className="mt-2 first:mt-0 rounded-lg border border-teal-200 bg-teal-50/40 overflow-hidden">
+                                  <div className="px-2.5 py-1 border-b border-teal-200/70 flex items-center gap-1.5 bg-teal-50">
+                                    <FileDown className="h-3 w-3 text-teal-600" />
+                                    <span className="text-[10px] font-semibold text-teal-700">Document content</span>
+                                    <span className="text-[9px] text-teal-600/70 ml-auto">{seg.content.split(/\s+/).filter(Boolean).length} words</span>
+                                  </div>
+                                  <pre className="px-2.5 py-2 text-[10px] leading-relaxed text-gray-700 whitespace-pre-wrap max-h-44 overflow-y-auto thin-scroll font-sans m-0">{seg.content}</pre>
+                                  <div className="px-2 py-1.5 border-t border-teal-200/70 bg-white flex gap-1.5">
+                                    <button onClick={() => insertIntoEditor(seg.content)} title="Append to the end of the document" className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-600 text-white text-[10px] font-medium hover:bg-teal-700 transition-colors">
+                                      <Plus className="h-3 w-3" /> Insert
+                                    </button>
+                                    <button onClick={() => replaceDocument(seg.content)} title="Replace the whole document with this content" className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-teal-300 text-teal-700 text-[10px] font-medium hover:bg-teal-50 transition-colors">
+                                      <RefreshCw className="h-3 w-3" /> Replace
+                                    </button>
+                                    <button onClick={() => { navigator.clipboard?.writeText(seg.content); toast.success('Copied'); }} title="Copy to clipboard" className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-md text-gray-500 text-[10px] font-medium hover:bg-gray-100 transition-colors">
+                                      <Copy className="h-3 w-3" /> Copy
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                seg.content && seg.content.trim() ? (
+                                  <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
+                                    {seg.content.split('\n').map((line, j) => (
+                                      <p key={j} className={j > 0 ? 'mt-1' : ''}>{line}</p>
+                                    ))}
+                                  </div>
+                                ) : null
+                              )
+                            ))
+                          ) : (
+                            m.content.split('\n').map((line, i) => (
+                              <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
+                            ))
+                          )}
+                          {m.kind === 'generated' && (
+                            <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
+                              <Plus className="h-3 w-3" /> Inserted
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      );
+                    })}
+                    {chatSending && (
+                      <div className="flex gap-2">
+                        <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center flex-shrink-0">
+                          <Loader2 className="h-3 w-3 text-teal-600 animate-spin" />
+                        </div>
+                        <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-[11px] text-gray-400 shadow-sm">Thinking...</div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center space-y-2">
+                      <MessageSquare className="mx-auto size-8 text-gray-300" />
+                      <p className="text-xs text-gray-400">No chat history yet</p>
+                      <p className="text-[10px] text-gray-300">Use the input below to ask the AI</p>
+                    </div>
+                  </div>
+                )}
+                <div className="p-3 border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
+              </aside>
+            )}
           </>
         ) : ribbonTab === 'agent' ? (
           <div className="flex-1 overflow-hidden"><AgentChatView /></div>

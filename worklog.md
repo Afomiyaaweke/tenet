@@ -912,3 +912,22 @@ Stage Summary:
 - Removed 2 sources of functional redundancy, fixed 1 bug
 - File changed: src/components/modules/agent-chat.tsx
 - 0 lint errors
+---
+Task ID: 4
+Agent: main
+Task: Add right sidebar to editor for chat history
+
+Work Log:
+- Added `showEditorHistory` state toggle to AIDocStudio component
+- Wired the History button in the header to toggle the right sidebar (with active/inactive visual state)
+- Moved chat messages rendering (parseChatSegments, Insert/Replace/Copy buttons, thinking indicator) from left sidebar to a new right sidebar
+- Left sidebar now only shows: Template Generator + chat input (cleaner)
+- Right sidebar (300px, border-l, slide-in animation) shows: Chat History header with close button, scrollable messages area, chat input at bottom
+- Added empty state for right sidebar when no history: icon + "No chat history yet" + helper text
+- Both left and right sidebar chat inputs share the same state (chatInput, sendChat)
+- Verified: toggle opens/closes, layout is clean, no errors
+
+Stage Summary:
+- Editor layout is now: [Left: Template Gen + input] [Center: Editor] [Right: Chat History (toggleable)]
+- File changed: src/components/modules/ai-doc-studio.tsx
+- 0 lint errors
