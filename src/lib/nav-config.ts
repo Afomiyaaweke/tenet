@@ -2,7 +2,7 @@ import type { ComponentType } from 'react';
 import {
   LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
   GraduationCap, User, FileText, Bot, Globe2, Users, Mail, Lock,
-  ClipboardList, ChartColumn, Star,
+  ClipboardList, ChartColumn,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -54,7 +54,6 @@ export function getNavItemsForRole(role: string): NavSection[] {
         items: [
           { id: 'team-management', label: 'Team Management', icon: Users },
           { id: 'social-circle', label: 'Social Circle', icon: Users },
-          { id: 'review-moderation', label: 'Review Moderation', icon: Star },
         ],
       },
       tools,

@@ -47,7 +47,7 @@ const AIDocStudioView = dynamic(() => import('@/components/modules/ai-doc-studio
 
 const TenderAnalyzerView = dynamic(() => import('@/components/modules/tender-analyzer').then(m => ({ default: m.TenderAnalyzerView })), { ssr: false });
 const TeamManagementView = dynamic(() => import('@/components/modules/team-management').then(m => ({ default: m.TeamManagementView })), { ssr: false });
-const ReviewModerationView = dynamic(() => import('@/components/modules/review-moderation').then(m => ({ default: m.ReviewModerationView })), { ssr: false });
+
 
 /* ──────────────────────────── Loading spinner ──────────────────────────── */
 
@@ -100,7 +100,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio'  | 'tender-analyzer' | 'agent' | 'staff' | 'team-management' | 'contact-us' | 'privacy-policy' | 'admin' |'social-circle' | 'rate-limits' | 'review-moderation';
+type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio'  | 'tender-analyzer' | 'agent' | 'staff' | 'team-management' | 'contact-us' | 'privacy-policy' | 'admin' |'social-circle' | 'rate-limits' ;
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -458,8 +458,7 @@ case 'tender-analyzer':
         return <SocialCircleView />;
       case 'rate-limits':
         return <RateLimitsView />;
-      case 'review-moderation':
-        return <ReviewModerationView />;
+
 
       default:
         return <DashboardView />;
