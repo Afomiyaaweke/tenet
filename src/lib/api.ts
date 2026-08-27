@@ -149,6 +149,7 @@ export interface Company {
   email?: string;
   website?: string;
   logoUrl?: string;
+  vanitySlug?: string;
   verified: boolean;
   status: string;
   createdAt: string;

@@ -22,7 +22,7 @@ import {
   CheckCircle, Briefcase, FileText, Upload, Clock, XCircle,
   Award, Receipt, FolderOpen, File, Camera, Users, UserCircle,
   Globe, MapPinned, Hash, ExternalLink, Plus, ChevronRight,
-  Lock, Eye, PenTool, Settings, FileCheck, ClipboardList,
+  Lock, Eye, PenTool, Settings, FileCheck, ClipboardList, Link2, Copy, Check,
 } from 'lucide-react';
 import { StampSignatureManager } from '@/components/stamp-signature';
 // ==========================================
@@ -203,7 +203,9 @@ export function ProfileView() {
     email: company?.email || '',
     website: company?.website || '',
     address: company?.address || '',
+    vanitySlug: company?.vanitySlug || '',
   }));
+  const [vanityCopied, setVanityCopied] = useState(false);
   const [savingCompany, setSavingCompany] = useState(false);
 
   const profile = user?.profile;
@@ -464,6 +466,7 @@ export function ProfileView() {
                             email: companyData.email || '',
                             website: companyData.website || '',
                             address: companyData.address || '',
+                            vanitySlug: companyData.vanitySlug || '',
                           });
                           setEditingCompany(true);
                         }}
@@ -513,6 +516,19 @@ export function ProfileView() {
                       <div className="space-y-1.5 sm:col-span-2">
                         <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Address</Label>
                         <Input className="rounded-lg bg-muted/50 text-sm h-8" value={companyForm.address} onChange={e => setCompanyForm(f => ({ ...f, address: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Vanity URL</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">tenetbid.com/</span>
+                          <Input
+                            className="rounded-lg bg-muted/50 text-sm h-8 flex-1"
+                            placeholder="your-company-name"
+                            value={companyForm.vanitySlug}
+                            onChange={e => setCompanyForm(f => ({ ...f, vanitySlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '') }))}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">Shareable link for your company profile. Lowercase, numbers &amp; hyphens only.</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 pt-1">
@@ -590,10 +606,33 @@ export function ProfileView() {
                   {companyData.website && (
                     <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg">
                       <Globe className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
                         <p className="text-xs font-medium truncate max-w-[200px]">{companyData.website}</p>
                       </div>
+                    </div>
+                  )}
+                  {(companyData as Record<string, unknown>).vanitySlug && (
+                    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg sm:col-span-2">
+                      <Link2 className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Vanity URL</p>
+                        <p className="text-xs font-medium text-primary truncate">/{(companyData as Record<string, unknown>).vanitySlug as string}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 shrink-0"
+                        onClick={() => {
+                          const url = `${window.location.origin}/${(companyData as Record<string, unknown>).vanitySlug as string}`;
+                          navigator.clipboard.writeText(url);
+                          setVanityCopied(true);
+                          setTimeout(() => setVanityCopied(false), 2000);
+                          toast.success('Link copied!');
+                        }}
+                      >
+                        {vanityCopied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                      </Button>
                     </div>
                   )}
                 </div>

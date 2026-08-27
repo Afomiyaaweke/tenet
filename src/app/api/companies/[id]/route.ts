@@ -115,7 +115,36 @@ export async function PUT(
       website,
       address,
       status,
+      vanitySlug,
     } = body;
+
+    // Check for duplicate vanity slug if being updated
+    if (vanitySlug !== undefined && vanitySlug !== existingCompany.vanitySlug) {
+      if (vanitySlug) {
+        // Validate slug format: lowercase, alphanumeric, hyphens only
+        if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(vanitySlug) && !/^[a-z0-9]$/.test(vanitySlug)) {
+          return NextResponse.json(
+            { success: false, error: 'Invalid slug format. Use lowercase letters, numbers, and hyphens only. Must be 2+ characters.' },
+            { status: 400 }
+          );
+        }
+        // Block reserved slugs
+        const reserved = ['api', 'login', 'register', 'auth', 'admin', 'dashboard', 'tenders', 'bids', 'docs', 'privacy', 'terms', 'settings', 'profile', 'chat', 'projects', 'events', 'contact', 'favicon', '_next'];
+        if (reserved.includes(vanitySlug)) {
+          return NextResponse.json(
+            { success: false, error: 'This slug is reserved and cannot be used.' },
+            { status: 400 }
+          );
+        }
+        const duplicateSlug = await db.company.findUnique({ where: { vanitySlug } });
+        if (duplicateSlug) {
+          return NextResponse.json(
+            { success: false, error: 'This vanity URL is already taken. Try another.' },
+            { status: 409 }
+          );
+        }
+      }
+    }
 
     // Check for duplicate registration number or TIN if being updated
     if (registrationNo && registrationNo !== existingCompany.registrationNo) {
@@ -150,6 +179,7 @@ export async function PUT(
     if (email !== undefined) updateData.email = email || null;
     if (website !== undefined) updateData.website = website || null;
     if (address !== undefined) updateData.address = address || null;
+    if (vanitySlug !== undefined) updateData.vanitySlug = vanitySlug || null;
     // Only team_admin can change status
     if (status !== undefined && user!.role === 'team_admin') {
       updateData.status = status;
