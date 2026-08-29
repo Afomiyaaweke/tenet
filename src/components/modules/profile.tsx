@@ -22,7 +22,7 @@ import {
   CheckCircle, Briefcase, FileText, Upload, Clock, XCircle,
   Award, Receipt, FolderOpen, File, Camera, Users, UserCircle,
   Globe, MapPinned, Hash, ExternalLink, Plus, ChevronRight,
-  Lock, Eye, PenTool, Settings, FileCheck, ClipboardList, Link2, Copy, Check,
+  Lock, Eye, PenTool, Settings, FileCheck, ClipboardList, Link2, Copy, Check, TrendingUp,
 } from 'lucide-react';
 import { StampSignatureManager } from '@/components/stamp-signature';
 // ==========================================
@@ -399,6 +399,65 @@ export function ProfileView() {
           </div>
         )}
       </div>
+
+      {/* ==========================================
+          SUPPLIER PASSPORT / QUALITY SCORE
+         ========================================== */}
+      {hasCompany && companyData && (companyData as Record<string, unknown>).vanitySlug && (
+        <div className="animate-[fadeIn_0.3s_ease-out]">
+          <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500/10 to-orange-500/10">
+                  <TrendingUp className="h-3.5 w-3.5 text-amber-600" />
+                </div>
+                Supplier Passport
+                <Badge variant="outline" className="text-[10px] ml-auto font-normal">Public Profile</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Your public capability microsite is live. Share it to attract tenders and build your reputation.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs rounded-lg"
+                      onClick={() => {
+                        const url = `${window.location.origin}/${(companyData as Record<string, unknown>).vanitySlug as string}`;
+                        window.open(url, '_blank');
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3" /> View Profile
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs rounded-lg"
+                      onClick={() => {
+                        const url = `${window.location.origin}/${(companyData as Record<string, unknown>).vanitySlug as string}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success('Profile link copied! Share it on LinkedIn.');
+                      }}
+                    >
+                      <Copy className="h-3 w-3" /> Copy Link
+                    </Button>
+                  </div>
+                </div>
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-border/50 flex items-center justify-center shrink-0">
+                  <span className="text-2xl font-black text-primary">T</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-3 italic">
+                &ldquo;Stop begging for tenders. Let your data speak.&rdquo;
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* ==========================================
           COMPANY SECTION (top of profile)
