@@ -20,7 +20,7 @@ import {
   Sparkles, ChartColumn, ShieldAlert, ShieldCheck, ShieldQuestion,
   TrendingDown, Loader2, BrainCircuit, AlertTriangle, Lightbulb,
   FileCheck, Wallet, Clock3, ClipboardCheck, Stamp, FileSignature, Languages, Upload,
-  Download, FileDown, ExternalLink, Globe2, FileSpreadsheet, Copy,
+  Download, FileDown, ExternalLink, Globe2, FileSpreadsheet, Copy, HelpCircle,
 } from 'lucide-react';
 import { useStampSignature, StampSignatureSelector, type SavedSignature } from '@/components/stamp-signature';
 import { InlineTranslator, TranslatorPanel } from '@/components/translator';
@@ -2291,6 +2291,7 @@ ${tender.budgetMin || tender.budgetMax ? `**Budget:** ETB ${tender.budgetMin || 
                                 <TableHead className="text-center">Financial</TableHead>
                                 <TableHead className="text-center">Risk</TableHead>
                                 <TableHead>Key Points</TableHead>
+                                <TableHead className="w-16 text-center">Why?</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -2350,6 +2351,101 @@ ${tender.budgetMin || tender.budgetMax ? `**Budget:** ETB ${tender.budgetMin || 
                                         </div>
                                       )}
                                     </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full hover:bg-primary/10" title="Why this score?">
+                                          <HelpCircle className="h-3.5 w-3.5 text-primary" />
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-lg">
+                                        <DialogHeader>
+                                          <DialogTitle className="flex items-center gap-2 text-base">
+                                            <div className={`flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold ${
+                                              applicant.rank === 1 ? 'gradient-emerald text-white' :
+                                              applicant.rank === 2 ? 'bg-teal-100 text-teal-700' :
+                                              applicant.rank === 3 ? 'bg-amber-100 text-amber-700' :
+                                              'bg-muted text-muted-foreground'
+                                            }`}>
+                                              {applicant.rank}
+                                            </div>
+                                            <span>{applicant.name}</span>
+                                          </DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-4">
+                                          {/* Score Breakdown */}
+                                          <div className="grid grid-cols-3 gap-2">
+                                            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
+                                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Overall</p>
+                                              <p className={`text-xl font-bold ${applicant.overallScore >= 80 ? 'text-emerald-600' : applicant.overallScore >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{applicant.overallScore}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
+                                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Technical</p>
+                                              <p className={`text-xl font-bold ${applicant.technicalScore >= 80 ? 'text-emerald-600' : applicant.technicalScore >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{applicant.technicalScore}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
+                                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Financial</p>
+                                              <p className={`text-xl font-bold ${applicant.financialScore >= 80 ? 'text-emerald-600' : applicant.financialScore >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{applicant.financialScore}</p>
+                                            </div>
+                                          </div>
+
+                                          {/* Risk Level */}
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">Risk Level:</span>
+                                            <RiskBadge level={applicant.riskLevel} />
+                                          </div>
+
+                                          {/* Strengths */}
+                                          {applicant.strengths.length > 0 && (
+                                            <div>
+                                              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5 flex items-center gap-1">
+                                                <CheckCircle className="h-3 w-3" /> Strengths
+                                              </p>
+                                              <ul className="space-y-1">
+                                                {applicant.strengths.map((s, i) => (
+                                                  <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                                                    <span className="text-emerald-500 mt-0.5">•</span>{s}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+
+                                          {/* Weaknesses */}
+                                          {applicant.weaknesses.length > 0 && (
+                                            <div>
+                                              <p className="text-xs font-semibold text-rose-700 dark:text-rose-400 mb-1.5 flex items-center gap-1">
+                                                <TrendingDown className="h-3 w-3" /> Weaknesses
+                                              </p>
+                                              <ul className="space-y-1">
+                                                {applicant.weaknesses.map((w, i) => (
+                                                  <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                                                    <span className="text-rose-500 mt-0.5">•</span>{w}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+
+                                          {/* AI Recommendation (the "Why?") */}
+                                          {applicant.recommendation && (
+                                            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                                              <p className="text-xs font-semibold text-primary mb-1.5 flex items-center gap-1">
+                                                <Sparkles className="h-3 w-3" /> AI Reasoning
+                                              </p>
+                                              <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-wrap">{applicant.recommendation}</p>
+                                            </div>
+                                          )}
+
+                                          {/* Transparency note */}
+                                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground pt-2 border-t border-border/50">
+                                            <ShieldCheck className="h-3 w-3" />
+                                            <span>Glass Box AI — every score is auditable and explainable.</span>
+                                          </div>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
                                   </TableCell>
                                 </TableRow>
                               ))}

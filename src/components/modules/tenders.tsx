@@ -1244,6 +1244,51 @@ export function TendersView() {
         </div>
       )}
 
+      {/* Top 5 AI Matches — Paradox of Choice Fix */}
+      {!loading && !categoryFilter && tenders.some(t => t.matchScore !== undefined && t.matchScore > 0) && (
+        <div className="animate-[fadeIn_0.3s_ease-out]">
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg gradient-emerald">
+                <Sparkles className="h-3.5 w-3.5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold">Top 5 AI Matches For You</h3>
+                <p className="text-[10px] text-muted-foreground">Highest relevance based on your skills</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+              {[...tenders]
+                .filter(t => t.matchScore !== undefined && t.matchScore > 0)
+                .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+                .slice(0, 5)
+                .map((t, i) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setView('tender-detail', { id: t.id })}
+                    className="text-left rounded-xl border border-border/50 bg-card/80 hover:border-primary/40 hover:-translate-y-0.5 transition-all p-3 group"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={`flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-bold ${
+                        i === 0 ? 'gradient-emerald text-white' : 'bg-muted text-muted-foreground'
+                      }`}>#{i + 1}</span>
+                      <span className={`text-xs font-bold ${matchBarColor(t.matchScore!).includes('emerald') ? 'text-emerald-600' : matchBarColor(t.matchScore!).includes('amber') ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                        {t.matchScore}%
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium line-clamp-2 group-hover:text-primary transition-colors">{t.title}</p>
+                    {t.matchScore !== undefined && (
+                      <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full bg-gradient-to-r ${matchBarColor(t.matchScore)}`} style={{ width: `${t.matchScore}%` }} />
+                      </div>
+                    )}
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tenders List - Category Grouped or Flat */}
       {loading ? (
         <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">

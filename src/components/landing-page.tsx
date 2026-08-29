@@ -24,6 +24,7 @@ import {
   Globe,
   Rocket,
   ExternalLink,
+  Trophy,
 } from 'lucide-react';
 
 /* ───────────────────────── Animated Background ───────────────────────── */
@@ -207,6 +208,13 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
                 Get Started Free
                 <ArrowRight className="w-4 h-4 ml-1.5" />
               </Button>
+              <a
+                href="/leaderboard"
+                className="w-full sm:w-auto h-12 px-8 inline-flex items-center justify-center gap-1.5 bg-white text-slate-700 font-semibold border border-slate-200 shadow-sm hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl text-sm"
+              >
+                <Trophy className="w-4 h-4 text-amber-500" />
+                View Leaderboard
+              </a>
             </div>
 
             {/* Trust indicators */}

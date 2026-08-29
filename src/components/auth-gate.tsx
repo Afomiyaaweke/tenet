@@ -30,6 +30,7 @@ import {
   Globe,
   Hash,
   CreditCard,
+  Users,
 } from 'lucide-react';
 
 const INDUSTRIES = [
@@ -365,6 +366,81 @@ function StepIndicator({ currentStep, totalSteps = 4 }: { currentStep: RegStep; 
           </React.Fragment>
         );
       })}
+    </div>
+  );
+}
+
+/* ───────────────────────── Social Proof ───────────────────────── */
+
+interface PublicCompany {
+  name: string;
+  industry: string;
+  logoUrl: string | null;
+  city: string | null;
+  country: string;
+  vanitySlug: string | null;
+}
+
+function SocialProof() {
+  const [companies, setCompanies] = useState<PublicCompany[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/companies/public')
+      .then((r) => r.json())
+      .then((res) => { if (res.success) setCompanies(res.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="pt-4 border-t border-border/50">
+        <div className="flex items-center gap-1.5 mb-3">
+          <Users className="w-3 h-3 text-muted-foreground" />
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Who Else Is Here?</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-7 w-20 bg-muted/50 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (companies.length === 0) return null;
+
+  return (
+    <div className="pt-4 border-t border-border/50">
+      <div className="flex items-center gap-1.5 mb-3">
+        <Users className="w-3 h-3 text-muted-foreground" />
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Who Else Is Here?</span>
+        <span className="text-[10px] text-emerald-500 flex items-center gap-0.5 ml-auto">
+          <ShieldCheck className="w-2.5 h-2.5" /> {companies.length}+ verified
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {companies.slice(0, 8).map((c, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted/40 border border-border/50"
+            title={c.city ? `${c.city}, ${c.country}` : c.country}
+          >
+            {c.logoUrl ? (
+              <img src={c.logoUrl} alt={c.name} className="w-3.5 h-3.5 rounded object-cover" />
+            ) : (
+              <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+                <span className="text-[7px] font-bold text-primary">{c.name.charAt(0)}</span>
+              </div>
+            )}
+            <span className="text-[10px] font-medium truncate max-w-[80px]">{c.name}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[9px] text-muted-foreground mt-2 italic">
+        Join verified companies building their quality reputation on TenetBid.
+      </p>
     </div>
   );
 }
@@ -1158,6 +1234,9 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
 
                       {/* Social Registration Options */}
                       <SocialLoginButtons mode="register" loading={loading} onLoadingChange={setLoading} />
+
+                      {/* Who Else Is Here? — Social Proof */}
+                      <SocialProof />
                     </div>
                   )}
 

@@ -59,22 +59,22 @@ export async function GET(
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
-        bids: {
-          select: {
-            id: true,
-            status: true,
-            financialProposal: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
         users: {
           select: {
             id: true,
             endorsementsReceived: {
               select: { skill: true, fromUser: { select: { profile: { select: { fullName: true } } } } },
               take: 20,
+            },
+            bids: {
+              select: {
+                id: true,
+                status: true,
+                financialProposal: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 10,
             },
           },
           take: 20,
@@ -90,7 +90,6 @@ export async function GET(
             tenders: true,
             projects: true,
             users: true,
-            bids: true,
           },
         },
       },
@@ -107,6 +106,7 @@ export async function GET(
     const approvedDocs = company.documents;
     const profiles = company.profiles;
     const stats = company._count;
+    const allBids = company.users.flatMap(u => u.bids);
 
     let score = 0;
 
@@ -137,7 +137,7 @@ export async function GET(
     score += Math.round(tenderScore);
 
     // Bids submitted (up to +10)
-    const bidScore = Math.min(stats.bids, 10) * 1;
+    const bidScore = Math.min(allBids.length, 10) * 1;
     score += bidScore;
 
     // Projects completed (up to +10)
@@ -195,7 +195,7 @@ export async function GET(
         date: t.createdAt.toISOString(),
       });
     }
-    for (const b of company.bids.slice(0, 5)) {
+    for (const b of allBids.slice(0, 5)) {
       activityFeed.push({
         type: 'bid',
         label: `Submitted bid (${b.status === 'awarded' ? 'Won' : b.status === 'rejected' ? 'Lost' : 'Under Review'})`,
@@ -252,9 +252,9 @@ export async function GET(
       tendersPublished: stats.tenders,
 
       // Bids
-      bids: company.bids,
-      bidsWon: company.bids.filter(b => b.status === 'awarded').length,
-      bidsSubmitted: stats.bids,
+      bids: allBids,
+      bidsWon: allBids.filter(b => b.status === 'awarded').length,
+      bidsSubmitted: allBids.length,
 
       // Projects
       completedProjects,
