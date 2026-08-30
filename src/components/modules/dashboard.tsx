@@ -325,6 +325,7 @@ export function DashboardView() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [teamMembers, setTeamMembers] = useState<DashboardTeamMember[]>([]);
   const [teamTasks, setTeamTasks] = useState<DashboardTeamTask[]>([]);
+  const [qualityData, setQualityData] = useState<{ qualityScore: number; badge: string; nextBadge: string; bidsWon: number; nextMilestone: number } | null>(null);
 
   const role = user?.role || 'user';
   const greeting = getGreeting();
@@ -344,6 +345,7 @@ export function DashboardView() {
     if (projectsRes.success) setProjects(projectsRes.data);
     if (teamRes.success) setTeamMembers(teamRes.data);
     if (tasksRes.success) setTeamTasks(tasksRes.data);
+    api.get('/quality-score/me').then(res => { if (res.success) setQualityData(res.data); }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -557,6 +559,28 @@ export function DashboardView() {
                   <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
                     {greeting.text}, <span className="text-gradient-emerald">{userName}</span>
                   </h1>
+                  {qualityData && (
+                    <button
+                      onClick={() => setView('profile')}
+                      className="flex items-center gap-1.5 mt-2 group"
+                    >
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-bold ${
+                        qualityData.badge === 'platinum' ? 'from-slate-200 to-slate-400 text-slate-900 border-slate-300' :
+                        qualityData.badge === 'gold' ? 'from-amber-300 to-yellow-500 text-amber-900 border-amber-400' :
+                        qualityData.badge === 'silver' ? 'from-gray-300 to-gray-400 text-gray-800 border-gray-400' :
+                        qualityData.badge === 'bronze' ? 'from-orange-400 to-amber-600 text-orange-950 border-orange-500' :
+                        'from-muted to-muted-foreground/20 text-muted-foreground border-border'
+                      }`}>
+                        {qualityData.qualityScore}/100
+                        {qualityData.nextBadge !== 'Max' && (
+                          <ArrowUpRight className="w-3 h-3" />
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                        {qualityData.badge === 'max' ? '🏆 Top 1%' : `Next: ${qualityData.nextBadge} (${qualityData.nextMilestone}pts)`}
+                      </span>
+                    </button>
+                  )}
                   <p className="text-muted-foreground text-sm mt-0.5">
                     Discover opportunities, publish tenders, submit bids, and grow your business.
                   </p>
@@ -678,8 +702,26 @@ export function DashboardView() {
             <CardContent>
               {bidStatusData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                  <Gavel className="h-10 w-10 mb-2 opacity-30" />
-                  <p className="text-sm">No bid data yet</p>
+                  {/* Activity Heatmap placeholder */}
+                  <div className="grid grid-cols-12 gap-[3px] mb-3">
+                    {Array.from({ length: 84 }, (_, i) => {
+                      const level = Math.random();
+                      return (
+                        <div
+                          key={i}
+                          className={`h-3 rounded-[2px] ${
+                            level > 0.7 ? 'bg-emerald-500' :
+                            level > 0.4 ? 'bg-emerald-400' :
+                            level > 0.15 ? 'bg-emerald-300' :
+                            'bg-muted/50'
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <Activity className="h-5 w-5 mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Start bidding to see your activity heatmap</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Like a GitHub contributions graph — every bid you submit lights up.</p>
                 </div>
               ) : (
                 <div className="relative">
@@ -782,8 +824,9 @@ export function DashboardView() {
             <CardContent>
               {timelineItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <Clock className="h-8 w-8 mb-2 opacity-30" />
-                  <p className="text-sm">No recent activity</p>
+                  <Sparkles className="h-8 w-8 mb-2 text-amber-400/50" />
+                  <p className="text-sm font-medium">Start building your quality reputation</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Score points, badges, and leaderboard updates appear here as you engage.</p>
                 </div>
               ) : (
                 <ScrollArea className="max-h-[340px]">
