@@ -56,7 +56,6 @@ export function LeaderboardView() {
       <div className="relative rounded-2xl border border-border/50 bg-gradient-to-br from-card via-card to-amber-500/5 p-6 sm:p-8 text-center overflow-hidden">
         <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-amber-500/10 blur-[60px] pointer-events-none" />
         <div className="relative z-10">
-          <Badge variant="outline" className="mb-3 text-xs">The GitHub for Procurement</Badge>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2">
             Top Performing Suppliers
           </h2>

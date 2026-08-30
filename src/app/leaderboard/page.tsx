@@ -77,7 +77,6 @@ export default function LeaderboardPage() {
       <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 pb-24 w-full">
         {/* Hero */}
         <section className="pt-12 sm:pt-16 pb-10 text-center">
-          <Badge variant="outline" className="mb-4 text-xs">The GitHub for Procurement</Badge>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-3">
             Top Performing Suppliers
           </h1>
@@ -291,7 +290,7 @@ export default function LeaderboardPage() {
             <div className="w-5 h-5 rounded-md bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
               <span className="text-white font-bold text-[9px]">T</span>
             </div>
-            <span>&copy; {new Date().getFullYear()} TenetBid — The GitHub for Procurement</span>
+            <span>&copy; {new Date().getFullYear()} TenetBid</span>
           </div>
           <div className="flex items-center gap-4">
             <a href="/" className="hover:text-foreground transition-colors">Home</a>

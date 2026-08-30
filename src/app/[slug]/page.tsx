@@ -486,7 +486,6 @@ export default function VanityPage({ params }: { params: Promise<{ slug: string 
             <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-primary/10 blur-[60px] pointer-events-none" />
             <div className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-orange-500/10 blur-[40px] pointer-events-none" />
             <div className="relative z-10">
-              <Badge variant="outline" className="mb-4 text-xs">The GitHub for Procurement</Badge>
               <h2 className="text-2xl sm:text-3xl font-bold mb-3">
                 Your Quality Score Is Your New Resume
               </h2>
@@ -516,7 +515,7 @@ export default function VanityPage({ params }: { params: Promise<{ slug: string 
             <div className="w-5 h-5 rounded-md bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
               <span className="text-white font-bold text-[9px]">T</span>
             </div>
-            <span>&copy; {new Date().getFullYear()} TenetBid — The GitHub for Procurement</span>
+            <span>&copy; {new Date().getFullYear()} TenetBid</span>
           </div>
           <div className="flex items-center gap-4">
             <a href="/" className="hover:text-foreground transition-colors">Home</a>
