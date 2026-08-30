@@ -88,7 +88,7 @@ function formatBudget(min: number, max: number) {
 function InlineTenderDetail({ tender, onClose, setView }: {
   tender: Tender;
   onClose: () => void;
-  setView: (view: 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle', params?: Record<string, string>) => void;
+  setView: (view: string, params?: Record<string, string>) => void;
 }) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidsLoading, setBidsLoading] = useState(true);
@@ -380,7 +380,7 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
   onExpandTender: (id: string | null) => void;
   compareSelection: string[];
   toggleCompare: (tenderId: string, e: React.MouseEvent) => void;
-  setView: (view: 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle', params?: Record<string, string>) => void;
+  setView: (view: string, params?: Record<string, string>) => void;
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const meta = getCategoryMeta(category);

@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import {
-  Menu, LogOut, Bell, User, FileText,
+  Menu, LogOut, Bell, User,
   ChevronRight, CheckCircle, AlertCircle, AlertTriangle, Info, Check,
   Search, Verified, Building2, Users,
   PanelLeftClose, PanelLeftOpen,
@@ -23,7 +23,7 @@ import { TenetLogo } from '@/components/logo';
 
 /* ──────────────────────────── Dynamic imports (lazy load modules) ──────────────────────────── */
 
-const DashboardView = dynamic(() => import('@/components/modules/dashboard').then(m => ({ default: m.DashboardView })), { ssr: false });
+const LeaderboardInShellView = dynamic(() => import('@/components/modules/leaderboard').then(m => ({ default: m.LeaderboardView })), { ssr: false });
 const TendersView = dynamic(() => import('@/components/modules/tenders').then(m => ({ default: m.TendersView })), { ssr: false });
 const LiveTendersView = dynamic(() => import('@/components/modules/live-tenders').then(m => ({ default: m.LiveTendersView })), { ssr: false });
 const TenderDetailView = dynamic(() => import('@/components/modules/tender-detail').then(m => ({ default: m.TenderDetailView })), { ssr: false });
@@ -36,7 +36,7 @@ const ProjectDetailView = dynamic(() => import('@/components/modules/project-det
 const ChatView = dynamic(() => import('@/components/modules/chat').then(m => ({ default: m.ChatView })), { ssr: false });
 const EventsView = dynamic(() => import('@/components/modules/events').then(m => ({ default: m.EventsView })), { ssr: false });
 const ProfileView = dynamic(() => import('@/components/modules/profile').then(m => ({ default: m.ProfileView })), { ssr: false });
-const DocumentsView = dynamic(() => import('@/components/modules/documents').then(m => ({ default: m.DocumentsView })), { ssr: false });
+
 const AgentView = dynamic(() => import('@/components/modules/agent').then(m => ({ default: m.AgentView })), { ssr: false });
 const StaffView = dynamic(() => import('@/components/modules/staff').then(m => ({ default: m.StaffView })), { ssr: false });
 const ContactUsView = dynamic(() => import('@/components/modules/contact-us').then(m => ({ default: m.ContactUsView })), { ssr: false });
@@ -100,7 +100,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
   },
 };
 
-type View = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'ai-doc-studio'  | 'tender-analyzer' | 'agent' | 'staff' | 'team-management' | 'contact-us' | 'privacy-policy' | 'admin' |'social-circle' | 'rate-limits' ;
+type View = 'leaderboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'ai-doc-studio' | 'tender-analyzer' | 'agent' | 'staff' | 'team-management' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle' | 'rate-limits';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -406,8 +406,8 @@ export function AppShell() {
 
   const renderView = () => {
     switch (view) {
-      case 'dashboard':
-        return <DashboardView />;
+      case 'leaderboard':
+        return <LeaderboardInShellView />;
       case 'tenders':
         return <TendersView />;
       case 'live-tenders':
@@ -438,8 +438,6 @@ export function AppShell() {
         return <ProfileView />;
       case 'company-settings':
         return <ProfileView />;
-      case 'documents':
-        return <DocumentsView />;
       case 'ai-doc-studio':
         return <AIDocStudioView />;
 case 'tender-analyzer':
@@ -461,12 +459,12 @@ case 'tender-analyzer':
 
 
       default:
-        return <DashboardView />;
+        return <LeaderboardInShellView />;
     }
   };
 
   const pageTitle = allNavItems.find((i) => i.id === view)?.label
-    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : 'Dashboard');
+    || (view === 'tender-compare' ? 'Compare Tenders' : view === 'bid-compare' ? 'Compare Bids' : view === 'bid-analysis' ? 'Bid Analysis' : 'Leaderboard');
   const breadcrumb = view === 'tender-detail' || view === 'bid-compare' || view === 'bid-analysis' ? 'Tenders' : view === 'tender-compare' ? 'Tenders' : view === 'project-detail' ? 'Projects' : null;
 
   const badgeConfig = ROLE_BADGE_CONFIG[role] || ROLE_BADGE_CONFIG.user;
@@ -587,11 +585,6 @@ case 'tender-analyzer':
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setView('documents' as View)} className="cursor-pointer">
-                  <FileText className="mr-2 h-4 w-4" />
-                  <span>Documents</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign Out</span>

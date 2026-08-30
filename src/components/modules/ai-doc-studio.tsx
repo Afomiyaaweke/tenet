@@ -3278,7 +3278,7 @@ export function AIDocStudio() {
             if (selectedDocId) { setSelectedDocId(null); return; }
             setRibbonTab('home'); return;
           }
-          useNavStore.getState().setView('dashboard');
+          useNavStore.getState().setView('leaderboard' as any);
         }} title="Back" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0"><ArrowLeft className="h-4 w-4" /></button>
         {isMobile && editorMode && (
           <button onClick={() => setLeftSidebarOpen(true)} title="Menu" className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors flex-shrink-0"><Menu className="h-4 w-4" /></button>

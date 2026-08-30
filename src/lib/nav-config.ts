@@ -1,8 +1,7 @@
 import type { ComponentType } from 'react';
 import {
-  LayoutDashboard, FileSearch, Gavel, FolderKanban, MessageSquare,
-  GraduationCap, User, FileText, Bot, Globe2, Users, Mail, Lock,
-  ClipboardList, ChartColumn, Trophy, Crown,
+  FileSearch, Gavel, Globe2, Users, Mail, Lock,
+  ClipboardList, ChartColumn, Trophy, Bot, User, Crown,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -20,7 +19,7 @@ export function getNavItemsForRole(role: string): NavSection[] {
   const main: NavSection = {
     label: 'MAIN',
     items: [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
       { id: 'tenders', label: 'Tenders', icon: FileSearch },
       { id: 'live-tenders', label: 'Live Tenders', icon: Globe2 },
       { id: 'bids', label: 'Bids', icon: Gavel },
@@ -32,7 +31,6 @@ export function getNavItemsForRole(role: string): NavSection[] {
     label: 'TOOLS',
     items: [
       { id: 'profile', label: 'Profile', icon: User },
-      { id: 'documents', label: 'Documents', icon: FileText },
       { id: 'ai-doc-studio', label: 'AI Doc Studio', icon: Bot },
       { id: 'tender-analyzer', label: 'Tender Analyzer', icon: ChartColumn },
     ],
@@ -54,7 +52,6 @@ export function getNavItemsForRole(role: string): NavSection[] {
         items: [
           { id: 'team-management', label: 'Team Management', icon: Users },
           { id: 'social-circle', label: 'Social Circle', icon: Users },
-          { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
         ],
       },
       tools,
@@ -67,7 +64,6 @@ export function getNavItemsForRole(role: string): NavSection[] {
     { label: 'MANAGE', items: [
       { id: 'team-management', label: 'Team Management', icon: Users },
       { id: 'social-circle', label: 'Social Circle', icon: Users },
-      { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
     ] },
     tools,
     support,
