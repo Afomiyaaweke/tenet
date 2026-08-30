@@ -7,6 +7,7 @@ import {
   Star, TrendingUp, Banknote, ExternalLink,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { JourneyCard } from '@/components/modules/journey-card';
 
 interface LeaderEntry {
   name: string; industry: string; city: string | null; country: string;
@@ -64,6 +65,9 @@ export function LeaderboardView() {
           </p>
         </div>
       </div>
+
+      {/* Personal Journey — Quality Score + Activity Heatmap (only for logged-in users) */}
+      <JourneyCard />
 
       {/* Loading */}
       {loading && (
