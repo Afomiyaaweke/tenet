@@ -22,7 +22,7 @@ import {
   CheckCircle, Briefcase, FileText, Upload, Clock, XCircle,
   Award, Receipt, FolderOpen, File, Camera, Users, UserCircle,
   Globe, MapPinned, Hash, ExternalLink, Plus, ChevronRight,
-  Lock, Eye, PenTool, Settings, FileCheck, ClipboardList, Link2, Copy, Check, TrendingUp,
+  Lock, Eye, EyeOff, PenTool, Settings, FileCheck, ClipboardList, Link2, Copy, Check, TrendingUp, Rocket,
 } from 'lucide-react';
 import { StampSignatureManager } from '@/components/stamp-signature';
 // ==========================================
@@ -207,6 +207,7 @@ export function ProfileView() {
   }));
   const [vanityCopied, setVanityCopied] = useState(false);
   const [savingCompany, setSavingCompany] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const profile = user?.profile;
   const isVerified = profile?.verified ?? false;
@@ -270,6 +271,42 @@ export function ProfileView() {
     }
   };
 
+  const publishProfile = async () => {
+    if (!user?.companyId) return;
+    setPublishing(true);
+    try {
+      const res = await api.put(`/companies/${user.companyId}`, { isPublished: true });
+      if (res.success) {
+        setCompanyData(res.data);
+        toast.success('Portfolio published! It is now live on the leaderboard and shareable.');
+      } else {
+        toast.error(res.error || 'Failed to publish');
+      }
+    } catch {
+      toast.error('Failed to publish');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const unpublishProfile = async () => {
+    if (!user?.companyId) return;
+    setPublishing(true);
+    try {
+      const res = await api.put(`/companies/${user.companyId}`, { isPublished: false });
+      if (res.success) {
+        setCompanyData(res.data);
+        toast.success('Portfolio unpublished. It is now in draft mode.');
+      } else {
+        toast.error(res.error || 'Failed to unpublish');
+      }
+    } catch {
+      toast.error('Failed to unpublish');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   // Load team members (for team_admin)
   const loadTeamMembers = async () => {
     if (!isTeamAdmin) return;
@@ -305,7 +342,7 @@ export function ProfileView() {
   useEffect(() => { loadDocs(); }, [loadDocs]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (user?.companyId && !companyData) loadCompany(); }, [user?.companyId, companyData]);
+  useEffect(() => { if (user?.companyId) loadCompany(); }, [user?.companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadTeamMembers(); }, [isTeamAdmin, user?.companyId]);
@@ -401,9 +438,9 @@ export function ProfileView() {
       </div>
 
       {/* ==========================================
-          SUPPLIER PASSPORT / QUALITY SCORE
+          PORTFOLIO & PUBLISHING
          ========================================== */}
-      {hasCompany && companyData && (companyData as Record<string, unknown>).vanitySlug && (
+      {hasCompany && companyData && (
         <div className="animate-[fadeIn_0.3s_ease-out]">
           <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
             <CardHeader className="pb-3">
@@ -411,49 +448,109 @@ export function ProfileView() {
                 <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500/10 to-orange-500/10">
                   <TrendingUp className="h-3.5 w-3.5 text-amber-600" />
                 </div>
-                Supplier Passport
-                <Badge variant="outline" className="text-[10px] ml-auto font-normal">Public Profile</Badge>
+                Portfolio & Publishing
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Your public capability microsite is live. Share it to attract tenders and build your reputation.
+            <CardContent className="space-y-4">
+              {/* Step 1: Set your Vanity URL */}
+              {!(companyData as Record<string, unknown>).vanitySlug ? (
+                <div className="rounded-xl border-2 border-dashed border-orange-300/60 bg-orange-50/30 p-5 text-center">
+                  <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mx-auto mb-3">
+                    <Globe className="h-6 w-6 text-orange-500" />
+                  </div>
+                  <h4 className="text-sm font-bold mb-1">Set your Vanity URL to get started</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Choose a unique URL like <span className="font-mono text-foreground">tenetbid.com/acme-corp</span> that you can share with anyone.
                   </p>
-                  <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-xs rounded-lg bg-orange-500 hover:bg-orange-600 text-white"
+                    onClick={() => setEditingCompany(true)}
+                  >
+                    <Settings className="h-3 w-3" /> Set Vanity URL
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* URL display + status */}
+                  <div className="flex items-center gap-3 p-3.5 bg-muted/30 rounded-xl">
+                    <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
+                      <Globe className="h-4 w-4 text-orange-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">
+                        tenetbid.com/{(companyData as Record<string, unknown>).vanitySlug as string}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {(companyData as Record<string, unknown>).isPublished ? (
+                          <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                            <CheckCircle className="h-2.5 w-2.5" /> Published & Live
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-amber-600 font-medium">
+                            <Edit2 className="h-2.5 w-2.5" /> Draft — Not Published
+                          </span>
+                        )}
+                      </p>
+                    </div>
                     <Button
+                      variant="ghost"
                       size="sm"
-                      variant="outline"
-                      className="gap-1.5 text-xs rounded-lg"
-                      onClick={() => {
-                        const url = `${window.location.origin}/${(companyData as Record<string, unknown>).vanitySlug as string}`;
-                        window.open(url, '_blank');
-                      }}
-                    >
-                      <ExternalLink className="h-3 w-3" /> View Profile
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 text-xs rounded-lg"
+                      className="h-8 w-8 p-0 shrink-0"
                       onClick={() => {
                         const url = `${window.location.origin}/${(companyData as Record<string, unknown>).vanitySlug as string}`;
                         navigator.clipboard.writeText(url);
-                        toast.success('Profile link copied! Share it on LinkedIn.');
+                        toast.success('Link copied!');
                       }}
                     >
-                      <Copy className="h-3 w-3" /> Copy Link
+                      <Copy className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                </div>
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-border/50 flex items-center justify-center shrink-0">
-                  <span className="text-2xl font-black text-primary">T</span>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-3 italic">
-                &ldquo;Stop begging for tenders. Let your data speak.&rdquo;
-              </p>
+
+                  {/* Preview + Publish buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs rounded-xl h-10"
+                      onClick={() => {
+                        const slug = (companyData as Record<string, unknown>).vanitySlug as string;
+                        window.open(`/${slug}?preview=true`, '_blank');
+                      }}
+                    >
+                      <Eye className="h-3.5 w-3.5" /> Preview
+                    </Button>
+                    {(companyData as Record<string, unknown>).isPublished ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-xs rounded-xl h-10 border-rose-300/60 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                        onClick={() => unpublishProfile()}
+                        disabled={publishing}
+                      >
+                        {publishing ? <div className="h-3 w-3 border-2 border-rose-500 border-t-transparent rounded-full animate-spin mr-1" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        Unpublish
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="gap-1.5 text-xs rounded-xl h-10 bg-orange-500 hover:bg-orange-600 text-white"
+                        onClick={() => publishProfile()}
+                        disabled={publishing}
+                      >
+                        {publishing ? <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" /> : <Rocket className="h-3.5 w-3.5" />}
+                        Publish
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Tip */}
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    <strong>Preview</strong> opens your portfolio in draft mode so you can see exactly what others will see.
+                    <strong>Publish</strong> makes it live on the leaderboard and shareable.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -102,6 +102,13 @@ export async function GET(
       );
     }
 
+    const url = new URL(request.url);
+    const preview = url.searchParams.get('preview') === 'true';
+
+    if (!company.isPublished && !preview) {
+      return NextResponse.json({ success: false, error: 'This profile is not published' }, { status: 404 });
+    }
+
     // ── Compute Quality Score (0–100) ──
     const approvedDocs = company.documents;
     const profiles = company.profiles;
@@ -232,6 +239,8 @@ export async function GET(
       website: company.website,
       verified: company.verified,
       vanitySlug: company.vanitySlug,
+      isPublished: company.isPublished,
+      isPreview: !company.isPublished && preview,
       createdAt: company.createdAt.toISOString(),
 
       // Team

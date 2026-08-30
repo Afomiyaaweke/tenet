@@ -150,6 +150,7 @@ export interface Company {
   website?: string;
   logoUrl?: string;
   vanitySlug?: string;
+  isPublished?: boolean;
   verified: boolean;
   status: string;
   createdAt: string;

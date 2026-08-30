@@ -12,6 +12,7 @@ export async function GET() {
       where: {
         status: 'active',
         vanitySlug: { not: null },
+        isPublished: true,
       },
       include: {
         profiles: { select: { fullName: true, jobTitle: true, profilePhoto: true }, take: 1 },
