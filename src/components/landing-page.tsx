@@ -345,10 +345,6 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header */}
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200/60 rounded-full px-4 py-1.5 mb-4">
-              <Star className="w-3.5 h-3.5 text-orange-600" />
-              <span className="text-xs font-semibold text-orange-700">Open Source</span>
-            </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
               Star Us on GitHub
             </h2>
