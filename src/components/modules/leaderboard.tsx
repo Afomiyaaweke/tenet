@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import {
-  ShieldCheck, Copy, Check, Trophy, Crown,
+  ShieldCheck, Trophy, Crown,
   Medal, Gem, Zap, Gavel, FolderKanban, MapPin, Building2,
-  Star, TrendingUp, Banknote, ExternalLink,
+  Star, TrendingUp, Banknote,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { JourneyCard } from '@/components/modules/journey-card';
@@ -34,7 +34,6 @@ function formatCurrency(v: number) {
 export function LeaderboardView() {
   const [entries, setEntries] = useState<LeaderEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/leaderboard')
@@ -43,12 +42,6 @@ export function LeaderboardView() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  const copyLink = (slug: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/${slug}`);
-    setCopied(slug);
-    setTimeout(() => setCopied(null), 2000);
-  };
 
   return (
     <div className="space-y-6">
@@ -205,20 +198,6 @@ export function LeaderboardView() {
                       <div className="text-xl font-black leading-none">{entry.qualityScore}</div>
                       <div className="text-[8px] text-muted-foreground uppercase">score</div>
                     </div>
-                    <button
-                      onClick={() => copyLink(entry.vanitySlug)}
-                      className="hidden sm:flex w-7 h-7 items-center justify-center rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                      title="Copy profile link"
-                    >
-                      {copied === entry.vanitySlug ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                    <a
-                      href={`/${entry.vanitySlug}`}
-                      className="hidden sm:flex w-7 h-7 items-center justify-center rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                      title="View profile"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
                   </div>
                 </div>
               );

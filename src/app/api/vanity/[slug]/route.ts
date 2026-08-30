@@ -240,6 +240,8 @@ export async function GET(
       verified: company.verified,
       vanitySlug: company.vanitySlug,
       isPublished: company.isPublished,
+      publicTagline: company.publicTagline,
+      publicDescription: company.publicDescription,
       isPreview: !company.isPublished && preview,
       createdAt: company.createdAt.toISOString(),
 

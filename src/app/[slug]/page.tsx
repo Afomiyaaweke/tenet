@@ -57,6 +57,8 @@ interface CompanyData {
   verified: boolean;
   vanitySlug: string;
   isPublished: boolean;
+  publicTagline: string | null;
+  publicDescription: string | null;
   isPreview: boolean;
   teamMembers: TeamMember[];
   documents: PublicDoc[];
@@ -369,7 +371,15 @@ export default function VanityPage({ params }: { params: Promise<{ slug: string 
                 </div>
 
                 {/* Tagline */}
-                <p className="text-sm text-muted-foreground italic mb-7">&ldquo;Proof of Work, Not Proof of Talk&rdquo;</p>
+                {data.publicTagline && (
+                  <p className="text-sm text-muted-foreground italic mb-2">&ldquo;{data.publicTagline}&rdquo;</p>
+                )}
+                {data.publicDescription && (
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-7 max-w-lg">{data.publicDescription}</p>
+                )}
+                {!data.publicTagline && !data.publicDescription && (
+                  <p className="text-sm text-muted-foreground italic mb-7">Proof of Work, Not Proof of Talk</p>
+                )}
 
                 {/* Stat Cards 2x2 Grid */}
                 <div className="grid grid-cols-2 gap-3 w-full max-w-md">

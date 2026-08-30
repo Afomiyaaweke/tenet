@@ -117,6 +117,8 @@ export async function PUT(
       status,
       vanitySlug,
       isPublished,
+      publicTagline,
+      publicDescription,
     } = body;
 
     // Check for duplicate vanity slug if being updated
@@ -181,6 +183,8 @@ export async function PUT(
     if (website !== undefined) updateData.website = website || null;
     if (address !== undefined) updateData.address = address || null;
     if (vanitySlug !== undefined) updateData.vanitySlug = vanitySlug || null;
+    if (publicTagline !== undefined) updateData.publicTagline = publicTagline || null;
+    if (publicDescription !== undefined) updateData.publicDescription = publicDescription || null;
     if (typeof isPublished === 'boolean') {
       if (isPublished === true && !vanitySlug && !existingCompany.vanitySlug) {
         return NextResponse.json({ success: false, error: 'Set a vanity URL before publishing' }, { status: 400 });

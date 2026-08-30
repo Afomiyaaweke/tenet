@@ -976,3 +976,26 @@ Stage Summary:
 - Cleanup endpoint deployed at /api/admin/cleanup-social-tests
 - User needs to: 1) Login on Vercel, 2) Visit the endpoint in browser (GET for dry-run), 3) POST with {confirm: 'DELETE_ALL_TEST_USERS'} to actually delete
 - Responsive AI Doc Studio changes re-pushed to GitHub
+---
+Task ID: 1-6
+Agent: Main Agent
+Task: Make Profile/Leaderboard sharing - remove sharing from leaderboard, add Edit→Preview→Publish flow in Profile
+
+Work Log:
+- Removed copy link and external link buttons from leaderboard list items (leaderboard.tsx)
+- Added publicTagline and publicDescription fields to Company model in Prisma schema
+- Pushed schema to database with db:push
+- Updated /api/vanity/[slug] route to return publicTagline and publicDescription
+- Updated /api/companies/[id] PUT route to accept and persist publicTagline, publicDescription
+- Updated [slug]/page.tsx CompanyData interface and rendering to use dynamic tagline/description
+- Created /src/components/modules/portfolio-editor.tsx with 4-step flow: URL → Edit → Preview → Publish
+- Replaced old Portfolio & Publishing card in profile.tsx with new PortfolioEditor component
+- Cleaned up unused imports (TrendingUp, EyeOff, Rocket from profile.tsx; X, ArrowRight from portfolio-editor.tsx)
+
+Stage Summary:
+- Sharing is now ONLY available from Profile page (owner-only), not from leaderboard list
+- Portfolio Editor provides: editable tagline (100 chars) and description (500 chars)
+- Embedded iframe preview shows live rendering of the public portfolio page
+- Step indicator dots show progress: URL → Edit → Preview → Publish
+- Published state shows Copy Link button with live status indicator
+- Public portfolio page ([slug]) uses dynamic tagline/description with fallback to default
