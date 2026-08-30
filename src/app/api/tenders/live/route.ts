@@ -77,15 +77,8 @@ export async function GET(request: NextRequest) {
     const tenders: LiveTender[] = result.tenders;
     const sectors = getSectorCounts();
 
-    const isFallback = result.meta.fallback;
-    const SAMPLE_TOTAL = 20_000;
-    // For live data: hasMore is true if any source that returned data could have more pages
-    // (i.e. it returned results and we haven't exhausted all sources yet)
     const anyLiveSourceHasData = result.meta.sources.some((s) => s.ok && s.count > 0);
-    const totalAvailable = isFallback ? SAMPLE_TOTAL : undefined;
-    const hasMore = isFallback
-      ? (offset + tenders.length) < SAMPLE_TOTAL
-      : anyLiveSourceHasData && tenders.length > 0;
+    const hasMore = anyLiveSourceHasData && tenders.length > 0;
     const docsCount = tenders.filter((t) => t.documentUrl || t.documentFiles?.length).length;
 
     return NextResponse.json({
@@ -99,7 +92,6 @@ export async function GET(request: NextRequest) {
         rows,
         offset,
         hasMore,
-        totalAvailable,
         docsCount,
         sectors,
         sources: result.meta.sources,

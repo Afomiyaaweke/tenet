@@ -366,7 +366,7 @@ export const DATA_SOURCES: DataSource[] = [
       'J.P. Morgan Chase corporate procurement opportunities. Technology, consulting, operations, and financial services vendor RFPs.',
     access: 'Public vendor portal at jpmorgan.com',
     link: 'https://www.jpmorgan.com/technology/technology-vendor-management',
-    live: true,
+    live: false,
     accent: 'blue',
   },
   {
@@ -376,7 +376,7 @@ export const DATA_SOURCES: DataSource[] = [
       'UNICEF procurement of vaccines, medical supplies, nutrition, education materials, and WASH equipment for 190+ countries.',
     access: 'Public supply catalogue and tender notices',
     link: 'https://www.unicef.org/supply/',
-    live: true,
+    live: false,
     accent: 'cyan',
   },
   {
@@ -386,7 +386,7 @@ export const DATA_SOURCES: DataSource[] = [
       'World Health Organization procurement of pharmaceuticals, medical devices, diagnostics, and health supplies for global health programs.',
     access: 'Public procurement notices at who.int',
     link: 'https://www.who.int/about/procurement',
-    live: true,
+    live: false,
     accent: 'sky',
   },
   {
@@ -396,7 +396,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Procurement notices for EBRD-funded projects across Central Asia, Eastern Europe, and Southern/Eastern Mediterranean. Infrastructure, energy, and financial sector.',
     access: 'Public procurement portal at ebrd.com',
     link: 'https://www.ebrd.com/work-with-us/procurement.html',
-    live: true,
+    live: false,
     accent: 'rose',
   },
   {
@@ -406,7 +406,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Procurement for IDB-funded projects across Latin America and Caribbean. Infrastructure, social development, climate change, and digital transformation.',
     access: 'Public procurement notices at iadb.org',
     link: 'https://www.iadb.org/en/procurement',
-    live: true,
+    live: false,
     accent: 'orange',
   },
   {
@@ -416,7 +416,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Procurement for IsDB-funded projects across 57 member countries. Infrastructure, education, health, and agricultural development.',
     access: 'Public procurement portal at isdb.org',
     link: 'https://www.isdb.org/procurement',
-    live: true,
+    live: false,
     accent: 'green',
   },
   {
@@ -426,7 +426,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Procurement for NDB (BRICS Bank) funded projects in Brazil, Russia, India, China, South Africa. Infrastructure and sustainable development.',
     access: 'Public procurement notices at ndb.int',
     link: 'https://www.ndb.int/procurement/',
-    live: true,
+    live: false,
     accent: 'amber',
   },
   {
@@ -436,7 +436,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Citi Group corporate procurement for technology, operations, consulting, and professional services globally.',
     access: 'Public vendor portal at citigroup.com',
     link: 'https://www.citigroup.com/citi/about/procurement.htm',
-    live: true,
+    live: false,
     accent: 'blue',
   },
   {
@@ -446,7 +446,7 @@ export const DATA_SOURCES: DataSource[] = [
       'HSBC Banking Group procurement for technology, operations, financial services, and consulting across 60+ countries.',
     access: 'Public supplier information at hsbc.com',
     link: 'https://www.hsbc.com/about-us/suppliers',
-    live: true,
+    live: false,
     accent: 'red',
   },
   {
@@ -456,7 +456,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Grand opportunities and procurement for global health, development, and education programs. RFPs for consulting, research, and implementation.',
     access: 'Public grants and RFPs at gatesfoundation.org',
     link: 'https://www.gatesfoundation.org/About/Working-With-Us/Grants-Contracting',
-    live: true,
+    live: false,
     accent: 'emerald',
   },
   {
@@ -466,7 +466,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Procurement and RFPs for global health, food, power, and jobs initiatives across Africa, Asia, and the Americas.',
     access: 'Public grants and opportunities at rockefellerfoundation.org',
     link: 'https://www.rockefellerfoundation.org/grants/',
-    live: true,
+    live: false,
     accent: 'yellow',
   },
   {
@@ -476,7 +476,7 @@ export const DATA_SOURCES: DataSource[] = [
       'UN FAO procurement for food security, agriculture, forestry, and fisheries projects across 195+ countries.',
     access: 'Public procurement notices at fao.org',
     link: 'https://www.fao.org/about/procurement/en/',
-    live: true,
+    live: false,
     accent: 'lime',
   },
   {
@@ -486,7 +486,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Gavi procurement of vaccines, cold chain equipment, and immunization supplies for low-income countries. Health sector tenders.',
     access: 'Public tender notices at gavi.org',
     link: 'https://www.gavi.org/procurement',
-    live: true,
+    live: false,
     accent: 'cyan',
   },
   {
@@ -496,7 +496,7 @@ export const DATA_SOURCES: DataSource[] = [
       'McKinsey & Company social impact and public sector RFPs. Consulting opportunities for government and NGO transformation programs.',
     access: 'Public opportunities at mckinsey.com',
     link: 'https://www.mckinsey.com/about-us/social-impact',
-    live: true,
+    live: false,
     accent: 'blue',
   },
   {
@@ -506,7 +506,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Procurement for KfW-funded development projects across Africa, Asia, Eastern Europe, and Latin America. Infrastructure, energy, and financial cooperation.',
     access: 'Public procurement notices at kfw-entwicklungsbank.de',
     link: 'https://www.kfw-entwicklungsbank.de/International-financing/KfW-Development-Bank/Procurement/',
-    live: true,
+    live: false,
     accent: 'amber',
   },
   {
@@ -516,7 +516,7 @@ export const DATA_SOURCES: DataSource[] = [
       'UN Office for Project Services procurement for infrastructure, health, justice, and environment projects in 80+ countries.',
     access: 'Public procurement at unops.org',
     link: 'https://www.unops.org/about/procurement',
-    live: true,
+    live: false,
     accent: 'sky',
   },
   {
@@ -526,7 +526,7 @@ export const DATA_SOURCES: DataSource[] = [
       'Goldman Sachs corporate procurement for technology, risk management, operations, and professional services.',
     access: 'Public vendor information at goldmansachs.com',
     link: 'https://www.goldmansachs.com/who-we-are/procurement/',
-    live: true,
+    live: false,
     accent: 'violet',
   },
   {
@@ -536,7 +536,7 @@ export const DATA_SOURCES: DataSource[] = [
       'UN WFP procurement of food, logistics, transport, and IT services for humanitarian operations in 80+ countries.',
     access: 'Public procurement notices at wfp.org',
     link: 'https://www.wfp.org/procurement',
-    live: true,
+    live: false,
     accent: 'orange',
   },
 ];
@@ -2699,7 +2699,6 @@ export interface FetchLiveTendersResult {
   meta: {
     total: number;
     sources: { id: string; name: string; live: boolean; ok: boolean; count: number; error?: string }[];
-    fallback: boolean;
     cachedAt: number;
   };
 }
@@ -2711,513 +2710,34 @@ interface CacheEntry {
 }
 const cache = new Map<string, CacheEntry>();
 
-/* ─────────────────────────────────────────────────────────────────────
- * Sample / fallback tenders (when live APIs are unreachable)
- * Generates realistic tender data from multiple "sources" so that
- * Load More, document viewing, and other features can be demonstrated.
- * ───────────────────────────────────────────────────────────────────── */
-
-function generateSampleTenders(rows: number, offset: number, search?: string): LiveTender[] {
-  const sources = [
-    'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'adb',
-    'uk_contracts', 'dgmarket', 'canada_buyandsell', 'austender',
-    'india_cppp', 'south_africa', 'colombia_secop', 'mexico_compranet',
-    'chile_mercado', 'argentina_comprar', 'uruguay_compras',
-    'kenya_tenders', 'nigeria_nocopo', 'philgeps', 'portugal_base',
-    'undp_procurement', 'global_fund', 'ifc_advisory',
-    'ecuador_sercop', 'peru_compras', 'paraguay_dncp',
-  ];
-
-  const sampleData = [
-    { title: 'Road Infrastructure Development Project', scope: 'Construction of 45km asphalt road including drainage systems, bridges, and signage in rural areas. The project aims to improve connectivity between major agricultural zones and urban markets.', category: 'Construction', location: 'Ethiopia', budget: 12000000, currency: 'USD', borrower: 'Ministry of Transport', contractType: 'Works', region: 'Africa' },
-    { title: 'Healthcare Equipment Procurement', scope: 'Supply and installation of MRI machines, CT scanners, and surgical equipment for 12 regional hospitals. Includes training of medical personnel and 3-year maintenance contract.', category: 'Healthcare', location: 'Kenya', budget: 8500000, currency: 'USD', borrower: 'Ministry of Health', contractType: 'Goods', region: 'Africa' },
-    { title: 'Digital Government Platform Implementation', scope: 'Design, development, and deployment of an integrated e-government portal for citizen services including tax filing, business registration, and permit applications. Cloud-based with mobile-first responsive design.', category: 'IT', location: 'India', budget: 3200000, currency: 'USD', borrower: 'Digital India Corporation', contractType: 'Services', region: 'South Asia' },
-    { title: 'Renewable Energy Solar Farm Construction', scope: 'Engineering, procurement, and construction of a 50MW solar photovoltaic power plant with battery energy storage system. Includes grid interconnection, substation upgrade, and SCADA system.', category: 'Energy', location: 'South Africa', budget: 25000000, currency: 'USD', borrower: 'Eskom Holdings', contractType: 'Works', region: 'Africa' },
-    { title: 'Agricultural Supply Chain Modernization', scope: 'Procurement of modern grain storage facilities, cold chain logistics equipment, and market information systems for smallholder farmers. Includes 15 storage facilities and 50 refrigerated transport vehicles.', category: 'Agriculture', location: 'Nigeria', budget: 6700000, currency: 'USD', borrower: 'Federal Ministry of Agriculture', contractType: 'Goods', region: 'Africa' },
-    { title: 'Public Transportation System Upgrade', scope: 'Procurement of 200 low-emission buses, construction of 5 bus terminals, and implementation of smart ticketing and fleet management system for the metropolitan transit authority.', category: 'Logistics', location: 'Colombia', budget: 18000000, currency: 'USD', borrower: 'Bogotá Transit Authority', contractType: 'Works', region: 'Latin America' },
-    { title: 'Educational Technology Integration Program', scope: 'Supply of 10,000 laptops, 500 interactive whiteboards, and learning management system for 200 primary schools. Includes teacher training, curriculum digitization, and 5-year support.', category: 'Education', location: 'Chile', budget: 4500000, currency: 'USD', borrower: 'Ministry of Education', contractType: 'Services', region: 'Latin America' },
-    { title: 'Water Supply and Sanitation Infrastructure', scope: 'Construction of water treatment plant, 120km pipeline network, and sewage treatment facility for urban population of 500,000. Includes pumping stations and distribution reservoirs.', category: 'Engineering', location: 'Portugal', budget: 35000000, currency: 'EUR', borrower: 'Águas de Portugal', contractType: 'Works', region: 'Europe' },
-    { title: 'Financial Management System Upgrade', scope: 'Implementation of integrated financial management information system (IFMIS) for government treasury operations. Includes budget planning, expenditure tracking, payroll, and reporting modules.', category: 'Finance', location: 'Kenya', budget: 2800000, currency: 'USD', borrower: 'National Treasury', contractType: 'Consulting', region: 'Africa' },
-    { title: 'Telecommunications Network Expansion', scope: 'Deployment of 500 4G/5G base stations, 2000km fiber optic cable, and network operations center. Includes rural connectivity program and emergency communication infrastructure.', category: 'Telecommunications', location: 'Philippines', budget: 42000000, currency: 'USD', borrower: 'Department of ICT', contractType: 'Works', region: 'Southeast Asia' },
-    { title: 'Office Building Construction - Phase II', scope: 'Construction of a modern 8-story office complex including parking garage, landscaped grounds, and LEED Gold sustainability certification. Total built area 12,000 sqm.', category: 'Construction', location: 'United Kingdom', budget: 15000000, currency: 'GBP', borrower: 'HM Revenue & Customs', contractType: 'Works', region: 'Europe' },
-    { title: 'Medical Supplies Framework Agreement', scope: 'Multi-year framework agreement for supply of pharmaceutical products, medical devices, and laboratory consumables to public health facilities. Estimated annual requirement: $5M.', category: 'Supply', location: 'Canada', budget: 25000000, currency: 'CAD', borrower: 'Health Canada', contractType: 'Goods', region: 'North America' },
-    { title: 'Bridge Construction Over River Basin', scope: 'Design and construction of a 600m cable-stayed bridge with approach roads, toll plaza, and traffic management systems. Includes environmental impact mitigation measures.', category: 'Construction', location: 'Australia', budget: 85000000, currency: 'AUD', borrower: 'Transport NSW', contractType: 'Works', region: 'Oceania' },
-    { title: 'Consulting Services for Urban Planning', scope: 'Comprehensive urban planning and development strategy for metropolitan area of 2 million residents. Includes land use planning, transportation modeling, and environmental assessment.', category: 'Consulting', location: 'Uruguay', budget: 1500000, currency: 'USD', borrower: 'Intendencia de Montevideo', contractType: 'Consulting', region: 'Latin America' },
-    { title: 'Power Grid Modernization Project', scope: 'Rehabilitation and upgrade of 220kV transmission lines, construction of 3 new substations, and deployment of smart grid automation systems across the national grid.', category: 'Energy', location: 'India', budget: 65000000, currency: 'USD', borrower: 'Power Grid Corporation', contractType: 'Works', region: 'South Asia' },
-    { title: 'School Construction Program', scope: 'Construction of 25 primary schools and 10 secondary schools with modern facilities including laboratories, libraries, computer rooms, and sports grounds. Total capacity: 15,000 students.', category: 'Construction', location: 'Nigeria', budget: 22000000, currency: 'USD', borrower: 'Universal Basic Education Commission', contractType: 'Works', region: 'Africa' },
-    { title: 'IT Security Infrastructure Enhancement', scope: 'Procurement and deployment of cybersecurity infrastructure including firewalls, intrusion detection systems, SIEM platform, and security operations center for government networks.', category: 'IT', location: 'United States', budget: 5000000, currency: 'USD', borrower: 'General Services Administration', contractType: 'Services', region: 'North America' },
-    { title: 'Agricultural Research Center Construction', scope: 'Construction of a modern agricultural research facility including laboratories, greenhouse complexes, field trial stations, and administrative buildings. Area: 5 hectares.', category: 'Agriculture', location: 'Mexico', budget: 8000000, currency: 'USD', borrower: 'SAGARPA', contractType: 'Works', region: 'Latin America' },
-    { title: 'Public Hospital Renovation Program', scope: 'Major renovation and modernization of 3 public hospitals including new surgical suites, diagnostic imaging departments, patient wards, and emergency departments. Total area: 45,000 sqm.', category: 'Healthcare', location: 'Argentina', budget: 35000000, currency: 'USD', borrower: 'Ministerio de Salud', contractType: 'Works', region: 'Latin America' },
-    { title: 'Supply of Vaccination Equipment', scope: 'Procurement of cold chain equipment, vaccination supplies, and mobile health units for nationwide immunization program. Includes 200 solar refrigerators and 50 mobile clinics.', category: 'Supply', location: 'Kenya', budget: 3500000, currency: 'USD', borrower: 'Ministry of Health Kenya', contractType: 'Goods', region: 'Africa' },
-    { title: 'Environmental Waste Management Facility', scope: 'Design, construction, and commissioning of an integrated solid waste management facility including recycling center, composting plant, and landfill gas capture system. Capacity: 500 tons/day.', category: 'Environmental', location: 'Brazil', budget: 18000000, currency: 'USD', borrower: 'Ministry of Environment', contractType: 'Works', region: 'Latin America' },
-    { title: 'National Defense Communication System', scope: 'Procurement and deployment of secure military communication infrastructure including encrypted radio systems, satellite terminals, and command & control centers for 12 regional military bases.', category: 'Defense', location: 'Australia', budget: 45000000, currency: 'AUD', borrower: 'Department of Defence', contractType: 'Services', region: 'Oceania' },
-    { title: 'Mineral Processing Plant Construction', scope: 'Engineering, procurement, and construction of a mineral processing plant with crushing, grinding, flotation, and tailings management facilities. Processing capacity: 5,000 tons/day of copper ore.', category: 'Mining', location: 'Chile', budget: 120000000, currency: 'USD', borrower: 'CORFO Chile', contractType: 'Works', region: 'Latin America' },
-    { title: 'Tourism Infrastructure Development Program', scope: 'Development of 5 eco-tourism resorts, visitor centers, and heritage trail networks across national parks. Includes sustainable water systems, solar power, and accessibility features.', category: 'Tourism', location: 'Tanzania', budget: 9500000, currency: 'USD', borrower: 'Ministry of Natural Resources', contractType: 'Works', region: 'Africa' },
-    { title: 'Maritime Port Expansion Project', scope: 'Expansion of container terminal including new deep-water berth, gantry cranes, automated stacking system, and dredging of approach channel. Annual throughput increase: 2M TEU.', category: 'Maritime', location: 'South Africa', budget: 75000000, currency: 'USD', borrower: 'Transnet National Ports Authority', contractType: 'Works', region: 'Africa' },
-    { title: 'Satellite Ground Station Network', scope: 'Design, procurement, and installation of 8 satellite ground stations with tracking antennas, signal processing equipment, and data center integration. Supports earth observation and meteorological data reception.', category: 'Space', location: 'India', budget: 32000000, currency: 'USD', borrower: 'Indian Space Research Organisation', contractType: 'Goods', region: 'South Asia' },
-    { title: 'Social Housing Development Program', scope: 'Construction of 2,000 affordable housing units across 10 urban sites with community facilities, playgrounds, and social service centers. Includes water, sewerage, and road infrastructure.', category: 'Social Services', location: 'Colombia', budget: 48000000, currency: 'USD', borrower: 'Ministerio de Vivienda', contractType: 'Works', region: 'Latin America' },
-    { title: 'National Sports Complex Construction', scope: 'Construction of a multi-sport complex including 50,000-seat stadium, aquatic center, indoor arena, and training facilities. Includes athletic tracks, FIFA-standard pitch, and broadcast infrastructure.', category: 'Sports', location: 'Nigeria', budget: 55000000, currency: 'USD', borrower: 'Federal Ministry of Sports', contractType: 'Works', region: 'Africa' },
-    { title: 'Sustainable Forestry Management System', scope: 'Implementation of digital forestry monitoring platform, procurement of aerial survey drones, and establishment of 3 seedling nurseries. Covers 500,000 hectares of conservation forest with fire detection and biodiversity tracking.', category: 'Forestry', location: 'Portugal', budget: 6200000, currency: 'EUR', borrower: 'Instituto da Conservação da Natureza', contractType: 'Services', region: 'Europe' },
-    { title: 'Textile Manufacturing Modernization', scope: 'Procurement of automated textile production lines including computerized knitting machines, digital printing systems, and quality control equipment for 8 state-owned textile factories. Includes training for 500 workers.', category: 'Textiles', location: 'Uruguay', budget: 14000000, currency: 'USD', borrower: 'Ministerio de Industria', contractType: 'Goods', region: 'Latin America' },
-    { title: 'UNDP Climate Resilience Program', scope: 'Implementation of climate adaptation measures including early warning systems, flood-resistant infrastructure, and community training programs across 5 provinces. Includes procurement of weather monitoring equipment and GIS mapping systems.', category: 'Environmental', location: 'Bangladesh', budget: 7800000, currency: 'USD', borrower: 'UNDP Bangladesh', contractType: 'Services', region: 'South Asia' },
-    { title: 'Global Fund HIV/AIDS Treatment Program', scope: 'Procurement of antiretroviral drugs, diagnostic equipment, and laboratory supplies for national HIV/AIDS treatment program. Includes cold chain logistics and 5-year maintenance contracts for 200 testing sites.', category: 'Healthcare', location: 'Mozambique', budget: 45000000, currency: 'USD', borrower: 'Ministry of Health Mozambique', contractType: 'Goods', region: 'Africa' },
-    { title: 'IFC Renewable Energy Advisory Services', scope: 'Advisory services for development of 100MW wind farm project including feasibility study, environmental impact assessment, grid integration analysis, and financial structuring. Includes stakeholder engagement and regulatory compliance.', category: 'Energy', location: 'Vietnam', budget: 3500000, currency: 'USD', borrower: 'IFC Vietnam', contractType: 'Consulting', region: 'Southeast Asia' },
-    { title: 'Ecuador Public Health Infrastructure', scope: 'Construction and equipping of 8 primary healthcare centers and 2 regional hospitals in underserved areas. Includes medical equipment procurement, IT systems, and staff training programs.', category: 'Healthcare', location: 'Ecuador', budget: 22000000, currency: 'USD', borrower: 'Ministerio de Salud Pública', contractType: 'Works', region: 'Latin America' },
-    { title: 'Peru Rural Electrification Project', scope: 'Extension of electrical grid to 500 rural communities through solar microgrids and mini-hydro systems. Includes installation of 200km distribution lines, 3,000 solar home systems, and smart metering infrastructure.', category: 'Energy', location: 'Peru', budget: 31000000, currency: 'USD', borrower: 'Ministerio de Energía y Minas', contractType: 'Works', region: 'Latin America' },
-    { title: 'Paraguay Road Rehabilitation Program', scope: 'Rehabilitation and improvement of 180km of national highways including resurfacing, bridge repairs, drainage improvements, and road safety features. Includes traffic management systems and weigh stations.', category: 'Construction', location: 'Paraguay', budget: 28000000, currency: 'USD', borrower: 'Ministerio de Obras Públicas', contractType: 'Works', region: 'Latin America' },
-    { title: 'UNDP Digital Transformation Initiative', scope: 'Design and implementation of e-governance platform for public service delivery including digital identity, online permits, and integrated payment system. Covers 15 government agencies and 200 service types.', category: 'IT', location: 'Rwanda', budget: 5400000, currency: 'USD', borrower: 'Rwanda Development Board', contractType: 'Services', region: 'Africa' },
-    { title: 'Global Fund Malaria Prevention Program', scope: 'Procurement and distribution of 15 million long-lasting insecticidal nets (LLINs), indoor residual spraying equipment, and rapid diagnostic tests for 30 endemic districts. Includes logistics management and monitoring systems.', category: 'Supply', location: 'Tanzania', budget: 38000000, currency: 'USD', borrower: 'National Malaria Control Programme', contractType: 'Goods', region: 'Africa' },
-    { title: 'Ecuador Education Quality Improvement', scope: 'Development of standardized assessment framework, procurement of 5,000 tablets and digital learning content for 300 schools. Includes teacher training programs and learning management system deployment.', category: 'Education', location: 'Ecuador', budget: 9200000, currency: 'USD', borrower: 'Ministerio de Educación', contractType: 'Services', region: 'Latin America' },
-    { title: 'Peru Water Resource Management System', scope: 'Implementation of integrated water resource management platform including satellite monitoring, automated gauging stations, and flood early warning system. Covers 3 major river basins and 50 monitoring points.', category: 'IT', location: 'Peru', budget: 4100000, currency: 'USD', borrower: 'ANA Autoridad Nacional del Agua', contractType: 'Services', region: 'Latin America' },
-    { title: 'Paraguay Public School Construction', scope: 'Construction of 15 modern school buildings with laboratories, libraries, computer rooms, and sports facilities. Total capacity of 9,000 students across 5 departments. Includes furniture and equipment procurement.', category: 'Construction', location: 'Paraguay', budget: 16500000, currency: 'USD', borrower: 'MEC Ministerio de Educación', contractType: 'Works', region: 'Latin America' },
-    { title: 'IFC Green Building Certification Program', scope: 'Development of national green building certification framework and pilot certification of 20 commercial buildings. Includes training of 100 assessors, development of rating tools, and establishment of certification body.', category: 'Consulting', location: 'Colombia', budget: 2800000, currency: 'USD', borrower: 'IFC Colombia', contractType: 'Consulting', region: 'Latin America' },
-  ];
-
-  const tenders: LiveTender[] = [];
-  const totalAvailable = 2000; // Allow up to 2000 sample tenders for pagination
-  const startIdx = offset % sampleData.length;
-  const cycleOffset = Math.floor(offset / sampleData.length);
-
-  for (let i = 0; i < rows && (offset + i) < totalAvailable; i++) {
-    const dataIdx = (startIdx + i) % sampleData.length;
-    const cycle = cycleOffset + Math.floor((startIdx + i) / sampleData.length);
-    const d = sampleData[dataIdx];
-    const source = sources[(offset + i) % sources.length];
-    const baseDeadline = new Date(Date.now() + (30 + i * 3 + cycle * 15) * 86400000);
-    const budgetVariance = 1 + (cycle * 0.15);
-    const minBudget = Math.round(d.budget * 0.6 * budgetVariance);
-    const maxBudget = Math.round(d.budget * budgetVariance);
-    const signingDate = new Date(Date.now() - (10 + i * 5) * 86400000);
-    const externalId = `${source}-${offset + i}-r${cycle}`;
-
-    // Build source-specific document URLs
-    const docUrls: Record<string, string> = {
-      worldbank: `https://projects.worldbank.org/en/projects-operations/project-detail/P${100000 + offset + i}`,
-      eu_ted: `https://ted.europa.eu/udl?uri=TED:NOTICE:${externalId}:TEXT:EN:HTML`,
-      ungm: `https://www.ungm.org/Public/Notice/${offset + i + 10000}`,
-      sam_gov: `https://sam.gov/opp/${externalId}/view`,
-      afdb: `https://www.afdb.org/en/projects-and-operations/procurement/${offset + i + 5000}`,
-      adb: `https://www.adb.org/business/opportunities/${offset + i + 2000}`,
-      uk_contracts: `https://www.contractsfinder.service.gov.uk/notice/${offset + i + 30000}`,
-      dgmarket: `https://www.dgmarket.com/tenders/${offset + i + 40000}`,
-      canada_buyandsell: `https://buyandsell.gc.ca/procurement-data/tender/${offset + i + 50000}`,
-      austender: `https://www.tenders.gov.au/tender/${offset + i + 60000}`,
-      india_cppp: `https://eprocure.gov.in/eprocure/app?tenderId=${offset + i + 70000}`,
-      south_africa: `https://www.etenders.gov.za/tender/${offset + i + 80000}`,
-      colombia_secop: `https://www.colombiacompra.gov.co/tender/${offset + i + 90000}`,
-      mexico_compranet: `https://www.gob.mx/compranet/tender/${offset + i + 91000}`,
-      chile_mercado: `https://www.mercadopublico.cl/tender/${offset + i + 100000}`,
-      argentina_comprar: `https://www.comprar.gob.ar/tender/${offset + i + 101000}`,
-      uruguay_compras: `https://www.comprasestatales.gub.uy/tender/${offset + i + 102000}`,
-      kenya_tenders: `https://tenders.go.ke/tender/${offset + i + 110000}`,
-      nigeria_nocopo: `https://nocopo.bpp.gov.ng/tender/${offset + i + 120000}`,
-      philgeps: `https://philgeps.gov.ph/tender/${offset + i + 130000}`,
-      portugal_base: `https://www.base.gov.pt/tender/${offset + i + 140000}`,
-      undp_procurement: `https://procurement-notices.undp.org/view_notice.cfm?notice_id=${offset + i + 150000}`,
-      global_fund: `https://www.theglobalfund.org/procurement/tender/${offset + i + 160000}`,
-      ifc_advisory: `https://www.ifc.org/advisory/tender/${offset + i + 170000}`,
-      ecuador_sercop: `https://www.compraspublicas.gob.ec/procurement/${offset + i + 180000}`,
-      peru_compras: `https://www.comprasestatales.gob.pe/tender/${offset + i + 190000}`,
-      paraguay_dncp: `https://www.dncp.gov.py/tender/${offset + i + 200000}`,
-    };
-
-    const titleSuffix = cycle > 0 ? ` - Phase ${cycle + 1}` : '';
-
-    // Generate documentFiles based on category
-    const categoryDocFiles: Record<string, Array<{ name: string; type: string; size: string }>> = {
-      Construction: [
-        { name: 'RFP_Construction_Works.pdf', type: 'PDF', size: '3.2 MB' },
-        { name: 'Technical_Drawings.zip', type: 'ZIP', size: '15.8 MB' },
-        { name: 'Bill_of_Quantities.xlsx', type: 'XLSX', size: '1.4 MB' },
-      ],
-      Healthcare: [
-        { name: 'RFP_Medical_Equipment.pdf', type: 'PDF', size: '2.7 MB' },
-        { name: 'Compliance_Standards.pdf', type: 'PDF', size: '1.9 MB' },
-        { name: 'Delivery_Schedule.xlsx', type: 'XLSX', size: '0.8 MB' },
-      ],
-      IT: [
-        { name: 'RFP_Digital_Platform.pdf', type: 'PDF', size: '4.1 MB' },
-        { name: 'System_Requirements.docx', type: 'DOCX', size: '1.2 MB' },
-        { name: 'Evaluation_Criteria.xlsx', type: 'XLSX', size: '0.6 MB' },
-      ],
-      Energy: [
-        { name: 'RFP_Energy_Project.pdf', type: 'PDF', size: '5.3 MB' },
-        { name: 'Environmental_Impact_Assessment.pdf', type: 'PDF', size: '8.7 MB' },
-        { name: 'Grid_Interconnection_Specs.docx', type: 'DOCX', size: '2.1 MB' },
-      ],
-      Agriculture: [
-        { name: 'RFP_Agricultural_Supply.pdf', type: 'PDF', size: '2.0 MB' },
-        { name: 'Technical_Specifications.docx', type: 'DOCX', size: '1.5 MB' },
-        { name: 'Implementation_Plan.xlsx', type: 'XLSX', size: '1.1 MB' },
-      ],
-      Education: [
-        { name: 'RFP_Education_Technology.pdf', type: 'PDF', size: '3.5 MB' },
-        { name: 'Curriculum_Framework.docx', type: 'DOCX', size: '2.3 MB' },
-      ],
-      Engineering: [
-        { name: 'RFP_Infrastructure_Works.pdf', type: 'PDF', size: '6.2 MB' },
-        { name: 'Engineering_Designs.zip', type: 'ZIP', size: '22.4 MB' },
-        { name: 'Cost_Estimate.xlsx', type: 'XLSX', size: '1.7 MB' },
-      ],
-      Finance: [
-        { name: 'RFP_Financial_System.pdf', type: 'PDF', size: '2.9 MB' },
-        { name: 'Functional_Requirements.docx', type: 'DOCX', size: '1.8 MB' },
-      ],
-      Telecommunications: [
-        { name: 'RFP_Network_Expansion.pdf', type: 'PDF', size: '4.6 MB' },
-        { name: 'Technical_Specifications.docx', type: 'DOCX', size: '3.2 MB' },
-        { name: 'Coverage_Requirements.xlsx', type: 'XLSX', size: '0.9 MB' },
-      ],
-      Logistics: [
-        { name: 'RFP_Transport_System.pdf', type: 'PDF', size: '3.8 MB' },
-        { name: 'Fleet_Specifications.docx', type: 'DOCX', size: '1.4 MB' },
-      ],
-      Supply: [
-        { name: 'RFP_Supply_Framework.pdf', type: 'PDF', size: '2.2 MB' },
-        { name: 'Product_Catalog.xlsx', type: 'XLSX', size: '1.3 MB' },
-      ],
-      Consulting: [
-        { name: 'RFP_Consulting_Services.pdf', type: 'PDF', size: '1.8 MB' },
-        { name: 'Terms_of_Reference.docx', type: 'DOCX', size: '0.9 MB' },
-      ],
-      Environmental: [
-        { name: 'RFP_Waste_Management.pdf', type: 'PDF', size: '4.3 MB' },
-        { name: 'Environmental_Assessment.pdf', type: 'PDF', size: '7.6 MB' },
-        { name: 'Regulatory_Compliance.docx', type: 'DOCX', size: '2.0 MB' },
-      ],
-      Defense: [
-        { name: 'RFP_Secure_Communications.pdf', type: 'PDF', size: '5.1 MB' },
-        { name: 'Security_Clearance_Requirements.docx', type: 'DOCX', size: '1.6 MB' },
-        { name: 'Technical_Specifications_Classified.pdf', type: 'PDF', size: '3.9 MB' },
-      ],
-      Mining: [
-        { name: 'RFP_Mineral_Processing.pdf', type: 'PDF', size: '6.8 MB' },
-        { name: 'Geological_Survey_Data.zip', type: 'ZIP', size: '45.2 MB' },
-        { name: 'Tailings_Management_Plan.docx', type: 'DOCX', size: '2.5 MB' },
-      ],
-      Tourism: [
-        { name: 'RFP_Tourism_Infrastructure.pdf', type: 'PDF', size: '3.4 MB' },
-        { name: 'Sustainability_Framework.docx', type: 'DOCX', size: '1.7 MB' },
-      ],
-      Maritime: [
-        { name: 'RFP_Port_Expansion.pdf', type: 'PDF', size: '7.9 MB' },
-        { name: 'Marine_Engineering_Designs.zip', type: 'ZIP', size: '32.1 MB' },
-        { name: 'Dredging_Specifications.docx', type: 'DOCX', size: '2.8 MB' },
-      ],
-      Space: [
-        { name: 'RFP_Ground_Station_Network.pdf', type: 'PDF', size: '4.7 MB' },
-        { name: 'RF_Specifications.docx', type: 'DOCX', size: '2.3 MB' },
-        { name: 'Orbit_Parameters.xlsx', type: 'XLSX', size: '0.5 MB' },
-      ],
-      'Social Services': [
-        { name: 'RFP_Affordable_Housing.pdf', type: 'PDF', size: '3.6 MB' },
-        { name: 'Urban_Planning_Guidelines.docx', type: 'DOCX', size: '2.1 MB' },
-        { name: 'Community_Facilities_Specs.xlsx', type: 'XLSX', size: '1.0 MB' },
-      ],
-      Sports: [
-        { name: 'RFP_Sports_Complex.pdf', type: 'PDF', size: '5.5 MB' },
-        { name: 'FIFA_Standards_Compliance.pdf', type: 'PDF', size: '2.4 MB' },
-        { name: 'Architectural_Plans.zip', type: 'ZIP', size: '28.7 MB' },
-      ],
-      Forestry: [
-        { name: 'RFP_Forestry_Management.pdf', type: 'PDF', size: '2.8 MB' },
-        { name: 'Conservation_Zone_Map.zip', type: 'ZIP', size: '18.3 MB' },
-        { name: 'Biodiversity_Monitoring_Plan.docx', type: 'DOCX', size: '1.5 MB' },
-      ],
-      Textiles: [
-        { name: 'RFP_Textile_Modernization.pdf', type: 'PDF', size: '2.5 MB' },
-        { name: 'Equipment_Specifications.docx', type: 'DOCX', size: '1.9 MB' },
-        { name: 'Production_Line_Layout.xlsx', type: 'XLSX', size: '0.7 MB' },
-      ],
-    };
-
-    const docFiles = (categoryDocFiles[d.category] || [
-      { name: 'RFP_General_Requirements.pdf', type: 'PDF', size: '2.0 MB' },
-      { name: 'Terms_and_Conditions.docx', type: 'DOCX', size: '1.0 MB' },
-    ]).slice(0, 1 + (i % 3)); // 1-3 files per tender
-
-    const docUrl = docUrls[source] || '';
-    const documentFiles = docFiles.map((f) => ({
-      ...f,
-      url: docUrl,
-    }));
-
-    tenders.push({
-      id: `sample-${externalId}`,
-      title: d.title + titleSuffix,
-      scope: d.scope,
-      budgetMin: minBudget,
-      budgetMax: maxBudget,
-      deadline: baseDeadline.toISOString(),
-      location: d.location,
-      categoryTags: d.category,
-      requiredDocs: docUrl,
-      status: i % 7 === 0 ? 'awarded' : 'open',
-      createdBy: source,
-      createdAt: signingDate.toISOString(),
-      updatedAt: signingDate.toISOString(),
-      source,
-      externalId,
-      externalUrl: docUrl || ``,
-      currency: d.currency,
-      borrower: d.borrower,
-      supplier: i % 7 === 0 ? `Contractor International ${String.fromCharCode(65 + (i % 26))}` : undefined,
-      contractType: d.contractType,
-      signingDate: i % 7 === 0 ? signingDate.toISOString() : undefined,
-      region: d.region,
-      documentUrl: docUrl || undefined,
-      documentFiles,
-    });
-  }
-
-  // Filter by search if provided
-  if (search) {
-    const q = search.toLowerCase();
-    return tenders.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.scope.toLowerCase().includes(q) ||
-        t.location.toLowerCase().includes(q) ||
-        t.categoryTags.toLowerCase().includes(q),
-    );
-  }
-
-  return tenders;
-}
 
 /* ─────────────────────────────────────────────────────────────────────
- * J.P. Morgan - Vendor Procurement
+ * Stub adapters for sources not yet connected to live APIs
+ * These return empty results until real API integration is implemented.
  * ───────────────────────────────────────────────────────────────────── */
-export async function fetchJpMorganTenders(opts: {
-  search?: string;
-  rows?: number;
-  offset?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-  const q = (opts.search || '').toLowerCase();
-  const now = Date.now();
-  const base: LiveTender[] = [
-    { id: 'jpm-1', title: 'Cloud Infrastructure Migration - AWS/Azure', scope: 'Migration of core banking infrastructure to multi-cloud environment. Includes platform architecture, data migration, security compliance, and ongoing managed services.', budgetMin: 5000000, budgetMax: 15000000, deadline: new Date(now + 45*86400000).toISOString(), location: 'United States', categoryTags: 'Technology, Cloud, Infrastructure', requiredDocs: 'RFP, Technical Proposal', status: 'open', createdBy: 'jp_morgan', createdAt: new Date(now - 5*86400000).toISOString(), updatedAt: new Date(now - 2*86400000).toISOString(), source: 'jp_morgan', externalId: 'jpm-1', externalUrl: 'https://www.jpmorgan.com', currency: 'USD', borrower: 'J.P. Morgan Chase', contractType: 'Services', region: 'North America', documentFiles: [{ name: 'RFP Document', type: 'PDF', size: '2.4 MB', url: '#' }] },
-    { id: 'jpm-2', title: 'AI/ML Risk Analytics Platform Development', scope: 'Development and implementation of machine learning models for credit risk assessment, market risk prediction, and fraud detection across global operations.', budgetMin: 3000000, budgetMax: 8000000, deadline: new Date(now + 30*86400000).toISOString(), location: 'United Kingdom', categoryTags: 'AI, Machine Learning, Risk Management', requiredDocs: 'Technical Proposal, Case Studies', status: 'open', createdBy: 'jp_morgan', createdAt: new Date(now - 3*86400000).toISOString(), updatedAt: new Date(now - 1*86400000).toISOString(), source: 'jp_morgan', externalId: 'jpm-2', externalUrl: 'https://www.jpmorgan.com', currency: 'USD', borrower: 'J.P. Morgan Chase', contractType: 'Services', region: 'Europe', documentFiles: [{ name: 'RFP Document', type: 'PDF', size: '1.8 MB', url: '#' }] },
-    { id: 'jpm-3', title: 'Global Cybersecurity Operations Center', scope: 'Design and operation of 24/7 SOC with threat intelligence, incident response, and compliance monitoring for global banking operations.', budgetMin: 10000000, budgetMax: 25000000, deadline: new Date(now + 60*86400000).toISOString(), location: 'Multiple Countries', categoryTags: 'Cybersecurity, Operations, Compliance', requiredDocs: 'RFP, Security Clearance', status: 'open', createdBy: 'jp_morgan', createdAt: new Date(now - 7*86400000).toISOString(), updatedAt: new Date(now - 1*86400000).toISOString(), source: 'jp_morgan', externalId: 'jpm-3', externalUrl: 'https://www.jpmorgan.com', currency: 'USD', borrower: 'J.P. Morgan Chase', contractType: 'Services', region: 'Global', documentFiles: [] },
-    { id: 'jpm-4', title: 'ESG Data Analytics & Reporting Platform', scope: 'Enterprise ESG data aggregation, analytics, and regulatory reporting platform covering climate risk, social impact metrics, and governance scoring.', budgetMin: 2000000, budgetMax: 5000000, deadline: new Date(now + 35*86400000).toISOString(), location: 'United States', categoryTags: 'ESG, Analytics, Reporting', requiredDocs: 'Technical Proposal', status: 'open', createdBy: 'jp_morgan', createdAt: new Date(now - 4*86400000).toISOString(), updatedAt: new Date(now - 1*86400000).toISOString(), source: 'jp_morgan', externalId: 'jpm-4', externalUrl: 'https://www.jpmorgan.com', currency: 'USD', borrower: 'J.P. Morgan Chase', contractType: 'Services', region: 'North America', documentFiles: [] },
-    { id: 'jpm-5', title: 'Digital Payment Processing Infrastructure', scope: 'Next-gen payment processing platform supporting real-time payments, cross-border settlements, and CBDC integration for retail and wholesale banking.', budgetMin: 8000000, budgetMax: 20000000, deadline: new Date(now + 50*86400000).toISOString(), location: 'Singapore', categoryTags: 'Payments, Fintech, Infrastructure', requiredDocs: 'RFP, Architecture Document', status: 'open', createdBy: 'jp_morgan', createdAt: new Date(now - 6*86400000).toISOString(), updatedAt: new Date(now - 2*86400000).toISOString(), source: 'jp_morgan', externalId: 'jpm-5', externalUrl: 'https://www.jpmorgan.com', currency: 'USD', borrower: 'J.P. Morgan Chase', contractType: 'Services', region: 'Asia Pacific', documentFiles: [] },
-  ];
-  let filtered = q ? base.filter(t => t.title.toLowerCase().includes(q) || t.scope.toLowerCase().includes(q) || t.categoryTags.toLowerCase().includes(q)) : base;
-  return { tenders: filtered.slice(opts.offset || 0, (opts.offset || 0) + rows), total: filtered.length, ok: true };
+
+function stubNotConnected(sourceName: string) {
+  return { tenders: [] as LiveTender[], total: 0, ok: false as const, error: `${sourceName} API not yet connected. Coming soon.` };
 }
 
-/* ─────────────────────────────────────────────────────────────────────
- * UNICEF Supply Division
- * ───────────────────────────────────────────────────────────────────── */
-export async function fetchUnicefSupplyTenders(opts: {
-  search?: string;
-  rows?: number;
-  offset?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-  const q = (opts.search || '').toLowerCase();
-  const now = Date.now();
-  const base: LiveTender[] = [
-    { id: 'unicef-1', title: 'Vaccine Procurement - Routine Immunization 2026', scope: 'Supply of routine immunization vaccines (BCG, DTP, HepB, Hib, PCV, Rotavirus, Measles/MR) for 40+ countries in Sub-Saharan Africa and South Asia.', budgetMin: 50000000, budgetMax: 200000000, deadline: new Date(now + 90*86400000).toISOString(), location: 'Multiple Countries', categoryTags: 'Health, Vaccines, Pharmaceuticals', requiredDocs: 'Technical Specifications, GMP Certificate', status: 'open', createdBy: 'unicef_supply', createdAt: new Date(now - 10*86400000).toISOString(), updatedAt: new Date(now - 3*86400000).toISOString(), source: 'unicef_supply', externalId: 'unicef-1', externalUrl: 'https://www.unicef.org/supply/', currency: 'USD', borrower: 'UNICEF', contractType: 'Goods', region: 'Africa & Asia', documentFiles: [{ name: 'Tender Document', type: 'PDF', size: '3.2 MB', url: '#' }] },
-    { id: 'unicef-2', title: 'Cold Chain Equipment - Solar Direct Drive Refrigerators', scope: 'Procurement of WHO-PQS prequalified Solar Direct Drive (SDD) refrigerators and freezer equipment for vaccine storage in off-grid health facilities.', budgetMin: 10000000, budgetMax: 30000000, deadline: new Date(now + 60*86400000).toISOString(), location: 'Sub-Saharan Africa', categoryTags: 'Health, Cold Chain, Solar', requiredDocs: 'PQS Certificate, Technical Proposal', status: 'open', createdBy: 'unicef_supply', createdAt: new Date(now - 7*86400000).toISOString(), updatedAt: new Date(now - 2*86400000).toISOString(), source: 'unicef_supply', externalId: 'unicef-2', externalUrl: 'https://www.unicef.org/supply/', currency: 'USD', borrower: 'UNICEF', contractType: 'Goods', region: 'Africa', documentFiles: [] },
-    { id: 'unicef-3', title: 'WASH Supplies - Water Purification & Hygiene Kits', scope: 'Supply of water purification tablets, filters, hygiene kits, and sanitation equipment for humanitarian response in emergency-affected regions.', budgetMin: 5000000, budgetMax: 15000000, deadline: new Date(now + 45*86400000).toISOString(), location: 'Middle East & North Africa', categoryTags: 'WASH, Humanitarian, Emergency', requiredDocs: 'Product Specifications', status: 'open', createdBy: 'unicef_supply', createdAt: new Date(now - 5*86400000).toISOString(), updatedAt: new Date(now - 1*86400000).toISOString(), source: 'unicef_supply', externalId: 'unicef-3', externalUrl: 'https://www.unicef.org/supply/', currency: 'USD', borrower: 'UNICEF', contractType: 'Goods', region: 'MENA', documentFiles: [] },
-    { id: 'unicef-4', title: 'Education Supplies - Learning Materials & Devices', scope: 'Procurement of textbooks, school supplies, digital learning devices, and classroom furniture for education programs across 60+ developing countries.', budgetMin: 8000000, budgetMax: 25000000, deadline: new Date(now + 75*86400000).toISOString(), location: 'South Asia', categoryTags: 'Education, Learning, Digital', requiredDocs: 'RFP, Sample Materials', status: 'open', createdBy: 'unicef_supply', createdAt: new Date(now - 8*86400000).toISOString(), updatedAt: new Date(now - 2*86400000).toISOString(), source: 'unicef_supply', externalId: 'unicef-4', externalUrl: 'https://www.unicef.org/supply/', currency: 'USD', borrower: 'UNICEF', contractType: 'Goods', region: 'Asia', documentFiles: [] },
-    { id: 'unicef-5', title: 'Nutrition Supplies - RUTF & Micronutrient Powders', scope: 'Supply of Ready-to-Use Therapeutic Food (RUTF), micronutrient powders, and nutrition supplements for treatment of severe acute malnutrition in children.', budgetMin: 30000000, budgetMax: 80000000, deadline: new Date(now + 60*86400000).toISOString(), location: 'East Africa', categoryTags: 'Nutrition, Health, Humanitarian', requiredDocs: 'Product Specifications, Quality Certificate', status: 'open', createdBy: 'unicef_supply', createdAt: new Date(now - 6*86400000).toISOString(), updatedAt: new Date(now - 1*86400000).toISOString(), source: 'unicef_supply', externalId: 'unicef-5', externalUrl: 'https://www.unicef.org/supply/', currency: 'USD', borrower: 'UNICEF', contractType: 'Goods', region: 'Africa', documentFiles: [] },
-  ];
-  let filtered = q ? base.filter(t => t.title.toLowerCase().includes(q) || t.scope.toLowerCase().includes(q) || t.categoryTags.toLowerCase().includes(q)) : base;
-  return { tenders: filtered.slice(opts.offset || 0, (opts.offset || 0) + rows), total: filtered.length, ok: true };
-}
-
-/* ─────────────────────────────────────────────────────────────────────
- * WHO - Procurement & Supply
- * ───────────────────────────────────────────────────────────────────── */
-export async function fetchWhoProcurementTenders(opts: {
-  search?: string;
-  rows?: number;
-  offset?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-  const q = (opts.search || '').toLowerCase();
-  const now = Date.now();
-  const base: LiveTender[] = [
-    { id: 'who-1', title: 'Essential Medicines Procurement - ARVs & Antimalarials', scope: 'Supply of WHO-prequalified antiretroviral medicines (ARVs) and antimalarial drugs for HIV/AIDS and malaria programs in low-income countries.', budgetMin: 40000000, budgetMax: 120000000, deadline: new Date(now + 90*86400000).toISOString(), location: 'Sub-Saharan Africa', categoryTags: 'Health, Pharmaceuticals, HIV/AIDS', requiredDocs: 'WHO Prequalification, GMP Certificate', status: 'open', createdBy: 'who_procurement', createdAt: new Date(now - 12*86400000).toISOString(), updatedAt: new Date(now - 3*86400000).toISOString(), source: 'who_procurement', externalId: 'who-1', externalUrl: 'https://www.who.int/about/procurement', currency: 'USD', borrower: 'WHO', contractType: 'Goods', region: 'Africa', documentFiles: [{ name: 'Procurement Notice', type: 'PDF', size: '1.5 MB', url: '#' }] },
-    { id: 'who-2', title: 'Medical Devices - Diagnostic Equipment', scope: 'Procurement of WHO-listed diagnostic equipment including X-ray systems, ultrasound, point-of-care testing devices, and laboratory equipment.', budgetMin: 15000000, budgetMax: 40000000, deadline: new Date(now + 60*86400000).toISOString(), location: 'Southeast Asia', categoryTags: 'Health, Medical Devices, Diagnostics', requiredDocs: 'Technical Specifications, CE Marking', status: 'open', createdBy: 'who_procurement', createdAt: new Date(now - 8*86400000).toISOString(), updatedAt: new Date(now - 2*86400000).toISOString(), source: 'who_procurement', externalId: 'who-2', externalUrl: 'https://www.who.int/about/procurement', currency: 'USD', borrower: 'WHO', contractType: 'Goods', region: 'Asia', documentFiles: [] },
-    { id: 'who-3', title: 'Pandemic Preparedness - PPE & Medical Supplies', scope: 'Framework agreement for personal protective equipment (PPE), ventilators, oxygen concentrators, and emergency medical supplies for pandemic response stockpiles.', budgetMin: 20000000, budgetMax: 60000000, deadline: new Date(now + 120*86400000).toISOString(), location: 'Global', categoryTags: 'Health, PPE, Pandemic, Emergency', requiredDocs: 'ISO Certification, Quality Standards', status: 'open', createdBy: 'who_procurement', createdAt: new Date(now - 15*86400000).toISOString(), updatedAt: new Date(now - 5*86400000).toISOString(), source: 'who_procurement', externalId: 'who-3', externalUrl: 'https://www.who.int/about/procurement', currency: 'USD', borrower: 'WHO', contractType: 'Goods', region: 'Global', documentFiles: [] },
-    { id: 'who-4', title: 'Digital Health Solutions - Health Information Systems', scope: 'Development and implementation of national health information systems, electronic medical records, and disease surveillance platforms.', budgetMin: 3000000, budgetMax: 10000000, deadline: new Date(now + 45*86400000).toISOString(), location: 'East Africa', categoryTags: 'Health, Digital Health, Technology', requiredDocs: 'Technical Proposal', status: 'open', createdBy: 'who_procurement', createdAt: new Date(now - 6*86400000).toISOString(), updatedAt: new Date(now - 1*86400000).toISOString(), source: 'who_procurement', externalId: 'who-4', externalUrl: 'https://www.who.int/about/procurement', currency: 'USD', borrower: 'WHO', contractType: 'Services', region: 'Africa', documentFiles: [] },
-  ];
-  let filtered = q ? base.filter(t => t.title.toLowerCase().includes(q) || t.scope.toLowerCase().includes(q) || t.categoryTags.toLowerCase().includes(q)) : base;
-  return { tenders: filtered.slice(opts.offset || 0, (opts.offset || 0) + rows), total: filtered.length, ok: true };
-}
-
-/* ─────────────────────────────────────────────────────────────────────
- * EBRD - European Bank for Reconstruction and Development
- * ───────────────────────────────────────────────────────────────────── */
-export async function fetchEbrdTenders(opts: {
-  search?: string;
-  rows?: number;
-  offset?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-  const q = (opts.search || '').toLowerCase();
-  const now = Date.now();
-  const base: LiveTender[] = [
-    { id: 'ebrd-1', title: 'Renewable Energy - Wind Farm Development (Uzbekistan)', scope: 'Construction of 500MW wind farm including turbines, grid connection, substations, and SCADA systems in the Bukhara region.', budgetMin: 300000000, budgetMax: 600000000, deadline: new Date(now + 90*86400000).toISOString(), location: 'Uzbekistan', categoryTags: 'Energy, Renewable, Wind, Infrastructure', requiredDocs: 'EOI, Technical Proposal', status: 'open', createdBy: 'ebrd', createdAt: new Date(now - 14*86400000).toISOString(), updatedAt: new Date(now - 3*86400000).toISOString(), source: 'ebrd', externalId: 'ebrd-1', externalUrl: 'https://www.ebrd.com/work-with-us/procurement.html', currency: 'EUR', borrower: 'EBRD', contractType: 'Works', region: 'Central Asia', documentFiles: [{ name: 'Procurement Notice', type: 'PDF', size: '4.1 MB', url: '#' }] },
-    { id: 'ebrd-2', title: 'Urban Transport Modernization - Tbilisi Metro', scope: 'Modernization of Tbilisi metro system including rolling stock, signaling, ticketing systems, and station infrastructure upgrades.', budgetMin: 150000000, budgetMax: 300000000, deadline: new Date(now + 75*86400000).toISOString(), location: 'Georgia', categoryTags: 'Transport, Urban, Infrastructure', requiredDocs: 'RFP, Financial Proposal', status: 'open', createdBy: 'ebrd', createdAt: new Date(now - 10*86400000).toISOString(), updatedAt: new Date(now - 2*86400000).toISOString(), source: 'ebrd', externalId: 'ebrd-2', externalUrl: 'https://www.ebrd.com/work-with-us/procurement.html', currency: 'EUR', borrower: 'EBRD', contractType: 'Works', region: 'Eastern Europe', documentFiles: [] },
-    { id: 'ebrd-3', title: 'Digital Banking Platform - Financial Sector Reform (Egypt)', scope: 'Implementation of core banking platform for state-owned bank digitalization including mobile banking, API gateway, and regulatory reporting.', budgetMin: 5000000, budgetMax: 15000000, deadline: new Date(now + 45*86400000).toISOString(), location: 'Egypt', categoryTags: 'Finance, Technology, Banking', requiredDocs: 'Technical Proposal', status: 'open', createdBy: 'ebrd', createdAt: new Date(now - 7*86400000).toISOString(), updatedAt: new Date(now - 1*86400000).toISOString(), source: 'ebrd', externalId: 'ebrd-3', externalUrl: 'https://www.ebrd.com/work-with-us/procurement.html', currency: 'EUR', borrower: 'EBRD', contractType: 'Services', region: 'SEMED', documentFiles: [] },
-    { id: 'ebrd-4', title: 'Water & Wastewater Treatment Plant (Jordan)', scope: 'Design and construction of water treatment and wastewater recycling facility serving 500,000 residents in Amman governorate.', budgetMin: 80000000, budgetMax: 150000000, deadline: new Date(now + 60*86400000).toISOString(), location: 'Jordan', categoryTags: 'Water, Infrastructure, Environment', requiredDocs: 'EOI, Technical Proposal', status: 'open', createdBy: 'ebrd', createdAt: new Date(now - 9*86400000).toISOString(), updatedAt: new Date(now - 2*86400000).toISOString(), source: 'ebrd', externalId: 'ebrd-4', externalUrl: 'https://www.ebrd.com/work-with-us/procurement.html', currency: 'EUR', borrower: 'EBRD', contractType: 'Works', region: 'SEMED', documentFiles: [] },
-  ];
-  let filtered = q ? base.filter(t => t.title.toLowerCase().includes(q) || t.scope.toLowerCase().includes(q) || t.categoryTags.toLowerCase().includes(q)) : base;
-  return { tenders: filtered.slice(opts.offset || 0, (opts.offset || 0) + rows), total: filtered.length, ok: true };
-}
-
-/* ─────────────────────────────────────────────────────────────────────
- * Additional global sources: IDB, IsDB, NDB, Citi, HSBC, Gates Foundation,
- * Rockefeller, FAO, Gavi, McKinsey, KfW, UNOPS, Goldman Sachs, WFP
- * ───────────────────────────────────────────────────────────────────── */
-export async function fetchGenericInternationalTenders(sourceId: string, sourceName: string, sourceUrl: string, items: { title: string; scope: string; budgetMin: number; budgetMax: number; location: string; tags: string; currency?: string; region?: string; contractType?: string; }[], opts: {
-  search?: string;
-  rows?: number;
-  offset?: number;
-}): Promise<{ tenders: LiveTender[]; total: number; ok: boolean; error?: string }> {
-  const rows = Math.min(Math.max(opts.rows ?? 10, 1), 50);
-  const q = (opts.search || '').toLowerCase();
-  const now = Date.now();
-  const base: LiveTender[] = items.map((item, idx) => ({
-    id: `${sourceId}-${idx + 1}`,
-    title: item.title,
-    scope: item.scope,
-    budgetMin: item.budgetMin,
-    budgetMax: item.budgetMax,
-    deadline: new Date(now + (30 + idx * 15) * 86400000).toISOString(),
-    location: item.location,
-    categoryTags: item.tags,
-    requiredDocs: 'RFP, Technical Proposal',
-    status: 'open' as const,
-    createdBy: sourceId,
-    createdAt: new Date(now - (5 + idx * 3) * 86400000).toISOString(),
-    updatedAt: new Date(now - (1 + idx) * 86400000).toISOString(),
-    source: sourceId,
-    externalId: `${sourceId}-${idx + 1}`,
-    externalUrl: sourceUrl,
-    currency: item.currency || 'USD',
-    borrower: sourceName,
-    contractType: item.contractType || 'Services',
-    region: item.region || 'Global',
-    documentFiles: [],
-  }));
-  let filtered = q ? base.filter(t => t.title.toLowerCase().includes(q) || t.scope.toLowerCase().includes(q) || t.categoryTags.toLowerCase().includes(q)) : base;
-  return { tenders: filtered.slice(opts.offset || 0, (opts.offset || 0) + rows), total: filtered.length, ok: true };
-}
-
-export async function fetchIdbTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('idb', 'Inter-American Development Bank', 'https://www.iadb.org/en/procurement', [
-    { title: 'Sustainable Transportation Network - Colombia', scope: 'Design and construction of integrated public transit system including BRT lanes, electric bus fleet, and smart traffic management for Bogotá metropolitan area.', budgetMin: 200000000, budgetMax: 450000000, location: 'Colombia', tags: 'Transport, Infrastructure, Sustainability', currency: 'USD', region: 'Latin America', contractType: 'Works' },
-    { title: 'Digital Government Platform - Panama', scope: 'Implementation of unified digital government platform for citizen services, electronic procurement, and inter-agency data sharing.', budgetMin: 5000000, budgetMax: 12000000, location: 'Panama', tags: 'Technology, Government, Digital', currency: 'USD', region: 'Latin America', contractType: 'Services' },
-    { title: 'Climate Resilience - Coastal Protection (Caribbean)', scope: 'Climate adaptation infrastructure including sea walls, mangrove restoration, and early warning systems for SIDS in the Caribbean basin.', budgetMin: 50000000, budgetMax: 120000000, location: 'Caribbean', tags: 'Climate, Infrastructure, Environment', currency: 'USD', region: 'Caribbean', contractType: 'Works' },
-    { title: 'Health System Strengthening - Honduras', scope: 'Modernization of national health information system, hospital infrastructure upgrades, and primary care digital health deployment.', budgetMin: 30000000, budgetMax: 75000000, location: 'Honduras', tags: 'Health, Technology, Infrastructure', currency: 'USD', region: 'Central America', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchIsdbTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('isdb', 'Islamic Development Bank', 'https://www.isdb.org/procurement', [
-    { title: 'Solar Power Plant - 200MW (Senegal)', scope: 'Engineering, procurement, and construction of 200MW solar PV plant with battery storage and grid interconnection infrastructure.', budgetMin: 150000000, budgetMax: 300000000, location: 'Senegal', tags: 'Energy, Solar, Renewable, Infrastructure', currency: 'USD', region: 'West Africa', contractType: 'Works' },
-    { title: 'Education City Development - Kazakhstan', scope: 'Construction of university campus complex including academic buildings, research labs, student housing, and digital learning infrastructure.', budgetMin: 100000000, budgetMax: 250000000, location: 'Kazakhstan', tags: 'Education, Infrastructure, Construction', currency: 'USD', region: 'Central Asia', contractType: 'Works' },
-    { title: 'Agricultural Value Chain - Palm Oil Processing (Malaysia)', scope: 'Development of sustainable palm oil processing facilities with RSPO certification, smallholder integration, and export logistics.', budgetMin: 40000000, budgetMax: 80000000, location: 'Malaysia', tags: 'Agriculture, Processing, Sustainability', currency: 'USD', region: 'Southeast Asia', contractType: 'Works' },
-    { title: 'Telehealth Network - Rural Health Connectivity (Uganda)', scope: 'Deployment of satellite-based telehealth network connecting 500 rural health facilities with specialist referral and diagnostic support.', budgetMin: 8000000, budgetMax: 20000000, location: 'Uganda', tags: 'Health, Technology, Digital', currency: 'USD', region: 'East Africa', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchNordicDbTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('nordic_db', 'New Development Bank (BRICS)', 'https://www.ndb.int/procurement/', [
-    { title: 'Smart City Infrastructure - Hyderabad (India)', scope: 'Implementation of IoT-enabled smart city systems including traffic management, waste management, water distribution, and public safety surveillance.', budgetMin: 200000000, budgetMax: 500000000, location: 'India', tags: 'Smart City, IoT, Infrastructure, Technology', currency: 'INR', region: 'South Asia', contractType: 'Works' },
-    { title: 'High-Speed Rail - São Paulo to Campinas (Brazil)', scope: 'Feasibility study, design, and initial construction phase for 180km high-speed rail corridor connecting São Paulo and Campinas.', budgetMin: 5000000000, budgetMax: 10000000000, location: 'Brazil', tags: 'Transport, Rail, Infrastructure', currency: 'BRL', region: 'South America', contractType: 'Works' },
-    { title: 'Renewable Energy Grid Integration (South Africa)', scope: 'Grid modernization for integration of 5GW renewable energy capacity including transmission lines, substations, and grid stabilization systems.', budgetMin: 300000000, budgetMax: 800000000, location: 'South Africa', tags: 'Energy, Renewable, Grid, Infrastructure', currency: 'ZAR', region: 'Southern Africa', contractType: 'Works' },
-  ], opts);
-}
-
-export async function fetchCitiProcurementTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('citi_procurement', 'Citi Group', 'https://www.citigroup.com/citi/about/procurement.htm', [
-    { title: 'Global Trade Finance Platform Modernization', scope: 'Replacement and modernization of global trade finance platform supporting LC, guarantees, supply chain finance, and document management across 90+ countries.', budgetMin: 15000000, budgetMax: 40000000, location: 'United States', tags: 'Finance, Technology, Trade', currency: 'USD', region: 'North America', contractType: 'Services' },
-    { title: 'Cloud-Native Banking Platform - Asia Pacific', scope: 'Development of cloud-native core banking platform for retail and commercial banking operations across 15 Asia Pacific markets.', budgetMin: 20000000, budgetMax: 50000000, location: 'Singapore', tags: 'Banking, Cloud, Technology', currency: 'USD', region: 'Asia Pacific', contractType: 'Services' },
-    { title: 'Regulatory Technology (RegTech) Solution', scope: 'Enterprise-wide regulatory compliance platform covering AML/KYC, sanctions screening, transaction monitoring, and regulatory reporting.', budgetMin: 8000000, budgetMax: 20000000, location: 'United Kingdom', tags: 'RegTech, Compliance, Technology', currency: 'GBP', region: 'Europe', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchHsbcProcurementTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('hsbc_procurement', 'HSBC Banking Group', 'https://www.hsbc.com/about-us/suppliers', [
-    { title: 'Wealth Management AI Platform', scope: 'AI-powered wealth management platform with portfolio optimization, risk analytics, ESG scoring, and personalized advisory for high-net-worth clients.', budgetMin: 5000000, budgetMax: 15000000, location: 'Hong Kong', tags: 'AI, Wealth Management, Fintech', currency: 'HKD', region: 'Asia Pacific', contractType: 'Services' },
-    { title: 'Sustainable Finance Data Platform', scope: 'Development of green and sustainability-linked bond verification platform with climate data integration and impact measurement.', budgetMin: 3000000, budgetMax: 8000000, location: 'United Kingdom', tags: 'ESG, Sustainability, Finance', currency: 'GBP', region: 'Europe', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchGatesFoundationTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('gates_foundation', 'Bill & Melinda Gates Foundation', 'https://www.gatesfoundation.org/', [
-    { title: 'Malaria Vaccine Distribution & Cold Chain (Africa)', scope: 'End-to-end distribution of RTS,S malaria vaccine including cold chain logistics, health worker training, and digital tracking across 10 African countries.', budgetMin: 100000000, budgetMax: 300000000, location: 'Sub-Saharan Africa', tags: 'Health, Vaccines, Logistics, Malaria', currency: 'USD', region: 'Africa', contractType: 'Services' },
-    { title: 'Agricultural Research - Climate-Resilient Crops', scope: 'Research and development of drought-resistant and heat-tolerant crop varieties for smallholder farmers in South Asia and Sub-Saharan Africa.', budgetMin: 50000000, budgetMax: 120000000, location: 'Multiple Countries', tags: 'Agriculture, Research, Climate', currency: 'USD', region: 'Africa & Asia', contractType: 'Services' },
-    { title: 'Financial Inclusion - Digital Payment Systems', scope: 'Development of open-source digital payment infrastructure for unbanked populations in India, Kenya, Nigeria, and Bangladesh.', budgetMin: 20000000, budgetMax: 50000000, location: 'South Asia & Africa', tags: 'Finance, Digital, Inclusion', currency: 'USD', region: 'Africa & Asia', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchRockefellerFoundationTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('rockefeller_foundation', 'Rockefeller Foundation', 'https://www.rockefellerfoundation.org/', [
-    { title: 'Clean Energy Access - Mini-Grid Deployment (India)', scope: 'Deployment of 1000 solar mini-grids providing reliable electricity to 5 million rural residents in Uttar Pradesh and Bihar states.', budgetMin: 50000000, budgetMax: 120000000, location: 'India', tags: 'Energy, Solar, Rural, Access', currency: 'USD', region: 'South Asia', contractType: 'Works' },
-    { title: 'Public Health Data Platform - Africa', scope: 'Development of continental public health data sharing platform for disease surveillance, outbreak detection, and health workforce management.', budgetMin: 10000000, budgetMax: 30000000, location: 'Africa', tags: 'Health, Data, Technology', currency: 'USD', region: 'Africa', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchFaoProcurementTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('fao_procurement', 'FAO - Food & Agriculture Organization', 'https://www.fao.org/about/procurement/en/', [
-    { title: 'Emergency Food Assistance - Horn of Africa', scope: 'Procurement and distribution of emergency food supplies including cereals, pulses, oil, and nutritional supplements for 3 million drought-affected people.', budgetMin: 80000000, budgetMax: 200000000, location: 'Horn of Africa', tags: 'Food, Emergency, Humanitarian', currency: 'USD', region: 'East Africa', contractType: 'Goods' },
-    { title: 'Forest Monitoring Satellite System', scope: 'Development and deployment of satellite-based forest monitoring and early warning system for deforestation detection across tropical regions.', budgetMin: 10000000, budgetMax: 25000000, location: 'Global', tags: 'Forestry, Satellite, Technology', currency: 'USD', region: 'Global', contractType: 'Services' },
-    { title: 'Fisheries Modernization - West Africa', scope: 'Modernization of artisanal fishing fleet with safety equipment, cold storage, and market access infrastructure for coastal communities in 8 West African countries.', budgetMin: 20000000, budgetMax: 50000000, location: 'West Africa', tags: 'Fisheries, Infrastructure, Livelihoods', currency: 'USD', region: 'West Africa', contractType: 'Works' },
-  ], opts);
-}
-
-export async function fetchGaviTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('gavi', 'Gavi - Vaccine Alliance', 'https://www.gavi.org/procurement', [
-    { title: 'HPV Vaccine Procurement - Global Program', scope: 'Supply of HPV vaccines for cervical cancer prevention immunization programs in 50+ low-income countries. WHO-prequalified manufacturers only.', budgetMin: 100000000, budgetMax: 300000000, location: 'Global', tags: 'Health, Vaccines, HPV, Cancer', currency: 'USD', region: 'Global', contractType: 'Goods' },
-    { title: 'Cold Chain Equipment - eLearning & Monitoring', scope: 'Digital cold chain monitoring and eLearning platform for vaccine storage management in 60+ countries. IoT sensors and training modules.', budgetMin: 15000000, budgetMax: 40000000, location: 'Global', tags: 'Health, Cold Chain, IoT, Digital', currency: 'USD', region: 'Global', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchMckinseyRfpTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('mckinsey_rfp', 'McKinsey & Company', 'https://www.mckinsey.com/about-us/social-impact', [
-    { title: 'Public Health System Transformation - Nigeria', scope: 'Strategic advisory for restructuring Nigeria\'s primary healthcare system including governance, financing, workforce, and service delivery models.', budgetMin: 5000000, budgetMax: 12000000, location: 'Nigeria', tags: 'Health, Consulting, Strategy', currency: 'USD', region: 'West Africa', contractType: 'Services' },
-    { title: 'Climate Adaptation Strategy - Small Island States', scope: 'Development of national climate adaptation strategies and implementation roadmaps for Pacific and Caribbean small island developing states.', budgetMin: 3000000, budgetMax: 8000000, location: 'Pacific Islands', tags: 'Climate, Strategy, Adaptation', currency: 'USD', region: 'Pacific', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchKfwTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('kfw', 'KfW Development Bank', 'https://www.kfw-entwicklungsbank.de/', [
-    { title: 'Green Hydrogen Production - Namibia', scope: 'Development of green hydrogen production facility using renewable energy for export to European markets. Includes desalination and port infrastructure.', budgetMin: 500000000, budgetMax: 1000000000, location: 'Namibia', tags: 'Energy, Hydrogen, Green, Export', currency: 'EUR', region: 'Southern Africa', contractType: 'Works' },
-    { title: 'Urban Water Infrastructure - Amman (Jordan)', scope: 'Rehabilitation and expansion of water distribution network, wastewater collection, and treatment plant capacity for Greater Amman.', budgetMin: 100000000, budgetMax: 250000000, location: 'Jordan', tags: 'Water, Infrastructure, Urban', currency: 'EUR', region: 'MENA', contractType: 'Works' },
-    { title: 'Off-Grid Solar - Rural Electrification (Tanzania)', scope: 'Financing and deployment of off-grid solar home systems and mini-grids for 2 million rural households in Tanzania.', budgetMin: 50000000, budgetMax: 120000000, location: 'Tanzania', tags: 'Energy, Solar, Rural, Access', currency: 'EUR', region: 'East Africa', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchUnopsTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('unops', 'UNOPS', 'https://www.unops.org/about/procurement', [
-    { title: 'Hospital Construction - South Sudan', scope: 'Design and construction of 200-bed regional referral hospital including medical equipment, WASH facilities, and staff accommodation.', budgetMin: 30000000, budgetMax: 60000000, location: 'South Sudan', tags: 'Health, Construction, Infrastructure', currency: 'USD', region: 'East Africa', contractType: 'Works' },
-    { title: 'Justice Sector IT Modernization - Kosovo', scope: 'Digitalization of court management system, case tracking, e-filing, and legal databases for the Kosovo justice sector.', budgetMin: 3000000, budgetMax: 8000000, location: 'Kosovo', tags: 'Justice, Technology, Digital', currency: 'EUR', region: 'Europe', contractType: 'Services' },
-    { title: 'Road Infrastructure - Rural Connectivity (Mozambique)', scope: 'Construction and rehabilitation of 200km rural roads connecting agricultural areas to markets, including bridges and drainage systems.', budgetMin: 40000000, budgetMax: 80000000, location: 'Mozambique', tags: 'Transport, Roads, Infrastructure', currency: 'USD', region: 'Southern Africa', contractType: 'Works' },
-  ], opts);
-}
-
-export async function fetchGoldmanSachsTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('goldman_sachs', 'Goldman Sachs', 'https://www.goldmansachs.com/', [
-    { title: 'Quantitative Risk Engine - Next Gen Platform', scope: 'Development of cloud-native quantitative risk calculation engine supporting market risk, credit risk, and operational risk across all business divisions.', budgetMin: 20000000, budgetMax: 50000000, location: 'United States', tags: 'Finance, Risk, Technology, Quant', currency: 'USD', region: 'North America', contractType: 'Services' },
-    { title: 'Data Lake & Analytics Platform', scope: 'Enterprise data lake architecture with real-time streaming, ML pipeline, and governance framework for cross-divisional analytics.', budgetMin: 10000000, budgetMax: 25000000, location: 'United States', tags: 'Data, Analytics, Cloud', currency: 'USD', region: 'North America', contractType: 'Services' },
-  ], opts);
-}
-
-export async function fetchWfpProcurementTenders(opts: { search?: string; rows?: number; offset?: number; }) {
-  return fetchGenericInternationalTenders('wfp_procurement', 'World Food Programme', 'https://www.wfp.org/procurement', [
-    { title: 'Food Commodity Procurement - Emergency Response', scope: 'Supply of cereals, pulses, vegetable oil, salt, and fortified foods for emergency food assistance operations in 15 crisis-affected countries.', budgetMin: 500000000, budgetMax: 1500000000, location: 'Global', tags: 'Food, Emergency, Humanitarian', currency: 'USD', region: 'Global', contractType: 'Goods' },
-    { title: 'Logistics & Transport Services - East Africa', scope: 'Road, air, and water transport services for humanitarian cargo delivery including warehousing, fleet management, and last-mile distribution.', budgetMin: 50000000, budgetMax: 150000000, location: 'East Africa', tags: 'Logistics, Transport, Humanitarian', currency: 'USD', region: 'East Africa', contractType: 'Services' },
-    { title: 'IT Solutions - SCOPE & COMET Platforms', scope: 'Development and maintenance of WFP\'s beneficiary management (SCOPE) and supply chain monitoring (COMET) digital platforms.', budgetMin: 10000000, budgetMax: 30000000, location: 'Global', tags: 'Technology, IT, Digital', currency: 'USD', region: 'Global', contractType: 'Services' },
-  ], opts);
-}
+export async function fetchJpMorganTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("J.P. Morgan"); }
+export async function fetchUnicefSupplyTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("UNICEF Supply"); }
+export async function fetchWhoProcurementTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("WHO Procurement"); }
+export async function fetchEbrdTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("EBRD"); }
+export async function fetchIdbTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("IDB"); }
+export async function fetchIsdbTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("IsDB"); }
+export async function fetchNordicDbTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("NDB (BRICS)"); }
+export async function fetchCitiProcurementTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("Citi"); }
+export async function fetchHsbcProcurementTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("HSBC"); }
+export async function fetchGatesFoundationTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("Gates Foundation"); }
+export async function fetchRockefellerFoundationTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("Rockefeller Foundation"); }
+export async function fetchFaoProcurementTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("FAO"); }
+export async function fetchGaviTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("Gavi"); }
+export async function fetchMckinseyRfpTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("McKinsey"); }
+export async function fetchKfwTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("KfW"); }
+export async function fetchUnopsTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("UNOPS"); }
+export async function fetchGoldmanSachsTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("Goldman Sachs"); }
+export async function fetchWfpProcurementTenders(opts: { search?: string; rows?: number; offset?: number }) { void opts; return stubNotConnected("WFP"); }
 
 export async function fetchLiveTenders(opts: {
   source?: string;
@@ -3629,20 +3149,12 @@ export async function fetchLiveTenders(opts: {
   }));
 
   const tenders = resolved.flatMap((t) => t.res.tenders);
-  const totalLiveOk = resolved.some((t) => t.res.ok && t.res.tenders.length > 0);
-  const fallback = !totalLiveOk;
-
-  // If all live sources failed (e.g. no internet in sandbox), generate realistic sample data
-  let allTenders = tenders;
-  if (fallback) {
-    allTenders = generateSampleTenders(opts.rows ?? 20, opts.offset || 0, opts.search);
-  }
 
   // Client-side search filter on top of upstream results
-  let filteredTenders = allTenders;
-  if (opts.search && !fallback) {
+  let filteredTenders = tenders;
+  if (opts.search) {
     const q = opts.search.toLowerCase();
-    filteredTenders = allTenders.filter(
+    filteredTenders = tenders.filter(
       (t) =>
         t.title.toLowerCase().includes(q) ||
         t.scope.toLowerCase().includes(q) ||
@@ -3656,7 +3168,6 @@ export async function fetchLiveTenders(opts: {
     meta: {
       total: filteredTenders.length,
       sources: sourcesMeta,
-      fallback,
       cachedAt: Date.now(),
     },
   };

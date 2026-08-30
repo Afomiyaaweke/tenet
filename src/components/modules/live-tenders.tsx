@@ -3410,7 +3410,7 @@ ${tender.budgetMin || tender.budgetMax ? `**Budget:** ${tender.currency || 'ETB'
                           ? 'ring-2 ring-primary/50 ' + accent.badge
                           : accent.badge
                       }`}
-                      title={s.ok ? 'Connected' : isComingSoon ? 'Coming Soon - requires API credentials' : 'Unavailable - using fallback'}
+                      title={s.ok ? 'Connected' : isComingSoon ? 'Coming Soon - requires API credentials' : 'Unavailable'}
                     >
                       <span className={`h-1.5 w-1.5 rounded-full ${s.ok ? accent.dot : 'bg-muted-foreground/40'}`} />
                       {s.name}
