@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
-import { useAuthStore, useNavStore, useDataStore } from '@/store';
+import { useAuthStore, useNavStore, useDataStore, type View } from '@/store';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -99,8 +99,6 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; className: string }> = 
     className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
   },
 };
-
-type View = 'leaderboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'ai-doc-studio' | 'tender-analyzer' | 'agent' | 'staff' | 'team-management' | 'contact-us' | 'privacy-policy' | 'admin' | 'social-circle' | 'rate-limits';
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 

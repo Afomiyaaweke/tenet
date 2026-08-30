@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { api, Company } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,16 +17,16 @@ import {
 
 interface PortfolioEditorProps {
   companyId: string;
-  companyData: Record<string, unknown>;
-  onCompanyUpdate: (data: Record<string, unknown>) => void;
+  companyData: Company;
+  onCompanyUpdate: (data: Company) => void;
   onEditCompany: () => void;
 }
 
 type Step = 'url' | 'edit' | 'preview' | 'live';
 
 export function PortfolioEditor({ companyId, companyData, onCompanyUpdate, onEditCompany }: PortfolioEditorProps) {
-  const vanitySlug = companyData.vanitySlug as string | null;
-  const isPublished = companyData.isPublished as boolean;
+  const vanitySlug = companyData.vanitySlug || null;
+  const isPublished = !!companyData.isPublished;
 
   // Determine current step
   const [step, setStep] = useState<Step>(
@@ -34,8 +34,8 @@ export function PortfolioEditor({ companyId, companyData, onCompanyUpdate, onEdi
   );
 
   // Edit form state
-  const [tagline, setTagline] = useState((companyData.publicTagline as string) || '');
-  const [description, setDescription] = useState((companyData.publicDescription as string) || '');
+  const [tagline, setTagline] = useState(companyData.publicTagline || '');
+  const [description, setDescription] = useState(companyData.publicDescription || '');
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -44,10 +44,10 @@ export function PortfolioEditor({ companyId, companyData, onCompanyUpdate, onEdi
 
   // Sync step when companyData changes (e.g. vanity URL set externally)
   useEffect(() => {
-    setTagline((companyData.publicTagline as string) || '');
-    setDescription((companyData.publicDescription as string) || '');
-    const slug = companyData.vanitySlug as string | null;
-    const published = companyData.isPublished as boolean;
+    setTagline(companyData.publicTagline || '');
+    setDescription(companyData.publicDescription || '');
+    const slug = companyData.vanitySlug || null;
+    const published = !!companyData.isPublished;
     if (slug && step === 'url') {
       setStep(published ? 'live' : 'edit');
     } else if (slug && step === 'edit' && published) {
@@ -508,8 +508,8 @@ export function PortfolioEditor({ companyId, companyData, onCompanyUpdate, onEdi
             variant="outline"
             className="gap-2 text-xs rounded-xl h-10 flex-1"
             onClick={() => {
-              setTagline((companyData.publicTagline as string) || '');
-              setDescription((companyData.publicDescription as string) || '');
+              setTagline(companyData.publicTagline || '');
+              setDescription(companyData.publicDescription || '');
               setStep('edit');
             }}
           >

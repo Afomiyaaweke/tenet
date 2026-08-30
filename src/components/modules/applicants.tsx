@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useAuthStore, useNavStore } from '@/store';
+import { useAuthStore, useNavStore, type View } from '@/store';
 import { api } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -121,7 +121,6 @@ interface PublishedTenderInfo {
 type SortField = keyof ApplicantRow;
 type SortDir = 'asc' | 'desc';
 type ViewMode = 'table' | 'cards';
-type NavView = 'dashboard' | 'tenders' | 'live-tenders' | 'tender-detail' | 'tender-compare' | 'bid-compare' | 'bid-analysis' | 'bids' | 'applicants' | 'projects' | 'project-detail' | 'chat' | 'finance' | 'events' | 'profile' | 'company-settings' | 'documents' | 'agent' | 'staff' | 'contact-us' | 'privacy-policy' | 'admin';
 
 // ─── Column definitions ───────────────────────────────────────────────
 
@@ -1244,7 +1243,7 @@ export function ApplicantsView() {
 
 // ─── Cell renderer ────────────────────────────────────────────────────
 
-function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef; setView: (v: NavView, p?: Record<string, string>) => void }) {
+function CellRenderer({ row, col, setView }: { row: ApplicantRow; col: ColumnDef; setView: (v: View, p?: Record<string, string>) => void }) {
   const val = row[col.key];
 
   switch (col.key) {
@@ -1614,7 +1613,7 @@ function DocumentDetailPanel({ docId, type, ocrText, reviewData, onClose }: Docu
 
 interface ExpandedRowDetailProps {
   row: ApplicantRow;
-  setView: (v: NavView, p?: Record<string, string>) => void;
+  setView: (v: View, p?: Record<string, string>) => void;
   docUploadBidId: string | null;
   ocrLoading: Set<string>;
   reviewLoading: Set<string>;

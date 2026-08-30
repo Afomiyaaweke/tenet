@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useAuthStore, useNavStore } from '@/store';
+import { useAuthStore, useNavStore, type View } from '@/store';
 import { api, Tender, Bid, LiveTender, TenderDocument } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +88,7 @@ function formatBudget(min: number, max: number) {
 function InlineTenderDetail({ tender, onClose, setView }: {
   tender: Tender;
   onClose: () => void;
-  setView: (view: string, params?: Record<string, string>) => void;
+  setView: (view: View, params?: Record<string, string>) => void;
 }) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidsLoading, setBidsLoading] = useState(true);
@@ -380,7 +380,7 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
   onExpandTender: (id: string | null) => void;
   compareSelection: string[];
   toggleCompare: (tenderId: string, e: React.MouseEvent) => void;
-  setView: (view: string, params?: Record<string, string>) => void;
+  setView: (view: View, params?: Record<string, string>) => void;
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const meta = getCategoryMeta(category);

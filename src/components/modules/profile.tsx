@@ -247,6 +247,7 @@ export function ProfileView() {
         email: res.data.email || '',
         website: res.data.website || '',
         address: res.data.address || '',
+        vanitySlug: res.data.vanitySlug || '',
       });
     }
     setCompanyLoading(false);
@@ -411,8 +412,8 @@ export function ProfileView() {
         <div className="animate-[fadeIn_0.3s_ease-out]">
           <PortfolioEditor
             companyId={user.companyId}
-            companyData={companyData as unknown as Record<string, unknown>}
-            onCompanyUpdate={(data) => setCompanyData(data as Company)}
+            companyData={companyData}
+            onCompanyUpdate={(data) => setCompanyData(data)}
             onEditCompany={() => {
               setCompanyForm({
                 name: companyData.name || '',
@@ -645,19 +646,19 @@ export function ProfileView() {
                       </div>
                     </div>
                   )}
-                  {(companyData as Record<string, unknown>).vanitySlug && (
+                  {companyData.vanitySlug && (
                     <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg sm:col-span-2">
                       <Link2 className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Vanity URL</p>
-                        <p className="text-xs font-medium text-primary truncate">/{(companyData as Record<string, unknown>).vanitySlug as string}</p>
+                        <p className="text-xs font-medium text-primary truncate">/{companyData.vanitySlug}</p>
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0 shrink-0"
                         onClick={() => {
-                          const url = `${window.location.origin}/${(companyData as Record<string, unknown>).vanitySlug as string}`;
+                          const url = `${window.location.origin}/${companyData.vanitySlug}`;
                           navigator.clipboard.writeText(url);
                           setVanityCopied(true);
                           setTimeout(() => setVanityCopied(false), 2000);

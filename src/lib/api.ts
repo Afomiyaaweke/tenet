@@ -151,6 +151,8 @@ export interface Company {
   logoUrl?: string;
   vanitySlug?: string;
   isPublished?: boolean;
+  publicTagline?: string;
+  publicDescription?: string;
   verified: boolean;
   status: string;
   createdAt: string;

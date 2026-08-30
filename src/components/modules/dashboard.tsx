@@ -816,7 +816,7 @@ export function DashboardView() {
                   </div>
                   Recent Activity
                 </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('dashboard')}>
+                <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground" onClick={() => setView('leaderboard')}>
                   View all <ChevronRight className="h-3 w-3 ml-0.5" />
                 </Button>
               </div>
