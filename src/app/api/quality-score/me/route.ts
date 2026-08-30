@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     if (company.verified) score += 15;
 
     const mainProfile = company.profiles[0];
+    let profileCompletenessScore = 0;
     if (mainProfile) {
       let f = 0; const t = 7;
       if (mainProfile.fullName) f++;
@@ -49,7 +50,8 @@ export async function GET(request: NextRequest) {
       if (mainProfile.profilePhoto) f++;
       if (mainProfile.verified) f++;
       if (company.city) f++;
-      score += Math.round((f / t) * 20);
+      profileCompletenessScore = Math.round((f / t) * 20);
+      score += profileCompletenessScore;
     }
 
     const docScore = Math.min(company.documents.length, 10) * 2;
@@ -75,7 +77,15 @@ export async function GET(request: NextRequest) {
       data: {
         qualityScore: score,
         badge,
-        scoreBreakdown: { verified: company.verified ? 15 : 0, profileCompleteness: Math.round(((mainProfile ? (() => { let f = 0; const t = 7; if (mainProfile.fullName) f++; if (mainProfile.jobTitle) f++; if (mainProfile.bio) f++; if (mainProfile.skillTags) f++; if (mainProfile.profilePhoto) f++; if (mainProfile.verified) f++; if (company.city) f++; return f / t; })() : 0) * 20), documents: docScore, tenders: tenderScore, bids: Math.min(allBids.length, 10), projects: Math.min(completedProjects, 5) * 2, endorsements: Math.min(allEndorsements.length, 10) },
+        scoreBreakdown: {
+          verified: company.verified ? 15 : 0,
+          profileCompleteness: profileCompletenessScore,
+          documents: docScore,
+          tenders: tenderScore,
+          bids: Math.min(allBids.length, 10),
+          projects: Math.min(completedProjects, 5) * 2,
+          endorsements: Math.min(allEndorsements.length, 10),
+        },
         nextMilestone: score < 30 ? 30 : score < 50 ? 50 : score < 70 ? 70 : score < 90 ? 90 : 100,
         nextBadge: score < 30 ? 'Bronze' : score < 50 ? 'Silver' : score < 70 ? 'Gold' : score < 90 ? 'Platinum' : 'Max',
         bidsWon: allBids.filter(b => b.status === 'awarded').length,
