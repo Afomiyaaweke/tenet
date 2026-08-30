@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 interface AuthResult {
   success: boolean;
   error?: string;
+  code?: string;
 }
 
 interface AuthState {
@@ -34,7 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: res.data.user, token: res.data.token });
       return { success: true };
     }
-    return { success: false, error: res.error || 'Invalid email or password' };
+    return { success: false, error: res.error || 'Invalid email or password', code: (res as Record<string, unknown>).code as string | undefined };
   },
 
   socialLogin: async (provider, code) => {
@@ -44,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: res.data.user, token: res.data.token });
       return { success: true };
     }
-    return { success: false, error: res.error || 'Social login failed' };
+    return { success: false, error: res.error || 'Social login failed', code: (res as Record<string, unknown>).code as string | undefined };
   },
 
   register: async (data) => {
@@ -54,7 +55,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: res.data.user, token: res.data.token });
       return { success: true };
     }
-    return { success: false, error: res.error || 'Registration failed' };
+    return { success: false, error: res.error || 'Registration failed', code: (res as Record<string, unknown>).code as string | undefined };
   },
 
   logout: () => {

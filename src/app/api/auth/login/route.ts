@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { generateToken } from '@/lib/auth';
 import { isValidEmail, normalizeEmail, getClientIP, getUserAgent, isPayloadTooLarge } from '@/lib/validators';
 import { auditLog } from '@/lib/audit-logger';
+import { requireDatabase } from '@/lib/utils';
 
 // ── Failed login tracking (in-memory, per-process) ──
 const failedAttempts = new Map<string, { count: number; lockedUntil: number }>();
@@ -54,6 +55,10 @@ setInterval(() => {
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Database guard ──
+    const dbGuard = requireDatabase();
+    if (dbGuard) return dbGuard;
+
     // ── Payload size check ──
     const rawBody = await request.text();
     if (isPayloadTooLarge(rawBody)) {

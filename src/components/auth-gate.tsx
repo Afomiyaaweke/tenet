@@ -519,7 +519,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
       if (!result.success) {
         const errMsg = result.error || 'Invalid email or password. Please try again.';
         setAuthError(errMsg);
-        toast.error(errMsg);
+        toast.error(errMsg, { duration: result.code === 'DB_NOT_CONFIGURED' ? 8000 : 5000 });
       }
     } catch {
       const errMsg = 'Login failed. Please check your connection and try again.';

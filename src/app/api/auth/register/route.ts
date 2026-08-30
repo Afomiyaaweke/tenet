@@ -5,11 +5,16 @@ import { generateToken } from '@/lib/auth';
 import { validatePassword, isValidEmail, normalizeEmail, getClientIP, getUserAgent, isPayloadTooLarge } from '@/lib/validators';
 import { addPasswordHistory } from '@/lib/token-service';
 import { auditLog } from '@/lib/audit-logger';
+import { requireDatabase } from '@/lib/utils';
 
 const BCRYPT_SALT_ROUNDS = 12;
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Database guard ──
+    const dbGuard = requireDatabase();
+    if (dbGuard) return dbGuard;
+
     // ── Payload size check ──
     const rawBody = await request.text();
     if (isPayloadTooLarge(rawBody)) {
