@@ -999,3 +999,41 @@ Stage Summary:
 - Step indicator dots show progress: URL → Edit → Preview → Publish
 - Published state shows Copy Link button with live status indicator
 - Public portfolio page ([slug]) uses dynamic tagline/description with fallback to default
+---
+Task ID: 2
+Agent: main
+Task: Fix Vercel build failure when DATABASE_URL is not set
+
+Work Log:
+- Diagnosed Vercel build error P1012: prisma generate fails without valid DATABASE_URL
+- Updated scripts/vercel-build.sh to inject placeholder DATABASE_URL during build
+- Updated src/lib/db.ts with isDatabaseConfigured() and isPlaceholderUrl() detection
+- Added requireDatabase() guard in src/lib/utils.ts (returns 503 if no DB)
+- Added requireDatabase() to login and register API routes
+- Updated AuthResult type in store to include code field
+- Updated auth-gate.tsx to show longer toast for DB_NOT_CONFIGURED
+- Pushed to GitHub (commit bdf9f85)
+
+Stage Summary:
+- Vercel build will now pass even without DATABASE_URL env var
+- Login/register return clear 503 "Database not configured" message at runtime
+- User still needs to set DATABASE_URL in Vercel for actual auth to work
+
+---
+Task ID: 3
+Agent: main
+Task: Verify Profile share/edit/preview feature
+
+Work Log:
+- Browser-verified the full PortfolioEditor 4-step flow
+- Step 1 (URL): Shows "Set Vanity URL" prompt when no slug
+- Step 2 (Edit): Tagline + Description inputs, Save & Preview / Unpublish buttons
+- Step 3 (Preview): Embedded iframe showing live preview of public page
+- Step 4 (Live): Copy Link, Preview Page, Edit Content, Unpublish buttons
+- Verified public portfolio page at /tenet renders correctly
+- Confirmed leaderboard has read-only links (no share buttons)
+- Share functionality is only accessible from Profile view (owner-only)
+
+Stage Summary:
+- Profile share/edit/preview feature is fully implemented and working
+- No additional work needed
