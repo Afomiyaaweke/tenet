@@ -1037,3 +1037,21 @@ Work Log:
 Stage Summary:
 - Profile share/edit/preview feature is fully implemented and working
 - No additional work needed
+---
+Task ID: 7
+Agent: main
+Task: Add country and place fields to proforma recipient
+
+Work Log:
+- Added toCity and toCountry fields to ProformaTab state and formData
+- Added City/Place input (with MapPin icon) and Country input (with Globe2 icon) to the create form
+- From (sender) block now shows company location below company name
+- Proforma list cards display recipient location with MapPin icon
+- Print output includes recipient city + country under the company name
+- Form resets all fields after save
+- Browser-tested: filled form (ABC Trading PLC, Nairobi, Kenya), saved, verified card shows "Nairobi, Kenya"
+- Pushed to GitHub (commit 5f3caab)
+
+Stage Summary:
+- Proforma invoices now capture full recipient location (company, city, country)
+- Location appears in the create form, list cards, and printed invoice
