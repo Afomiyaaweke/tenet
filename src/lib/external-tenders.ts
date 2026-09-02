@@ -563,24 +563,33 @@ function truncate(text: string, max = 280): string {
 
 interface WorldBankProcurementRow {
   project_id?: string;
+  id?: string;
   procurement_group_id?: string;
   project_name?: string;
   borrower?: string;
   country?: string;
+  countryname?: string | string[];
   region?: string;
+  regionname?: string;
   contract_description?: string;
   contract_type?: string;
+  lendinginstr?: string;
   supplier?: string;
   supplier_country?: string | string[];
   contract_signing_date?: string;
+  closingdate?: string;
   total_contract_amount?: number | string;
+  curr_total_commitment?: number | string;
   wb_contract_number?: string;
+  projectstatusdisplay?: string;
+  prodline?: string;
 }
 
 interface WorldBankResponse {
-  total?: number;
-  rows?: WorldBankProcurementRow[];
+  total?: number | string;
+  rows?: WorldBankProcurementRow[] | number;
   procurements?: WorldBankProcurementRow[];
+  projects?: Record<string, WorldBankProcurementRow>;
   [k: string]: unknown;
 }
 

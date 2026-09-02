@@ -27,7 +27,7 @@ import {
   Building2, MapPin, Briefcase, Award, Verified, Send, Clock,
   MoreHorizontal, X, Plus, ChevronDown, Globe2, Handshake,
   Sparkles, TrendingUp, Star, Link2, Image, Trash2,
-  FileText, DollarSign, Download, Printer,
+  DollarSign, Download, Printer, Loader2, CheckCircle,
 } from 'lucide-react';
 
 // ==========================================
@@ -1783,188 +1783,194 @@ function RightSidebar() {
 }
 
 // ==========================================
-// PROFORMA TAB - Create and share proforma invoices
+// PROFORMA TAB - Public country product price marketplace
+// Travelers and members browse products & prices posted by country
 // ==========================================
 
-interface ProformaItem {
+interface ProformaListingItem {
   id: string;
+  userId: string;
+  productName: string;
   description: string;
+  category: string;
   quantity: number;
+  unit: string;
   unitPrice: number;
+  currency: string;
+  city: string;
+  country: string;
+  contactInfo: string;
+  status: string;
+  views: number;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    profile?: { fullName: string; profilePhoto: string | null; verified: boolean } | null;
+    company?: { name: string; logoUrl: string | null; verified: boolean } | null;
+  };
 }
+
+const PROFORMA_CATEGORIES = [
+  'General', 'Agriculture', 'Coffee & Tea', 'Spices & Grains', 'Textiles',
+  'Leather', 'Handicrafts', 'Construction', 'Electronics', 'Food & Beverage',
+  'Mining & Minerals', 'Livestock', 'Other',
+];
+
+const PROFORMA_UNITS = ['unit', 'kg', 'ton', 'liter', 'piece', 'box', 'bag', 'bale'];
 
 function ProformaTab() {
   const { user, company } = useAuthStore();
+  const [listings, setListings] = useState<ProformaListingItem[]>([]);
+  const [countries, setCountries] = useState<Array<{ name: string; count: number }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [mineOnly, setMineOnly] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [proformas, setProformas] = useState<Array<{
-    id: string;
-    toCompany: string;
-    toCity: string;
-    toCountry: string;
-    date: string;
-    items: ProformaItem[];
-    notes: string;
-    status: string;
-  }>>([]);
+  const [posting, setPosting] = useState(false);
   const [formData, setFormData] = useState({
-    toCompany: '',
-    toCity: '',
-    toCountry: '',
-    notes: '',
+    productName: '', description: '', category: 'General',
+    quantity: 1, unit: 'kg', unitPrice: 0, currency: 'ETB',
+    city: '', country: '', contactInfo: '',
   });
-  const [items, setItems] = useState<ProformaItem[]>([
-    { id: '1', description: '', quantity: 1, unitPrice: 0 },
-  ]);
 
-  const total = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  // Load listings from the public marketplace
+  const loadListings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string> = {};
+      if (countryFilter !== 'all') params.country = countryFilter;
+      if (categoryFilter !== 'all') params.category = categoryFilter;
+      if (search.trim()) params.search = search.trim();
+      if (mineOnly) params.mine = 'true';
+      const res = await api.get('/social/proforma', params);
+      if (res.success) {
+        setListings(res.data);
+        setCountries(res.meta?.countries || []);
+      }
+    } catch {
+      toast.error('Failed to load marketplace listings');
+    } finally {
+      setLoading(false);
+    }
+  }, [countryFilter, categoryFilter, search, mineOnly]);
 
-  const addItem = () => {
-    setItems(prev => [...prev, { id: String(Date.now()), description: '', quantity: 1, unitPrice: 0 }]);
-  };
+  useEffect(() => {
+    loadListings();
+  }, [loadListings]);
 
-  const removeItem = (id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id));
-  };
-
-  const updateItem = (id: string, field: keyof ProformaItem, value: string | number) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
-  };
-
-  const handleSave = () => {
-    if (!formData.toCompany.trim()) {
-      toast.error('Please enter the recipient company name');
+  const handlePost = async () => {
+    if (!formData.productName.trim()) {
+      toast.error('Please enter the product name');
       return;
     }
-    if (items.every(i => !i.description.trim())) {
-      toast.error('Please add at least one item');
+    if (Number(formData.unitPrice) <= 0) {
+      toast.error('Please enter a valid price');
       return;
     }
-    const newProforma = {
-      id: String(Date.now()),
-      toCompany: formData.toCompany,
-      toCity: formData.toCity,
-      toCountry: formData.toCountry,
-      date: new Date().toISOString(),
-      items: items.filter(i => i.description.trim()),
-      notes: formData.notes,
-      status: 'draft',
-    };
-    setProformas(prev => [newProforma, ...prev]);
-    toast.success('Proforma created!');
-    setShowCreate(false);
-    setFormData({ toCompany: '', toCity: '', toCountry: '', notes: '' });
-    setItems([{ id: '1', description: '', quantity: 1, unitPrice: 0 }]);
+    setPosting(true);
+    try {
+      const res = await api.post('/social/proforma', {
+        ...formData,
+        quantity: Number(formData.quantity) || 1,
+        unitPrice: Number(formData.unitPrice),
+      });
+      if (res.success) {
+        toast.success('Listing posted! Travelers can now see your product price.');
+        setShowCreate(false);
+        setFormData({
+          productName: '', description: '', category: 'General',
+          quantity: 1, unit: 'kg', unitPrice: 0, currency: 'ETB',
+          city: '', country: '', contactInfo: '',
+        });
+        setMineOnly(false);
+        setCountryFilter('all');
+        setCategoryFilter('all');
+        loadListings();
+      } else {
+        toast.error(res.error || 'Failed to post listing');
+      }
+    } catch {
+      toast.error('Failed to post listing');
+    } finally {
+      setPosting(false);
+    }
   };
 
-  const handlePrint = (proformaId: string) => {
-    const proforma = proformas.find(p => p.id === proformaId);
-    if (!proforma) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    const total = proforma.items.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0);
-    printWindow.document.write(`
-      <html><head><title>Proforma Invoice</title>
-      <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #1a1a1a; }
-        h1 { color: #059669; border-bottom: 2px solid #059669; padding-bottom: 8px; }
-        .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
-        .from, .to { flex: 1; }
-        .to { text-align: right; }
-        .label { font-size: 10px; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th { background: #f3f4f6; padding: 8px 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
-        td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
-        .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 16px; }
-        .notes { margin-top: 30px; padding: 16px; background: #f9fafb; border-radius: 8px; font-size: 13px; }
-      </style>
-      </head><body>
-      <h1>PROFORMA INVOICE</h1>
-      <div class="header">
-        <div class="from">
-          <div class="label">From</div>
-          <div style="font-weight: bold; font-size: 16px;">${company?.name || user?.profile?.fullName || 'Your Company'}</div>
-          <div style="font-size: 13px; color: #6b7280;">${company?.industry || ''}</div>
-          <div style="font-size: 13px; color: #6b7280;">${company?.city || ''} ${company?.country || ''}</div>
-        </div>
-        <div class="to">
-          <div class="label">To</div>
-          <div style="font-weight: bold; font-size: 16px;">${proforma.toCompany}</div>
-          ${(proforma.toCity || proforma.toCountry) ? `<div style="font-size: 13px; color: #6b7280;">${[proforma.toCity, proforma.toCountry].filter(Boolean).join(', ')}</div>` : ''}
-          <div class="label" style="margin-top: 8px;">Date</div>
-          <div style="font-size: 13px;">${new Date(proforma.date).toLocaleDateString()}</div>
-        </div>
-      </div>
-      <table>
-        <thead><tr><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr></thead>
-        <tbody>
-          ${proforma.items.map(i => `<tr><td>${i.description}</td><td>${i.quantity}</td><td>${i.unitPrice.toLocaleString()}</td><td>${(i.quantity * i.unitPrice).toLocaleString()}</td></tr>`).join('')}
-        </tbody>
-      </table>
-      <div class="total">Total: ETB ${total.toLocaleString()}</div>
-      ${proforma.notes ? `<div class="notes"><strong>Notes:</strong><br/>${proforma.notes}</div>` : ''}
-      </body></html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await api.delete(`/social/proforma?id=${id}`);
+      if (res.success) {
+        toast.success('Listing removed');
+        loadListings();
+      } else {
+        toast.error(res.error || 'Failed to remove');
+      }
+    } catch {
+      toast.error('Failed to remove listing');
+    }
+  };
+
+  const handleMarkSold = async (id: string) => {
+    try {
+      const res = await api.delete(`/social/proforma?id=${id}&action=sold`);
+      if (res.success) {
+        toast.success('Marked as sold');
+        loadListings();
+      } else {
+        toast.error(res.error || 'Failed');
+      }
+    } catch {
+      toast.error('Failed to mark as sold');
+    }
   };
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <FileText className="h-5 w-5 text-emerald-600" />
-            Proforma Invoices
+            <Globe2 className="h-5 w-5 text-emerald-600" />
+            Country Product Prices
           </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">Create and share proforma invoices with your network</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Open marketplace — travelers browse real product prices posted by country
+          </p>
         </div>
         <Button
           size="sm"
-          className="gap-1.5 text-xs rounded-xl gradient-emerald hover:opacity-90 text-white"
+          className="gap-1.5 text-xs rounded-xl gradient-emerald hover:opacity-90 text-white shrink-0"
           onClick={() => setShowCreate(true)}
         >
-          <Plus className="h-3.5 w-3.5" /> New Proforma
+          <Plus className="h-3.5 w-3.5" /> Post Product Price
         </Button>
       </div>
 
-      {/* Create Dialog */}
+      {/* Create form */}
       {showCreate && (
         <Card className="border-emerald-200 dark:border-emerald-900/50">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Create Proforma Invoice</CardTitle>
+              <CardTitle className="text-base">Post Product Price</CardTitle>
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowCreate(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* From / To */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase">From</label>
-                <div className="p-2.5 rounded-lg bg-muted/30 text-sm font-medium text-foreground">
-                  {company?.name || user?.profile?.fullName || 'Your Company'}
-                  {(company?.city || company?.country) && (
-                    <div className="text-[10px] text-muted-foreground font-normal">
-                      {[company?.city, company?.country].filter(Boolean).join(', ')}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase">To (Company) *</label>
-                <Input
-                  placeholder="Recipient company name"
-                  value={formData.toCompany}
-                  onChange={e => setFormData(f => ({ ...f, toCompany: e.target.value }))}
-                  className="text-sm h-9"
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase">Product Name *</label>
+              <Input
+                placeholder="e.g. Ethiopian Arabica Coffee Beans"
+                value={formData.productName}
+                onChange={e => setFormData(f => ({ ...f, productName: e.target.value }))}
+                className="text-sm h-9"
+              />
             </div>
 
-            {/* To City / Country */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1">
@@ -1972,8 +1978,8 @@ function ProformaTab() {
                 </label>
                 <Input
                   placeholder="e.g. Addis Ababa"
-                  value={formData.toCity}
-                  onChange={e => setFormData(f => ({ ...f, toCity: e.target.value }))}
+                  value={formData.city}
+                  onChange={e => setFormData(f => ({ ...f, city: e.target.value }))}
                   className="text-sm h-9"
                 />
               </div>
@@ -1983,67 +1989,87 @@ function ProformaTab() {
                 </label>
                 <Input
                   placeholder="e.g. Ethiopia"
-                  value={formData.toCountry}
-                  onChange={e => setFormData(f => ({ ...f, toCountry: e.target.value }))}
+                  value={formData.country}
+                  onChange={e => setFormData(f => ({ ...f, country: e.target.value }))}
+                  className="text-sm h-9"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Leave city/country empty to use your company location</p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">Price *</label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={formData.unitPrice || ''}
+                  onChange={e => setFormData(f => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))}
+                  className="text-sm h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">Currency</label>
+                <Select value={formData.currency} onValueChange={v => setFormData(f => ({ ...f, currency: v }))}>
+                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ETB">ETB</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="KES">KES</SelectItem>
+                    <SelectItem value="AED">AED</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">Quantity</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={formData.quantity || ''}
+                  onChange={e => setFormData(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))}
+                  className="text-sm h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">Unit</label>
+                <Select value={formData.unit} onValueChange={v => setFormData(f => ({ ...f, unit: v }))}>
+                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PROFORMA_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">Category</label>
+                <Select value={formData.category} onValueChange={v => setFormData(f => ({ ...f, category: v }))}>
+                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PROFORMA_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">Contact (phone / email)</label>
+                <Input
+                  placeholder="How should travelers reach you?"
+                  value={formData.contactInfo}
+                  onChange={e => setFormData(f => ({ ...f, contactInfo: e.target.value }))}
                   className="text-sm h-9"
                 />
               </div>
             </div>
 
-            {/* Items */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase">Items</label>
-              {items.map((item, idx) => (
-                <div key={item.id} className="flex gap-2 items-center">
-                  <span className="text-xs text-muted-foreground w-6">{idx + 1}.</span>
-                  <Input
-                    placeholder="Description"
-                    value={item.description}
-                    onChange={e => updateItem(item.id, 'description', e.target.value)}
-                    className="text-sm h-8 flex-1"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Qty"
-                    value={item.quantity}
-                    onChange={e => updateItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
-                    className="text-sm h-8 w-16"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Price"
-                    value={item.unitPrice}
-                    onChange={e => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                    className="text-sm h-8 w-24"
-                  />
-                  <span className="text-xs font-medium w-24 text-right text-foreground">
-                    ETB {(item.quantity * item.unitPrice).toLocaleString()}
-                  </span>
-                  {items.length > 1 && (
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500" onClick={() => removeItem(item.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              <Button variant="outline" size="sm" className="text-xs gap-1" onClick={addItem}>
-                <Plus className="h-3 w-3" /> Add Item
-              </Button>
-            </div>
-
-            {/* Total */}
-            <div className="flex justify-end items-center gap-2 pt-2 border-t">
-              <span className="text-sm font-semibold text-muted-foreground">Total:</span>
-              <span className="text-xl font-bold text-emerald-600">ETB {total.toLocaleString()}</span>
-            </div>
-
-            {/* Notes */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase">Notes / Terms</label>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase">Description</label>
               <Textarea
-                placeholder="Payment terms, validity, delivery time, etc."
-                value={formData.notes}
-                onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Quality, origin, packaging, minimum order, etc."
+                value={formData.description}
+                onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
                 className="text-sm"
                 rows={2}
               />
@@ -2051,73 +2077,174 @@ function ProformaTab() {
 
             <div className="flex gap-2 justify-end">
               <Button variant="outline" size="sm" className="text-xs" onClick={() => setShowCreate(false)}>Cancel</Button>
-              <Button size="sm" className="text-xs gap-1.5 gradient-emerald hover:opacity-90 text-white" onClick={handleSave}>
-                <FileText className="h-3.5 w-3.5" /> Save Proforma
+              <Button size="sm" className="text-xs gap-1.5 gradient-emerald hover:opacity-90 text-white" onClick={handlePost} disabled={posting}>
+                {posting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Posting...</> : <><Send className="h-3.5 w-3.5" /> Post to Marketplace</>}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Proforma List */}
-      {proformas.length === 0 ? (
+      {/* Country chips */}
+      {countries.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setCountryFilter('all')}
+            className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+              countryFilter === 'all'
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-background border-border text-muted-foreground hover:border-emerald-400'
+            }`}
+          >
+            All Countries
+          </button>
+          {countries.map(c => (
+            <button
+              key={c.name}
+              onClick={() => setCountryFilter(c.name)}
+              className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-colors flex items-center gap-1 ${
+                countryFilter === c.name
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-background border-border text-muted-foreground hover:border-emerald-400'
+              }`}
+            >
+              <Globe2 className="h-3 w-3" />
+              {c.name} <span className="opacity-70">({c.count})</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search products, places..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9 text-sm h-9"
+          />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="text-xs h-9 sm:w-40"><SelectValue placeholder="Category" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {PROFORMA_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button
+          variant={mineOnly ? 'default' : 'outline'}
+          size="sm"
+          className="text-xs h-9 shrink-0 gap-1.5"
+          onClick={() => setMineOnly(m => !m)}
+        >
+          <UserPlus className="h-3.5 w-3.5" />
+          {mineOnly ? 'My Listings' : 'Everyone'}
+        </Button>
+      </div>
+
+      {/* Listings */}
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-16 bg-muted/50 rounded-lg" /></CardContent></Card>
+          ))}
+        </div>
+      ) : listings.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="p-12 text-center">
             <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 w-fit mx-auto mb-4">
-              <FileText className="h-8 w-8 text-emerald-500" />
+              <Globe2 className="h-8 w-8 text-emerald-500" />
             </div>
-            <h4 className="text-lg font-semibold text-foreground">No proforma invoices yet</h4>
+            <h4 className="text-lg font-semibold text-foreground">No product listings yet</h4>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Create proforma invoices to share with your network and clients
+              Be the first to post your country&apos;s product prices for travelers to discover
             </p>
+            <Button
+              className="mt-4 gap-1.5 text-xs rounded-xl gradient-emerald hover:opacity-90 text-white"
+              onClick={() => setShowCreate(true)}
+            >
+              <Plus className="h-3.5 w-3.5" /> Post Product Price
+            </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
-          {proformas.map(proforma => {
-            const pTotal = proforma.items.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0);
+          {listings.map(listing => {
+            const isMine = listing.userId === user?.id;
+            const posterName = listing.user?.company?.name || listing.user?.profile?.fullName || listing.user?.email || 'Unknown';
+            const location = [listing.city, listing.country].filter(Boolean).join(', ');
             return (
-              <Card key={proforma.id} className="hover:shadow-md transition-all">
+              <Card key={listing.id} className="hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
                         <Badge className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0">
-                          {proforma.status}
+                          {listing.category}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(proforma.date).toLocaleDateString()}
+                        {listing.country && (
+                          <Badge variant="secondary" className="text-[10px] gap-1">
+                            <Globe2 className="h-2.5 w-2.5" /> {listing.country}
+                          </Badge>
+                        )}
+                        {isMine && (
+                          <Badge className="text-[10px] bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-0">Yours</Badge>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(listing.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <h4 className="font-semibold text-sm text-foreground">To: {proforma.toCompany}</h4>
-                      {(proforma.toCity || proforma.toCountry) && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <MapPin className="h-3 w-3" />
-                          {[proforma.toCity, proforma.toCountry].filter(Boolean).join(', ')}
+                      <h4 className="font-semibold text-sm text-foreground">{listing.productName}</h4>
+                      {listing.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{listing.description}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+                        <span className="font-bold text-emerald-600 text-sm">
+                          {listing.currency} {listing.unitPrice.toLocaleString()} <span className="font-normal text-muted-foreground text-xs">/ {listing.unit}</span>
+                        </span>
+                        {listing.quantity > 1 && <span>Qty: {listing.quantity.toLocaleString()}</span>}
+                        {location && (
+                          <span className="flex items-center gap-0.5">
+                            <MapPin className="h-3 w-3" /> {location}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Building2 className="h-3 w-3" /> {posterName}
+                          {(listing.user?.company?.verified || listing.user?.profile?.verified) && (
+                            <Verified className="h-3 w-3 text-emerald-500" />
+                          )}
+                        </span>
+                      </div>
+                      {listing.contactInfo && (
+                        <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                          <Send className="h-3 w-3" /> Contact: {listing.contactInfo}
                         </p>
                       )}
-                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3 w-3" /> {proforma.items.length} item{proforma.items.length !== 1 ? 's' : ''}
-                        </span>
-                        <span className="flex items-center gap-1 font-semibold text-emerald-600">
-                          <DollarSign className="h-3 w-3" /> ETB {pTotal.toLocaleString()}
-                        </span>
+                    </div>
+                    {isMine && (
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                          title="Mark as sold"
+                          onClick={() => handleMarkSold(listing.id)}
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          title="Delete"
+                          onClick={() => handleDelete(listing.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handlePrint(proforma.id)}>
-                        <Printer className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                        onClick={() => setProformas(prev => prev.filter(p => p.id !== proforma.id))}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -2186,8 +2313,8 @@ export function SocialCircleView() {
                   Discover
                 </TabsTrigger>
                 <TabsTrigger value="proforma" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-                  <FileText className="h-3.5 w-3.5 mr-1.5" />
-                  Proforma
+                  <Globe2 className="h-3.5 w-3.5 mr-1.5" />
+                  Market
                 </TabsTrigger>
                 <TabsTrigger value="network" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                   <Users className="h-3.5 w-3.5 mr-1.5" />
