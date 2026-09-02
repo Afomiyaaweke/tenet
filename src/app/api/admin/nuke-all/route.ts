@@ -102,6 +102,45 @@ export async function POST(req: NextRequest) {
     const users = await db.user.deleteMany({ where: { id: { not: keepUserId } } });
     const companies = await db.company.deleteMany({ where: { id: { not: keepCompanyId } } });
 
+    // 3) Safety net: ensure ProformaListing exists (prod schema sync had been
+    //    failing silently — vercel-build.sh never exported the integration URL).
+    try {
+      await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "ProformaListing" (
+        "id" TEXT NOT NULL,
+        "userId" TEXT NOT NULL,
+        "productName" TEXT NOT NULL,
+        "description" TEXT NOT NULL DEFAULT '',
+        "category" TEXT NOT NULL DEFAULT 'General',
+        "quantity" INTEGER NOT NULL DEFAULT 1,
+        "unit" TEXT NOT NULL DEFAULT 'unit',
+        "unitPrice" DOUBLE PRECISION NOT NULL DEFAULT 0,
+        "currency" TEXT NOT NULL DEFAULT 'ETB',
+        "city" TEXT NOT NULL DEFAULT '',
+        "country" TEXT NOT NULL DEFAULT '',
+        "contactInfo" TEXT NOT NULL DEFAULT '',
+        "imageUrls" TEXT NOT NULL DEFAULT '[]',
+        "status" TEXT NOT NULL DEFAULT 'active',
+        "views" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "ProformaListing_pkey" PRIMARY KEY ("id")
+      )`);
+      for (const col of ['userId', 'country', 'category', 'status', 'createdAt']) {
+        await db.$executeRawUnsafe(
+          `CREATE INDEX IF NOT EXISTS "ProformaListing_${col}_idx" ON "ProformaListing"("${col}")`
+        );
+      }
+      await db.$executeRawUnsafe(`DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProformaListing_userId_fkey') THEN
+            ALTER TABLE "ProformaListing" ADD CONSTRAINT "ProformaListing_userId_fkey"
+              FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+          END IF;
+        END $$;`);
+    } catch (e) {
+      console.warn('ProformaListing ensure failed:', e);
+    }
+
     const after = await tableCounts();
 
     return NextResponse.json({

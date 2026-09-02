@@ -23,9 +23,24 @@ if [ "$VERCEL" = "1" ] || [ "$NODE_ENV" = "production" ]; then
      [ -z "$POSTGRES_PRISMA_URL" ] && \
      [ -z "$POSTGRES_URL" ] && \
      [ -z "$tenet_POSTGRES_PRISMA_URL" ] && \
-     [ -z "$tenet_DATABASE_URL" ]; then
+     [ -z "$tenet_DATABASE_URL" ] && \
+     [ -z "$tenet_POSTGRES_URL" ]; then
     echo "⚠️  No DATABASE_URL found — using placeholder for build-time only"
     export DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+  fi
+
+  # Resolve DATABASE_URL from Vercel Postgres integration variables so
+  # `prisma db push` can actually connect (mirrors src/lib/db.ts fallback order).
+  # Without this, db push fails silently and new tables never reach production.
+  if [ -z "$DATABASE_URL" ]; then
+    for v in POSTGRES_PRISMA_URL tenet_POSTGRES_PRISMA_URL POSTGRES_URL tenet_DATABASE_URL tenet_POSTGRES_URL; do
+      val="${!v}"
+      if [ -n "$val" ]; then
+        echo "🔗 Using $v as DATABASE_URL for schema sync"
+        export DATABASE_URL="$val"
+        break
+      fi
+    done
   fi
 
   # Sync database schema — creates missing tables without dropping existing data
