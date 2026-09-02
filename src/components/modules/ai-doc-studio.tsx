@@ -38,7 +38,7 @@ import {
   Check, Copy, Clock, Shield, Target, DollarSign, Star, TrendingUp,
   Award, Zap, AlertTriangle, CheckCircle2, XCircle,
   Upload, Bot, Eye, ExternalLink, RefreshCw, FileUp, Loader2, ChevronRight, FileSearch, Link2, Trash2, MessageSquare, FileDown,
-  Layers, Bell, Paperclip, Send, History, ArrowLeft, Menu,
+  Layers, Paperclip, Send, ArrowLeft, Menu,
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useStampSignature, STAMP_TEMPLATES, type SavedSignature } from '@/components/stamp-signature';
@@ -127,6 +127,35 @@ const PROMPT_SUGGESTIONS: Record<string, string> = {
   portfolio: 'Evaluate this portfolio for relevant experience and capability demonstration',
   certificate: 'Verify this certificate for authenticity, validity, and relevance to procurement requirements',
   other: 'Review this document for completeness, accuracy, and compliance with applicable standards',
+};
+
+// Quick-prompt chips shown above the chat input when the conversation is short.
+// Keys match AITool ids so suggestions stay relevant to the open template tool.
+const CHAT_PROMPT_SUGGESTIONS: Record<string, string[]> = {
+  'tender-builder': [
+    'Draft a tender scope',
+    'Suggest evaluation criteria',
+    'List required documents',
+  ],
+  'bid-builder': [
+    'Draft a technical approach',
+    'Suggest a methodology',
+    'Write a compliance summary',
+  ],
+  'requirement-analyzer': [
+    'Summarize the requirements',
+    'What are the key risks?',
+    'Estimate a match score',
+  ],
+  'applicant-analyzer': [
+    'Rank the top applicants',
+    'Summarize bidder strengths',
+  ],
+  default: [
+    'Summarize this document',
+    'Improve the writing',
+    'Draft an executive summary',
+  ],
 };
 
 // STAMP_TEMPLATES imported from shared stamp-signature component
@@ -685,12 +714,10 @@ export function AIDocStudio() {
 
   // Sidebar AI chat thread (Template Generator assistant)
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string; kind?: 'text' | 'generated' }>>([
-    { id: 'welcome', role: 'assistant', kind: 'text', content: "Hello! I'm your AI Doc Studio assistant. Pick a template type on the left, then hit Generate Template — or just ask me anything below." },
+    { id: 'welcome', role: 'assistant', kind: 'text', content: "Hi! I'm your AI Doc Studio assistant. I can see your document, your profile, and the tender you're working on. Ask me to draft a section, summarise, refine your writing, or answer procurement questions. Try a suggestion below or type your own message." },
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
-  // Right sidebar: show AI chat history alongside the editor
-  const [showEditorHistory, setShowEditorHistory] = useState(false);
   // Sidebar document generation source: which live tender to pull from (bid-builder / req-analyzer / applicant)
   const [genTenderId, setGenTenderId] = useState('');
   // Source selection: 'live-tender' or 'external'
@@ -1045,11 +1072,11 @@ export function AIDocStudio() {
     setChatMessages(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, role, content, kind }]);
   };
 
-  const sendChat = async () => {
-    const text = chatInput.trim();
+  const sendChat = async (overrideText?: string) => {
+    const text = (overrideText ?? chatInput).trim();
     if (!text || chatSending) return;
     pushChat('user', text);
-    setChatInput('');
+    if (overrideText === undefined) setChatInput('');
     setChatSending(true);
     try {
       // Give the assistant live context of what is in the editor so it can read,
@@ -1058,11 +1085,15 @@ export function AIDocStudio() {
       const history = chatMessages
         .slice(1)
         .map(m => ({ role: m.role, content: m.content }));
+      // Pass the active tender + tool so the assistant can personalise answers.
+      const activeTenderId = genTenderId || bidSelectedTender || reqSelectedTender || '';
       const res = await api.post('/ai/chat', {
         message: text,
         documentTitle: docTitle,
         documentContent,
         history,
+        tenderId: activeTenderId,
+        tool: activeAITool,
       });
       if (res.success && res.data?.reply) {
         pushChat('assistant', res.data.reply);
@@ -1104,6 +1135,136 @@ export function AIDocStudio() {
       pushChat('assistant', `Please fill in the required fields for the ${label} in the Template Generator panel, then try again.`, 'generated');
     }
   };
+
+  /* ════════════════════════════════════════════════════════════
+     SIDEBAR CHAT UI (inline thread + suggestions + input)
+     Previously the chat input lived in the left sidebar but the message
+     thread was hidden in a separate right sidebar (showEditorHistory)
+     — so users typed, hit send, and saw nothing. Now the thread, the
+     suggestions and the input all live together in the left sidebar.
+     ════════════════════════════════════════════════════════════ */
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll the chat to the bottom whenever messages change or while sending.
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [chatMessages, chatSending]);
+
+  const renderChatThread = () => (
+    <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 thin-scroll min-h-0">
+      {chatMessages.map(m => {
+        const segments = m.role === 'assistant' ? parseChatSegments(m.content) : [];
+        return (
+          <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${m.role === 'assistant' ? 'bg-teal-50' : 'bg-muted'}`}>
+              {m.role === 'assistant'
+                ? <Bot className="h-3 w-3 text-teal-600" />
+                : <span className="text-[10px] font-semibold text-foreground">{avatarInitial}</span>}
+            </div>
+            <div className={`max-w-[85%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-muted text-foreground' : 'bg-card border border-border text-foreground shadow-sm'}`}>
+              {m.role === 'assistant' ? (
+                segments.length === 0 ? (
+                  <p>{m.content}</p>
+                ) : segments.map((seg, i) => (
+                  seg.type === 'doc' ? (
+                    <div key={i} className="mt-2 first:mt-0 rounded-lg border border-teal-200 bg-teal-50/40 overflow-hidden">
+                      <div className="px-2.5 py-1 border-b border-teal-200/70 flex items-center gap-1.5 bg-teal-50">
+                        <FileDown className="h-3 w-3 text-teal-600" />
+                        <span className="text-[10px] font-semibold text-teal-700">Document content</span>
+                        <span className="text-[9px] text-teal-600/70 ml-auto">{seg.content.split(/\s+/).filter(Boolean).length} words</span>
+                      </div>
+                      <pre className="px-2.5 py-2 text-[10px] leading-relaxed text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto thin-scroll font-sans m-0">{seg.content}</pre>
+                      <div className="px-2 py-1.5 border-t border-teal-200/70 bg-background flex gap-1.5">
+                        <button onClick={() => insertIntoEditor(seg.content)} title="Append to the end of the document" className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-600 text-white text-[10px] font-medium hover:bg-teal-700 transition-colors">
+                          <Plus className="h-3 w-3" /> Insert
+                        </button>
+                        <button onClick={() => replaceDocument(seg.content)} title="Replace the whole document with this content" className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-teal-300 text-teal-700 text-[10px] font-medium hover:bg-teal-50 transition-colors">
+                          <RefreshCw className="h-3 w-3" /> Replace
+                        </button>
+                        <button onClick={() => { navigator.clipboard?.writeText(seg.content); toast.success('Copied'); }} title="Copy to clipboard" className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-md text-muted-foreground text-[10px] font-medium hover:bg-muted transition-colors">
+                          <Copy className="h-3 w-3" /> Copy
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    seg.content && seg.content.trim() ? (
+                      <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
+                        {seg.content.split('\n').map((line, j) => (
+                          <p key={j} className={j > 0 ? 'mt-1' : ''}>{line}</p>
+                        ))}
+                      </div>
+                    ) : null
+                  )
+                ))
+              ) : (
+                m.content.split('\n').map((line, i) => (
+                  <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
+                ))
+              )}
+              {m.kind === 'generated' && (
+                <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
+                  <Plus className="h-3 w-3" /> Inserted
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {chatSending && (
+        <div className="flex gap-2">
+          <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center flex-shrink-0">
+            <Loader2 className="h-3 w-3 text-teal-600 animate-spin" />
+          </div>
+          <div className="bg-card border border-border rounded-lg px-3 py-2.5 text-[11px] text-foreground shadow-sm">Thinking...</div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderChatSuggestions = () => {
+    // Don't show suggestions once the conversation is underway
+    if (chatMessages.length > 2) return null;
+    const suggestions = CHAT_PROMPT_SUGGESTIONS[activeAITool] || CHAT_PROMPT_SUGGESTIONS.default;
+    return (
+      <div className="px-3 pb-1.5 flex flex-wrap gap-1.5">
+        {suggestions.map(s => (
+          <button
+            key={s}
+            onClick={() => sendChat(s)}
+            disabled={chatSending}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-full border border-border bg-card text-foreground hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700 transition-colors disabled:opacity-50"
+          >
+            <Sparkles className="h-2.5 w-2.5 text-teal-500" />
+            {s}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderChatInput = () => (
+    <div className="p-3 border-t border-border">
+      <div className="relative rounded-xl border border-border bg-card focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all">
+        <textarea
+          value={chatInput}
+          onChange={e => setChatInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+          placeholder="Ask the AI — it can read & edit your document..."
+          rows={1}
+          className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+        />
+        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+          <button title="Attach file" className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+            <Paperclip className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => sendChat()} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            <Send className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   /* ════════════════════════════════════════════════════════════
      DOC REVIEW: Upload
@@ -1772,143 +1933,6 @@ export function AIDocStudio() {
       } else { toast.error(res.error || 'Failed to analyze'); }
     } catch { toast.error('AI analysis failed'); }
     finally { setAiLoading(false); }
-  };
-
-  /* ── AI Panel Content ── */
-  const AIPanelContent = () => {
-    const formClass = "h-8 text-xs bg-muted/50 border-border/50";
-    return (
-      <ScrollArea className="h-full">
-        <div className="p-3 space-y-3">
-          {/* Close button */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-emerald-600" />
-              <span className="text-sm font-semibold">AI Assistant</span>
-            </div>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setAiPanelOpen(false)}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-
-          {/* Tool selector */}
-          <div className="flex flex-wrap gap-1">
-            {AI_TOOLS.map(tool => {
-              const Icon = tool.icon;
-              const isActive = activeAITool === tool.id;
-              return (
-                <button key={tool.id} onClick={() => setActiveAITool(tool.id)}
-                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border transition-colors ${
-                    isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border text-muted-foreground hover:bg-muted'
-                  }`}>
-                  <Icon className="h-3 w-3" /> {tool.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <Separator />
-
-          {/* Tender Builder Form */}
-          {activeAITool === 'tender-builder' && (
-            <div className="space-y-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tender Builder</Label>
-              <div><Label className="text-[10px]">Title *</Label><Input placeholder="Tender title" value={tenderForm.title} onChange={e => updateTenderField('title', e.target.value)} className={formClass} /></div>
-              <div><Label className="text-[10px]">Category *</Label>
-                <Select value={tenderForm.category} onValueChange={v => updateTenderField('category', v)}>
-                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div><Label className="text-[10px]">Location</Label><Input placeholder="e.g., Addis Ababa" value={tenderForm.location} onChange={e => updateTenderField('location', e.target.value)} className={formClass} /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-[10px]">Budget Min</Label><Input type="number" placeholder="0" value={tenderForm.budgetMin} onChange={e => updateTenderField('budgetMin', e.target.value)} className={formClass} /></div>
-                <div><Label className="text-[10px]">Budget Max</Label><Input type="number" placeholder="0" value={tenderForm.budgetMax} onChange={e => updateTenderField('budgetMax', e.target.value)} className={formClass} /></div>
-              </div>
-              <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={tenderForm.deadline} onChange={e => updateTenderField('deadline', e.target.value)} className={formClass} /></div>
-              <div><Label className="text-[10px]">Description *</Label><Textarea placeholder="Scope and requirements..." value={tenderForm.description} onChange={e => updateTenderField('description', e.target.value)} className="min-h-[60px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
-              <div><Label className="text-[10px]">Notes</Label><Textarea placeholder="Optional notes..." value={tenderForm.notes} onChange={e => updateTenderField('notes', e.target.value)} className="min-h-[40px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
-              <GenerateButton onClick={generateTender} loading={aiLoading} />
-            </div>
-          )}
-
-          {/* Bid Builder Form */}
-          {activeAITool === 'bid-builder' && (
-            <div className="space-y-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Bid Proposal</Label>
-              <div><Label className="text-[10px]">Select Tender</Label>
-                <Select value={bidSelectedTender} onValueChange={selectBidTender}>
-                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
-                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Separator />
-              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
-              <div><Label className="text-[10px]">Tender Title</Label><Input value={bidForm.tenderTitle} onChange={e => updateBidField('tenderTitle', e.target.value)} className={formClass} /></div>
-              <div><Label className="text-[10px]">Scope</Label><Textarea value={bidForm.scope} onChange={e => updateBidField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-[10px]">Budget Range</Label><Input value={bidForm.budgetRange} onChange={e => updateBidField('budgetRange', e.target.value)} className={formClass} /></div>
-                <div><Label className="text-[10px]">Category</Label>
-                  <Select value={bidForm.category} onValueChange={v => updateBidField('category', v)}>
-                    <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={bidSkills} onChange={setBidSkills} /></div>
-              <div><Label className="text-[10px]">Company</Label><Input value={bidForm.companyName} onChange={e => updateBidField('companyName', e.target.value)} className={formClass} /></div>
-              <div><Label className="text-[10px]">Experience</Label><Textarea value={bidForm.experience} onChange={e => updateBidField('experience', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-[10px]">Proposed Budget</Label><Input type="number" value={bidForm.proposedBudget} onChange={e => updateBidField('proposedBudget', e.target.value)} className={formClass} /></div>
-                <div><Label className="text-[10px]">Timeline</Label><Input value={bidForm.proposedTimeline} onChange={e => updateBidField('proposedTimeline', e.target.value)} className={formClass} /></div>
-              </div>
-              <GenerateButton onClick={generateBid} loading={aiLoading} />
-            </div>
-          )}
-
-          {/* Requirement Analyzer Form */}
-          {activeAITool === 'requirement-analyzer' && (
-            <div className="space-y-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Requirement Analyzer</Label>
-              <div><Label className="text-[10px]">Select Tender</Label>
-                <Select value={reqSelectedTender} onValueChange={selectReqTender}>
-                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
-                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Separator />
-              <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
-              <div><Label className="text-[10px]">Tender Title</Label><Input value={reqForm.tenderTitle} onChange={e => updateReqField('tenderTitle', e.target.value)} className={formClass} /></div>
-              <div><Label className="text-[10px]">Scope</Label><Textarea value={reqForm.scope} onChange={e => updateReqField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-[10px]">Budget</Label><Input value={reqForm.budget} onChange={e => updateReqField('budget', e.target.value)} className={formClass} /></div>
-                <div><Label className="text-[10px]">Category</Label><Input value={reqForm.category} onChange={e => updateReqField('category', e.target.value)} className={formClass} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-[10px]">Required Docs</Label><Input value={reqForm.requiredDocs} onChange={e => updateReqField('requiredDocs', e.target.value)} className={formClass} /></div>
-                <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={reqForm.deadline} onChange={e => updateReqField('deadline', e.target.value)} className={formClass} /></div>
-              </div>
-              <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={reqSkills} onChange={setReqSkills} /></div>
-              <GenerateButton onClick={generateReq} loading={aiLoading} />
-            </div>
-          )}
-
-          {/* Applicant Analyzer Form */}
-          {activeAITool === 'applicant-analyzer' && (
-            <div className="space-y-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Applicant Analyzer</Label>
-              <div><Label className="text-[10px]">Select Your Tender</Label>
-                <Select value={appSelectedTender} onValueChange={setAppSelectedTender}>
-                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
-                  <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <GenerateButton onClick={generateApplicant} loading={aiLoading} disabled={!appSelectedTender} />
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-    );
   };
 
   /* ── Tool form (rendered inline in the sidebar) ──
@@ -3401,17 +3425,24 @@ export function AIDocStudio() {
         {isMobile && editorMode && (
           <button onClick={() => setLeftSidebarOpen(true)} title="Menu" className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors flex-shrink-0"><Menu className="h-4 w-4" /></button>
         )}
-        <div className="flex-1 hidden md:block">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input placeholder="Search documents..." className="w-full h-9 pl-10 pr-4 rounded-full bg-muted/30 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-teal-500 focus:bg-background focus:ring-2 focus:ring-teal-500/15 transition-all" />
+        <div className="flex-1 hidden md:block min-w-0">
+          <div className="flex items-center gap-2 max-w-md">
+            <FileText className="h-4 w-4 text-teal-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-foreground truncate">{docTitle}</span>
+            <span className="text-[10px] text-muted-foreground flex-shrink-0">&middot; {wordCount} words</span>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={() => setShowEditorHistory(v => !v)} title="Chat History" className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showEditorHistory ? 'bg-primary/15 text-primary' : 'hover:bg-muted text-muted-foreground'}`}><History className="h-4 w-4" /></button>
-          <button title="Notifications" className="hidden md:flex w-8 h-8 rounded-full hover:bg-muted items-center justify-center text-muted-foreground transition-colors relative"><Bell className="h-4 w-4" /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-500 ring-2 ring-background" /></button>
           <Popover><PopoverTrigger asChild><button className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-muted/30 transition-colors"><Layers className="h-4 w-4 text-teal-600" /><span className="hidden md:inline">{ribbonTab === 'agent' ? 'AI Agent' : 'Editor'}</span><ChevronDown className="h-3 w-3 text-muted-foreground" /></button></PopoverTrigger><PopoverContent className="w-40 p-1" align="end">{[{ id: 'home', label: 'Editor', icon: FileText }, { id: 'agent', label: 'AI Agent', icon: Bot }].map(m => { const Icon = m.icon; const active = (ribbonTab === m.id) || (m.id === 'home' && editorMode); return (<button key={m.id} onClick={() => setRibbonTab(m.id as RibbonTab)} className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${active ? 'bg-teal-50 text-teal-700 font-medium' : 'text-foreground hover:bg-muted'}`}><Icon className="h-4 w-4" /> {m.label}</button>); })}</PopoverContent></Popover>
-          <button onClick={() => toast.info('Exporting...')} className="hidden md:flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-muted/30 transition-colors"><Download className="h-3.5 w-3.5" /> Export</button>
+          <button
+            onClick={() => {
+              const content = editorRef.current?.innerText || '';
+              if (!content.trim()) { toast.error('Document is empty — nothing to export.'); return; }
+              const safeName = (docTitle || 'document').replace(/[^a-z0-9_-]+/gi, '_').slice(0, 60);
+              exportAsTxt(`${docTitle}\n\n${content}`, `${safeName}.txt`);
+              toast.success('Document exported as .txt');
+            }}
+            className="hidden md:flex items-center gap-1.5 h-8 px-3 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-muted/30 transition-colors"><Download className="h-3.5 w-3.5" /> Export</button>
           <button
             onClick={handleSave}
             className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
@@ -3429,7 +3460,7 @@ export function AIDocStudio() {
             {!isMobile && (
             <aside className="w-80 flex flex flex-col bg-card border-r border-border flex-shrink-0">
               <div className="px-5 py-4 border-b border-border"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-foreground tracking-tight">AI Doc Studio</span></div></div>
-              <div className="px-5 py-4 space-y-2 border-b border-border flex-1 overflow-y-auto">
+              <div className="px-5 py-4 space-y-2 border-b border-border max-h-[42vh] overflow-y-auto">
                 <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-foreground">Template Generator</span></div>
                 <button onClick={() => setSourceMode('live-tender')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'live-tender' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-border hover:border-gray-300 hover:bg-muted/50'}`}>
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'live-tender' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'live-tender' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
@@ -3442,16 +3473,24 @@ export function AIDocStudio() {
                 {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-muted/30 border-border"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
                 {renderToolForm()}
                 <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
-                <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"><Plus className="h-3 w-3" /> Insert into document</button>
               </div>
-              <div className="p-3 pb-12 mt-auto border-t border-border"><div className="relative rounded-xl border border-border bg-card focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
+                  <Bot className="h-3.5 w-3.5 text-teal-600" />
+                  <span className="text-xs font-semibold text-foreground">AI Assistant</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">{chatMessages.length > 1 ? `${chatMessages.length - 1} msgs` : 'live'}</span>
+                </div>
+                {renderChatThread()}
+                {renderChatSuggestions()}
+                {renderChatInput()}
+              </div>
             </aside>
             )}
             {isMobile && (
             <Sheet open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
               <SheetContent side="left" className="w-80 p-0 overflow-y-auto">
                 <SheetHeader className="px-5 py-4 border-b border-border"><SheetTitle className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-foreground tracking-tight">AI Doc Studio</span></SheetTitle></SheetHeader>
-                <div className="px-5 py-4 space-y-2 border-b border-border flex-1 overflow-y-auto">
+                <div className="px-5 py-4 space-y-2 border-b border-border max-h-[42vh] overflow-y-auto">
                   <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-foreground">Template Generator</span></div>
                   <button onClick={() => setSourceMode('live-tender')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'live-tender' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-border hover:border-gray-300 hover:bg-muted/50'}`}>
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'live-tender' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'live-tender' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
@@ -3464,9 +3503,19 @@ export function AIDocStudio() {
                   {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-muted/30 border-border"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
                   {renderToolForm()}
                   <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
-                  <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"><Plus className="h-3 w-3" /> Insert into document</button>
                 </div>
-                <div className="p-3 pb-12 mt-auto border-t border-border"><div className="relative rounded-xl border border-border bg-card focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-gray-600 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
+                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                  <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
+                    <Bot className="h-3.5 w-3.5 text-teal-600" />
+                    <span className="text-xs font-semibold text-foreground">AI Assistant</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground">{chatMessages.length > 1 ? `${chatMessages.length - 1} msgs` : 'live'}</span>
+                  </div>
+                  <div className="h-[50vh] flex flex-col overflow-hidden">
+                    {renderChatThread()}
+                    {renderChatSuggestions()}
+                    {renderChatInput()}
+                  </div>
+                </div>
               </SheetContent>
             </Sheet>
             )}
@@ -3475,96 +3524,6 @@ export function AIDocStudio() {
               <div className="flex-1 overflow-auto bg-gray-100 p-2 md:p-6" onClick={() => { if (placementMode) { /* handled */ } }}><div className="flex justify-center" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="bg-white shadow-lg relative" style={{ width: 794, minHeight: 1123, padding: isMobile ? '24px 20px 32px 20px' : '72px 72px 96px 72px' }}><div className="border-b-2 border-teal-600 pb-3 mb-6" style={{ fontFamily: 'Arial, sans-serif' }}><div className="text-center"><p className="text-[11px] tracking-[0.3em] text-teal-700 font-bold uppercase">TenetBid Procurement Platform</p><p className="text-[9px] text-gray-400 mt-0.5">Professional Document</p></div></div><input value={docTitle} onChange={e => { setDocTitle(e.target.value); setSaveStatus('unsaved'); }} placeholder="Document title" className="w-full text-xl md:text-2xl font-bold text-gray-900 mb-4 bg-transparent border-0 focus:outline-none placeholder:text-gray-300" style={{ fontFamily: 'Arial, sans-serif' }} /><div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleDocChange} onClick={handleCanvasClick} className="outline-none min-h-[600px] text-[13px] leading-[1.7] text-gray-700" style={{ fontFamily: 'Arial, sans-serif', cursor: placementMode ? 'crosshair' : 'text' }} data-placeholder="Start typing or use the Template Generator to populate this document..."></div><div className="absolute bottom-8 left-0 right-0 text-center"><div className="border-t border-gray-200 pt-2"><p className="text-[10px] text-gray-400">Page 1 of 1</p></div></div></div></div></div>
               <div className="flex items-center h-6 px-4 bg-white border-t border-gray-200 text-[10px] text-gray-500 flex-shrink-0"><div className="flex-1">Page 1 of 1</div><div className="flex items-center gap-3"><span>{wordCount} words</span><span>{charCount} chars</span>{placementMode && <span className="text-amber-600 font-medium">Click document to place signature</span>}</div><div className="flex-1 flex items-center justify-end gap-1"><button onClick={() => setZoom(Math.max(75, zoom - 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomOut className="h-3 w-3" /></button><Select value={String(zoom)} onValueChange={v => setZoom(Number(v))}><SelectTrigger className="h-5 w-12 text-[10px] border-0 p-0 bg-transparent"><SelectValue /></SelectTrigger><SelectContent>{ZOOM_LEVELS.map(z => <SelectItem key={z} value={String(z)}>{z}%</SelectItem>)}</SelectContent></Select><button onClick={() => setZoom(Math.min(150, zoom + 25))} className="p-1 hover:bg-gray-100 rounded"><ZoomIn className="h-3 w-3" /></button></div></div>
             </main>
-            {showEditorHistory && (
-              <>
-              {isMobile && <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowEditorHistory(false)} />}
-              <aside className={`${isMobile ? 'fixed inset-y-0 right-0 z-50' : ''} w-[300px] flex-shrink-0 border-l border-gray-200 bg-white overflow-hidden flex flex-col animate-in slide-in-from-right duration-300`}>
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-                  <h3 className="text-sm font-semibold text-gray-900">Chat History</h3>
-                  <button onClick={() => setShowEditorHistory(false)} className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                {chatMessages.length > 1 ? (
-                  <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 thin-scroll">
-                    {chatMessages.slice(1).map(m => {
-                      const segments = m.role === 'assistant' ? parseChatSegments(m.content) : [];
-                      return (
-                      <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                        <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${m.role === 'assistant' ? 'bg-teal-50' : 'bg-gray-100'}`}>
-                          {m.role === 'assistant'
-                            ? <Bot className="h-3 w-3 text-teal-600" />
-                            : <span className="text-[10px] font-semibold text-gray-900">{avatarInitial}</span>}
-                        </div>
-                        <div className={`max-w-[88%] rounded-lg px-3 py-2 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-gray-100 text-gray-900' : 'bg-white border border-gray-200 text-gray-900 shadow-sm'}`}>
-                          {m.role === 'assistant' ? (
-                            segments.map((seg, i) => (
-                              seg.type === 'doc' ? (
-                                <div key={i} className="mt-2 first:mt-0 rounded-lg border border-teal-200 bg-teal-50/40 overflow-hidden">
-                                  <div className="px-2.5 py-1 border-b border-teal-200/70 flex items-center gap-1.5 bg-teal-50">
-                                    <FileDown className="h-3 w-3 text-teal-600" />
-                                    <span className="text-[10px] font-semibold text-teal-700">Document content</span>
-                                    <span className="text-[9px] text-teal-600/70 ml-auto">{seg.content.split(/\s+/).filter(Boolean).length} words</span>
-                                  </div>
-                                  <pre className="px-2.5 py-2 text-[10px] leading-relaxed text-gray-900 whitespace-pre-wrap max-h-44 overflow-y-auto thin-scroll font-sans m-0">{seg.content}</pre>
-                                  <div className="px-2 py-1.5 border-t border-teal-200/70 bg-white flex gap-1.5">
-                                    <button onClick={() => insertIntoEditor(seg.content)} title="Append to the end of the document" className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-600 text-white text-[10px] font-medium hover:bg-teal-700 transition-colors">
-                                      <Plus className="h-3 w-3" /> Insert
-                                    </button>
-                                    <button onClick={() => replaceDocument(seg.content)} title="Replace the whole document with this content" className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-teal-300 text-teal-700 text-[10px] font-medium hover:bg-teal-50 transition-colors">
-                                      <RefreshCw className="h-3 w-3" /> Replace
-                                    </button>
-                                    <button onClick={() => { navigator.clipboard?.writeText(seg.content); toast.success('Copied'); }} title="Copy to clipboard" className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-md text-gray-800 text-[10px] font-medium hover:bg-gray-100 transition-colors">
-                                      <Copy className="h-3 w-3" /> Copy
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                seg.content && seg.content.trim() ? (
-                                  <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
-                                    {seg.content.split('\n').map((line, j) => (
-                                      <p key={j} className={j > 0 ? 'mt-1' : ''}>{line}</p>
-                                    ))}
-                                  </div>
-                                ) : null
-                              )
-                            ))
-                          ) : (
-                            m.content.split('\n').map((line, i) => (
-                              <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
-                            ))
-                          )}
-                          {m.kind === 'generated' && (
-                            <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
-                              <Plus className="h-3 w-3" /> Inserted
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      );
-                    })}
-                    {chatSending && (
-                      <div className="flex gap-2">
-                        <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center flex-shrink-0">
-                          <Loader2 className="h-3 w-3 text-teal-600 animate-spin" />
-                        </div>
-                        <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-[11px] text-gray-800 shadow-sm">Thinking...</div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center space-y-2">
-                      <MessageSquare className="mx-auto size-8 text-gray-700" />
-                      <p className="text-xs text-gray-800">No chat history yet</p>
-                      <p className="text-[10px] text-gray-700">Use the input below to ask the AI</p>
-                    </div>
-                  </div>
-                )}
-                <div className="p-3 border-t border-gray-100"><div className="relative rounded-xl border border-gray-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all"><textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="Ask the AI — it can read & edit your document..." rows={1} className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-gray-900 placeholder:text-gray-800 focus:outline-none" /><div className="absolute bottom-2 left-2 right-2 flex items-center justify-between"><button title="Attach file" className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-gray-800 hover:text-gray-900 transition-colors"><Paperclip className="h-3.5 w-3.5" /></button><button onClick={sendChat} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" /></button></div></div></div>
-              </aside>
-              </>
-            )}
           </>
         ) : ribbonTab === 'agent' ? (
           <div className="flex-1 overflow-hidden pb-11"><AgentChatView /></div>

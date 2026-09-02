@@ -1143,3 +1143,36 @@ Work Log:
 Stage Summary:
 - Vercel build now passes: the exact TypeScript step that failed locally (`tsc --noEmit`) runs clean
 - No runtime behavior changes — type-level fixes only
+
+---
+Task ID: 11
+Agent: main
+Task: Make AI generate based on doc+profile+tender; fix broken chat interaction (input was disconnected from message thread); make chat engaging; remove redundant editor features
+
+Work Log:
+- ROOT CAUSE of "chat not working": the chat INPUT lived in the left sidebar but the message THREAD was only rendered in a separate right sidebar (showEditorHistory, hidden by default). Users typed, hit send, and saw nothing — they had to find a History icon in the header to see the conversation.
+- Backend: rewrote /api/ai/chat to load the user's profile + company (Prisma include) and the active tender (by tenderId), injecting all of it into the system prompt so the assistant can personalise answers. Switched from raw getZAI() to callZAIWithDeadline(8s) so Vercel Hobby 10s cap no longer kills the request; added a context-aware fallback reply (with a ```doc block derived from the active tender) that fires when the AI is too slow.
+- Frontend sendChat(): now passes tenderId (genTenderId || bidSelectedTender || reqSelectedTender) and tool (activeAITool) to the API so the assistant knows what template generator is open.
+- Extracted renderChatThread(), renderChatSuggestions(), renderChatInput() helpers and rendered them INLINE in the left sidebar (above the input) — both desktop aside and mobile Sheet. Auto-scrolls to bottom on new messages. Doc blocks render with Insert/Replace/Copy buttons right in the thread.
+- Added CHAT_PROMPT_SUGGESTIONS constant (per-tool suggestions: tender-builder, bid-builder, requirement-analyzer, applicant-analyzer + default). Suggestions show as chips above the input when the conversation is short (<=2 messages), then hide automatically.
+- Removed redundant editor features:
+  - Dead AIPanelContent function (~137 lines, lines 1940-2076) — defined but never mounted, per Task 10 worklog
+  - Entire right "Chat History" sidebar block (~90 lines) — now redundant since chat is inline
+  - History toggle button in header (was the only way to see messages)
+  - Notifications bell (decorative, no handler)
+  - "Search documents..." input (no handler) — replaced with a live doc title + word count display
+  - "Insert into document" button in sidebar (just called editorRef.focus(), did nothing useful)
+  - Export button was toast.info('Exporting...') fake — wired it to actual exportAsTxt() with the editor content
+- Removed unused icon imports (Bell, History). Removed showEditorHistory state.
+- Updated welcome message to explain the assistant can see the doc, profile, and tender.
+- Verification: bun run lint (0 errors, 18 pre-existing warnings), bunx tsc --noEmit (0 errors). Dev server compiles clean.
+- Browser-tested end-to-end as test@tenetbid.com: typed "What can you help me with today?" → AI replied in 2.3s with personalised answer mentioning "Test User", "Test Corp", "Addis Ababa", "construction professional" (profile data flowing through). Asked "Draft a short executive summary" → AI returned a ```doc block rendered as a card with word count + Insert/Replace/Copy buttons. Clicked Insert → content appeared in the editor. Clicked Export → "Document exported as .txt" toast. VLM screenshot analysis confirmed: chat thread in left sidebar, input at bottom, header has Export+Save only (no History/Notifications), editor in center.
+- Pushed to GitHub.
+
+Stage Summary:
+- Chat is now LIVE and inline in the left sidebar — no more hidden right sidebar or disconnected input
+- AI uses real profile + company + active tender data to personalise every answer (verified: reply mentioned user's name, company, city, industry)
+- Doc blocks render with one-click Insert/Replace/Copy right in the chat thread
+- Suggested prompt chips guide new users (per-tool, hide after 2 messages)
+- callZAIWithDeadline(8s) + context-aware fallback means the chat never 504s on Vercel
+- Editor cleaned up: ~227 lines of dead/redundant code removed, fake header buttons replaced with working ones (Export actually exports; search replaced with doc title display)
