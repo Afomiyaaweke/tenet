@@ -284,6 +284,7 @@ export function DocBuilderView() {
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [generatedTemplateType, setGeneratedTemplateType] = useState<string | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
 
   // Auto-select template and tender from viewParams (e.g. from "Start Bid Application")
   useEffect(() => {
@@ -331,6 +332,7 @@ export function DocBuilderView() {
     setGeneratedContent(null);
     setGeneratedAt(null);
     setGeneratedTemplateType(null);
+    setUsedFallback(false);
   };
 
   // Handle input change
@@ -344,6 +346,7 @@ export function DocBuilderView() {
 
     setGenerating(true);
     setGeneratedContent(null);
+    setUsedFallback(false);
 
     try {
       const body: Record<string, unknown> = {
@@ -356,18 +359,31 @@ export function DocBuilderView() {
         body.tenderId = inputData.tenderId;
       }
 
-      const res = await api.post('/documents/generate', body);
+      // 12s client timeout — Vercel Hobby kills the function at 10s anyway,
+      // so waiting longer just leaves the user staring at a spinner.
+      const res = await api.post('/documents/generate', body, { timeout: 12000 });
 
       if (res.success) {
         setGeneratedContent(res.data.content);
         setGeneratedAt(res.data.generatedAt);
         setGeneratedTemplateType(res.data.templateType);
-        toast.success('Document generated successfully!');
+        setUsedFallback(res.data.fallback === true);
+        toast.success(
+          res.data.fallback
+            ? 'Template ready — AI was slow, edit the placeholders.'
+            : 'Document generated successfully!'
+        );
       } else {
         toast.error(res.error || 'Failed to generate document');
       }
-    } catch {
-      toast.error('Document generation failed. Please try again.');
+    } catch (err: unknown) {
+      const name = (err as Error)?.name;
+      const msg = (err as Error)?.message || '';
+      if (name === 'TimeoutError' || msg.includes('timed out')) {
+        toast.error('The AI is taking too long. Please try again — your template is ready to edit.');
+      } else {
+        toast.error('Document generation failed. Please try again.');
+      }
     } finally {
       setGenerating(false);
     }
@@ -396,6 +412,7 @@ export function DocBuilderView() {
     setGeneratedContent(null);
     setGeneratedAt(null);
     setGeneratedTemplateType(null);
+    setUsedFallback(false);
   };
 
   // ─── Render: Empty State (no template selected) ───────────────────────────
@@ -702,8 +719,12 @@ export function DocBuilderView() {
                 {templateDef?.name || 'Document'}
               </span>
             </div>
-            <Badge className="text-[9px] px-1.5 py-0 gradient-emerald text-white border-0 font-medium">
-              AI Generated
+            <Badge
+              className={`text-[9px] px-1.5 py-0 border-0 font-medium ${
+                usedFallback ? 'bg-amber-100 text-amber-700' : 'gradient-emerald text-white'
+              }`}
+            >
+              {usedFallback ? 'Template' : 'AI Generated'}
             </Badge>
           </div>
 

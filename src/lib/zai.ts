@@ -58,3 +58,39 @@ export async function getZAIWithRetry(retries = 1): Promise<ZAIInstance> {
   }
   throw new Error('AI service unavailable');
 }
+
+/**
+ * Call the ZAI chat completions API with a hard deadline.
+ *
+ * Vercel Hobby tier kills serverless functions at 10s. ZAI calls for document
+ * generation routinely take 20-30s, so they always time out in production.
+ *
+ * This helper races the AI call against a deadline (default 8s, leaving ~2s
+ * headroom for auth + DB + response serialization). If the deadline wins,
+ * the caller can fall back to a structured template instead of letting Vercel
+ * return a 504 / HTML error page.
+ *
+ * @returns The completion if the AI won the race, or `null` if the deadline
+ *          won or the call threw. Callers MUST handle the null case.
+ */
+export async function callZAIWithDeadline(
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  deadlineMs = 8000
+): Promise<string | null> {
+  try {
+    const zai = await getZAI();
+    const aiPromise = zai.chat.completions.create({
+      messages,
+      thinking: { type: 'disabled' },
+    });
+    const deadlinePromise = new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), deadlineMs);
+    });
+    const completion = await Promise.race([aiPromise, deadlinePromise]);
+    if (!completion) return null;
+    return completion.choices[0]?.message?.content || '';
+  } catch {
+    // Network/config/rate-limit error — caller falls back
+    return null;
+  }
+}

@@ -1,44 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { getZAI, resetZAI } from '@/lib/zai';
+import { callZAIWithDeadline } from '@/lib/zai';
 
-// Vercel Hobby tier: 10s max
+// Vercel Hobby tier: 10s max. AI structured-JSON generation takes 20-30s,
+// so we race against an 8s deadline and fall back to a rule-based ranking.
 export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
-const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Applicant Analyzer. You analyze bids submitted on a tender and rank the applicants.
+const SYSTEM_PROMPT = `You are a bid applicant analyzer for Ethiopian procurement. Rank bids on a tender. Return JSON with:
+- summary: { totalBids: number, averageScore: number }
+- applicants: array of { rank, name, company, overallScore, technicalScore, financialScore, strengths[], weaknesses[], recommendation, riskLevel }
+- budgetAnalysis: string
+- riskSummary: string
+- finalRecommendation: string
 
-## Your Task
-Analyze the bids on a given tender and provide a comprehensive ranking and analysis.
+Score 0-100. Sort by rank ascending. Currency: ETB. Return ONLY valid JSON.`;
 
-## Output Format
-Return your response as a JSON object with these exact keys:
-- "summary": An object with "totalBids" (number) and "averageScore" (number, 0-100)
-- "applicants": An array of objects, each with:
-  - "rank" (number): Rank position (1 = best)
-  - "name" (string): Bidder's full name
-  - "company" (string): Company name or "Individual"
-  - "overallScore" (number): Overall score 0-100
-  - "technicalScore" (number): Technical merit score 0-100
-  - "financialScore" (number): Financial competitiveness score 0-100
-  - "strengths" (string[]): Array of strength keywords (2-4 items)
-  - "weaknesses" (string[]): Array of weakness keywords (1-3 items)
-  - "recommendation" (string): Short recommendation text
-  - "riskLevel" (string): One of "low", "medium", "high"
-- "budgetAnalysis": Analysis of the financial proposals
-- "riskSummary": Overall risk assessment across all bids
-- "finalRecommendation": Final recommendation for awarding
+interface BidData {
+  id: string;
+  bidderName: string;
+  company: string;
+  skills: string;
+  verified: boolean;
+  technicalProposal: string;
+  financialProposal: number;
+  timeline: string;
+  status: string;
+}
 
-## Guidelines
-- Score based on: technical merit, financial competitiveness, experience relevance, timeline feasibility
-- Rank applicants from best to worst
-- Be fair and objective in scoring
-- Consider the Ethiopian procurement evaluation standards
-- Budget is in Ethiopian Birr (ETB)
-- Financial score should consider value for money, not just lowest price
-- Be specific in strengths, weaknesses, and recommendations
-- Sort applicants array by rank (ascending)`;
+// Rule-based fallback ranking — deterministic, no AI needed.
+// Scores each bid on financial competitiveness (closer to budget midpoint =
+// higher) and gives a baseline technical score. Used when the AI can't finish
+// in time so the user still sees a meaningful ranking.
+function buildFallbackRanking(tender: { title: string; scope: string; budgetMin: number; budgetMax: number; categoryTags: string; requiredDocs: string; location: string }, bids: BidData[]): Record<string, unknown> {
+  const midpoint = (tender.budgetMin + tender.budgetMax) / 2;
+  const range = Math.max(1, tender.budgetMax - tender.budgetMin);
+
+  const scored = bids.map((bid) => {
+    // Financial score: closer to midpoint = higher (100 at midpoint, 50 at edges)
+    const deviation = Math.abs(bid.financialProposal - midpoint) / range;
+    const financialScore = Math.max(40, Math.round(100 - deviation * 50));
+    // Technical baseline: verified + has technical proposal + has skills
+    let technicalScore = 50;
+    if (bid.verified) technicalScore += 10;
+    if (bid.technicalProposal && bid.technicalProposal.length > 100) technicalScore += 15;
+    if (bid.skills && bid.skills.length > 0) technicalScore += 10;
+    technicalScore = Math.min(95, technicalScore);
+    const overallScore = Math.round(technicalScore * 0.6 + financialScore * 0.4);
+    return { bid, financialScore, technicalScore, overallScore };
+  }).sort((a, b) => b.overallScore - a.overallScore);
+
+  const applicants = scored.map((s, i) => ({
+    rank: i + 1,
+    name: s.bid.bidderName,
+    company: s.bid.company,
+    overallScore: s.overallScore,
+    technicalScore: s.technicalScore,
+    financialScore: s.financialScore,
+    strengths: [
+      s.bid.verified ? 'Verified profile' : 'Submitted complete proposal',
+      s.financialScore > 70 ? 'Competitive pricing' : 'Complete submission',
+    ].slice(0, 2),
+    weaknesses: [
+      !s.bid.verified ? 'Profile not verified' : '',
+      s.technicalScore < 70 ? 'Limited technical detail' : '',
+    ].filter(Boolean).slice(0, 2),
+    recommendation: s.overallScore >= 70 ? 'Strong candidate — recommend for award' : s.overallScore >= 55 ? 'Viable candidate — review technical details' : 'Below threshold — consider carefully',
+    riskLevel: s.overallScore >= 70 ? 'low' : s.overallScore >= 55 ? 'medium' : 'high',
+  }));
+
+  const avgScore = applicants.length > 0
+    ? Math.round(applicants.reduce((sum, a) => sum + a.overallScore, 0) / applicants.length)
+    : 0;
+
+  const budgetValues = bids.map((b) => b.financialProposal).filter((v) => v > 0);
+  const minBid = budgetValues.length ? Math.min(...budgetValues) : 0;
+  const maxBid = budgetValues.length ? Math.max(...budgetValues) : 0;
+  const avgBid = budgetValues.length ? Math.round(budgetValues.reduce((s, v) => s + v, 0) / budgetValues.length) : 0;
+
+  return {
+    summary: { totalBids: bids.length, averageScore: avgScore },
+    applicants,
+    budgetAnalysis: `Budget range: ETB ${Number(tender.budgetMin).toLocaleString()} - ${Number(tender.budgetMax).toLocaleString()}. Bids received: ${budgetValues.length}. Lowest: ETB ${minBid.toLocaleString()}, Highest: ETB ${maxBid.toLocaleString()}, Average: ETB ${avgBid.toLocaleString()}.`,
+    riskSummary: `${applicants.filter((a) => a.riskLevel === 'high').length} high-risk, ${applicants.filter((a) => a.riskLevel === 'medium').length} medium-risk, ${applicants.filter((a) => a.riskLevel === 'low').length} low-risk bids. Verify technical capabilities before awarding.`,
+    finalRecommendation: applicants.length > 0
+      ? `Top candidate: ${applicants[0].name} (${applicants[0].company}) with overall score ${applicants[0].overallScore}/100. ${applicants[0].recommendation}`
+      : 'No bids to recommend.',
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,15 +105,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch tender with bids
     const tender = await db.tender.findUnique({
       where: { id: tenderId },
       include: {
         bids: {
           include: {
-            user: {
-              include: { profile: true, company: true },
-            },
+            user: { include: { profile: true, company: true } },
           },
         },
       },
@@ -76,15 +123,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Company isolation: only the tender owner's company or team_admin can analyze applicants.
-    // Tender has no companyId column — ownership is derived from its creator
-    // (createdBy -> User.companyId), so we look that up separately.
     if (user!.role !== 'team_admin' && user!.companyId) {
       const tenderCreator = await db.user.findUnique({
         where: { id: tender.createdBy },
         select: { companyId: true },
       });
-
       if (!tenderCreator || tenderCreator.companyId !== user!.companyId) {
         return NextResponse.json(
           { success: false, error: 'Forbidden: You can only analyze applicants for your own company\'s tenders' },
@@ -100,8 +143,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build bid data for AI
-    const bidsData = tender.bids.map(bid => ({
+    const bidsData: BidData[] = tender.bids.map((bid) => ({
       id: bid.id,
       bidderName: bid.user?.profile?.fullName || bid.user?.email || 'Unknown',
       company: bid.user?.company?.name || 'Individual',
@@ -111,57 +153,28 @@ export async function POST(request: NextRequest) {
       financialProposal: bid.financialProposal,
       timeline: bid.timeline,
       status: bid.status,
-      submittedAt: bid.createdAt,
     }));
 
-    const prompt = `Analyze the bids submitted on the following tender and rank the applicants:
+    const prompt = `Analyze bids on this tender and rank applicants:
 
-**Tender Details:**
-- Title: ${tender.title}
-- Scope: ${tender.scope}
-- Budget Range: ${tender.budgetMin.toLocaleString()} - ${tender.budgetMax.toLocaleString()} ETB
-- Category: ${tender.categoryTags}
-- Required Documents: ${tender.requiredDocs}
-- Location: ${tender.location}
+Tender: ${tender.title}
+Scope: ${tender.scope}
+Budget: ETB ${Number(tender.budgetMin).toLocaleString()} - ${Number(tender.budgetMax).toLocaleString()}
+Category: ${tender.categoryTags}
 
-**Submitted Bids (${bidsData.length} total):**
-${bidsData.map((bid, i) => `
-Bid ${i + 1}:
-- Bidder: ${bid.bidderName} (${bid.company})
-- Skills: ${bid.skills || 'Not specified'}
-- Verified: ${bid.verified ? 'Yes' : 'No'}
-- Financial Proposal: ${bid.financialProposal.toLocaleString()} ETB
-- Timeline: ${bid.timeline}
-- Technical Proposal: ${bid.technicalProposal}
-- Status: ${bid.status}
-`).join('\n')}
+Bids (${bidsData.length}):
+${bidsData.map((bid, i) => `Bid ${i + 1}: ${bid.bidderName} (${bid.company}) | Skills: ${bid.skills || 'N/A'} | Verified: ${bid.verified} | Financial: ETB ${Number(bid.financialProposal).toLocaleString()} | Timeline: ${bid.timeline} | Technical: ${bid.technicalProposal.slice(0, 200)}`).join('\n')}
 
-Generate the complete analysis. Return ONLY a valid JSON object with the keys specified in the system prompt. Ensure applicants are sorted by rank (best first). Do not include any markdown formatting or code fences around the JSON.`;
+Return ONLY the JSON object. Sort applicants by rank ascending.`;
 
-    let response = '';
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const zai = await getZAI();
-        const completion = await zai.chat.completions.create({
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: prompt },
-          ],
-          thinking: { type: 'disabled' },
-        });
-        response = completion.choices[0]?.message?.content || '';
-        if (response) break;
-      } catch (err) {
-        if (attempt === 2) throw err;
-        resetZAI();
-      }
-    }
+    const response = await callZAIWithDeadline([
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ]);
 
     if (!response) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to analyze applicants' },
-        { status: 500 }
-      );
+      const fallback = buildFallbackRanking(tender, bidsData);
+      return NextResponse.json({ success: true, data: fallback, fallback: true });
     }
 
     let parsed: Record<string, unknown>;
@@ -169,31 +182,11 @@ Generate the complete analysis. Return ONLY a valid JSON object with the keys sp
       const cleaned = response.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       parsed = JSON.parse(cleaned);
     } catch {
-      // Fallback: return raw analysis
-      parsed = {
-        summary: { totalBids: bidsData.length, averageScore: 50 },
-        applicants: bidsData.slice(0, 10).map((bid, i) => ({
-          rank: i + 1,
-          name: bid.bidderName,
-          company: bid.company,
-          overallScore: 60,
-          technicalScore: 60,
-          financialScore: 60,
-          strengths: ['Submitted proposal'],
-          weaknesses: ['Needs review'],
-          recommendation: 'Review proposal details',
-          riskLevel: 'medium',
-        })),
-        budgetAnalysis: response,
-        riskSummary: '',
-        finalRecommendation: '',
-      };
+      const fallback = buildFallbackRanking(tender, bidsData);
+      return NextResponse.json({ success: true, data: fallback, fallback: true });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: parsed,
-    });
+    return NextResponse.json({ success: true, data: parsed });
   } catch (err) {
     console.error('Analyze applicants error:', err);
     return NextResponse.json(

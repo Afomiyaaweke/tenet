@@ -1,87 +1,249 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { getZAI, resetZAI } from '@/lib/zai';
+import { callZAIWithDeadline } from '@/lib/zai';
 
-// Vercel Hobby tier: 10s max
+// Vercel Hobby tier: 10s max function execution.
+// ZAI calls for full documents take 20-30s, so we race the AI call against
+// a hard 8s deadline. If the AI wins, great. If the deadline wins, we return
+// a structured template populated with the user's real data instead of
+// letting Vercel kill the function (which would surface as a 504/HTML error).
 export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
+const AI_DEADLINE_MS = 8000;
+
+// Concise prompts — ask for a focused 1-page document, not a 10-section tome.
+// Shorter prompts → faster AI completion → more likely to beat the 8s deadline.
 const TEMPLATE_PROMPTS: Record<string, string> = {
-  'company-profile': `You are a professional business document writer. Generate a comprehensive Company Profile document based on the provided information. The document should include:
+  'company-profile': `Write a concise Company Profile (about 500 words) with these sections: Overview, Mission, Core Competencies, Past Experience, Contact. Use markdown headings (##). Be professional and specific. Use the supplied company details. Currency: ETB.`,
 
-1. **Company Overview** - Brief introduction, mission, vision
-2. **Company History** - Founding date, key milestones
-3. **Organizational Structure** - Leadership team, departments
-4. **Core Competencies** - Key skills, expertise areas, certifications
-5. **Portfolio & Experience** - Past projects, notable achievements
-6. **Financial Summary** - Revenue range, financial health indicators
-7. **Quality & Compliance** - Certifications, standards compliance
-8. **Contact Information** - Address, phone, email, website
+  'financial-bid': `Write a concise Financial Bid (about 500 words) with these sections: Cover Details, Executive Summary, Cost Breakdown (direct/indirect/contingency/profit), Total Bid Amount, Payment Schedule, Validity. Use markdown headings (##). Include a simple cost table in markdown. Use ETB. Be realistic for the Ethiopian market.`,
 
-Format the document professionally with clear sections. Use Ethiopian business context. Currency should be ETB. Keep it professional and suitable for tender submissions.`,
+  'technical-proposal': `Write a concise Technical Proposal (about 500 words) with these sections: Executive Summary, Technical Approach, Team & Qualifications, Work Schedule, Quality Assurance, Past Performance. Use markdown headings (##). Be specific and actionable.`,
 
-  'financial-bid': `You are a professional financial bid document writer. Generate a detailed Financial Bid proposal based on the provided tender and company information. The document should include:
+  'tender-specification': `Write a concise Tender Specification (about 500 words) with these sections: Tender Notice, Eligibility, Scope of Work, Technical Specifications, Deliverables, Evaluation Criteria, Submission Requirements. Use markdown headings (##). Reference Ethiopian procurement standards.`,
 
-1. **Cover Page** - Tender reference, company name, submission date
-2. **Executive Summary** - Brief overview of the financial proposal
-3. **Cost Breakdown** - Detailed itemized costs organized by:
-   - Direct Costs (materials, labor, equipment)
-   - Indirect Costs (overhead, administration)
-   - Contingency (5-10% of total)
-   - Profit Margin
-4. **Pricing Summary** - Total bid amount with subtotals per category
-5. **Payment Schedule** - Proposed milestone-based payment plan
-6. **Value Proposition** - Cost-effectiveness justification
-7. **Validity Period** - Bid validity (typically 90-120 days)
-8. **Terms & Conditions** - Financial terms, warranty provisions
-
-Format professionally. Use ETB currency. Include realistic cost estimates based on Ethiopian market rates.`,
-
-  'technical-proposal': `You are a professional technical proposal writer. Generate a detailed Technical Proposal based on the provided tender and company information. The document should include:
-
-1. **Cover Page** - Tender reference, company name, submission date
-2. **Executive Summary** - Understanding of requirements and proposed approach
-3. **Technical Approach** - Methodology, work plan, implementation strategy
-4. **Team & Qualifications** - Key personnel, their roles and qualifications
-5. **Work Schedule** - Timeline with milestones and deliverables
-6. **Quality Assurance Plan** - QA/QC procedures, testing protocols
-7. **Risk Assessment** - Identified risks and mitigation strategies
-8. **Past Performance** - Similar projects completed successfully
-9. **Equipment & Resources** - Available equipment, technology, infrastructure
-10. **Health, Safety & Environment** - HSE policies and compliance
-
-Format professionally. Be specific and actionable. Reference Ethiopian standards where applicable.`,
-
-  'tender-specification': `You are a professional tender specification writer. Generate a detailed Tender Specification document based on the provided information. The document should include:
-
-1. **Tender Notice** - Reference number, title, issuing organization
-2. **General Conditions** - Eligibility, qualification requirements
-3. **Scope of Work** - Detailed description of work/services required
-4. **Technical Specifications** - Standards, materials, quality requirements
-5. **Deliverables** - Expected outputs, timelines, milestones
-6. **Evaluation Criteria** - Technical (70%) and Financial (30%) scoring
-7. **Submission Requirements** - Documents, format, deadline
-8. **Contract Terms** - Duration, payment terms, warranties
-9. **Compliance Requirements** - Legal, regulatory, certifications
-10. **Contact & Clarifications** - Q&A process, site visits
-
-Format professionally. Be clear and unambiguous. Reference Ethiopian procurement laws and standards.`,
-
-  'invoice': `You are a professional invoice document generator. Generate a detailed Invoice based on the provided project and payment information. The document should include:
-
-1. **Invoice Header** - Company name, company logo, invoice number, date
-2. **Bill To** - Client name, address, contact information
-3. **Project Reference** - Tender title, project reference number
-4. **Itemized Services** - Description, quantity, unit price, amount
-5. **Subtotal** - Sum of all items
-6. **Tax (VAT 15%)** - Ethiopian VAT calculation
-7. **Total Amount** - Subtotal + Tax
-8. **Payment Details** - Bank account, payment terms, due date
-9. **Notes** - Thank you message, payment instructions
-
-Format professionally. Use ETB currency. Follow Ethiopian tax regulations (15% VAT).`,
+  'invoice': `Write a professional Invoice (about 300 words) with these sections: Invoice Header, Bill To, Itemized Services (markdown table with description/qty/unit price/amount), Subtotal, VAT 15%, Total, Payment Details. Use ETB. Follow Ethiopian tax rules (15% VAT).`,
 };
+
+// ─── Structured fallback templates ──────────────────────────────────────────
+// Used when the AI call cannot complete within the deadline. These produce a
+// usable, editable document populated with the user's real profile/company
+// data — never an empty page or a generic error.
+
+function buildFallback(
+  templateType: string,
+  ctx: {
+    companyName: string;
+    fullName: string;
+    location: string;
+    phone: string;
+    email: string;
+    tin: string;
+    license: string;
+    skills: string;
+    bio: string;
+    tenderTitle?: string;
+    tenderScope?: string;
+    tenderBudget?: string;
+    tenderLocation?: string;
+    tenderDeadline?: string;
+    inputData?: Record<string, string>;
+  }
+): string {
+  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  const C = ctx.companyName || 'Your Company';
+  const N = ctx.fullName || '—';
+  const L = ctx.location || 'Addis Ababa, Ethiopia';
+  const P = ctx.phone || '—';
+  const E = ctx.email || '—';
+  const T = ctx.tin || '—';
+
+  switch (templateType) {
+    case 'company-profile':
+      return `# Company Profile — ${C}
+
+**Date:** ${today}
+**Location:** ${L}
+**TIN:** ${T}
+
+## 1. Overview
+${C} is a business operating in ${L}, committed to delivering high-quality products and services to its clients. This profile summarises our capabilities for tender submission purposes.
+
+## 2. Mission
+To provide reliable, professional services that meet the needs of our clients while upholding the highest standards of integrity and quality.
+
+## 3. Core Competencies
+${ctx.skills ? ctx.skills.split(',').map((s) => `- ${s.trim()}`).join('\n') : '- General business services'}
+
+## 4. Past Experience
+${ctx.bio || 'Please add your past project experience here.'}
+
+## 5. Contact Information
+- **Representative:** ${N}
+- **Phone:** ${P}
+- **Email:** ${E}
+- **Location:** ${L}
+- **TIN:** ${T}
+
+---
+_Generated from your TenetBid profile. Edit the sections above to add specific details before submission._`;
+
+    case 'financial-bid':
+      return `# Financial Bid Proposal
+
+**Submitted by:** ${C}
+**Representative:** ${N}
+**TIN:** ${T}
+**Date:** ${today}
+${ctx.tenderTitle ? `**Tender:** ${ctx.tenderTitle}` : ''}
+
+## 1. Executive Summary
+${C} is pleased to submit this financial proposal for the above tender. Our pricing is competitive and transparent, reflecting current Ethiopian market rates.
+
+## 2. Cost Breakdown
+
+| Category | Description | Amount (ETB) |
+|---|---|---|
+| Direct Costs | Materials, labor, equipment | 0.00 |
+| Indirect Costs | Overhead, administration | 0.00 |
+| Contingency (5%) | Risk buffer | 0.00 |
+| Profit Margin | — | 0.00 |
+| **Subtotal** | | **0.00** |
+
+## 3. Total Bid Amount
+**ETB 0.00** (zero placeholder — fill in your actual costs)
+
+## 4. Payment Schedule
+- 30% advance on contract signing
+- 40% on milestone delivery
+- 30% on final acceptance
+
+## 5. Bid Validity
+This proposal is valid for 120 days from the date above.
+
+## 6. Contact
+${N} · ${P} · ${E}
+
+---
+_Fill in the cost table above with your actual figures before submission._`;
+
+    case 'technical-proposal':
+      return `# Technical Proposal
+
+**Submitted by:** ${C}
+**Representative:** ${N}
+**Date:** ${today}
+${ctx.tenderTitle ? `**Tender:** ${ctx.tenderTitle}` : ''}
+
+## 1. Executive Summary
+${C} proposes the following technical approach to deliver the requirements of this tender.
+
+## 2. Technical Approach
+${ctx.tenderScope ? `Understanding the scope: ${ctx.tenderScope.slice(0, 300)}` : 'Describe your methodology, work plan, and implementation strategy here.'}
+
+## 3. Team & Qualifications
+- **${N}** — Lead
+${ctx.skills ? ctx.skills.split(',').map((s) => `- Specialist: ${s.trim()}`).join('\n') : ''}
+
+## 4. Work Schedule
+| Phase | Deliverable | Duration |
+|---|---|---|
+| 1 | Mobilisation | 2 weeks |
+| 2 | Execution | TBD |
+| 3 | Handover | 1 week |
+
+## 5. Quality Assurance
+We commit to industry-standard QA/QC procedures throughout the project lifecycle.
+
+## 6. Past Performance
+${ctx.bio || 'Add details of similar projects you have completed.'}
+
+---
+_Edit each section above with project-specific details before submission._`;
+
+    case 'tender-specification':
+      return `# Tender Specification
+
+**Issued by:** ${C}
+**Date:** ${today}
+${ctx.inputData?.reference ? `**Reference No.:** ${ctx.inputData.reference}` : ''}
+
+## 1. Tender Notice
+${ctx.inputData?.title || 'Tender title'}
+
+## 2. Eligibility
+Open to registered companies with valid TIN and relevant licenses.
+
+## 3. Scope of Work
+${ctx.inputData?.scope || 'Describe the work, services, or goods required.'}
+
+## 4. Technical Specifications
+List the standards, materials, and quality requirements here.
+
+## 5. Deliverables
+- Deliverable 1
+- Deliverable 2
+- Deliverable 3
+
+## 6. Evaluation Criteria
+- Technical: 70%
+- Financial: 30%
+
+## 7. Submission Requirements
+Submit the following documents by the deadline:
+- Company profile
+- TIN certificate
+- Business license
+- Technical proposal
+- Financial proposal
+
+---
+_Edit the placeholders above before publishing this tender._`;
+
+    case 'invoice':
+      return `# INVOICE
+
+**From:** ${C}
+**TIN:** ${T}
+**Date:** ${today}
+**Invoice No:** INV-${Date.now().toString().slice(-6)}
+
+---
+
+**Bill To:**
+${ctx.inputData?.clientName || 'Client Name'}
+${ctx.inputData?.clientAddress || 'Client Address'}
+
+---
+
+## Itemized Services
+
+| # | Description | Qty | Unit Price (ETB) | Amount (ETB) |
+|---|---|---|---|---|
+| 1 | Service description | 1 | 0.00 | 0.00 |
+| 2 | — | — | — | — |
+
+---
+
+## Summary
+
+- **Subtotal:** ETB 0.00
+- **VAT (15%):** ETB 0.00
+- **Total Due:** **ETB 0.00**
+
+## Payment Details
+- **Contact:** ${N} · ${P}
+- **Terms:** Due within 30 days
+
+---
+_Fill in the table and amounts above before sending to the client._`;
+
+    default:
+      return `# Document\n\n_Edit this document to add your content._`;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -98,69 +260,79 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build context from user profile
-    let userContext = `\n\n## User/Company Information:\n`;
-    if (user!.profile) {
-      userContext += `- Full Name: ${user!.profile.fullName}\n`;
-      userContext += `- Company: ${user!.company?.name || 'N/A'}\n`;
-      userContext += `- Location: ${user!.profile.location}\n`;
-      userContext += `- Phone: ${user!.profile.phone}\n`;
-      userContext += `- TIN Number: ${user!.profile.tinNumber || 'N/A'}\n`;
-      userContext += `- License Number: ${user!.profile.licenseNumber || 'N/A'}\n`;
-      userContext += `- Skills/Expertise: ${user!.profile.skillTags || 'N/A'}\n`;
-      userContext += `- Bio: ${user!.profile.bio || 'N/A'}\n`;
-    }
+    // ─── Build context from user profile + optional tender ────────────────
+    const p = user!.profile;
+    const c = user!.company;
+    const ctx = {
+      companyName: c?.name || (inputData?.companyName as string) || '',
+      fullName: p?.fullName || '',
+      location: p?.location || c?.city || 'Addis Ababa, Ethiopia',
+      phone: p?.phone || '',
+      email: user!.email,
+      tin: p?.tinNumber || c?.tinNumber || '',
+      license: p?.licenseNumber || '',
+      skills: p?.skillTags || '',
+      bio: p?.bio || '',
+      inputData,
+    };
 
-    // Add tender context if provided
+    // Optional tender enrichment (skip the DB call if not provided — saves latency)
+    let tenderTitle: string | undefined;
+    let tenderScope: string | undefined;
+    let tenderBudget: string | undefined;
+    let tenderLocation: string | undefined;
+    let tenderDeadline: string | undefined;
     if (tenderId) {
-      const tender = await db.tender.findUnique({ where: { id: tenderId } });
-      if (tender) {
-        userContext += `\n## Tender Information:\n`;
-        userContext += `- Title: ${tender.title}\n`;
-        userContext += `- Scope: ${tender.scope}\n`;
-        userContext += `- Budget Range: ETB ${tender.budgetMin.toLocaleString()} - ${tender.budgetMax.toLocaleString()}\n`;
-        userContext += `- Location: ${tender.location}\n`;
-        userContext += `- Deadline: ${new Date(tender.deadline).toLocaleDateString()}\n`;
-        userContext += `- Category Tags: ${tender.categoryTags}\n`;
-        userContext += `- Required Documents: ${tender.requiredDocs || 'N/A'}\n`;
+      try {
+        const tender = await db.tender.findUnique({ where: { id: tenderId } });
+        if (tender) {
+          tenderTitle = tender.title;
+          tenderScope = tender.scope;
+          tenderBudget = `ETB ${Number(tender.budgetMin).toLocaleString()} – ${Number(tender.budgetMax).toLocaleString()}`;
+          tenderLocation = tender.location;
+          tenderDeadline = new Date(tender.deadline).toLocaleDateString();
+        }
+      } catch {
+        // Tender lookup is optional — ignore failures
       }
     }
 
-    // Add any additional input data
-    if (inputData) {
-      userContext += `\n## Additional Input Data:\n`;
-      Object.entries(inputData).forEach(([key, value]) => {
-        userContext += `- ${key}: ${value}\n`;
-      });
-    }
+    const fullCtx = { ...ctx, tenderTitle, tenderScope, tenderBudget, tenderLocation, tenderDeadline };
+
+    const userContext = `
+## User/Company Information:
+- Full Name: ${ctx.fullName || 'N/A'}
+- Company: ${ctx.companyName || 'N/A'}
+- Location: ${ctx.location}
+- Phone: ${ctx.phone || 'N/A'}
+- TIN: ${ctx.tin || 'N/A'}
+- Skills/Expertise: ${ctx.skills || 'N/A'}
+- Bio: ${ctx.bio || 'N/A'}
+${tenderTitle ? `\n## Tender Information:\n- Title: ${tenderTitle}\n- Scope: ${tenderScope || 'N/A'}\n- Budget: ${tenderBudget || 'N/A'}\n- Location: ${tenderLocation || 'N/A'}\n- Deadline: ${tenderDeadline || 'N/A'}` : ''}
+${inputData ? `\n## Additional Input:\n${Object.entries(inputData).map(([k, v]) => `- ${k}: ${v}`).join('\n')}` : ''}`;
 
     const systemPrompt = TEMPLATE_PROMPTS[templateType];
-
     const messages = [
       { role: 'system' as const, content: systemPrompt + userContext },
-      { role: 'user' as const, content: `Please generate a professional ${templateType.replace(/-/g, ' ')} document based on the provided information. Make it detailed, realistic, and ready for use. Format with clear markdown headings and sections.` },
+      { role: 'user' as const, content: `Generate the document now. Keep it concise and professional. Use markdown headings.` },
     ];
 
-    // Get AI response with retry
+    // ─── Race the AI call against a hard deadline ─────────────────────────
+    // If the AI doesn't finish in time, fall back to a structured template
+    // built from the user's real data — never return an empty/error response.
     let response = '';
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const zai = await getZAI();
-        const completion = await zai.chat.completions.create({
-          messages,
-          thinking: { type: 'disabled' },
-        });
-        response = completion.choices[0]?.message?.content || '';
-        if (response) break;
-      } catch (err) {
-        if (attempt === 2) throw err;
-        resetZAI();
-      }
-    }
+    let usedFallback = false;
+    const t0 = Date.now();
+
+    response = await callZAIWithDeadline(messages, AI_DEADLINE_MS);
 
     if (!response) {
-      response = 'Unable to generate document. Please try again.';
+      usedFallback = true;
+      response = buildFallback(templateType, fullCtx);
     }
+
+    const elapsed = Date.now() - t0;
+    console.log(`[documents/generate] type=${templateType} elapsed=${elapsed}ms fallback=${usedFallback} len=${response.length}`);
 
     return NextResponse.json({
       success: true,
@@ -168,6 +340,7 @@ export async function POST(request: NextRequest) {
         content: response,
         templateType,
         generatedAt: new Date().toISOString(),
+        fallback: usedFallback,
       },
     });
   } catch (err) {

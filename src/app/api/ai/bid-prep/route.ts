@@ -2,45 +2,59 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { enforceRateLimit, getRateLimitHeaders } from '@/lib/rate-limiter';
-import { getZAI, resetZAI } from '@/lib/zai';
+import { callZAIWithDeadline } from '@/lib/zai';
 
-// Vercel Hobby tier: 10s max
+// Vercel Hobby tier: 10s max. AI structured-JSON generation takes 20-30s,
+// so we race against an 8s deadline and fall back to a structured template.
 export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
-const SYSTEM_PROMPT = `You are the Tenet Tender Ecosystem AI Bid Proposal Generator. You create professional, compelling bid proposals based on tender requirements and user capabilities.
+const SYSTEM_PROMPT = `You are a bid proposal generator for Ethiopian tenders. Generate a professional bid proposal as JSON with these keys:
+- technicalProposal (approach overview, 1-2 paragraphs)
+- methodology (execution methodology, bullet points)
+- teamStructure (proposed team with roles)
+- riskMitigation (key risks and mitigations)
+- valueAddition (unique value propositions)
+- budgetJustification (budget breakdown and justification)
+- complianceNotes (compliance with tender requirements)
 
-## Your Task
-Generate a complete bid proposal document with the following sections. Each section must be detailed, persuasive, and professional.
+Currency: ETB. Return ONLY valid JSON, no markdown.`;
 
-## Output Format
-Return your response as a JSON object with these exact keys:
-- "technicalProposal": Technical approach and methodology overview
-- "methodology": Detailed methodology for project execution
-- "teamStructure": Proposed team structure with roles
-- "riskMitigation": Risk identification and mitigation strategies
-- "valueAddition": Unique value propositions and additional benefits
-- "budgetJustification": Budget breakdown and justification
-- "complianceNotes": Compliance with tender requirements
-
-## Guidelines
-- Be persuasive but honest - this is a real bid proposal
-- Use Ethiopian procurement standards where applicable
-- Budget is in Ethiopian Birr (ETB)
-- Address the specific tender requirements
-- Highlight relevant experience and capabilities
-- Include realistic timelines and resource allocations
-- Use bullet points and numbered lists for clarity
-- Show understanding of the local context (Ethiopian market)`;
+function buildFallback(ctx: {
+  tenderTitle?: string;
+  scope?: string;
+  budgetRange?: string;
+  category?: string;
+  companyName?: string;
+  experience?: string;
+  proposedBudget?: string;
+  proposedTimeline?: string;
+  notes?: string;
+  userName?: string;
+  skills?: string;
+  userSkills?: string;
+}): Record<string, string> {
+  const cn = ctx.companyName || ctx.userName || 'Our Company';
+  const tt = ctx.tenderTitle || 'the tender';
+  return {
+    technicalProposal: `${cn} is pleased to submit this proposal for ${tt}. Our approach is grounded in proven methodologies and tailored to the specific requirements outlined in the tender scope.`,
+    methodology: `- Project initiation and requirement confirmation\n- Detailed planning and resource allocation\n- Execution with weekly progress reviews\n- Quality assurance at each milestone\n- Final delivery and handover\n${ctx.scope ? `\nScope understanding: ${ctx.scope.slice(0, 300)}` : ''}`,
+    teamStructure: `- Project Manager: ${ctx.userName || 'TBD'}\n- Technical Lead: TBD\n- Quality Assurance: TBD\n- Support Staff: TBD`,
+    riskMitigation: `- Schedule risk: mitigated via buffer time and parallel workstreams\n- Quality risk: mitigated via QA checkpoints\n- Resource risk: mitigated via backup personnel`,
+    valueAddition: `${ctx.experience ? `Relevant experience: ${ctx.experience}` : 'Proven track record in similar projects'}\n${ctx.skills || ctx.userSkills ? `Specialist skills: ${ctx.skills || ctx.userSkills}` : ''}\nCommitment to local context and Ethiopian procurement standards`,
+    budgetJustification: `${ctx.proposedBudget ? `Proposed budget: ETB ${Number(ctx.proposedBudget).toLocaleString()}` : 'Budget to be finalised'}\nBreakdown: Direct costs (60%), Indirect costs (20%), Contingency (10%), Profit (10%)`,
+    complianceNotes: `All required documents will be submitted. ${ctx.notes ? `Additional: ${ctx.notes}` : ''} ${ctx.proposedTimeline ? `Timeline: ${ctx.proposedTimeline}` : ''}`,
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
 
-    // ── Rate limit check ──
     const rateLimitResponse = await enforceRateLimit(request, user!.id, user!.plan || 'free');
     if (rateLimitResponse) return rateLimitResponse;
+    const rlHeaders = getRateLimitHeaders(request, user!.id, user!.plan || 'free');
 
     const body = await request.json();
     const {
@@ -49,27 +63,23 @@ export async function POST(request: NextRequest) {
       proposedTimeline, notes, userName, userSkills,
     } = body;
 
-    // If tenderId provided, fetch tender details
     let tenderContext = '';
+    let tenderData: { title?: string; scope?: string; budgetMin?: number; budgetMax?: number; categoryTags?: string; requiredDocs?: string; deadline?: string; location?: string } | null = null;
     if (tenderId) {
-      const tender = await db.tender.findUnique({ where: { id: tenderId } });
-      if (tender) {
-        // Company isolation: non-team_admin can only access their own company's tenders or open tenders
-        if (user!.role !== 'team_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
-          return NextResponse.json(
-            { success: false, error: 'Forbidden: You do not have access to this tender' },
-            { status: 403 }
-          );
+      try {
+        const tender = await db.tender.findUnique({ where: { id: tenderId } });
+        if (tender) {
+          if (user!.role !== 'team_admin' && user!.companyId && tender.companyId !== user!.companyId && tender.status !== 'open') {
+            return NextResponse.json(
+              { success: false, error: 'Forbidden: You do not have access to this tender' },
+              { status: 403 }
+            );
+          }
+          tenderData = tender;
+          tenderContext = `Tender: ${tender.title}\nScope: ${tender.scope}\nBudget: ${Number(tender.budgetMin).toLocaleString()} - ${Number(tender.budgetMax).toLocaleString()} ETB\nCategory: ${tender.categoryTags}\nRequired Docs: ${tender.requiredDocs}\nDeadline: ${new Date(tender.deadline).toLocaleDateString()}\nLocation: ${tender.location}`;
         }
-        tenderContext = `
-**Tender Details (from database):**
-- Title: ${tender.title}
-- Scope: ${tender.scope}
-- Budget: ${tender.budgetMin.toLocaleString()} - ${tender.budgetMax.toLocaleString()} ETB
-- Category: ${tender.categoryTags}
-- Required Docs: ${tender.requiredDocs}
-- Deadline: ${new Date(tender.deadline).toLocaleDateString()}
-- Location: ${tender.location}`;
+      } catch {
+        // Tender lookup optional
       }
     }
 
@@ -83,48 +93,27 @@ export async function POST(request: NextRequest) {
       proposedTimeline ? `Proposed Timeline: ${proposedTimeline}` : '',
     ].filter(Boolean).join('\n');
 
-    const manualContext = !tenderId ? `
-**Tender Details (manual entry):**
-- Title: ${tenderTitle || 'Not specified'}
-- Scope: ${scope || 'Not specified'}
-- Budget Range: ${budgetRange || 'Not specified'}
-- Category: ${category || 'Not specified'}` : '';
+    const manualContext = !tenderId ? `Tender: ${tenderTitle || 'Not specified'}\nScope: ${scope || 'Not specified'}\nBudget: ${budgetRange || 'Not specified'}\nCategory: ${category || 'Not specified'}` : '';
 
-    const prompt = `Generate a professional bid proposal with the following details:
-
+    const prompt = `Generate a bid proposal:
 ${tenderContext}
 ${manualContext}
 
-**Bidder Information:**
+Bidder:
 ${bidderContext}
-${notes ? `**Additional Notes:** ${notes}` : ''}
+${notes ? `Notes: ${notes}` : ''}
+Return ONLY the JSON object.`;
 
-Generate all sections of the bid proposal. Return ONLY a valid JSON object with the keys specified in the system prompt. Do not include any markdown formatting or code fences around the JSON.`;
-
-    let response = '';
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const zai = await getZAI();
-        const completion = await zai.chat.completions.create({
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: prompt },
-          ],
-          thinking: { type: 'disabled' },
-        });
-        response = completion.choices[0]?.message?.content || '';
-        if (response) break;
-      } catch (err) {
-        if (attempt === 2) throw err;
-        resetZAI();
-      }
-    }
+    const response = await callZAIWithDeadline([
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ]);
 
     if (!response) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to generate proposal' },
-        { status: 500 }
-      );
+      const fallback = buildFallback({ tenderTitle: tenderData?.title || tenderTitle, scope: tenderData?.scope || scope, budgetRange, category: tenderData?.categoryTags || category, companyName, experience, proposedBudget, proposedTimeline, notes, userName: userName || user!.profile?.fullName, skills, userSkills });
+      const res = NextResponse.json({ success: true, data: fallback, fallback: true });
+      Object.entries(rlHeaders).forEach(([k, v]) => res.headers.set(k, v));
+      return res;
     }
 
     let parsed: Record<string, string>;
@@ -132,13 +121,15 @@ Generate all sections of the bid proposal. Return ONLY a valid JSON object with 
       const cleaned = response.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       parsed = JSON.parse(cleaned);
     } catch {
-      parsed = { technicalProposal: response, methodology: '', teamStructure: '', riskMitigation: '', valueAddition: '', budgetJustification: '', complianceNotes: '' };
+      parsed = buildFallback({ tenderTitle: tenderData?.title || tenderTitle, scope: tenderData?.scope || scope, budgetRange, category: tenderData?.categoryTags || category, companyName, experience, proposedBudget, proposedTimeline, notes, userName: userName || user!.profile?.fullName, skills, userSkills });
+      const res = NextResponse.json({ success: true, data: parsed, fallback: true });
+      Object.entries(rlHeaders).forEach(([k, v]) => res.headers.set(k, v));
+      return res;
     }
 
-    return NextResponse.json({
-      success: true,
-      data: parsed,
-    });
+    const res = NextResponse.json({ success: true, data: parsed });
+    Object.entries(rlHeaders).forEach(([k, v]) => res.headers.set(k, v));
+    return res;
   } catch (err) {
     console.error('Bid prep error:', err);
     return NextResponse.json(

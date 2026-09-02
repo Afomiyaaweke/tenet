@@ -1911,6 +1911,124 @@ export function AIDocStudio() {
     );
   };
 
+  /* ── Tool form (rendered inline in the sidebar) ──
+     The AIPanelContent above was never mounted, so the tool forms (Title,
+     Category, Description, etc.) were invisible — clicking "Generate Template"
+     always hit the empty-form validation. This inline version renders the tool
+     selector + the active tool's form fields directly in the sidebar so users
+     can actually fill them in before generating. */
+  const renderToolForm = () => {
+    const formClass = "h-8 text-xs bg-muted/50 border-border/50";
+    return (
+      <div className="space-y-2">
+        {/* Tool selector */}
+        <div className="flex flex-wrap gap-1">
+          {AI_TOOLS.map(tool => {
+            const Icon = tool.icon;
+            const isActive = activeAITool === tool.id;
+            return (
+              <button key={tool.id} onClick={() => setActiveAITool(tool.id)}
+                className={`flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border transition-colors ${
+                  isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'border-border text-muted-foreground hover:bg-muted'
+                }`}>
+                <Icon className="h-3 w-3" /> {tool.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <Separator className="my-1" />
+
+        {/* Tender Builder Form */}
+        {activeAITool === 'tender-builder' && (
+          <div className="space-y-2">
+            <div><Label className="text-[10px]">Title *</Label><Input placeholder="Tender title" value={tenderForm.title} onChange={e => updateTenderField('title', e.target.value)} className={formClass} /></div>
+            <div><Label className="text-[10px]">Category *</Label>
+              <Select value={tenderForm.category} onValueChange={v => updateTenderField('category', v)}>
+                <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-[10px]">Location</Label><Input placeholder="e.g., Addis Ababa" value={tenderForm.location} onChange={e => updateTenderField('location', e.target.value)} className={formClass} /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-[10px]">Budget Min</Label><Input type="number" placeholder="0" value={tenderForm.budgetMin} onChange={e => updateTenderField('budgetMin', e.target.value)} className={formClass} /></div>
+              <div><Label className="text-[10px]">Budget Max</Label><Input type="number" placeholder="0" value={tenderForm.budgetMax} onChange={e => updateTenderField('budgetMax', e.target.value)} className={formClass} /></div>
+            </div>
+            <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={tenderForm.deadline} onChange={e => updateTenderField('deadline', e.target.value)} className={formClass} /></div>
+            <div><Label className="text-[10px]">Description *</Label><Textarea placeholder="Scope and requirements..." value={tenderForm.description} onChange={e => updateTenderField('description', e.target.value)} className="min-h-[60px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+            <div><Label className="text-[10px]">Notes</Label><Textarea placeholder="Optional notes..." value={tenderForm.notes} onChange={e => updateTenderField('notes', e.target.value)} className="min-h-[40px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+          </div>
+        )}
+
+        {/* Bid Builder Form */}
+        {activeAITool === 'bid-builder' && (
+          <div className="space-y-2">
+            <div><Label className="text-[10px]">Select Tender</Label>
+              <Select value={bidSelectedTender} onValueChange={selectBidTender}>
+                <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+                <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+            <div><Label className="text-[10px]">Tender Title</Label><Input value={bidForm.tenderTitle} onChange={e => updateBidField('tenderTitle', e.target.value)} className={formClass} /></div>
+            <div><Label className="text-[10px]">Scope</Label><Textarea value={bidForm.scope} onChange={e => updateBidField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-[10px]">Budget Range</Label><Input value={bidForm.budgetRange} onChange={e => updateBidField('budgetRange', e.target.value)} className={formClass} /></div>
+              <div><Label className="text-[10px]">Category</Label>
+                <Select value={bidForm.category} onValueChange={v => updateBidField('category', v)}>
+                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={bidSkills} onChange={setBidSkills} /></div>
+            <div><Label className="text-[10px]">Company</Label><Input value={bidForm.companyName} onChange={e => updateBidField('companyName', e.target.value)} className={formClass} /></div>
+            <div><Label className="text-[10px]">Experience</Label><Textarea value={bidForm.experience} onChange={e => updateBidField('experience', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-[10px]">Proposed Budget</Label><Input type="number" value={bidForm.proposedBudget} onChange={e => updateBidField('proposedBudget', e.target.value)} className={formClass} /></div>
+              <div><Label className="text-[10px]">Timeline</Label><Input value={bidForm.proposedTimeline} onChange={e => updateBidField('proposedTimeline', e.target.value)} className={formClass} /></div>
+            </div>
+          </div>
+        )}
+
+        {/* Requirement Analyzer Form */}
+        {activeAITool === 'requirement-analyzer' && (
+          <div className="space-y-2">
+            <div><Label className="text-[10px]">Select Tender</Label>
+              <Select value={reqSelectedTender} onValueChange={selectReqTender}>
+                <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+                <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <p className="text-[9px] text-muted-foreground uppercase">Or enter manually</p>
+            <div><Label className="text-[10px]">Tender Title</Label><Input value={reqForm.tenderTitle} onChange={e => updateReqField('tenderTitle', e.target.value)} className={formClass} /></div>
+            <div><Label className="text-[10px]">Scope</Label><Textarea value={reqForm.scope} onChange={e => updateReqField('scope', e.target.value)} className="min-h-[50px] text-xs bg-muted/50 border-border/50 resize-none" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-[10px]">Budget</Label><Input value={reqForm.budget} onChange={e => updateReqField('budget', e.target.value)} className={formClass} /></div>
+              <div><Label className="text-[10px]">Category</Label><Input value={reqForm.category} onChange={e => updateReqField('category', e.target.value)} className={formClass} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-[10px]">Required Docs</Label><Input value={reqForm.requiredDocs} onChange={e => updateReqField('requiredDocs', e.target.value)} className={formClass} /></div>
+              <div><Label className="text-[10px]">Deadline</Label><Input type="date" value={reqForm.deadline} onChange={e => updateReqField('deadline', e.target.value)} className={formClass} /></div>
+            </div>
+            <div><Label className="text-[10px]">Your Skills</Label><SkillTagSelector selected={reqSkills} onChange={setReqSkills} /></div>
+          </div>
+        )}
+
+        {/* Applicant Analyzer Form */}
+        {activeAITool === 'applicant-analyzer' && (
+          <div className="space-y-2">
+            <div><Label className="text-[10px]">Select Your Tender</Label>
+              <Select value={appSelectedTender} onValueChange={setAppSelectedTender}>
+                <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue placeholder="Choose tender" /></SelectTrigger>
+                <SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
   /* ════════════════════════════════════════════════════════════
      DOC REVIEW MAIN CONTENT
      ════════════════════════════════════════════════════════════ */
@@ -3311,7 +3429,7 @@ export function AIDocStudio() {
             {!isMobile && (
             <aside className="w-80 flex flex flex-col bg-card border-r border-border flex-shrink-0">
               <div className="px-5 py-4 border-b border-border"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-foreground tracking-tight">AI Doc Studio</span></div></div>
-              <div className="px-5 py-4 space-y-2 border-b border-border">
+              <div className="px-5 py-4 space-y-2 border-b border-border flex-1 overflow-y-auto">
                 <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-foreground">Template Generator</span></div>
                 <button onClick={() => setSourceMode('live-tender')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'live-tender' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-border hover:border-gray-300 hover:bg-muted/50'}`}>
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'live-tender' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'live-tender' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
@@ -3322,6 +3440,7 @@ export function AIDocStudio() {
                     <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-foreground block">External Sources</span><span className="text-xs text-muted-foreground mt-0.5 block">Connect to knowledge base or web</span></div>
                 </button>
                 {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-muted/30 border-border"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
+                {renderToolForm()}
                 <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
                 <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"><Plus className="h-3 w-3" /> Insert into document</button>
               </div>
@@ -3332,7 +3451,7 @@ export function AIDocStudio() {
             <Sheet open={leftSidebarOpen} onOpenChange={setLeftSidebarOpen}>
               <SheetContent side="left" className="w-80 p-0 overflow-y-auto">
                 <SheetHeader className="px-5 py-4 border-b border-border"><SheetTitle className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-foreground tracking-tight">AI Doc Studio</span></SheetTitle></SheetHeader>
-                <div className="px-5 py-4 space-y-2 border-b border-border">
+                <div className="px-5 py-4 space-y-2 border-b border-border flex-1 overflow-y-auto">
                   <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-foreground">Template Generator</span></div>
                   <button onClick={() => setSourceMode('live-tender')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'live-tender' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-border hover:border-gray-300 hover:bg-muted/50'}`}>
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'live-tender' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'live-tender' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
@@ -3343,6 +3462,7 @@ export function AIDocStudio() {
                       <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-foreground block">External Sources</span><span className="text-xs text-muted-foreground mt-0.5 block">Connect to knowledge base or web</span></div>
                   </button>
                   {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-muted/30 border-border"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
+                  {renderToolForm()}
                   <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
                   <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"><Plus className="h-3 w-3" /> Insert into document</button>
                 </div>
