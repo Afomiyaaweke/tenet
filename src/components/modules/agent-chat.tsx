@@ -247,7 +247,7 @@ function formatFileSize(bytes: number): string {
 }
 
 function getConfidenceColor(confidence: number | null): string {
-  if (confidence === null) return 'text-muted-foreground';
+  if (confidence === null) return 'text-foreground';
   const pct = confidence * 100;
   if (pct > 70) return 'text-emerald-600';
   if (pct > 40) return 'text-amber-600';
@@ -276,7 +276,7 @@ function getStatusIcon(status: string) {
     case 'error':
       return <XCircle className="size-3.5 text-red-500" />;
     default:
-      return <Clock className="size-3.5 text-muted-foreground" />;
+      return <Clock className="size-3.5 text-foreground" />;
   }
 }
 
@@ -285,7 +285,7 @@ function getToolIcon(name: string) {
   if (name.includes('excel') || name.includes('export')) return <FileSpreadsheet className="size-4 text-emerald-500" />;
   if (name.includes('docx') || name.includes('doc') || name.includes('compliance')) return <FileText className="size-4 text-blue-500" />;
   if (name.includes('compare')) return <ChartColumn className="size-4 text-amber-500" />;
-  return <Wrench className="size-4 text-muted-foreground" />;
+  return <Wrench className="size-4 text-foreground" />;
 }
 
 const ACCEPTED_FILE_TYPES = '.pdf,.docx,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif';
@@ -1091,8 +1091,8 @@ export function AgentChatView() {
             </>
           ) : sessions.length === 0 ? (
             <div className="py-8 text-center">
-              <FolderOpen className="mx-auto size-8 text-muted-foreground/50" />
-              <p className="mt-2 text-xs text-muted-foreground">No sessions yet</p>
+              <FolderOpen className="mx-auto size-8 text-foreground" />
+              <p className="mt-2 text-xs text-foreground">No sessions yet</p>
             </div>
           ) : (
             sessions.map((session) => (
@@ -1165,11 +1165,11 @@ export function AgentChatView() {
                   )}
                 </div>
                 {session.summary && (
-                  <span className="text-[11px] text-muted-foreground line-clamp-2">
+                  <span className="text-[11px] text-foreground line-clamp-2">
                     {session.summary}
                   </span>
                 )}
-                <span className="text-[10px] text-muted-foreground/70">
+                <span className="text-[10px] text-foreground">
                   {formatRelativeTime(session.updatedAt)}
                 </span>
               </div>
@@ -1234,12 +1234,12 @@ export function AgentChatView() {
               {uploading ? (
                 <Loader2 className="size-5 animate-spin text-teal-500" />
               ) : (
-                <FileUp className="size-5 text-muted-foreground/60" />
+                <FileUp className="size-5 text-foreground" />
               )}
-              <span className="text-[10px] text-muted-foreground text-center">
+              <span className="text-[10px] text-foreground text-center">
                 {uploading ? 'Uploading...' : 'Drop files or click to upload'}
               </span>
-              <span className="text-[9px] text-muted-foreground/50">
+              <span className="text-[9px] text-foreground">
                 PDF, DOCX, XLSX, TXT, CSV
               </span>
             </div>
@@ -1253,7 +1253,7 @@ export function AgentChatView() {
                     <Skeleton className="h-8 w-full rounded" />
                   </>
                 ) : documents.length === 0 ? (
-                  <p className="py-2 text-[10px] text-center text-muted-foreground">
+                  <p className="py-2 text-[10px] text-center text-foreground">
                     Upload tender documents to begin analysis
                   </p>
                 ) : (
@@ -1265,7 +1265,7 @@ export function AgentChatView() {
                       {getStatusIcon(doc.status)}
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] font-medium truncate">{doc.filename}</p>
-                        <p className="text-[9px] text-muted-foreground">
+                        <p className="text-[9px] text-foreground">
                           {doc.pageCount > 0 ? `${doc.pageCount} pg` : formatFileSize(doc.fileSize)}
                         </p>
                       </div>
@@ -1399,13 +1399,13 @@ export function AgentChatView() {
           {/* Thinking */}
           {thinkingText && (
             <Collapsible defaultOpen={false}>
-              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-foreground hover:text-foreground transition-colors">
                 <Brain className="size-3.5 text-violet-400" />
                 <span>Thinking...</span>
                 <ChevronRight className="size-3 transition-transform [[data-state=open]>&]:rotate-90" />
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="mt-1 rounded-lg bg-muted/50 border border-muted px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
+                <div className="mt-1 rounded-lg bg-muted/50 border border-muted px-3 py-2 text-xs text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
                   {thinkingText}
                 </div>
               </CollapsibleContent>
@@ -1421,12 +1421,12 @@ export function AgentChatView() {
                     'size-5 rounded-full flex items-center justify-center text-[10px] font-bold',
                     step.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                     step.status === 'running' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                    'bg-muted text-muted-foreground'
+                    'bg-muted text-foreground'
                   )}>
                     {step.status === 'completed' ? <Check className="size-3" /> : step.step}
                   </div>
                   <span className={cn(
-                    step.status === 'completed' ? 'text-foreground' : 'text-muted-foreground'
+                    step.status === 'completed' ? 'text-foreground' : 'text-foreground'
                   )}>
                     {step.description}
                   </span>
@@ -1446,16 +1446,16 @@ export function AgentChatView() {
                     {tc.status === 'completed' && <CheckCircle2 className="size-3 text-emerald-500 ml-auto" />}
                     {tc.status === 'running' && <Loader2 className="size-3 animate-spin text-amber-500 ml-auto" />}
                     {tc.status === 'error' && <XCircle className="size-3 text-red-500 ml-auto" />}
-                    <ChevronRight className="size-3 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+                    <ChevronRight className="size-3 text-foreground transition-transform [[data-state=open]>&]:rotate-90" />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="mt-1 rounded-lg border border-muted bg-muted/20 px-3 py-2 text-xs">
                       {tc.result ? (
-                        <pre className="whitespace-pre-wrap text-muted-foreground max-h-32 overflow-y-auto">
+                        <pre className="whitespace-pre-wrap text-foreground max-h-32 overflow-y-auto">
                           {typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result, null, 2)}
                         </pre>
                       ) : (
-                        <span className="text-muted-foreground">Completed</span>
+                        <span className="text-foreground">Completed</span>
                       )}
                     </div>
                   </CollapsibleContent>
@@ -1507,7 +1507,7 @@ export function AgentChatView() {
             </div>
           )}
 
-          <span className="block text-[10px] text-muted-foreground/60">
+          <span className="block text-[10px] text-foreground">
             {formatRelativeTime(msg.createdAt)}
           </span>
         </div>
@@ -1535,13 +1535,13 @@ export function AgentChatView() {
             <Collapsible open={streamingMsg.isThinkingOpen} onOpenChange={(open) => {
               setStreamingMsg((prev) => prev ? { ...prev, isThinkingOpen: open } : prev);
             }}>
-              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-foreground hover:text-foreground transition-colors">
                 <Brain className="size-3.5 text-violet-400 animate-pulse" />
                 <span>Thinking...</span>
                 <ChevronRight className="size-3 transition-transform [[data-state=open]>&]:rotate-90" />
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="mt-1 rounded-lg bg-muted/50 border border-muted px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
+                <div className="mt-1 rounded-lg bg-muted/50 border border-muted px-3 py-2 text-xs text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
                   {streamingMsg.thinking}
                   <span className="animate-pulse">▌</span>
                 </div>
@@ -1558,7 +1558,7 @@ export function AgentChatView() {
                     'size-5 rounded-full flex items-center justify-center text-[10px] font-bold',
                     step.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                     step.status === 'running' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                    'bg-muted text-muted-foreground'
+                    'bg-muted text-foreground'
                   )}>
                     {step.status === 'completed' ? <Check className="size-3" /> :
                      step.status === 'running' ? <Loader2 className="size-3 animate-spin" /> :
@@ -1567,7 +1567,7 @@ export function AgentChatView() {
                   <span className={cn(
                     step.status === 'completed' ? 'text-foreground' :
                     step.status === 'running' ? 'text-foreground font-medium' :
-                    'text-muted-foreground'
+                    'text-foreground'
                   )}>
                     {step.description}
                   </span>
@@ -1585,12 +1585,12 @@ export function AgentChatView() {
                     {getToolIcon(tc.name)}
                     <span className="font-medium">{tc.name}</span>
                     {tc.progressText && (
-                      <span className="text-muted-foreground truncate flex-1">{tc.progressText}</span>
+                      <span className="text-foreground truncate flex-1">{tc.progressText}</span>
                     )}
                     {tc.status === 'completed' && <CheckCircle2 className="size-3 text-emerald-500 ml-auto shrink-0" />}
                     {tc.status === 'running' && <Loader2 className="size-3 animate-spin text-amber-500 ml-auto shrink-0" />}
                     {tc.status === 'error' && <XCircle className="size-3 text-red-500 ml-auto shrink-0" />}
-                    <ChevronRight className="size-3 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90 shrink-0" />
+                    <ChevronRight className="size-3 text-foreground transition-transform [[data-state=open]>&]:rotate-90 shrink-0" />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="mt-1 rounded-lg border border-muted bg-muted/20 px-3 py-2 text-xs">
@@ -1602,15 +1602,15 @@ export function AgentChatView() {
                               style={{ width: `${tc.progress}%` }}
                             />
                           </div>
-                          <span className="text-muted-foreground">{tc.progress}%</span>
+                          <span className="text-foreground">{tc.progress}%</span>
                         </div>
                       )}
                       {tc.result ? (
-                        <pre className="whitespace-pre-wrap text-muted-foreground max-h-32 overflow-y-auto">
+                        <pre className="whitespace-pre-wrap text-foreground max-h-32 overflow-y-auto">
                           {typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result, null, 2)}
                         </pre>
                       ) : (
-                        <span className="text-muted-foreground">Running...</span>
+                        <span className="text-foreground">Running...</span>
                       )}
                     </div>
                   </CollapsibleContent>
@@ -1668,11 +1668,11 @@ export function AgentChatView() {
       return (
         <div className="flex h-full items-center justify-center">
           <div className="text-center space-y-3">
-            <Bot className="mx-auto size-12 text-muted-foreground/30" />
-            <h3 className="text-lg font-semibold text-muted-foreground">
+            <Bot className="mx-auto size-12 text-foreground" />
+            <h3 className="text-lg font-semibold text-foreground">
               Select or create a session to start
             </h3>
-            <p className="text-sm text-muted-foreground/60">
+            <p className="text-sm text-foreground">
               Choose a session from the sidebar or create a new tender review
             </p>
           </div>
@@ -1699,7 +1699,7 @@ export function AgentChatView() {
             <h3 className="text-sm font-semibold truncate">
               {selectedSession?.title || 'AI Agent'}
             </h3>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[10px] text-foreground">
               {isStreaming ? (
                 <span className="text-amber-500 flex items-center gap-1">
                   <Loader2 className="size-3 animate-spin" /> Processing...
@@ -1731,11 +1731,11 @@ export function AgentChatView() {
               </div>
             ) : messages.length === 0 && !isStreaming ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <MessageSquare className="size-10 text-muted-foreground/20" />
-                <p className="text-sm text-muted-foreground">
+                <MessageSquare className="size-10 text-foreground" />
+                <p className="text-sm text-foreground">
                   Start a conversation with the AI Agent
                 </p>
-                <p className="text-xs text-muted-foreground/50">
+                <p className="text-xs text-foreground">
                   Upload documents and ask questions about your tender
                 </p>
               </div>
@@ -1756,7 +1756,7 @@ export function AgentChatView() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-10 rounded-xl text-muted-foreground hover:text-foreground"
+                    className="size-10 rounded-xl text-foreground hover:text-foreground"
                     onClick={() => createSession()}
                     title="New Session"
                   >
@@ -1770,7 +1770,7 @@ export function AgentChatView() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-10 rounded-xl text-muted-foreground hover:text-foreground"
+                    className="size-10 rounded-xl text-foreground hover:text-foreground"
                     onClick={() => chatFileInputRef.current?.click()}
                     title="Upload File"
                     disabled={uploading}
@@ -1793,7 +1793,7 @@ export function AgentChatView() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-10 rounded-xl text-muted-foreground hover:text-foreground"
+                    className="size-10 rounded-xl text-foreground hover:text-foreground"
                     onClick={openImportDialog}
                     title="Import from Tenders/Bids"
                   >
@@ -1899,8 +1899,8 @@ export function AgentChatView() {
       return (
         <div className="flex h-full items-center justify-center p-4">
           <div className="text-center space-y-2">
-            <ChartColumn className="mx-auto size-8 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">Select a session</p>
+            <ChartColumn className="mx-auto size-8 text-foreground" />
+            <p className="text-xs text-foreground">Select a session</p>
           </div>
         </div>
       );
@@ -1949,11 +1949,11 @@ export function AgentChatView() {
                             m.role === 'user' ? 'text-foreground' : 'text-violet-600'
                           )}>
                             {m.role === 'user' ? 'You' : 'AI Agent'}
-                            <span className="text-muted-foreground font-normal ml-1.5">
+                            <span className="text-foreground font-normal ml-1.5">
                               {formatRelativeTime(m.createdAt)}
                             </span>
                           </div>
-                          <p className="text-muted-foreground text-[11px] line-clamp-3 whitespace-pre-wrap">
+                          <p className="text-foreground text-[11px] line-clamp-3 whitespace-pre-wrap">
                             {m.content}
                           </p>
                         </div>
@@ -1980,7 +1980,7 @@ export function AgentChatView() {
                         <div key={doc.id} className="flex items-center gap-2 text-xs">
                           {getStatusIcon(doc.status)}
                           <span className="flex-1 truncate text-foreground">{doc.filename}</span>
-                          <span className="text-[10px] text-muted-foreground">{formatFileSize(doc.fileSize)}</span>
+                          <span className="text-[10px] text-foreground">{formatFileSize(doc.fileSize)}</span>
                         </div>
                       ))}
                     </div>
@@ -1993,11 +1993,11 @@ export function AgentChatView() {
             <Card>
               <CardContent className="px-4 py-4">
                 <div className="flex flex-col items-center gap-3">
-                  <Sparkles className="size-8 text-muted-foreground/30" />
+                  <Sparkles className="size-8 text-foreground" />
                   <h4 className="text-sm font-medium text-foreground">
                     Document Analysis
                   </h4>
-                  <p className="text-xs text-muted-foreground text-center">
+                  <p className="text-xs text-foreground text-center">
                     {documents.length > 0
                       ? 'Run AI extraction on your uploaded documents'
                       : 'Upload documents to enable AI extraction'}
@@ -2043,11 +2043,11 @@ export function AgentChatView() {
             <CardContent className="px-4 pb-3 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg bg-muted/50 px-2.5 py-1.5">
-                  <p className="text-[10px] text-muted-foreground">Bidders</p>
+                  <p className="text-[10px] text-foreground">Bidders</p>
                   <p className="text-lg font-bold">{bidderChartData.length}</p>
                 </div>
                 <div className="rounded-lg bg-muted/50 px-2.5 py-1.5">
-                  <p className="text-[10px] text-muted-foreground">Confidence</p>
+                  <p className="text-[10px] text-foreground">Confidence</p>
                   <p className={cn('text-lg font-bold', getConfidenceColor(overallConfidence))}>
                     {overallConfidence !== null ? `${(overallConfidence * 100).toFixed(0)}%` : '—'}
                   </p>
@@ -2156,10 +2156,10 @@ export function AgentChatView() {
                       .filter((p: any) => p !== null && p !== undefined) as number[];
                     return prices.length > 0 ? (
                       <>
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-[10px] text-foreground">
                           Lowest: <span className="font-medium text-foreground">{Math.min(...prices).toLocaleString()}</span>
                         </div>
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-[10px] text-foreground">
                           Highest: <span className="font-medium text-foreground">{Math.max(...prices).toLocaleString()}</span>
                         </div>
                       </>
@@ -2170,13 +2170,13 @@ export function AgentChatView() {
                       .map((b: any) => b.totalScore)
                       .filter((s: any) => s !== null && s !== undefined) as number[];
                     return scores.length > 0 ? (
-                      <div className="col-span-2 text-[10px] text-muted-foreground">
+                      <div className="col-span-2 text-[10px] text-foreground">
                         Top Score: <span className="font-medium text-foreground">{Math.max(...scores).toFixed(1)}</span>
                       </div>
                     ) : null;
                   })()}
                   {chartMode === 'confidence' && overallConfidence !== null && (
-                    <div className="col-span-2 text-[10px] text-muted-foreground">
+                    <div className="col-span-2 text-[10px] text-foreground">
                       Overall: <span className={cn('font-medium', getConfidenceColor(overallConfidence))}>
                         {(overallConfidence * 100).toFixed(0)}%
                       </span>
@@ -2246,7 +2246,7 @@ export function AgentChatView() {
                         <div className="min-w-0">
                           <p className="font-medium">{kt.term}</p>
                           {kt.description && (
-                            <p className="text-muted-foreground text-[10px] line-clamp-2">{kt.description}</p>
+                            <p className="text-foreground text-[10px] line-clamp-2">{kt.description}</p>
                           )}
                         </div>
                       </div>
@@ -2289,7 +2289,7 @@ export function AgentChatView() {
             </CardHeader>
             <CardContent className="px-4 pb-3 space-y-2">
               {artifacts.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">
+                <p className="text-xs text-foreground text-center py-2">
                   No artifacts generated yet
                 </p>
               ) : (
@@ -2305,7 +2305,7 @@ export function AgentChatView() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{art.title}</p>
-                      <p className="text-[10px] text-muted-foreground">{art.filename}</p>
+                      <p className="text-[10px] text-foreground">{art.filename}</p>
                     </div>
                     <Button variant="ghost" size="icon" className="size-7" asChild>
                       <a href={art.filepath} download>
@@ -2368,7 +2368,7 @@ export function AgentChatView() {
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-foreground" />
             <Input
               placeholder="Search tenders or bids..."
               className="pl-9"
@@ -2395,12 +2395,12 @@ export function AgentChatView() {
             <TabsContent value="tenders" className="flex-1 min-h-0 mt-2">
               {importLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="size-6 animate-spin text-foreground" />
                 </div>
               ) : filteredTenders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-2">
-                  <FolderOpen className="size-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">
+                  <FolderOpen className="size-8 text-foreground" />
+                  <p className="text-sm text-foreground">
                     {importSearch ? 'No tenders match your search' : 'No tenders yet'}
                   </p>
                   {!importSearch && (
@@ -2428,7 +2428,7 @@ export function AgentChatView() {
                         <FileText className="size-4 text-teal-500 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{tender.title}</p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-[10px] text-foreground">
                             {tender._count?.bids ? `${tender._count.bids} bid(s)` : 'No bids'}
                           </p>
                         </div>
@@ -2452,12 +2452,12 @@ export function AgentChatView() {
             <TabsContent value="live" className="flex-1 min-h-0 mt-2">
               {importLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="size-6 animate-spin text-foreground" />
                 </div>
               ) : filteredLive.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-2">
-                  <Globe className="size-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">
+                  <Globe className="size-8 text-foreground" />
+                  <p className="text-sm text-foreground">
                     {importSearch ? 'No live tenders match your search' : 'No saved live tenders'}
                   </p>
                   {!importSearch && (
@@ -2485,7 +2485,7 @@ export function AgentChatView() {
                         <Globe className="size-4 text-blue-500 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{tender.title}</p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-[10px] text-foreground">
                             {(tender as any).externalSource || 'External source'}
                           </p>
                         </div>
@@ -2509,12 +2509,12 @@ export function AgentChatView() {
             <TabsContent value="bids" className="flex-1 min-h-0 mt-2">
               {importLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="size-6 animate-spin text-foreground" />
                 </div>
               ) : filteredBids.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-2">
-                  <Gavel className="size-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">
+                  <Gavel className="size-8 text-foreground" />
+                  <p className="text-sm text-foreground">
                     {importSearch ? 'No bids match your search' : 'No bids yet'}
                   </p>
                   {!importSearch && (
@@ -2544,7 +2544,7 @@ export function AgentChatView() {
                           <p className="text-sm font-medium truncate">
                             {bid.tender?.title || `Bid ${bid.id.slice(0, 8)}`}
                           </p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-[10px] text-foreground">
                             Status: {bid.status} {bid.user?.profile?.fullName ? `· ${bid.user.profile.fullName}` : ''}
                           </p>
                         </div>
@@ -2733,8 +2733,8 @@ function MetaRow({
 }) {
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="text-muted-foreground shrink-0">{icon}</span>
-      <span className="text-muted-foreground w-16 shrink-0">{label}</span>
+      <span className="text-foreground shrink-0">{icon}</span>
+      <span className="text-foreground w-16 shrink-0">{label}</span>
       <span className="font-medium truncate">{value}</span>
     </div>
   );

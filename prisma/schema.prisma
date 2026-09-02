@@ -83,6 +83,7 @@ model User {
   passwordHistory PasswordHistory[]
   subscription Subscription?
   usageRecords UsageRecord[]
+  agentSessions AgentSession[]
 
   @@index([plan])
 }
@@ -837,4 +838,93 @@ model UsageRecord {
   @@unique([userId, category])
   @@index([userId])
   @@index([resetAt])
+}
+
+// ==========================================
+// AI AGENT (ReAct loop, sessions, docs, analyses, artifacts)
+// ==========================================
+
+model AgentSession {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String   @default("New Tender Review")
+  summary   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents AgentDocument[]
+  messages  AgentMessage[]
+  analyses  AgentAnalysis[]
+  artifacts AgentArtifact[]
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model AgentDocument {
+  id        String   @id @default(cuid())
+  sessionId String
+  filename  String
+  filetype  String   // pdf, docx, txt, xlsx, csv, image
+  filepath  String   // stored file path
+  fileSize  Int      @default(0)
+  pageCount Int      @default(0)
+  pageTexts String   @default("[]") // JSON array of page text strings
+  summary   String?
+  category  String   @default("tender") // tender, submission, reference, support
+  status    String   @default("uploaded") // uploaded, processing, indexed, error
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([category])
+}
+
+model AgentMessage {
+  id         String   @id @default(cuid())
+  sessionId  String
+  role       String   // user, assistant
+  content    String   @default("")
+  thinking   String?  // JSON - thinking steps
+  events     String?  // JSON - agent event stream
+  citations  String?  // JSON - page citations
+  intent     String?  // chat, analyze, extract, generate, compare
+  confidence Float?   // 0-1 confidence score
+  createdAt  DateTime @default(now())
+
+  session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model AgentAnalysis {
+  id        String   @id @default(cuid())
+  sessionId String
+  type      String   // tender_review, submission_extract, comparison
+  title     String
+  content   String   // JSON - full analysis data (bidders, metadata, terms, etc.)
+  createdAt DateTime @default(now())
+
+  session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model AgentArtifact {
+  id        String   @id @default(cuid())
+  sessionId String
+  type      String   // excel, docx, pdf
+  title     String
+  filename  String
+  filepath  String   // stored artifact file path
+  meta      String?  // JSON - additional metadata
+  createdAt DateTime @default(now())
+
+  session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
 }
