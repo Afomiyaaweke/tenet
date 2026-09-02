@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { enforceRateLimit, getRateLimitHeaders } from '@/lib/rate-limiter';
+import { enforceRateLimit } from '@/lib/rate-limiter';
 import { callZAIWithDeadline } from '@/lib/zai';
 
 // Vercel Hobby tier: 10s max. AI structured-JSON generation takes 20-30s,
@@ -54,7 +54,6 @@ export async function POST(request: NextRequest) {
 
     const rateLimitResponse = await enforceRateLimit(request, user!.id, user!.plan || 'free');
     if (rateLimitResponse) return rateLimitResponse;
-    const rlHeaders = getRateLimitHeaders(request, user!.id, user!.plan || 'free');
 
     const body = await request.json();
     const {
@@ -64,7 +63,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     let tenderContext = '';
-    let tenderData: { title?: string; scope?: string; budgetMin?: number; budgetMax?: number; categoryTags?: string; requiredDocs?: string; deadline?: string; location?: string } | null = null;
+    let tenderData: { title?: string; scope?: string; budgetMin?: number; budgetMax?: number; categoryTags?: string; requiredDocs?: string; deadline?: Date; location?: string } | null = null;
     if (tenderId) {
       try {
         const tender = await db.tender.findUnique({ where: { id: tenderId } });
@@ -111,9 +110,7 @@ Return ONLY the JSON object.`;
 
     if (!response) {
       const fallback = buildFallback({ tenderTitle: tenderData?.title || tenderTitle, scope: tenderData?.scope || scope, budgetRange, category: tenderData?.categoryTags || category, companyName, experience, proposedBudget, proposedTimeline, notes, userName: userName || user!.profile?.fullName, skills, userSkills });
-      const res = NextResponse.json({ success: true, data: fallback, fallback: true });
-      Object.entries(rlHeaders).forEach(([k, v]) => res.headers.set(k, v));
-      return res;
+      return NextResponse.json({ success: true, data: fallback, fallback: true });
     }
 
     let parsed: Record<string, string>;
@@ -122,14 +119,10 @@ Return ONLY the JSON object.`;
       parsed = JSON.parse(cleaned);
     } catch {
       parsed = buildFallback({ tenderTitle: tenderData?.title || tenderTitle, scope: tenderData?.scope || scope, budgetRange, category: tenderData?.categoryTags || category, companyName, experience, proposedBudget, proposedTimeline, notes, userName: userName || user!.profile?.fullName, skills, userSkills });
-      const res = NextResponse.json({ success: true, data: parsed, fallback: true });
-      Object.entries(rlHeaders).forEach(([k, v]) => res.headers.set(k, v));
-      return res;
+      return NextResponse.json({ success: true, data: parsed, fallback: true });
     }
 
-    const res = NextResponse.json({ success: true, data: parsed });
-    Object.entries(rlHeaders).forEach(([k, v]) => res.headers.set(k, v));
-    return res;
+    return NextResponse.json({ success: true, data: parsed });
   } catch (err) {
     console.error('Bid prep error:', err);
     return NextResponse.json(

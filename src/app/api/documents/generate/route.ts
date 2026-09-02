@@ -320,7 +320,7 @@ ${inputData ? `\n## Additional Input:\n${Object.entries(inputData).map(([k, v]) 
     // ─── Race the AI call against a hard deadline ─────────────────────────
     // If the AI doesn't finish in time, fall back to a structured template
     // built from the user's real data — never return an empty/error response.
-    let response = '';
+    let response: string | null;
     let usedFallback = false;
     const t0 = Date.now();
 

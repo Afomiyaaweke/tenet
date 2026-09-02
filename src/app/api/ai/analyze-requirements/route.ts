@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     let tenderContext = '';
-    let tenderData: { title?: string; scope?: string; budgetMin?: number; budgetMax?: number; categoryTags?: string; requiredDocs?: string; deadline?: string; location?: string } | null = null;
+    let tenderData: { title?: string; scope?: string; budgetMin?: number; budgetMax?: number; categoryTags?: string; requiredDocs?: string; deadline?: Date; location?: string } | null = null;
     if (tenderId) {
       try {
         const tender = await db.tender.findUnique({ where: { id: tenderId } });
@@ -134,7 +134,7 @@ Return ONLY the JSON object. matchScore must be a number 0-100. competitivenessA
         budget: tenderData ? `${Number(tenderData.budgetMin).toLocaleString()} - ${Number(tenderData.budgetMax).toLocaleString()} ETB` : budget,
         category: tenderData?.categoryTags || category,
         requiredDocs: tenderData?.requiredDocs || requiredDocs,
-        deadline: tenderData ? new Date(tenderData.deadline).toLocaleDateString() : deadline,
+        deadline: tenderData?.deadline ? new Date(tenderData.deadline).toLocaleDateString() : deadline,
         skills, userSkills: userSkills || fullUser?.profile?.skillTags,
         userName: userName || fullUser?.profile?.fullName,
         companyName: fullUser?.company?.name,
@@ -153,7 +153,7 @@ Return ONLY the JSON object. matchScore must be a number 0-100. competitivenessA
         budget: tenderData ? `${Number(tenderData.budgetMin).toLocaleString()} - ${Number(tenderData.budgetMax).toLocaleString()} ETB` : budget,
         category: tenderData?.categoryTags || category,
         requiredDocs: tenderData?.requiredDocs || requiredDocs,
-        deadline: tenderData ? new Date(tenderData.deadline).toLocaleDateString() : deadline,
+        deadline: tenderData?.deadline ? new Date(tenderData.deadline).toLocaleDateString() : deadline,
         skills, userSkills: userSkills || fullUser?.profile?.skillTags,
         userName: userName || fullUser?.profile?.fullName,
         companyName: fullUser?.company?.name,
