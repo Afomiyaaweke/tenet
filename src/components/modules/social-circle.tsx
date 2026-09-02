@@ -1799,6 +1799,8 @@ function ProformaTab() {
   const [proformas, setProformas] = useState<Array<{
     id: string;
     toCompany: string;
+    toCity: string;
+    toCountry: string;
     date: string;
     items: ProformaItem[];
     notes: string;
@@ -1806,6 +1808,8 @@ function ProformaTab() {
   }>>([]);
   const [formData, setFormData] = useState({
     toCompany: '',
+    toCity: '',
+    toCountry: '',
     notes: '',
   });
   const [items, setItems] = useState<ProformaItem[]>([
@@ -1838,6 +1842,8 @@ function ProformaTab() {
     const newProforma = {
       id: String(Date.now()),
       toCompany: formData.toCompany,
+      toCity: formData.toCity,
+      toCountry: formData.toCountry,
       date: new Date().toISOString(),
       items: items.filter(i => i.description.trim()),
       notes: formData.notes,
@@ -1846,7 +1852,7 @@ function ProformaTab() {
     setProformas(prev => [newProforma, ...prev]);
     toast.success('Proforma created!');
     setShowCreate(false);
-    setFormData({ toCompany: '', notes: '' });
+    setFormData({ toCompany: '', toCity: '', toCountry: '', notes: '' });
     setItems([{ id: '1', description: '', quantity: 1, unitPrice: 0 }]);
   };
 
@@ -1883,6 +1889,7 @@ function ProformaTab() {
         <div class="to">
           <div class="label">To</div>
           <div style="font-weight: bold; font-size: 16px;">${proforma.toCompany}</div>
+          ${(proforma.toCity || proforma.toCountry) ? `<div style="font-size: 13px; color: #6b7280;">${[proforma.toCity, proforma.toCountry].filter(Boolean).join(', ')}</div>` : ''}
           <div class="label" style="margin-top: 8px;">Date</div>
           <div style="font-size: 13px;">${new Date(proforma.date).toLocaleDateString()}</div>
         </div>
@@ -1934,11 +1941,16 @@ function ProformaTab() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* From / To */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase">From</label>
                 <div className="p-2.5 rounded-lg bg-muted/30 text-sm font-medium text-foreground">
                   {company?.name || user?.profile?.fullName || 'Your Company'}
+                  {(company?.city || company?.country) && (
+                    <div className="text-[10px] text-muted-foreground font-normal">
+                      {[company?.city, company?.country].filter(Boolean).join(', ')}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="space-y-1">
@@ -1947,6 +1959,32 @@ function ProformaTab() {
                   placeholder="Recipient company name"
                   value={formData.toCompany}
                   onChange={e => setFormData(f => ({ ...f, toCompany: e.target.value }))}
+                  className="text-sm h-9"
+                />
+              </div>
+            </div>
+
+            {/* To City / Country */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> City / Place
+                </label>
+                <Input
+                  placeholder="e.g. Addis Ababa"
+                  value={formData.toCity}
+                  onChange={e => setFormData(f => ({ ...f, toCity: e.target.value }))}
+                  className="text-sm h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1">
+                  <Globe2 className="h-3 w-3" /> Country
+                </label>
+                <Input
+                  placeholder="e.g. Ethiopia"
+                  value={formData.toCountry}
+                  onChange={e => setFormData(f => ({ ...f, toCountry: e.target.value }))}
                   className="text-sm h-9"
                 />
               </div>
@@ -2052,6 +2090,12 @@ function ProformaTab() {
                         </span>
                       </div>
                       <h4 className="font-semibold text-sm text-foreground">To: {proforma.toCompany}</h4>
+                      {(proforma.toCity || proforma.toCountry) && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <MapPin className="h-3 w-3" />
+                          {[proforma.toCity, proforma.toCountry].filter(Boolean).join(', ')}
+                        </p>
+                      )}
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <FileText className="h-3 w-3" /> {proforma.items.length} item{proforma.items.length !== 1 ? 's' : ''}
