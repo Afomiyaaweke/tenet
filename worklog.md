@@ -1055,3 +1055,24 @@ Work Log:
 Stage Summary:
 - Proforma invoices now capture full recipient location (company, city, country)
 - Location appears in the create form, list cards, and printed invoice
+---
+Task ID: 8
+Agent: main
+Task: Public country product price marketplace
+
+Work Log:
+- Added ProformaListing Prisma model to both schemas (product, price, qty, unit, currency, city, country, contactInfo, views)
+- Created /api/social/proforma GET (public listing + country facets + filters) and POST (create with auto-location from company)
+- Created /api/social/proforma/[id] DELETE (delete own / mark as sold)
+- Rewrote ProformaTab as public "Market" tab:
+  - Country filter chips with counts (auto-generated from listings)
+  - Category filter, free-text search, Everyone/My Listings toggle
+  - Listings show price/unit, qty, location, poster with verified badge
+  - Own listings get Mark-as-sold + Delete buttons
+- Fixed WorldBank interface fields lost in git rebase (id, countryname, etc.)
+- Browser-tested full flow: posted coffee listing, verified card + country chip
+- Pushed to GitHub (commit afb5363)
+
+Stage Summary:
+- Market tab is now an open marketplace — anyone posts product prices from their country, travelers browse all
+- Data persists in DB (not local state), works across users and sessions
