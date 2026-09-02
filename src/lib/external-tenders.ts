@@ -607,6 +607,19 @@ function buildDeadline(signingDate?: string): string {
   return new Date(base.getTime() + 45 * 86400000).toISOString();
 }
 
+/**
+ * Map World Bank project status to valid LiveTender status union.
+ * WB statuses: Active, Closed, Dropped, Pipeline, Cancelled, etc.
+ */
+function mapWbStatus(raw?: string): 'open' | 'closed' | 'awarded' | 'cancelled' | 'draft' {
+  const s = (raw || '').toLowerCase().trim();
+  if (s === 'active') return 'open';
+  if (s === 'closed') return 'closed';
+  if (s === 'dropped' || s === 'cancelled') return 'cancelled';
+  if (s === 'pipeline') return 'draft';
+  return 'open';
+}
+
 export async function fetchWorldBankTenders(opts: {
   search?: string;
   rows?: number;
@@ -618,27 +631,26 @@ export async function fetchWorldBankTenders(opts: {
     format: 'json',
     rows: String(rows),
     fl: [
+      'id',
       'project_id',
-      'procurement_group_id',
       'project_name',
       'borrower',
-      'country',
-      'region',
-      'contract_description',
-      'contract_type',
-      'supplier',
-      'supplier_country',
-      'contract_signing_date',
-      'total_contract_amount',
-      'wb_contract_number',
+      'countryname',
+      'regionname',
+      'lendinginstr',
+      'projectstatusdisplay',
+      'curr_total_commitment',
+      'closingdate',
+      'prodline',
     ].join(','),
   });
   if (opts.search) params.set('q', opts.search);
-  if (offset > 0) params.set('osstart', String(offset + 1));
+  if (offset > 0) params.set('os', String(offset));
 
-  const url = `https://search.worldbank.org/api/v2/procurement?${params.toString()}`;
+  // Use the World Bank projects API (procurement endpoint was deprecated)
+  const url = `https://search.worldbank.org/api/v2/projects?${params.toString()}`;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000);
+  const timer = setTimeout(() => ctrl.abort(), 5000);
 
   try {
     const res = await fetch(url, {
@@ -648,53 +660,77 @@ export async function fetchWorldBankTenders(opts: {
     });
     clearTimeout(timer);
     if (!res.ok) {
+      console.error(`[worldbank] HTTP ${res.status}`);
       return { tenders: [], total: 0, ok: false };
     }
     const json = (await res.json()) as WorldBankResponse;
-    const rowsArr = json.rows || json.procurements || [];
-    const total = typeof json.total === 'number' ? json.total : rowsArr.length;
+
+    // The projects API returns projects as an object keyed by project ID
+    let rowsArr: WorldBankProcurementRow[] = [];
+    if (json.projects && typeof json.projects === 'object') {
+      rowsArr = Object.values(json.projects);
+    } else if (Array.isArray(json.rows)) {
+      rowsArr = json.rows as WorldBankProcurementRow[];
+    } else if (Array.isArray(json.procurements)) {
+      rowsArr = json.procurements;
+    }
+
+    const total = typeof json.total === 'number'
+      ? json.total
+      : typeof json.total === 'string'
+        ? parseInt(json.total, 10) || rowsArr.length
+        : rowsArr.length;
+
+    if (rowsArr.length === 0) {
+      console.error(`[worldbank] No rows parsed. JSON keys:`, Object.keys(json));
+      return { tenders: [], total: 0, ok: false };
+    }
 
     const tenders: LiveTender[] = rowsArr
-      .filter((r) => r && (r.contract_description || r.project_name))
+      .filter((r) => r && (r.project_name || r.contract_description))
       .map((r, idx) => {
-        const externalId = r.procurement_group_id || r.project_id || `wb-${idx}`;
-        const title = truncate(r.contract_description || r.project_name || 'World Bank Contract Award', 160);
-        const amount = parseAmount(r.total_contract_amount);
-        const signingDate = r.contract_signing_date;
+        const externalId = r.project_id || r.id || r.procurement_group_id || `wb-${idx}`;
+        const title = truncate(r.project_name || r.contract_description || 'World Bank Project', 160);
+        const amount = parseAmount(r.total_contract_amount || r.curr_total_commitment);
+        const signingDate = r.contract_signing_date || r.closingdate;
+        const countryRaw = r.country || r.countryname;
+        const country = Array.isArray(countryRaw) ? countryRaw[0] : countryRaw;
+        const region = r.region || r.regionname;
         return {
           id: `worldbank-${externalId}`,
           title,
-          scope: truncate(r.contract_description || r.project_name || '', 400),
+          scope: truncate(r.project_name || r.contract_description || '', 400),
           budgetMin: amount,
           budgetMax: amount,
           deadline: buildDeadline(signingDate),
-          location: r.country || r.region || 'Multiple',
+          location: country || region || 'Multiple',
           categoryTags: inferCategory(r),
-          requiredDocs: r.project_id
-            ? `https://projects.worldbank.org/en/projects-operations/project-detail/${r.project_id}`
+          requiredDocs: externalId
+            ? `https://projects.worldbank.org/en/projects-operations/project-detail/${externalId}`
             : 'https://financesone.worldbank.org',
-          status: 'awarded',
+          status: mapWbStatus(r.projectstatusdisplay),
           createdBy: 'worldbank',
           createdAt: signingDate || new Date().toISOString(),
           updatedAt: signingDate || new Date().toISOString(),
           source: 'worldbank',
           externalId,
-          externalUrl: r.project_id
-            ? `https://projects.worldbank.org/en/projects-operations/project-detail/${r.project_id}`
+          externalUrl: externalId
+            ? `https://projects.worldbank.org/en/projects-operations/project-detail/${externalId}`
             : 'https://financesone.worldbank.org',
           currency: 'USD',
           borrower: r.borrower || undefined,
           supplier: r.supplier || undefined,
-          contractType: r.contract_type || undefined,
+          contractType: r.contract_type || r.lendinginstr || undefined,
           signingDate: signingDate || undefined,
-          region: r.region || undefined,
-          documentUrl: r.project_id ? `https://projects.worldbank.org/en/projects-operations/project-detail/${r.project_id}` : undefined,
+          region: region || undefined,
+          documentUrl: externalId ? `https://projects.worldbank.org/en/projects-operations/project-detail/${externalId}` : undefined,
         } satisfies LiveTender;
       });
 
     return { tenders, total, ok: true };
-  } catch {
+  } catch (err) {
     clearTimeout(timer);
+    console.error("[worldbank] fetch error:", err instanceof Error ? err.message : String(err));
     return { tenders: [], total: 0, ok: false };
   }
 }
@@ -3097,8 +3133,7 @@ export async function fetchLiveTenders(opts: {
   // within Vercel serverless function timeout. Users can select individual sources
   // to fetch from secondary sources.
   const TOP_SOURCES = new Set([
-    'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb',
-    'adb', 'uk_contracts', 'canada_buyandsell', 'austender', 'portugal_base',
+    'worldbank', 'eu_ted', 'ungm', 'sam_gov', 'afdb', 'uk_contracts',
   ]);
   const filteredTasks = wantSource === 'all'
     ? tasks.filter((t) => TOP_SOURCES.has(t.id))
@@ -3110,7 +3145,7 @@ export async function fetchLiveTenders(opts: {
 
   const settled = await Promise.allSettled(filteredTasks.map(async (t) => {
     // Timeout each external API call after 8 seconds to prevent cascading hangs
-    const timeoutMs = 8_000;
+    const timeoutMs = 5_000;
     try {
       const result = await Promise.race([
         t.p,
@@ -3172,6 +3207,10 @@ export async function fetchLiveTenders(opts: {
     },
   };
 
-  cache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+  // Only cache if at least one source returned data successfully
+  const anyOk = result.meta.sources.some(s => s.ok && s.count > 0);
+  if (anyOk) {
+    cache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+  }
   return result;
 }

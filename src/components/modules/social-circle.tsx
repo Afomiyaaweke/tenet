@@ -27,6 +27,7 @@ import {
   Building2, MapPin, Briefcase, Award, Verified, Send, Clock,
   MoreHorizontal, X, Plus, ChevronDown, Globe2, Handshake,
   Sparkles, TrendingUp, Star, Link2, Image, Trash2,
+  FileText, DollarSign, Download, Printer,
 } from 'lucide-react';
 
 // ==========================================
@@ -1782,6 +1783,309 @@ function RightSidebar() {
 }
 
 // ==========================================
+// PROFORMA TAB - Create and share proforma invoices
+// ==========================================
+
+interface ProformaItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+function ProformaTab() {
+  const { user, company } = useAuthStore();
+  const [showCreate, setShowCreate] = useState(false);
+  const [proformas, setProformas] = useState<Array<{
+    id: string;
+    toCompany: string;
+    date: string;
+    items: ProformaItem[];
+    notes: string;
+    status: string;
+  }>>([]);
+  const [formData, setFormData] = useState({
+    toCompany: '',
+    notes: '',
+  });
+  const [items, setItems] = useState<ProformaItem[]>([
+    { id: '1', description: '', quantity: 1, unitPrice: 0 },
+  ]);
+
+  const total = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+
+  const addItem = () => {
+    setItems(prev => [...prev, { id: String(Date.now()), description: '', quantity: 1, unitPrice: 0 }]);
+  };
+
+  const removeItem = (id: string) => {
+    setItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const updateItem = (id: string, field: keyof ProformaItem, value: string | number) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
+  };
+
+  const handleSave = () => {
+    if (!formData.toCompany.trim()) {
+      toast.error('Please enter the recipient company name');
+      return;
+    }
+    if (items.every(i => !i.description.trim())) {
+      toast.error('Please add at least one item');
+      return;
+    }
+    const newProforma = {
+      id: String(Date.now()),
+      toCompany: formData.toCompany,
+      date: new Date().toISOString(),
+      items: items.filter(i => i.description.trim()),
+      notes: formData.notes,
+      status: 'draft',
+    };
+    setProformas(prev => [newProforma, ...prev]);
+    toast.success('Proforma created!');
+    setShowCreate(false);
+    setFormData({ toCompany: '', notes: '' });
+    setItems([{ id: '1', description: '', quantity: 1, unitPrice: 0 }]);
+  };
+
+  const handlePrint = (proformaId: string) => {
+    const proforma = proformas.find(p => p.id === proformaId);
+    if (!proforma) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const total = proforma.items.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0);
+    printWindow.document.write(`
+      <html><head><title>Proforma Invoice</title>
+      <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #1a1a1a; }
+        h1 { color: #059669; border-bottom: 2px solid #059669; padding-bottom: 8px; }
+        .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
+        .from, .to { flex: 1; }
+        .to { text-align: right; }
+        .label { font-size: 10px; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th { background: #f3f4f6; padding: 8px 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
+        td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+        .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 16px; }
+        .notes { margin-top: 30px; padding: 16px; background: #f9fafb; border-radius: 8px; font-size: 13px; }
+      </style>
+      </head><body>
+      <h1>PROFORMA INVOICE</h1>
+      <div class="header">
+        <div class="from">
+          <div class="label">From</div>
+          <div style="font-weight: bold; font-size: 16px;">${company?.name || user?.profile?.fullName || 'Your Company'}</div>
+          <div style="font-size: 13px; color: #6b7280;">${company?.industry || ''}</div>
+          <div style="font-size: 13px; color: #6b7280;">${company?.city || ''} ${company?.country || ''}</div>
+        </div>
+        <div class="to">
+          <div class="label">To</div>
+          <div style="font-weight: bold; font-size: 16px;">${proforma.toCompany}</div>
+          <div class="label" style="margin-top: 8px;">Date</div>
+          <div style="font-size: 13px;">${new Date(proforma.date).toLocaleDateString()}</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr></thead>
+        <tbody>
+          ${proforma.items.map(i => `<tr><td>${i.description}</td><td>${i.quantity}</td><td>${i.unitPrice.toLocaleString()}</td><td>${(i.quantity * i.unitPrice).toLocaleString()}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="total">Total: ETB ${total.toLocaleString()}</div>
+      ${proforma.notes ? `<div class="notes"><strong>Notes:</strong><br/>${proforma.notes}</div>` : ''}
+      </body></html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <FileText className="h-5 w-5 text-emerald-600" />
+            Proforma Invoices
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Create and share proforma invoices with your network</p>
+        </div>
+        <Button
+          size="sm"
+          className="gap-1.5 text-xs rounded-xl gradient-emerald hover:opacity-90 text-white"
+          onClick={() => setShowCreate(true)}
+        >
+          <Plus className="h-3.5 w-3.5" /> New Proforma
+        </Button>
+      </div>
+
+      {/* Create Dialog */}
+      {showCreate && (
+        <Card className="border-emerald-200 dark:border-emerald-900/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Create Proforma Invoice</CardTitle>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowCreate(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* From / To */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">From</label>
+                <div className="p-2.5 rounded-lg bg-muted/30 text-sm font-medium text-foreground">
+                  {company?.name || user?.profile?.fullName || 'Your Company'}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">To (Company) *</label>
+                <Input
+                  placeholder="Recipient company name"
+                  value={formData.toCompany}
+                  onChange={e => setFormData(f => ({ ...f, toCompany: e.target.value }))}
+                  className="text-sm h-9"
+                />
+              </div>
+            </div>
+
+            {/* Items */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase">Items</label>
+              {items.map((item, idx) => (
+                <div key={item.id} className="flex gap-2 items-center">
+                  <span className="text-xs text-muted-foreground w-6">{idx + 1}.</span>
+                  <Input
+                    placeholder="Description"
+                    value={item.description}
+                    onChange={e => updateItem(item.id, 'description', e.target.value)}
+                    className="text-sm h-8 flex-1"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Qty"
+                    value={item.quantity}
+                    onChange={e => updateItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
+                    className="text-sm h-8 w-16"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Price"
+                    value={item.unitPrice}
+                    onChange={e => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                    className="text-sm h-8 w-24"
+                  />
+                  <span className="text-xs font-medium w-24 text-right text-foreground">
+                    ETB {(item.quantity * item.unitPrice).toLocaleString()}
+                  </span>
+                  {items.length > 1 && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500" onClick={() => removeItem(item.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button variant="outline" size="sm" className="text-xs gap-1" onClick={addItem}>
+                <Plus className="h-3 w-3" /> Add Item
+              </Button>
+            </div>
+
+            {/* Total */}
+            <div className="flex justify-end items-center gap-2 pt-2 border-t">
+              <span className="text-sm font-semibold text-muted-foreground">Total:</span>
+              <span className="text-xl font-bold text-emerald-600">ETB {total.toLocaleString()}</span>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase">Notes / Terms</label>
+              <Textarea
+                placeholder="Payment terms, validity, delivery time, etc."
+                value={formData.notes}
+                onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))}
+                className="text-sm"
+                rows={2}
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" className="text-xs" onClick={() => setShowCreate(false)}>Cancel</Button>
+              <Button size="sm" className="text-xs gap-1.5 gradient-emerald hover:opacity-90 text-white" onClick={handleSave}>
+                <FileText className="h-3.5 w-3.5" /> Save Proforma
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Proforma List */}
+      {proformas.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="p-12 text-center">
+            <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 w-fit mx-auto mb-4">
+              <FileText className="h-8 w-8 text-emerald-500" />
+            </div>
+            <h4 className="text-lg font-semibold text-foreground">No proforma invoices yet</h4>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+              Create proforma invoices to share with your network and clients
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {proformas.map(proforma => {
+            const pTotal = proforma.items.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0);
+            return (
+              <Card key={proforma.id} className="hover:shadow-md transition-all">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0">
+                          {proforma.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(proforma.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <h4 className="font-semibold text-sm text-foreground">To: {proforma.toCompany}</h4>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3 w-3" /> {proforma.items.length} item{proforma.items.length !== 1 ? 's' : ''}
+                        </span>
+                        <span className="flex items-center gap-1 font-semibold text-emerald-600">
+                          <DollarSign className="h-3 w-3" /> ETB {pTotal.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handlePrint(proforma.id)}>
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                        onClick={() => setProformas(prev => prev.filter(p => p.id !== proforma.id))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
 // Main Component
 // ==========================================
 
@@ -1837,9 +2141,13 @@ export function SocialCircleView() {
                   <Search className="h-3.5 w-3.5 mr-1.5" />
                   Discover
                 </TabsTrigger>
+                <TabsTrigger value="proforma" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                  <FileText className="h-3.5 w-3.5 mr-1.5" />
+                  Proforma
+                </TabsTrigger>
                 <TabsTrigger value="network" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                   <Users className="h-3.5 w-3.5 mr-1.5" />
-                  My Network
+                  Network
                 </TabsTrigger>
               </TabsList>
 
@@ -1849,6 +2157,10 @@ export function SocialCircleView() {
 
               <TabsContent value="discover" className="mt-0">
                 <DiscoverTab />
+              </TabsContent>
+
+              <TabsContent value="proforma" className="mt-0">
+                <ProformaTab />
               </TabsContent>
 
               <TabsContent value="network" className="mt-0">
