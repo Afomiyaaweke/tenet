@@ -1309,3 +1309,28 @@ Stage Summary:
 - Vercel build unblocked: the prod schema now matches the sqlite schema field-for-field (45/45 models), so the generated client includes Tender.rejectionNote and applicants/route.ts compiles
 - Task 13's Proforma upload endpoint restored after accidental working-tree deletion
 - Commit bcd836a on main
+
+---
+Task ID: 17
+Agent: main
+Task: Sync Proforma marketplace postings with the Leaderboard so posting info is tracked
+
+Work Log:
+- Explored the leaderboard ecosystem: /api/leaderboard (public, company quality score), /api/quality-score/me (personal journey), /api/activity/me (heatmap/streak, types bid/tender/project/document), journey-card.tsx, leaderboard.tsx, public /leaderboard page. None of them knew about ProformaListing.
+- /api/leaderboard: users select now includes filtered relation count `_count.proformaListings where status=active`; score += min(activeListings, 10) (marketplace presence factor — also makes the Platinum >=90 threshold actually reachable, previous max was 90); entry returns `proformaCount`.
+- /api/quality-score/me: same listings factor added to score + `listings` in scoreBreakdown (incl. the two no-company default responses) so personal and public scoring agree on this factor.
+- /api/activity/me: restructured the early-return — no-company users no longer get an empty response. Proforma listings are a 5th activity source (type `listing`): company accounts count team-wide posts, personal accounts count their own posts. byType/dayMap/series all include listing; totals include listings.
+- leaderboard.tsx + /leaderboard page: LeaderEntry.proformaCount; rows show a Store-icon "Live Marketplace Listings" stat (orange, between Projects and Documents); hero copy now mentions live marketplace listings; public page CTA chips gained "Live Marketplace Listings".
+- journey-card.tsx: SCORE_FACTORS gained "Market Listings" (max 10, Store icon); streak card gained "Listings posted" row; heatmap hover detail includes listings count; empty-state copy mentions posting a listing. Personal-account gating relaxed: hasCompany=false AND zero activity -> prompt card (copy updated); personal WITH activity -> full journey with streak + heatmap, only the company Quality Score card is hidden (grid collapses to single column).
+- NOTE: MultiEdit tool applied a batch non-atomically (edit 9 conflicted after edit 8 consumed its anchor) leaving broken JSX mid-file; repaired by re-reading the region and applying 4 sequential single Edits. Lesson: avoid overlapping old_str anchors within one MultiEdit batch.
+- DB was found wiped (only afomiyaaweke20@gmail.com personal user remained; test@tenetbid.com gone) — re-seeded Test Corp company + test@tenetbid.com (team_admin/company, TestPass123!) and personal@tenetbid.com (personal). Did NOT touch afomiyaaweke20@gmail.com.
+- API E2E: baseline score 15/listings 0 -> posted 2 listings via POST /api/social/proforma -> quality 17 with breakdown.listings=2, activity byType.listing=2 (streak 1), leaderboard Test Corp proformaCount=2 score 17. Personal flow: posted 1 listing without company -> activity listing=1; quality-score returns hasCompany=false + breakdown.listings=0 without crashing.
+- Browser E2E (agent-browser + VLM): in-app leaderboard as test@tenetbid.com — "Market Listings" bar 2/10 visible, "Listings posted" = 2, Test Corp row shows storefront icon stat 2 and score 17. Public /leaderboard — hero copy + row stat + score verified. Personal view — Streak card + "Listings posted 1" + heatmap with orange tile, NO Quality Score card, no layout glitches. Mobile 390px — no overflow, rows readable. agent-browser errors: none; dev.log clean.
+- tsc --noEmit 0 errors; lint 0 errors / 18 pre-existing warnings (baseline intact).
+- Pushed to GitHub (commit 07f34f8).
+
+Stage Summary:
+- Proforma marketplace activity now flows into the whole leaderboard ecosystem: public company ranking (live-listing stat + up to 10 score points), personal quality-score breakdown, and the activity heatmap/streak (new "listing" type)
+- Personal accounts get posting tracked too (own listings) and see their journey even without a company
+- Company + personal scoring stay in sync on the listings factor; Platinum badge is now attainable
+- Commit 07f34f8 on main
