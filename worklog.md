@@ -1255,3 +1255,37 @@ Stage Summary:
 - Published tenders now have a delete icon; removal always asks the owner WHY, stores the reason, notifies every applicant with it, and keeps bid history (soft-cancel) so appliers can always see why
 - Applicants can finally be shortlisted/rejected/awarded from the UI; rejection requires a reason the applicant sees on their bid, in notifications, and on the tender page
 - Reason transparency flows owner → applicant through three channels: bid card banner/rejection note, notifications, tender detail
+
+---
+Task ID: 15
+Agent: main
+Task: Registration for company vs personal accounts — personal accounts lose Team Management and Publish Tender
+
+Work Log:
+- Explored registration wizard (auth-gate.tsx 4-step flow), register/social/tenders API routes, nav-config, app-shell, dashboard, team routes; found no account-type distinction existed (every registrant forced through Company step; POST /api/tenders open to all)
+- Schema: added `accountType String @default("company") // company, personal` to User model in BOTH prisma/schema.prisma (sqlite) and prisma/schema.prod.prisma (postgres); ran bun run db:push (default backfills all existing users as 'company' — zero behavior change for them)
+- Backend register route: parse accountType from body ('personal' | default 'company'); personal accounts skip company creation entirely (companyName ignored), no TeamMember row, role 'user', accountType persisted
+- Backend social route: new social signups get accountType 'personal' (no company info collected)
+- Backend tenders POST: personal accounts now get 403 "Personal accounts cannot publish tenders. Register a company account to create tenders."
+- auth.ts AuthUser type + api.ts User interface: added accountType field (flows from DB via getAuthUser include; no JWT change needed)
+- nav-config.ts: getNavItemsForRole(role, accountType) — Team Management omitted from MANAGE for personal accounts
+- app-shell.tsx: computes isPersonal, passes accountType to nav; 'team-management' view falls back to leaderboard for personal accounts (deep-link guard)
+- dashboard.tsx: isPersonal gates — CTA becomes "Browse Tenders", Publish Tender/Team Management quick actions removed, Team Members/Tasks cards hidden, team API calls skipped entirely (defensive; DashboardView currently not mounted anywhere — leaderboard is the real home)
+- tenders.tsx TendersView: canPublishTenders = accountType !== 'personal'; Create Tender button + dialog wrapped in conditional
+- auth-gate.tsx: added accountType state + two selector cards (Company/Personal) on step 1 with selected styling, check icons and an explainer hint for personal; personal flow = 3 steps (Account → Personal → Review) with goNext/goBack skipping step 2; StepIndicator now takes a steps array; review step hides Company card for personal and shows an "Account Type" row; register() sends accountType
+- E2E verified (agent-browser + VLM + curl + Prisma):
+  - curl personal register: accountType 'personal', companyId null, companyName "ShouldBeIgnoredCo" NOT created in DB
+  - curl POST /api/tenders with personal token → 403; GET /api/team/members → 400 (no company)
+  - curl company register: accountType 'company', role team_admin, company created
+  - UI personal flow: selector renders (VLM), company step skipped (indicator "Account -> Personal -> Review"), review shows Account Type = Personal and no Company card; after signup: sidebar MANAGE = Social Circle only, tenders page has NO Create Tender button (VLM confirmed), no console/page errors
+  - UI company flow: 4 steps intact ("Account -> Company -> Personal -> Review"), new company account sees Team Management + Create Tender (VLM confirmed)
+  - Existing test@tenetbid.com (backfilled 'company'): unaffected, still has everything
+  - Mobile 390px: no horizontal overflow (VLM confirmed)
+- Note: dev server had to be restarted after db:push (stale Prisma Client raised "Unknown argument accountType" until restart)
+
+Stage Summary:
+- Users now choose Company vs Personal account at registration; personal accounts skip the company step entirely
+- Personal accounts: cannot publish tenders (UI hidden + API 403) and have no Team Management (nav hidden + view guard + no company/team rows ever created)
+- Company accounts (all existing users via default backfill) keep every feature unchanged
+- accountType persisted on User (sqlite + postgres schemas), included in auth responses; social signups are personal by default
+- Commit 2b50a85 pushed to GitHub main
