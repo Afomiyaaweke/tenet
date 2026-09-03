@@ -1289,3 +1289,23 @@ Stage Summary:
 - Company accounts (all existing users via default backfill) keep every feature unchanged
 - accountType persisted on User (sqlite + postgres schemas), included in auth responses; social signups are personal by default
 - Commit 2b50a85 pushed to GitHub main
+
+---
+Task ID: 16
+Agent: main
+Task: Fix Vercel build failure — Tender.rejectionNote missing from prod Postgres schema
+
+Work Log:
+- User posted Vercel build log for commit 2b50a85: TypeScript stage failed with "Object literal may only specify known properties, and 'rejectionNote' does not exist in type 'TenderSelect<DefaultArgs>'" at src/app/api/applicants/route.ts:42
+- Root cause: Task 14 (b03e843) added `rejectionNote String?` to the Tender model ONLY in prisma/schema.prisma (SQLite). scripts/vercel-build.sh runs `cp prisma/schema.prod.prisma prisma/schema.prisma` in production, and schema.prod.prisma's Tender model lacked the field — so the Vercel-generated Prisma client didn't know it and tsc failed. (Bid.rejectionNote WAS present in prod — grep found only 1 of 2 matches.)
+- Also found and fixed: src/app/api/social/proforma/upload/route.ts (Task 13's Proforma image-upload endpoint) had been deleted in the working tree (unstaged) — restored via `git restore` so POST /api/social/proforma/upload works again; file matches HEAD so no commit needed
+- Wrote a structural drift checker (node script parsing all `model {}` blocks from both schemas, comparing field names across all 45 models): before fix → only drift was Tender.rejectionNote; after fix → ZERO drift. This checker guards against the sqlite/prod schema divergence class of bug recurring
+- Added `rejectionNote String?` (with the same explanatory comment) to schema.prod.prisma's Tender model, after `status` — mirroring the sqlite schema
+- Verified: `prisma validate --schema prisma/schema.prod.prisma` → valid (exit 0); `bunx tsc --noEmit` → 0 errors project-wide; `bun run lint` → 0 errors / 18 pre-existing warnings (baseline intact); dev server serving 200s
+- Nullable column addition → `prisma db push --accept-data-loss` on Neon in the Vercel build is a safe ALTER TABLE ADD COLUMN, no data loss
+- Pushed to GitHub (commit bcd836a) — Vercel auto-deploy triggered
+
+Stage Summary:
+- Vercel build unblocked: the prod schema now matches the sqlite schema field-for-field (45/45 models), so the generated client includes Tender.rejectionNote and applicants/route.ts compiles
+- Task 13's Proforma upload endpoint restored after accidental working-tree deletion
+- Commit bcd836a on main
