@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, invalidateAuthCache } from '@/lib/auth';
-import { uploadFile, deleteFile } from '@/lib/storage';
+import { uploadFile, deleteFile, StorageConfigError } from '@/lib/storage';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -87,6 +87,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error('Profile photo upload error:', err);
+    if (err instanceof StorageConfigError) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 503 });
+    }
     return NextResponse.json(
       { success: false, error: 'An error occurred while uploading the photo' },
       { status: 500 }

@@ -165,7 +165,12 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   // Communication — increased from 30/min to 60/min (messaging is high-frequency)
   '/api/chats/': { limit: 60, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/conversations': { limit: 60, windowMs: 60 * 1000, strategy: 'sliding_window' },
-  '/api/social/': { limit: 20, windowMs: 60 * 1000, strategy: 'fixed_window' },
+  // Social — includes the marketplace image-upload endpoint
+  // (/api/social/proforma/upload) which shares this bucket with the Social
+  // Circle view's mount-time data fetches (~12 GETs). 20/min tripped 429s
+  // during normal browsing + posting; 60/min covers real usage while still
+  // limiting abuse.
+  '/api/social/': { limit: 60, windowMs: 60 * 1000, strategy: 'fixed_window' },
   // Public routes
   '/api/contact': { limit: 3, windowMs: 60 * 1000, strategy: 'sliding_window' },
   '/api/comments': { limit: 10, windowMs: 60 * 1000, strategy: 'sliding_window' },

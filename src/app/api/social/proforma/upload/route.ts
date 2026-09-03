@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import { uploadFile } from '@/lib/storage';
+import { uploadFile, StorageConfigError } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +81,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (err) {
     console.error('[POST /api/social/proforma/upload] error:', err);
+    if (err instanceof StorageConfigError) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 503 });
+    }
     return NextResponse.json(
       { success: false, error: 'Failed to upload image' },
       { status: 500 },

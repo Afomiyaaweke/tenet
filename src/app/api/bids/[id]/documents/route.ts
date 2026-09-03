@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { uploadFile, deleteFile, getFileBuffer } from '@/lib/storage';
+import { uploadFile, deleteFile, getFileBuffer, StorageConfigError } from '@/lib/storage';
 import { getZAI } from '@/lib/zai';
 import path from 'path';
 
@@ -133,6 +133,9 @@ export async function POST(
     );
   } catch (err) {
     console.error('Bid document upload error:', err);
+    if (err instanceof StorageConfigError) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 503 });
+    }
     return NextResponse.json(
       { success: false, error: 'An error occurred while uploading the document' },
       { status: 500 }

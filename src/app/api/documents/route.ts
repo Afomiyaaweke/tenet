@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limiter';
-import { uploadFile } from '@/lib/storage';
+import { uploadFile, StorageConfigError } from '@/lib/storage';
 import path from 'path';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
@@ -131,6 +131,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('Document upload error:', error);
+    if (error instanceof StorageConfigError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 503 });
+    }
     return NextResponse.json(
       { success: false, error: 'An error occurred while uploading the document' },
       { status: 500 }

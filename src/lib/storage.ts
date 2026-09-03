@@ -14,9 +14,44 @@ import { put, del, head } from '@vercel/blob';
 
 // ─── Environment Detection ────────────────────────────────────────────────
 
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+/**
+ * Resolve the Vercel Blob read-write token.
+ *
+ * Normally Vercel injects it as BLOB_READ_WRITE_TOKEN. When a project has
+ * multiple Blob stores linked (or the store is namespaced), Vercel prefixes
+ * the variable with the store/project name — e.g. TENET_BLOB_READ_WRITE_TOKEN
+ * (same pattern as tenet_POSTGRES_PRISMA_URL for the Postgres integration).
+ * Accept any suffix match so uploads work regardless of how the store was
+ * linked in the dashboard.
+ */
+export function getBlobToken(): string | undefined {
+  const direct = process.env.BLOB_READ_WRITE_TOKEN;
+  if (direct) return direct;
+  const prefixed = Object.entries(process.env).find(
+    ([key, value]) => key.endsWith('_BLOB_READ_WRITE_TOKEN') && !!value,
+  );
+  return prefixed?.[1];
+}
+
+/**
+ * Thrown when the deployment cannot persist files at all
+ * (e.g. running on Vercel with no Blob store connected).
+ * Carries an actionable message that upload routes surface to the client
+ * instead of an opaque 500.
+ */
+export class StorageConfigError extends Error {
+  constructor(
+    message = 'File storage is not configured on this deployment. Connect a Vercel Blob store (Project → Storage → Create Blob store → connect to this project), then redeploy.',
+  ) {
+    super(message);
+    this.name = 'StorageConfigError';
+  }
+}
+
+const BLOB_TOKEN = getBlobToken();
 const USE_VERCEL_BLOB = !!BLOB_TOKEN;
 const UPLOAD_DIR = process.cwd() + '/uploads';
+const RUNNING_ON_VERCEL = process.env.VERCEL === '1';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -94,6 +129,16 @@ export async function uploadFile(file: File, subPath?: string): Promise<UploadRe
   }
 
   // ── Local filesystem ──
+  if (RUNNING_ON_VERCEL) {
+    // Vercel's serverless filesystem is read-only — a local write would
+    // always throw EROFS and surface as an opaque 500. Fail fast with an
+    // actionable error instead.
+    console.error(
+      '[storage] No BLOB_READ_WRITE_TOKEN found in the Vercel environment — cannot persist uploads.',
+    );
+    throw new StorageConfigError();
+  }
+
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, invalidateAuthCache } from '@/lib/auth';
-import { uploadFile, deleteFile } from '@/lib/storage';
+import { uploadFile, deleteFile, StorageConfigError } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +90,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (err) {
     console.error('[POST /api/profiles/upload-media] error:', err);
+    if (err instanceof StorageConfigError) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 503 });
+    }
     return NextResponse.json(
       { success: false, error: 'Failed to upload image' },
       { status: 500 },
