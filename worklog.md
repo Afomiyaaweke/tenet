@@ -1203,3 +1203,29 @@ Stage Summary:
 - The AI Doc Studio chat now takes media: attach an image (licence, certificate, tender page, site photo) and the AI reads it with vision, with fast streaming replies and partial-output capture so it never dead-ends
 - Template creation flow simplified: the fake "Pull from Live Tender / External Sources" question is gone — pick a tool, fill the form, generate
 - callZAIVisionWithDeadline is reusable for any future image-understanding route (streaming + partial capture + deadline)
+
+---
+Task ID: 13
+Agent: main
+Task: Make the Proforma marketplace accept media files when posting a listing
+
+Work Log:
+- Inspected the Proforma flow: the ProformaListing schema already had an `imageUrls String @default("[]")` column but it was never written by the POST route nor displayed in the listing cards. The create form had no image picker at all.
+- Reused the existing shared storage abstraction (`uploadFile` / `deleteFile` in src/lib/storage.ts) which already handles local `/uploads/` in dev and Vercel Blob in prod — same path used by profile-photo and bid-document uploads.
+- Backend — new route `POST /api/social/proforma/upload`: accepts FormData `file`, validates MIME (JPEG/PNG/WebP/GIF) + 5MB cap, calls `uploadFile(file, 'proforma-images')`, returns `{ url }`. Auth-gated via requireAuth.
+- Backend — updated `POST /api/social/proforma`: now destructures `imageUrls` from the body, normalises it (accepts string[] or JSON-encoded string, filters to valid `/uploads/...` or `http(s)://` URLs, caps at 6), persists as `JSON.stringify(...)` into the existing `imageUrls` column.
+- Backend — updated `DELETE /api/social/proforma`: on hard delete (not 'sold'), parses the listing's imageUrls JSON and best-effort deletes each file via `deleteFile()` using `Promise.allSettled` so storage failures never fail the DB delete.
+- Frontend — ProformaTab create form: added `imageUrls` + `uploadingImages` state, a hidden multi-file `<input type="file">`, and an `handleImagePick` that validates each picked file (type + size), uploads sequentially via `api.upload('/social/proforma/upload', fd)`, and appends returned URLs to state. Renders a responsive preview grid (aspect-square thumbnails with hover-revealed remove button) + an "Add" tile when below the 6-photo cap, or a large dashed dropzone when empty. Submit button disabled while uploading. Resets `imageUrls` on successful post.
+- Frontend — listing card: parses `listing.imageUrls` via the existing `parseImageUrls` helper and renders a horizontal scroll strip of 80×80 thumbnails (max 6, "+N" overlay on the 6th), each opening the full-size image in a new tab, with lazy loading and hover zoom.
+- Aliased the lucide `Image` import to `ImageIcon` to avoid false-positive `jsx-a11y/alt-text` warnings (the linter flags any JSX element named `Image` as if it were next/image).
+- Verification: bun run lint (0 errors, 18 pre-existing warnings — no new warnings introduced); bunx tsc --noEmit (0 errors); dev server compiled clean.
+- Browser E2E (test@tenetbid.com, password reset to TestPass123! via bcrypt on passwordHash field): navigated Social Circle → Market tab → "Post Product Price" → filled form (Ethiopian Arabica Coffee Beans, Addis Ababa, Ethiopia, ETB 450/kg, contact, description) → uploaded /tmp/test-product.jpg (11KB JPEG generated via sharp) → preview thumbnail appeared with "Remove photo" + "Add" buttons (confirmed by snapshot + VLM) → clicked "Post to Marketplace" → success toast "Listing posted!" → listing card appeared in the marketplace with the image rendered as a clickable 80×80 thumbnail (VLM confirmed: title, price ETB 450/kg, location Addis Ababa Ethiopia, and the colourful thumbnail all visible). No console errors, no page errors.
+- DB + filesystem verified: ProformaListing row has `imageUrls = '["/uploads/proforma-images/1788422310406-9bsvl0.jpg"]'` (valid JSON), and the file exists on disk at `/home/z/my-project/uploads/proforma-images/1788422310406-9bsvl0.jpg`.
+- Pushed to GitHub (commit 79777b2).
+
+Stage Summary:
+- The Proforma marketplace now takes media: sellers can attach up to 6 product photos (JPEG/PNG/WebP/GIF, 5MB each) when posting a listing, and buyers see them as a thumbnail strip in the feed.
+- End-to-end verified: upload → preview → submit → listing renders with image; DB stores valid JSON; file persisted to disk; no errors.
+- The imageUrls column that was already in the schema is now actually used (was dead before).
+- Delete cleans up stored files (best-effort) so orphaned files don't accumulate.
+- Reused the existing storage abstraction so prod (Vercel Blob) works with no extra config.
