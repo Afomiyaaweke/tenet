@@ -452,7 +452,9 @@ export function ProfileView() {
 
       {/* ==========================================
           COMPANY SECTION (top of profile)
-          ========================================== */}
+          Hidden for personal accounts — they have no company
+         ========================================== */}
+      {!isPersonal && (
       <div className="animate-[fadeIn_0.3s_ease-out]">
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
@@ -709,6 +711,7 @@ export function ProfileView() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* ==========================================
           ROLE & ACCESS SECTION

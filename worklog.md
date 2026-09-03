@@ -1374,3 +1374,22 @@ Stage Summary:
 - Company accounts are completely unaffected (company PortfolioEditor + [slug] page untouched); only personal accounts get the new PersonalPortfolioEditor + /u/[slug] page
 - Both Prisma schemas (sqlite + postgres) updated identically with the 5 new Profile fields — Vercel build will not break (schema.prod.prisma is what Vercel uses via vercel-build.sh)
 - The "u" slug is reserved in both profile and company vanity-slug validators to prevent route collisions (/u/<slug> for personal, /<slug> for company)
+
+---
+Task ID: 18
+Agent: main
+Task: Remove the "Set Up Your Company" form/section from the personal profile
+
+Work Log:
+- Located the Company section card in src/components/modules/profile.tsx (spans COMPANY SECTION comment through the "No company associated" empty state with the "Set Up Your Company" button)
+- Wrapped the entire Company section card in {!isPersonal && (...)} using the existing isPersonal flag (user.accountType === 'personal') — personal accounts no longer see the Company card at all (no more confusing "Set Up Your Company" prompt for accounts that can never have a company)
+- Verified with tsc (0 errors) + lint (0 errors / 18 warnings baseline)
+- Browser E2E (agent-browser + VLM):
+  - Personal account personal@tenetbid.com: Profile view now flows My Profile → Your Portfolio is Live (PersonalPortfolioEditor) → Role & Access → Bio. VLM confirmed NO Company card / Set Up Your Company section anywhere
+  - Regression: company account test@tenetbid.com still sees the full Company card ("Company" + Test Corp + team members) — company accounts unaffected
+- No dev log errors
+
+Stage Summary:
+- Personal profile no longer shows the Company section / "Set Up Your Company" form
+- Company accounts unchanged
+- Single-file change in src/components/modules/profile.tsx
