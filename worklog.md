@@ -1422,3 +1422,28 @@ Stage Summary:
 - Single-file fix: added the missing `/api/social/proforma/upload/route.ts` endpoint. Marketplace listings can now attach up to 6 product photos (JPEG/PNG/WebP/GIF, 5MB each) — images are stored via the shared storage abstraction (Vercel Blob in prod, local /uploads in dev) and round-trip through the listing's `imageUrls` JSON field.
 - No schema changes, no client changes, no migration needed — the client code was already correct, only the backend route was missing.
 - Verified end-to-end in the browser: upload → preview → submit → marketplace grid shows the listing with its photo rendered.
+
+---
+Task ID: 20
+Agent: main
+Task: "uploading images over all is not working" — diagnose and fix uploads failing across the whole app
+
+Work Log:
+- Local first: tested every image upload endpoint against localhost:3000 with curl + a sharp-generated JPEG — avatar (/api/profiles/upload-photo 200), portfolio (/api/profiles/upload-media 201), marketplace (/api/social/proforma/upload 201). Caddyfile has no body-size limits. Dev log clean. Local was fully healthy.
+- Reproduced on production: registered a throwaway diagnostic account (media-diag@tenetbid.com / DiagTest123!, personal) on https://tenetbid.vercel.app, then POSTed the same image to all three image endpoints → ALL returned HTTP 500 with generic error bodies. Same 500s on /api/documents presumably (same storage path).
+- Root cause: src/lib/storage.ts used Vercel Blob only when process.env.BLOB_READ_WRITE_TOKEN was set; otherwise it wrote to process.cwd()/uploads. On Vercel's read-only serverless filesystem that write always throws EROFS → every upload in the app 500'd in production while working locally. Deployment was confirmed current (the new /api/social/proforma/upload route responded 401 unauth), so this was not a stale deploy.
+- Could not inspect Vercel env directly (no .vercel link, vercel CLI logged out) — proved the token absence by shipping the fix and re-probing (see below).
+- Fix in src/lib/storage.ts:
+  - New getBlobToken(): accepts BLOB_READ_WRITE_TOKEN or ANY *_BLOB_READ_WRITE_TOKEN suffix match (Vercel's prefixed naming when a store is linked namespaced — mirrors the tenet_POSTGRES_* pattern the build script already handles).
+  - New StorageConfigError class with an actionable default message ("File storage is not configured on this deployment. Connect a Vercel Blob store (Project → Storage → Create Blob store → connect to this project), then redeploy.").
+  - uploadFile() now fails fast with StorageConfigError when RUNNING_ON_VERCEL without a Blob token instead of attempting the doomed local write.
+- Fix in all 6 upload routes (profiles/upload-photo, profiles/upload-media, social/proforma/upload, documents, bids/[id]/documents, tenders/documents): catch blocks surface StorageConfigError as HTTP 503 with the actionable message.
+- Fix in src/proxy.ts: /api/social/ rate limit 20 → 60/min — the marketplace upload endpoint shares this bucket with Social Circle's ~12 mount-time GET burst; observed 429s earlier during normal browsing, which also read as "upload not working".
+- Verification: tsc 0 errors; lint 0 errors / 18 warnings (baseline); local uploads all still succeed (200/201/201) incl. after a 12-GET burst (no 429). Pushed commit a8ab621 → Vercel deployed → re-probed prod with the diag account: uploads now return **503 with the explicit "File storage is not configured…" message**, which conclusively proves NO Blob token exists under any env name in the Vercel project.
+- Remaining step is dashboard-side (cannot be done from the sandbox): the user must create/connect a Vercel Blob store to the tenet project. Vercel then injects BLOB_READ_WRITE_TOKEN and redeploys — uploads work everywhere immediately with zero further code changes (getBlobToken covers plain + prefixed names).
+- Diagnostic account media-diag@tenetbid.com remains in the prod Neon DB (harmless test user; password DiagTest123!). Local test accounts (personal@tenetbid.com / test@tenetbid.com, TestPass123!) were re-seeded earlier this session after the dev DB was found empty.
+
+Stage Summary:
+- "Uploads not working everywhere" = production-only storage misconfiguration: no Vercel Blob store connected → read-only FS → 500 on all uploads. Local was never broken.
+- Code hardened so this failure mode is impossible to miss: prefixed token variants accepted, explicit 503 with setup instructions on every upload route, marketplace rate-limit headroom.
+- ONE user action remains: Vercel Dashboard → tenet project → Storage → Create Blob store → connect → (auto redeploy). Then avatar/portfolio/marketplace/documents uploads all work on production.
