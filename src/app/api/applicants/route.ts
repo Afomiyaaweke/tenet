@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         title: true,
         deadline: true,
         status: true,
+        rejectionNote: true,
         budgetMin: true,
         budgetMax: true,
         categoryTags: true,
@@ -75,6 +76,7 @@ export async function GET(request: NextRequest) {
             budgetMin: t.budgetMin, budgetMax: t.budgetMax, categoryTags: t.categoryTags,
             location: t.location, createdAt: t.createdAt, bidCount: t._count.bids,
             isClosed, applicantCount: isClosed ? t._count.bids : 0,
+            rejectionNote: t.rejectionNote,
           };
         }),
       });
@@ -293,6 +295,7 @@ export async function GET(request: NextRequest) {
           budgetMin: t.budgetMin, budgetMax: t.budgetMax, categoryTags: t.categoryTags,
           location: t.location, createdAt: t.createdAt, bidCount: t._count.bids,
           isClosed, applicantCount: isClosed ? t._count.bids : 0,
+          rejectionNote: t.rejectionNote,
         };
       }),
     });

@@ -650,6 +650,23 @@ ${tender.budgetMin || tender.budgetMax ? `**Budget:** ETB ${tender.budgetMin || 
                   </div>
                 </div>
 
+                {/* Tender removed by owner — show the reason */}
+                {tender.status === 'cancelled' && (
+                  <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/20 px-4 py-3">
+                    <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+                        This tender was removed by the owner
+                      </p>
+                      {tender.rejectionNote && (
+                        <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">
+                          Reason: {tender.rejectionNote}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Key Metrics */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                   <div className="bg-emerald-50/60 rounded-xl p-3">

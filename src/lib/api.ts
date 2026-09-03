@@ -286,6 +286,7 @@ export interface Tender {
   externalUrl?: string | null; // URL to the original bid on the source site (for imported live tenders)
   externalSource?: string | null; // source identifier: worldbank, eu_ted, sam_gov, etc.
   status: 'draft' | 'open' | 'closed' | 'awarded' | 'cancelled';
+  rejectionNote?: string | null; // reason why the owner removed/cancelled the tender
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -358,7 +359,7 @@ export interface Bid {
   status: 'drafted' | 'pending_review' | 'shortlisted' | 'awarded' | 'rejected' | 'withdrawn';
   rejectionNote?: string;
   createdAt: string;
-  tender?: { id: string; title: string; status: string };
+  tender?: { id: string; title: string; status: string; rejectionNote?: string | null };
   user?: { id: string; email: string; profile?: { fullName: string; jobTitle?: string }; company?: { id: string; name: string } };
   documents?: BidDocument[];
 }

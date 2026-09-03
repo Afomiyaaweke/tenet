@@ -765,6 +765,23 @@ export function BidsView() {
                     }`} />
 
                     <CardContent className="p-0">
+                      {/* Tender removed by owner — show the reason to the applicant */}
+                      {bid.tender?.status === 'cancelled' && (
+                        <div className="mx-4 mt-3 flex items-start gap-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/20 px-3.5 py-3">
+                          <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">
+                              Tender removed by the owner
+                            </p>
+                            {bid.tender?.rejectionNote && (
+                              <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">
+                                Reason: {bid.tender.rejectionNote}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Bid Header Row */}
                       <div className="p-4 cursor-pointer hover:bg-muted/20 transition-colors"
                         onClick={() => setExpandedId(isExpanded ? null : bid.id)}>

@@ -11,6 +11,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
@@ -26,7 +30,7 @@ import {
   Calendar, Tag, CheckCircle, XCircle, CircleDot, Award,
   Ban, ClipboardCheck, MoreHorizontal, ExternalLink, Sparkles,
   RefreshCw, Columns3, CheckSquare, Square, Timer, Lock,
-  Hourglass, ArrowLeft,
+  Hourglass, ArrowLeft, Trash2,
   FileText, ScanSearch, Brain, Upload, FileCheck, FileX,
   Loader2, AlertTriangle, X, CheckCircle2, Info, ThumbsUp,
   ThumbsDown, AlertOctagon, ChartColumn, FolderOpen,
@@ -116,6 +120,7 @@ interface PublishedTenderInfo {
   bidCount: number;
   isClosed: boolean;
   applicantCount: number;
+  rejectionNote?: string | null;
 }
 
 type SortField = keyof ApplicantRow;
@@ -222,6 +227,19 @@ export function ApplicantsView() {
 
   // ─── Document / OCR / AI Review state ───────────────────────────
   const [docUploadBidId, setDocUploadBidId] = useState<string | null>(null);
+
+  // ─── Tender delete (with required reason) state ────────────────
+  const [deleteTender, setDeleteTender] = useState<PublishedTenderInfo | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  // ─── Applicant bid actions (shortlist / reject / award) state ──
+  const [rejectBid, setRejectBid] = useState<ApplicantRow | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [awardBid, setAwardBid] = useState<ApplicantRow | null>(null);
+  const [awarding, setAwarding] = useState(false);
   const [ocrLoading, setOcrLoading] = useState<Set<string>>(new Set());
   const [reviewLoading, setReviewLoading] = useState<Set<string>>(new Set());
   const [viewingDocId, setViewingDocId] = useState<string | null>(null);
@@ -293,6 +311,289 @@ export function ApplicantsView() {
     setPage(1);
     setExpandedRow(null);
   };
+
+  // ─── Tender delete (asks the owner WHY, notifies applicants) ────
+  const handleDeleteTender = async () => {
+    if (!deleteTender) return;
+    if (deleteReason.trim().length < 3) {
+      toast.error('Please write why you are removing this tender — applicants will see your reason');
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await api.delete(`/tenders/${deleteTender.id}?reason=${encodeURIComponent(deleteReason.trim())}`);
+      if (res.success) {
+        const notified = res.data?.notifiedApplicants ?? 0;
+        toast.success(
+          notified > 0
+            ? `Tender removed. ${notified} applicant${notified !== 1 ? 's were' : ' was'} notified with your reason.`
+            : 'Tender deleted.'
+        );
+        setDeleteTender(null);
+        setDeleteReason('');
+        setSelectedTenderId(null);
+        setSelectedTenderInfo(null);
+        fetchData();
+      } else {
+        toast.error(res.error || 'Failed to delete tender');
+      }
+    } catch {
+      toast.error('Failed to delete tender');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // ─── Applicant bid actions: shortlist / reject (with reason) / award ──
+  const handleBidAction = async (row: ApplicantRow, status: 'shortlisted' | 'awarded') => {
+    setActionBusyId(row.id);
+    try {
+      const res = await api.patch(`/bids/${row.id}/status`, { status });
+      if (res.success) {
+        toast.success(
+          status === 'shortlisted'
+            ? `${row.applicantName} shortlisted`
+            : `Bid awarded to ${row.applicantName} — project created`
+        );
+        fetchData();
+      } else {
+        toast.error(res.error || `Failed to ${status === 'shortlisted' ? 'shortlist' : 'award'} bid`);
+      }
+    } catch {
+      toast.error('Failed to update bid status');
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const handleAwardBid = async () => {
+    if (!awardBid) return;
+    setAwarding(true);
+    try {
+      await handleBidAction(awardBid, 'awarded');
+      setAwardBid(null);
+    } finally {
+      setAwarding(false);
+    }
+  };
+
+  const handleRejectBid = async () => {
+    if (!rejectBid) return;
+    if (rejectReason.trim().length < 3) {
+      toast.error('Please write why this bid is rejected — the applicant will see your reason');
+      return;
+    }
+    setRejecting(true);
+    try {
+      const res = await api.patch(`/bids/${rejectBid.id}/status`, {
+        status: 'rejected',
+        rejectionNote: rejectReason.trim(),
+      });
+      if (res.success) {
+        toast.success(`${rejectBid.applicantName}'s bid rejected — applicant notified with your reason`);
+        setRejectBid(null);
+        setRejectReason('');
+        fetchData();
+      } else {
+        toast.error(res.error || 'Failed to reject bid');
+      }
+    } catch {
+      toast.error('Failed to reject bid');
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  // Renders the owner action buttons for one applicant row based on its status
+  const renderBidActions = (row: ApplicantRow) => {
+    if (row.bidStatus === 'pending_review') {
+      return (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Button
+            size="sm"
+            className="h-7 text-[11px] bg-teal-600 hover:bg-teal-700 text-white rounded-lg px-3 gap-1"
+            disabled={actionBusyId === row.id}
+            onClick={() => handleBidAction(row, 'shortlisted')}
+          >
+            {actionBusyId === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardCheck className="h-3 w-3" />}
+            Shortlist
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg px-3 gap-1"
+            disabled={actionBusyId === row.id}
+            onClick={() => { setRejectReason(''); setRejectBid(row); }}
+          >
+            <Ban className="h-3 w-3" />
+            Reject
+          </Button>
+        </div>
+      );
+    }
+    if (row.bidStatus === 'shortlisted') {
+      return (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Button
+            size="sm"
+            className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 gap-1"
+            disabled={actionBusyId === row.id}
+            onClick={() => setAwardBid(row)}
+          >
+            {actionBusyId === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Award className="h-3 w-3" />}
+            Award
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg px-3 gap-1"
+            disabled={actionBusyId === row.id}
+            onClick={() => { setRejectReason(''); setRejectBid(row); }}
+          >
+            <Ban className="h-3 w-3" />
+            Reject
+          </Button>
+        </div>
+      );
+    }
+    if (row.bidStatus === 'rejected' && row.rejectionNote) {
+      return (
+        <p className="text-[11px] text-rose-600 dark:text-rose-400">
+          <span className="font-semibold">Reason sent to applicant:</span> {row.rejectionNote}
+        </p>
+      );
+    }
+    return null;
+  };
+
+  // Owner action dialogs (delete tender / reject bid / award bid) — shared by
+  // both the published-tenders view and the applicants-table view returns.
+  const renderActionDialogs = () => (
+    <>
+      {/* ─── Delete Tender Dialog (asks the owner WHY) ─── */}
+      <Dialog open={!!deleteTender} onOpenChange={(open) => { if (!open) { setDeleteTender(null); setDeleteReason(''); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-rose-500" />
+              Remove Tender
+            </DialogTitle>
+            <DialogDescription>
+              You are removing <span className="font-semibold text-foreground">&ldquo;{deleteTender?.title}&rdquo;</span>.
+              {deleteTender && deleteTender.bidCount > 0 && (
+                <> {deleteTender.bidCount} applicant{deleteTender.bidCount !== 1 ? 's have' : ' has'} applied — they will be notified with your reason.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-foreground">
+              Why are you removing this tender? <span className="text-rose-500">*</span>
+            </label>
+            <Textarea
+              placeholder="e.g. Budget was withdrawn, project scope changed, funding fell through..."
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              rows={3}
+              className="text-sm"
+              autoFocus
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Your reason is required and will be shown to every applicant on their bid and in their notification.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => { setDeleteTender(null); setDeleteReason(''); }} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={deleting || deleteReason.trim().length < 3}
+              onClick={handleDeleteTender}
+            >
+              {deleting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Removing...</> : <><Trash2 className="h-3.5 w-3.5 mr-1" /> Remove & Notify{deleteTender && deleteTender.bidCount > 0 ? ' Applicants' : ''}</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Reject Bid Dialog (asks WHY — reason goes to the applicant) ─── */}
+      <Dialog open={!!rejectBid} onOpenChange={(open) => { if (!open) { setRejectBid(null); setRejectReason(''); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-4 w-4 text-rose-500" />
+              Reject Bid
+            </DialogTitle>
+            <DialogDescription>
+              Rejecting the bid from <span className="font-semibold text-foreground">{rejectBid?.applicantName}</span>
+              {rejectBid?.companyName ? <> ({rejectBid.companyName})</> : null} for
+              <span className="font-semibold text-foreground"> &ldquo;{rejectBid?.tenderTitle}&rdquo;</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-foreground">
+              Why is this bid rejected? <span className="text-rose-500">*</span>
+            </label>
+            <Textarea
+              placeholder="e.g. Financial proposal is above our budget ceiling, missing required certifications, timeline does not meet the project schedule..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+              className="text-sm"
+              autoFocus
+            />
+            <p className="text-[11px] text-muted-foreground">
+              The applicant will see this reason on their bid and in their notification.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => { setRejectBid(null); setRejectReason(''); }} disabled={rejecting}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={rejecting || rejectReason.trim().length < 3}
+              onClick={handleRejectBid}
+            >
+              {rejecting ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Rejecting...</> : <><Ban className="h-3.5 w-3.5 mr-1" /> Reject & Notify Applicant</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Award Bid Confirmation ─── */}
+      <Dialog open={!!awardBid} onOpenChange={(open) => { if (!open) setAwardBid(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Award className="h-4 w-4 text-emerald-500" />
+              Award Bid
+            </DialogTitle>
+            <DialogDescription>
+              Award the tender <span className="font-semibold text-foreground">&ldquo;{awardBid?.tenderTitle}&rdquo;</span> to{' '}
+              <span className="font-semibold text-foreground">{awardBid?.applicantName}</span>
+              {awardBid?.companyName ? <> ({awardBid.companyName})</> : null}? A project and chat will be created and the tender will close.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setAwardBid(null)} disabled={awarding}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={awarding}
+              onClick={handleAwardBid}
+            >
+              {awarding ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Awarding...</> : <><Award className="h-3.5 w-3.5 mr-1" /> Confirm Award</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 
   // ─── Document handlers ──────────────────────────────────────────
   const handleDocUpload = useCallback(async (bidId: string, file: File) => {
@@ -877,6 +1178,7 @@ export function ApplicantsView() {
               <ExpandedRowDetail
                 row={sortedRows.find(r => r.id === expandedRow)!}
                 setView={setView}
+                bidActions={renderBidActions(sortedRows.find(r => r.id === expandedRow)!)}
                 docUploadBidId={docUploadBidId}
                 ocrLoading={ocrLoading}
                 reviewLoading={reviewLoading}
@@ -928,6 +1230,7 @@ export function ApplicantsView() {
             {sortedRows.map((row) => {
               const bidCfg = STATUS_CONFIG[row.bidStatus] || STATUS_CONFIG.pending_review;
               const BidStatusIcon = bidCfg.icon;
+              const bidActions = renderBidActions(row);
               return (
                 <Card key={row.id} className={`overflow-hidden hover:shadow-md transition-shadow ${row.bidStatus === 'awarded' ? 'border-emerald-300 dark:border-emerald-700' : ''}`}>
                   <CardContent className="p-4">
@@ -997,12 +1300,20 @@ export function ApplicantsView() {
                         )}
                       </div>
                     </div>
+
+                    {/* Owner actions: shortlist / reject / award */}
+                    {bidActions && (
+                      <div className="mt-2.5 pt-2.5 border-t border-dashed">
+                        {bidActions}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
             })}
           </div>
         )}
+        {renderActionDialogs()}
       </div>
     );
   }
@@ -1149,11 +1460,34 @@ export function ApplicantsView() {
                         {tender.title}
                       </h3>
                     </div>
-                    <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg shrink-0 ${cfg.className}`}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      {cfg.label}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge className={`text-[10px] px-2 py-0.5 border-0 rounded-lg ${cfg.className}`}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        {cfg.label}
+                      </Badge>
+                      {/* Delete (remove tender) — asks the owner why */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 shrink-0"
+                        title={tender.bidCount > 0 ? 'Remove tender (applicants will be asked for a reason and notified)' : 'Delete tender'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteReason('');
+                          setDeleteTender(tender);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
+
+                  {/* Owner's removal reason shown on cancelled tenders */}
+                  {tender.status === 'cancelled' && tender.rejectionNote && (
+                    <p className="text-[11px] text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 rounded-lg px-2.5 py-1.5 mb-2">
+                      <span className="font-semibold">Removed —</span> {tender.rejectionNote}
+                    </p>
+                  )}
 
                   {/* Budget */}
                   <div className="flex items-center gap-1.5 mb-2">
@@ -1237,6 +1571,8 @@ export function ApplicantsView() {
           })}
         </div>
       )}
+
+      {renderActionDialogs()}
     </div>
   );
 }
@@ -1614,6 +1950,7 @@ function DocumentDetailPanel({ docId, type, ocrText, reviewData, onClose }: Docu
 interface ExpandedRowDetailProps {
   row: ApplicantRow;
   setView: (v: View, p?: Record<string, string>) => void;
+  bidActions?: React.ReactNode;
   docUploadBidId: string | null;
   ocrLoading: Set<string>;
   reviewLoading: Set<string>;
@@ -1630,7 +1967,7 @@ interface ExpandedRowDetailProps {
 }
 
 function ExpandedRowDetail({
-  row, setView,
+  row, setView, bidActions,
   docUploadBidId, ocrLoading, reviewLoading,
   viewingDocId, viewingDocType, docOcrText, docReview,
   onUploadDoc, onSetDocUploadBidId, onRunOcr, onRunReview, onViewDocDetail, onCloseDocDetail,
@@ -1756,6 +2093,14 @@ function ExpandedRowDetail({
               </div>
             )}
           </div>
+
+          {/* Owner actions: shortlist / reject (with reason) / award */}
+          {bidActions && (
+            <div className="mt-3 pt-2 border-t border-dashed">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Owner Actions</p>
+              {bidActions}
+            </div>
+          )}
           <div className="mt-3 pt-2 border-t">
             <Button
               variant="outline"
