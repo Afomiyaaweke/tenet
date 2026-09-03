@@ -1393,3 +1393,32 @@ Stage Summary:
 - Personal profile no longer shows the Company section / "Set Up Your Company" form
 - Company accounts unchanged
 - Single-file change in src/components/modules/profile.tsx
+
+---
+Task ID: 19
+Agent: main
+Task: Fix "the market is failing to import the media" — marketplace listing image uploads were 404ing
+
+Work Log:
+- Root cause: src/components/modules/social-circle.tsx (line ~1870) calls `api.upload('/social/proforma/upload', fd)` to attach product photos to a marketplace listing, but the route file `/api/social/proforma/upload/route.ts` did NOT exist — only `route.ts` and `[id]/route.ts` were present under that folder. Every image upload from the "Post Product Price" form therefore hit a 404 and the photo was never stored, so listings had no media.
+- Created `/home/z/my-project/src/app/api/social/proforma/upload/route.ts` mirroring the proven pattern from `/api/profiles/upload-media/route.ts`:
+  - `requireAuth` gate
+  - FormData `file` field, MIME whitelist (jpeg/png/webp/gif), 5MB cap
+  - `uploadFile(file, 'proforma-images')` via the shared storage abstraction (local /uploads in dev, Vercel Blob in prod)
+  - Sanity-checks an optional `count` FormData field against MAX_IMAGES_PER_LISTING (6) so a malformed request can't bypass the client-side cap
+  - Returns `{ success: true, data: { url } }` — exactly the shape `api.upload` + the social-circle.tsx consumer expect (`res.data.url`)
+  - Does NOT write to the DB: the URL is collected client-side in `imageUrls` state and persisted only when the listing itself is POSTed to `/api/social/proforma` (which already normalises/saves `imageUrls` as a JSON string). This keeps the upload endpoint idempotent and avoids orphan listings.
+- Re-seeded dev DB (was empty): ran `bun run db:seed` (created admin@tenet.app) then a one-off node script to add back the two test accounts — `test@tenetbid.com` / `TestPass123!` (company, team_admin, Test Corp) and `personal@tenetbid.com` / `TestPass123!` (personal). Used `findFirst` for the company lookup because `findUnique({where:{name}})` is not valid (name is not a @unique field).
+- E2E verification (curl + agent-browser):
+  - curl POST /api/social/proforma/upload with a sharp-generated 120×120 JPEG + bearer token → 201, body `{ success: true, data: { url: "/uploads/proforma-images/<ts>-<rand>.jpg" } }` ✓
+  - curl POST /api/social/proforma with that URL in `imageUrls` → 201, listing persisted with `imageUrls: "[\"/uploads/proforma-images/...\"]"` ✓
+  - curl GET /api/social/proforma → listing round-trips with the image URL intact ✓
+  - Browser E2E as personal@tenetbid.com: opened Social Circle → Market tab → "Post Product Price" → filled product/city/country/price/description → uploaded test JPEG via the (hidden) file input → network showed `POST /api/social/proforma/upload 201` + `GET /uploads/proforma-images/...jpg 200` (preview rendered), counter showed "1/6", zero console/page errors ✓
+  - After submit + reload (rate-limit window cleared), the Market tab now renders the listing card "Sidamo Coffee (market media test)" with the image loaded (naturalWidth 120, alt "Sidamo Coffee (market media test) — photo 1") and the country filter chip shows "Ethiopia (1)" ✓
+- tsc --noEmit: 0 errors. lint: 0 errors / 18 warnings (baseline intact — no new warnings introduced).
+- Note: observed (pre-existing, NOT introduced by this fix) that the Social Circle component fires many redundant GETs to /api/social/* on mount/interaction, which trips the in-proxy rate limiter (src/proxy.ts) and causes transient 429s on /api/social/proforma and /api/social/discover. This is a separate over-fetching issue, not the media-import bug, and was not touched here.
+
+Stage Summary:
+- Single-file fix: added the missing `/api/social/proforma/upload/route.ts` endpoint. Marketplace listings can now attach up to 6 product photos (JPEG/PNG/WebP/GIF, 5MB each) — images are stored via the shared storage abstraction (Vercel Blob in prod, local /uploads in dev) and round-trip through the listing's `imageUrls` JSON field.
+- No schema changes, no client changes, no migration needed — the client code was already correct, only the backend route was missing.
+- Verified end-to-end in the browser: upload → preview → submit → marketplace grid shows the listing with its photo rendered.
