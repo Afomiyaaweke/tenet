@@ -4,22 +4,17 @@ import { requireAuth } from '@/lib/auth';
 
 /**
  * GET /api/activity/me?days=365
- * Returns the current user's company activity aggregated by day for a
+ * Returns the current user's activity aggregated by day for a
  * GitHub-style contribution heatmap.
  *
- * Sources: bids submitted, tenders published, projects started, documents uploaded.
+ * Sources: bids submitted, tenders published, projects started, documents
+ * uploaded, and Proforma marketplace listings posted. Company-scoped for
+ * company accounts; personal accounts still get their own listing posts.
  */
 export async function GET(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
-
-    if (!user?.companyId) {
-      return NextResponse.json({
-        success: true,
-        data: { days: [], total: 0, byType: {}, streak: 0, longestStreak: 0 },
-      });
-    }
 
     const url = new URL(request.url);
     const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '365', 10) || 365, 30), 730);
@@ -28,36 +23,28 @@ export async function GET(request: NextRequest) {
     // Align to start of day
     startDate.setHours(0, 0, 0, 0);
 
-    const companyId = user.companyId;
+    const companyId = user?.companyId || null;
+    const range = { createdAt: { gte: startDate } };
 
-    // Fetch all activity sources in parallel — only createdAt timestamps needed
-    const [bids, tenders, projects, documents] = await Promise.all([
-      db.bid.findMany({
-        where: {
-          createdAt: { gte: startDate },
-          user: { companyId },
-        },
-        select: { createdAt: true },
-      }),
-      db.tender.findMany({
-        where: {
-          createdAt: { gte: startDate },
-          companyId,
-        },
-        select: { createdAt: true },
-      }),
-      db.project.findMany({
-        where: {
-          createdAt: { gte: startDate },
-          companyId,
-        },
-        select: { createdAt: true },
-      }),
-      db.document.findMany({
-        where: {
-          createdAt: { gte: startDate },
-          company: { id: companyId },
-        },
+    // Fetch all activity sources in parallel — only createdAt timestamps needed.
+    // Listing posts are always tracked (own posts for personal accounts,
+    // team-wide for company accounts); the other four need a company.
+    const empty: { createdAt: Date }[] = [];
+    const [bids, tenders, projects, documents, listings] = await Promise.all([
+      companyId
+        ? db.bid.findMany({ where: { ...range, user: { companyId } }, select: { createdAt: true } })
+        : Promise.resolve(empty),
+      companyId
+        ? db.tender.findMany({ where: { ...range, companyId }, select: { createdAt: true } })
+        : Promise.resolve(empty),
+      companyId
+        ? db.project.findMany({ where: { ...range, companyId }, select: { createdAt: true } })
+        : Promise.resolve(empty),
+      companyId
+        ? db.document.findMany({ where: { ...range, company: { id: companyId } }, select: { createdAt: true } })
+        : Promise.resolve(empty),
+      db.proformaListing.findMany({
+        where: { ...range, ...(companyId ? { user: { companyId } } : { userId: user!.id }) },
         select: { createdAt: true },
       }),
     ]);
@@ -70,7 +57,7 @@ export async function GET(request: NextRequest) {
       d.setHours(0, 0, 0, 0);
       const key = d.toISOString().split('T')[0];
       if (!dayMap.has(key)) {
-        dayMap.set(key, { date: key, count: 0, byType: { bid: 0, tender: 0, project: 0, document: 0 } });
+        dayMap.set(key, { date: key, count: 0, byType: { bid: 0, tender: 0, project: 0, document: 0, listing: 0 } });
       }
       const entry = dayMap.get(key)!;
       entry.count += 1;
@@ -81,6 +68,7 @@ export async function GET(request: NextRequest) {
     tenders.forEach(t => addToDay(t.createdAt, 'tender'));
     projects.forEach(p => addToDay(p.createdAt, 'project'));
     documents.forEach(d => addToDay(d.createdAt, 'document'));
+    listings.forEach(l => addToDay(l.createdAt, 'listing'));
 
     // Build a complete day series (fill gaps with 0) for the requested range
     const daysArray: { date: string; count: number; byType: Record<string, number> }[] = [];
@@ -88,7 +76,7 @@ export async function GET(request: NextRequest) {
     while (cursor <= now) {
       const key = cursor.toISOString().split('T')[0];
       const entry = dayMap.get(key);
-      daysArray.push(entry || { date: key, count: 0, byType: { bid: 0, tender: 0, project: 0, document: 0 } });
+      daysArray.push(entry || { date: key, count: 0, byType: { bid: 0, tender: 0, project: 0, document: 0, listing: 0 } });
       cursor.setDate(cursor.getDate() + 1);
     }
 
@@ -122,9 +110,10 @@ export async function GET(request: NextRequest) {
       tender: tenders.length,
       project: projects.length,
       document: documents.length,
+      listing: listings.length,
     };
 
-    const total = bids.length + tenders.length + projects.length + documents.length;
+    const total = bids.length + tenders.length + projects.length + documents.length + listings.length;
 
     return NextResponse.json({
       success: true,

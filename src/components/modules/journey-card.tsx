@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Flame, TrendingUp, Gavel, FolderKanban, FileText, FileSearch,
-  ShieldCheck, Sparkles, ArrowUpRight, Award, Calendar,
+  ShieldCheck, Sparkles, ArrowUpRight, Award, Calendar, Store,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,13 +14,13 @@ import { api } from '@/lib/api';
 interface DayActivity {
   date: string;
   count: number;
-  byType: { bid: number; tender: number; project: number; document: number };
+  byType: { bid: number; tender: number; project: number; document: number; listing: number };
 }
 
 interface ActivityData {
   days: DayActivity[];
   total: number;
-  byType: { bid: number; tender: number; project: number; document: number };
+  byType: { bid: number; tender: number; project: number; document: number; listing: number };
   streak: number;
   longestStreak: number;
 }
@@ -30,7 +30,7 @@ interface QualityData {
   badge: 'platinum' | 'gold' | 'silver' | 'bronze' | 'new';
   scoreBreakdown: {
     verified: number; profileCompleteness: number; documents: number;
-    tenders: number; bids: number; projects: number; endorsements: number;
+    tenders: number; bids: number; projects: number; endorsements: number; listings: number;
   };
   nextMilestone: number;
   nextBadge: string;
@@ -77,6 +77,7 @@ const SCORE_FACTORS = [
   { key: 'bids',                label: 'Bids',             max: 10, icon: Gavel },
   { key: 'projects',            label: 'Projects',         max: 10, icon: FolderKanban },
   { key: 'endorsements',        label: 'Endorsements',     max: 10, icon: Award },
+  { key: 'listings',            label: 'Market Listings',  max: 10, icon: Store },
 ] as const;
 
 /* ───────────────────────── Activity Heatmap ───────────────────────── */
@@ -92,7 +93,7 @@ function ActivityHeatmap({ days }: { days: DayActivity[] }) {
     const firstDate = new Date(days[0].date + 'T00:00:00');
     const firstWeekday = firstDate.getDay(); // 0=Sun..6=Sat
     for (let i = 0; i < firstWeekday; i++) {
-      currentWeek.push({ date: '', count: 0, byType: { bid: 0, tender: 0, project: 0, document: 0 } });
+      currentWeek.push({ date: '', count: 0, byType: { bid: 0, tender: 0, project: 0, document: 0, listing: 0 } });
     }
 
     for (const day of days) {
@@ -105,7 +106,7 @@ function ActivityHeatmap({ days }: { days: DayActivity[] }) {
     if (currentWeek.length > 0) {
       // Pad the final week
       while (currentWeek.length < 7) {
-        currentWeek.push({ date: '', count: 0, byType: { bid: 0, tender: 0, project: 0, document: 0 } });
+        currentWeek.push({ date: '', count: 0, byType: { bid: 0, tender: 0, project: 0, document: 0, listing: 0 } });
       }
       weeks.push(currentWeek);
     }
@@ -134,7 +135,7 @@ function ActivityHeatmap({ days }: { days: DayActivity[] }) {
     return (
       <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
         <Calendar className="w-4 h-4 mr-2" />
-        Start your journey — submit a bid, publish a tender, or upload a document.
+        Start your journey — submit a bid, publish a tender, upload a document, or post a marketplace listing.
       </div>
     );
   }
@@ -202,7 +203,7 @@ function ActivityHeatmap({ days }: { days: DayActivity[] }) {
                 {new Date(hovered.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 {hovered.count > 0 && (
                   <span className="text-muted-foreground/70 ml-1">
-                    ({hovered.byType.bid} bids, {hovered.byType.tender} tenders, {hovered.byType.project} projects, {hovered.byType.document} docs)
+                    ({hovered.byType.bid} bids, {hovered.byType.tender} tenders, {hovered.byType.project} projects, {hovered.byType.document} docs, {hovered.byType.listing || 0} listings)
                   </span>
                 )}
               </span>
@@ -285,8 +286,21 @@ export function JourneyCard() {
     );
   }
 
-  // If user has no company, show a soft prompt to set one up
-  if (quality?.hasCompany === false) {
+  const score = quality?.qualityScore ?? 0;
+  const badge = quality?.badge ?? 'new';
+  const badgeStyle = BADGE_STYLE[badge] || BADGE_STYLE.new;
+  const breakdown = quality?.scoreBreakdown;
+  const streak = activity?.streak ?? 0;
+  const longestStreak = activity?.longestStreak ?? 0;
+  const totalActivity = activity?.total ?? 0;
+  const byType = activity?.byType ?? { bid: 0, tender: 0, project: 0, document: 0, listing: 0 };
+
+  // Personal accounts (no company) can still post marketplace listings —
+  // show their activity journey; only hide the company Quality Score card.
+  const hasCompany = quality?.hasCompany !== false;
+  const hasActivity = (activity?.total ?? 0) > 0;
+
+  if (!hasCompany && !hasActivity) {
     return (
       <Card className="rounded-2xl border border-orange-500/20 bg-gradient-to-br from-card via-card to-orange-500/5 overflow-hidden">
         <CardContent className="p-6 text-center">
@@ -295,27 +309,19 @@ export function JourneyCard() {
           </div>
           <h3 className="text-lg font-bold mb-1">Start your journey</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Complete your company profile to earn your first Quality Score and start climbing the leaderboard.
+            Complete your company profile to earn your first Quality Score, or post your first marketplace listing to start tracking your activity.
           </p>
         </CardContent>
       </Card>
     );
   }
 
-  const score = quality?.qualityScore ?? 0;
-  const badge = quality?.badge ?? 'new';
-  const badgeStyle = BADGE_STYLE[badge] || BADGE_STYLE.new;
-  const breakdown = quality?.scoreBreakdown;
-  const streak = activity?.streak ?? 0;
-  const longestStreak = activity?.longestStreak ?? 0;
-  const totalActivity = activity?.total ?? 0;
-  const byType = activity?.byType ?? { bid: 0, tender: 0, project: 0, document: 0 };
-
   return (
     <div className="space-y-4">
-      {/* Top row: Score + Streak */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Top row: Score + Streak (score card only for company accounts) */}
+      <div className={`grid grid-cols-1 gap-4 ${hasCompany ? 'lg:grid-cols-3' : ''}`}>
         {/* Quality Score Card */}
+        {hasCompany && (
         <Card className="lg:col-span-2 rounded-2xl border-0 bg-card overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -371,6 +377,7 @@ export function JourneyCard() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Streak + Activity Totals Card */}
         <Card className="rounded-2xl border-0 bg-card overflow-hidden">
@@ -409,6 +416,10 @@ export function JourneyCard() {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground flex items-center gap-1.5"><FileText className="w-3 h-3 text-emerald-500" /> Documents uploaded</span>
                 <span className="font-bold tabular-nums">{byType.document}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground flex items-center gap-1.5"><Store className="w-3 h-3 text-orange-500" /> Listings posted</span>
+                <span className="font-bold tabular-nums">{byType.listing}</span>
               </div>
             </div>
 

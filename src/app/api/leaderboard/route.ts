@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
  * GET /api/leaderboard
  * Public endpoint — no auth required.
  * Returns top suppliers ranked by computed Quality Score.
+ * Marketplace presence (live Proforma listings posted by team members) is part
+ * of the score — up to 10 points — so posting info is tracked and rewarded.
  */
 export async function GET() {
   try {
@@ -21,6 +23,7 @@ export async function GET() {
           select: {
             id: true,
             bids: { select: { status: true, financialProposal: true } },
+            _count: { select: { proformaListings: { where: { status: 'active' } } } },
           },
         },
         _count: {
@@ -53,6 +56,10 @@ export async function GET() {
       const completedProjects = c.projects.filter(p => p.status === 'completed').length;
       score += Math.min(completedProjects, 5) * 2;
 
+      // Marketplace presence: live Proforma listings posted by team members (max 10)
+      const activeListings = c.users.reduce((s, u) => s + u._count.proformaListings, 0);
+      score += Math.min(activeListings, 10);
+
       score = Math.min(score, 100);
 
       let badge: 'platinum' | 'gold' | 'silver' | 'bronze' | 'new' = 'new';
@@ -81,6 +88,7 @@ export async function GET() {
         docCount: c._count.documents,
         tenderCount: c._count.tenders,
         teamSize: c.users.length,
+        proformaCount: activeListings,
       };
     });
 
