@@ -163,6 +163,7 @@ export interface User {
   id: string;
   email: string;
   role: 'super_admin' | 'team_admin' | 'user';
+  accountType?: 'company' | 'personal';
   companyId?: string;
   status: string;
   plan: string;

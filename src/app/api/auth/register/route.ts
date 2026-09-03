@@ -51,6 +51,10 @@ export async function POST(request: NextRequest) {
       companyWebsite,
     } = body as Record<string, string>;
 
+    // ── Account type: 'company' (default) or 'personal' ──
+    // Personal accounts cannot publish tenders or manage teams.
+    const accountType = body.accountType === 'personal' ? 'personal' : 'company';
+
     // ── Validate required fields ──
     if (!email || !password || !fullName) {
       return NextResponse.json(
@@ -93,8 +97,9 @@ export async function POST(request: NextRequest) {
     // ── Create Company + User + Profile in a transaction ──
     // Use 15s timeout for Neon cold starts (default is 5s)
     const result = await db.$transaction(async (tx) => {
+      // Personal accounts never create a company — company fields are ignored
       let company: { id: string; name: string; [key: string]: unknown } | null = null;
-      if (companyName) {
+      if (companyName && accountType === 'company') {
         company = await tx.company.create({
           data: {
             name: companyName,
@@ -117,6 +122,7 @@ export async function POST(request: NextRequest) {
           email: normalizedEmail,
           passwordHash,
           role: company ? 'team_admin' : 'user', // Company registrants become team_admin
+          accountType, // 'company' | 'personal'
           companyId: company?.id || null,
           status: 'active',
         },

@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
           email: userEmail,
           passwordHash: hashedPassword,
           role: 'user',
+          accountType: 'personal', // Social signups provide no company info
           profile: {
             create: {
               fullName: userName || userEmail.split('@')[0],

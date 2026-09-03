@@ -37,6 +37,7 @@ export type AuthUser = {
   email: string;
   passwordHash: string;
   role: string;
+  accountType: string;
   companyId: string | null;
   status: string;
   plan: string;

@@ -328,17 +328,21 @@ export function DashboardView() {
   const [qualityData, setQualityData] = useState<{ qualityScore: number; badge: string; nextBadge: string; bidsWon: number; nextMilestone: number } | null>(null);
 
   const role = user?.role || 'user';
+  const isPersonal = user?.accountType === 'personal';
   const greeting = getGreeting();
   const userName = user?.profile?.fullName || user?.email?.split('@')[0] || 'User';
 
   // ── Data Loading ──
   const loadDashboard = useCallback(async () => {
+    // Personal accounts have no team — skip team endpoints entirely
+    const isPersonalAcct = useAuthStore.getState().user?.accountType === 'personal';
+    const emptyTeam = { success: false as const, data: [] };
     const [tendersRes, bidsRes, projectsRes, teamRes, tasksRes] = await Promise.all([
       api.get('/tenders'),
       api.get('/bids'),
       api.get('/projects'),
-      api.get('/team/members').catch(() => ({ success: false, data: [] })),
-      api.get('/team/tasks').catch(() => ({ success: false, data: [] })),
+      isPersonalAcct ? Promise.resolve(emptyTeam) : api.get('/team/members').catch(() => emptyTeam),
+      isPersonalAcct ? Promise.resolve(emptyTeam) : api.get('/team/tasks').catch(() => emptyTeam),
     ]);
     if (tendersRes.success) setTenders(tendersRes.data);
     if (bidsRes.success) setBids(bidsRes.data);
@@ -500,14 +504,16 @@ export function DashboardView() {
   const valueSparkData = useMemo(() => [] as number[], []);
 
   // ── Unified CTA ──
-  const cta = { label: 'Publish Tender', view: 'tenders', icon: Plus };
+  const cta = isPersonal
+    ? { label: 'Browse Tenders', view: 'tenders', icon: Search }
+    : { label: 'Publish Tender', view: 'tenders', icon: Plus };
 
-  // ── Unified quick actions ──
+  // ── Unified quick actions (personal accounts: no publish/team actions) ──
   const actions = [
-    { icon: Plus, label: 'Publish Tender', description: 'Create new opportunities', gradient: 'gradient-emerald', view: 'tenders' },
+    ...(!isPersonal ? [{ icon: Plus, label: 'Publish Tender', description: 'Create new opportunities', gradient: 'gradient-emerald', view: 'tenders' }] : []),
     { icon: Search, label: 'Browse Tenders', description: 'Find matching opportunities', gradient: 'gradient-amber', view: 'tenders' },
     { icon: Gavel, label: 'My Bids', description: 'Track your submissions', gradient: 'gradient-teal', view: 'bids' },
-    { icon: Users, label: 'Team Management', description: 'Manage members & tasks', gradient: 'gradient-purple', view: 'team-management' },
+    ...(!isPersonal ? [{ icon: Users, label: 'Team Management', description: 'Manage members & tasks', gradient: 'gradient-purple', view: 'team-management' }] : []),
   ];
 
   const today = new Date();
@@ -946,8 +952,9 @@ export function DashboardView() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          5. TEAM MANAGEMENT OVERVIEW
+          5. TEAM MANAGEMENT OVERVIEW (company accounts only)
           ═══════════════════════════════════════════════════════════════ */}
+      {!isPersonal && (
       <div className="grid md:grid-cols-2 gap-6">
         {/* Team Members Card */}
         <Card className="premium-shadow rounded-xl border-0 bg-card overflow-hidden">
@@ -1181,6 +1188,7 @@ export function DashboardView() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════
           5b. QUICK ACTIONS GRID

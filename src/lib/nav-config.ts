@@ -15,7 +15,7 @@ export interface NavSection {
   items: NavItem[];
 }
 
-export function getNavItemsForRole(role: string): NavSection[] {
+export function getNavItemsForRole(role: string, accountType?: string): NavSection[] {
   const main: NavSection = {
     label: 'MAIN',
     items: [
@@ -44,6 +44,9 @@ export function getNavItemsForRole(role: string): NavSection[] {
     ],
   };
 
+  // Personal accounts: no Team Management (they have no company/team)
+  const isPersonal = accountType === 'personal';
+
   if (role === 'team_admin') {
     return [
       main,
@@ -62,7 +65,7 @@ export function getNavItemsForRole(role: string): NavSection[] {
   return [
     main,
     { label: 'MANAGE', items: [
-      { id: 'team-management', label: 'Team Management', icon: Users },
+      ...(!isPersonal ? [{ id: 'team-management', label: 'Team Management', icon: Users }] : []),
       { id: 'social-circle', label: 'Social Circle', icon: Users },
     ] },
     tools,

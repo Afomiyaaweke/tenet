@@ -31,6 +31,7 @@ import {
   Hash,
   CreditCard,
   Users,
+  Info,
 } from 'lucide-react';
 
 const INDUSTRIES = [
@@ -336,10 +337,10 @@ function PasswordRequirements({ password }: { password: string }) {
 }
 
 /* ───────────────────────── Step Indicator ───────────────────────── */
-function StepIndicator({ currentStep, totalSteps = 4 }: { currentStep: RegStep; totalSteps?: number }) {
+function StepIndicator({ currentStep, steps }: { currentStep: RegStep; steps: RegStep[] }) {
   return (
     <div className="flex items-center justify-center gap-1 mb-6">
-      {Array.from({ length: totalSteps }, (_, i) => (i + 1) as RegStep).map((step, i) => {
+      {steps.map((step, i) => {
         const meta = REG_STEP_META[step];
         const isCompleted = currentStep > step;
         const isCurrent = currentStep === step;
@@ -360,7 +361,7 @@ function StepIndicator({ currentStep, totalSteps = 4 }: { currentStep: RegStep; 
                 {meta.label}
               </span>
             </div>
-            {i < totalSteps - 1 && (
+            {i < steps.length - 1 && (
               <div className={`h-0.5 w-4 sm:w-8 rounded-full ${currentStep > step ? 'bg-orange-500' : 'bg-muted'}`} />
             )}
           </React.Fragment>
@@ -464,6 +465,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [regStep, setRegStep] = useState<RegStep>(1);
+  // Account type: personal accounts cannot publish tenders or manage teams
+  const [accountType, setAccountType] = useState<'company' | 'personal'>('company');
 
   // Forgot / Reset password state
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password' | 'forgot-sent' | 'reset-password'>('login');
@@ -612,18 +615,26 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
   const goNext = async () => {
     if (!canGoNext()) return;
     setAuthError('');
-    if (regStep < 4) setRegStep((regStep + 1) as RegStep);
+    if (regStep < 4) {
+      // Personal accounts skip the Company step entirely
+      const next = regStep === 1 && accountType === 'personal' ? 3 : regStep + 1;
+      setRegStep(next as RegStep);
+    }
   };
 
   const goBack = () => {
-    if (regStep > 1) setRegStep((regStep - 1) as RegStep);
+    if (regStep > 1) {
+      // Personal accounts go back from Personal info straight to Account
+      const prev = regStep === 3 && accountType === 'personal' ? 1 : regStep - 1;
+      setRegStep(prev as RegStep);
+    }
   };
 
   const handleRegister = async () => {
     setLoading(true);
     setAuthError('');
     try {
-      const result = await register(regData);
+      const result = await register({ ...regData, accountType });
       if (!result.success) {
         // If the email is already registered, auto-switch to login form
         if (result.error?.toLowerCase().includes('already') || result.error?.toLowerCase().includes('registered')) {
@@ -1146,10 +1157,10 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                     <p className="text-muted-foreground text-sm mt-1">Join the TenetBid Procurement Platform</p>
                   </div>
 
-                  {/* Step indicator */}
-                  <StepIndicator currentStep={regStep} />
+                  {/* Step indicator (personal accounts skip the Company step) */}
+                  <StepIndicator currentStep={regStep} steps={accountType === 'personal' ? [1, 3, 4] : [1, 2, 3, 4]} />
 
-                  {/* ─── STEP 1: Email & Password ─── */}
+                  {/* ─── STEP 1: Account Type + Email & Password ─── */}
                   {regStep === 1 && (
                     <div className="animate-[viewEnter_0.3s_ease-out] space-y-4">
                       <div className="mb-2">
@@ -1157,9 +1168,76 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           <div className="w-6 h-6 rounded-md gradient-orange flex items-center justify-center">
                             <Lock className="w-3.5 h-3.5 text-white" />
                           </div>
-                          <h3 className="text-sm font-semibold text-foreground">Account Credentials</h3>
+                          <h3 className="text-sm font-semibold text-foreground">Account Setup</h3>
                         </div>
-                        <p className="text-xs text-muted-foreground ml-8">Set up your email and password</p>
+                        <p className="text-xs text-muted-foreground ml-8">Choose your account type, then set your email and password</p>
+                      </div>
+
+                      {/* Account Type Selection */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                          <Building2 className="w-3 h-3" /> I am registering as *
+                        </Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {/* Company Account */}
+                          <button
+                            type="button"
+                            onClick={() => setAccountType('company')}
+                            aria-pressed={accountType === 'company'}
+                            className={`relative text-left p-3 rounded-xl border-2 transition-all duration-200 group ${
+                              accountType === 'company'
+                                ? 'border-orange-500 bg-orange-50/60 dark:bg-orange-950/20 shadow-md shadow-orange-500/10'
+                                : 'border-border bg-card hover:border-orange-300 hover:bg-muted/40'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                                accountType === 'company' ? 'gradient-orange text-white' : 'bg-muted text-muted-foreground group-hover:text-orange-500'
+                              }`}>
+                                <Building2 className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className={`text-sm font-semibold ${accountType === 'company' ? 'text-foreground' : 'text-foreground/80'}`}>Company Account</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">Publish tenders &amp; manage a team</p>
+                              </div>
+                            </div>
+                            {accountType === 'company' && (
+                              <CheckCircle2 className="absolute top-2 right-2 w-4 h-4 text-orange-500" />
+                            )}
+                          </button>
+
+                          {/* Personal Account */}
+                          <button
+                            type="button"
+                            onClick={() => setAccountType('personal')}
+                            aria-pressed={accountType === 'personal'}
+                            className={`relative text-left p-3 rounded-xl border-2 transition-all duration-200 group ${
+                              accountType === 'personal'
+                                ? 'border-orange-500 bg-orange-50/60 dark:bg-orange-950/20 shadow-md shadow-orange-500/10'
+                                : 'border-border bg-card hover:border-orange-300 hover:bg-muted/40'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                                accountType === 'personal' ? 'gradient-orange text-white' : 'bg-muted text-muted-foreground group-hover:text-orange-500'
+                              }`}>
+                                <User className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className={`text-sm font-semibold ${accountType === 'personal' ? 'text-foreground' : 'text-foreground/80'}`}>Personal Account</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">Apply &amp; bid on tenders as an individual</p>
+                              </div>
+                            </div>
+                            {accountType === 'personal' && (
+                              <CheckCircle2 className="absolute top-2 right-2 w-4 h-4 text-orange-500" />
+                            )}
+                          </button>
+                        </div>
+                        {accountType === 'personal' && (
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1 ml-1">
+                            <Info className="w-3 h-3" /> Personal accounts can browse and bid on tenders — publishing tenders and team management are company features.
+                          </p>
+                        )}
                       </div>
 
                       <div className="space-y-3">
@@ -1510,6 +1588,10 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           </div>
                           <div className="space-y-1 text-xs">
                             <div className="flex justify-between">
+                              <span className="text-muted-foreground">Account Type</span>
+                              <span className="text-foreground font-medium">{accountType === 'personal' ? 'Personal' : 'Company'}</span>
+                            </div>
+                            <div className="flex justify-between">
                               <span className="text-muted-foreground">Email</span>
                               <span className="text-foreground font-medium">{regData.email}</span>
                             </div>
@@ -1520,7 +1602,8 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                           </div>
                         </div>
 
-                        {/* Company */}
+                        {/* Company (company accounts only) */}
+                        {accountType === 'company' && (
                         <div className="p-3 rounded-xl border border-border bg-card/50">
                           <div className="flex items-center gap-2 mb-2">
                             <Building2 className="w-3.5 h-3.5 text-orange-500" />
@@ -1575,6 +1658,7 @@ export function AuthGate({ onBack }: { onBack?: () => void }) {
                             )}
                           </div>
                         </div>
+                        )}
 
                         {/* Personal */}
                         <div className="p-3 rounded-xl border border-border bg-card/50">

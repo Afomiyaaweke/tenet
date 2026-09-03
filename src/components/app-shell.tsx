@@ -378,7 +378,9 @@ export function AppShell() {
   const { view, viewParams, setView } = useNavStore();
   const { fetchNotifications, notifications } = useDataStore();
   const role = user?.role || 'user';
-  const navSections = useMemo(() => getNavItemsForRole(role), [role]);
+  const accountType = user?.accountType || 'company';
+  const isPersonal = accountType === 'personal';
+  const navSections = useMemo(() => getNavItemsForRole(role, accountType), [role, accountType]);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Flat list for title lookup
@@ -443,7 +445,8 @@ case 'tender-analyzer':
       case 'agent':
         return <AgentView />;
       case 'team-management':
-        return <TeamManagementView />;
+        // Personal accounts have no team — redirect to dashboard
+        return isPersonal ? <LeaderboardInShellView /> : <TeamManagementView />;
       case 'staff':
         return <StaffView />;
       case 'contact-us':

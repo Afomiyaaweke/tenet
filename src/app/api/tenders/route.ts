@@ -6,12 +6,20 @@ import { containsInsensitive } from '@/lib/search';
 
 /**
  * POST /api/tenders
- * Any authenticated user can create a tender
+ * Only company accounts can publish tenders (personal accounts are blocked)
  */
 export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
+
+    // ── Personal accounts cannot publish tenders ──
+    if (user!.accountType === 'personal') {
+      return NextResponse.json(
+        { success: false, error: 'Personal accounts cannot publish tenders. Register a company account to create tenders.' },
+        { status: 403 }
+      );
+    }
 
     // ── Rate limit check ──
     const rateLimitResponse = await enforceRateLimit(request, user!.id, user!.plan || 'free');

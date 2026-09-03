@@ -571,6 +571,8 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
 export function TendersView() {
   const { user } = useAuthStore();
   const { setView } = useNavStore();
+  // Personal accounts cannot publish tenders — only browse & bid
+  const canPublishTenders = user?.accountType !== 'personal';
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -945,6 +947,7 @@ export function TendersView() {
           >
             <Download className="h-3.5 w-3.5" /> Export XLSX
           </Button>
+          {canPublishTenders && (
           <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setCreateDocs([]); setCreateDocType('tender_document'); } }}>
           <DialogTrigger asChild>
             <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
@@ -1138,6 +1141,7 @@ export function TendersView() {
             </div>
           </DialogContent>
         </Dialog>
+          )}
         </div>
       </div>
 
