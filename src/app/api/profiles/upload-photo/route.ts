@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
-import { uploadFile } from '@/lib/storage';
+import { requireAuth, invalidateAuthCache } from '@/lib/auth';
+import { uploadFile, deleteFile } from '@/lib/storage';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -61,11 +61,25 @@ export async function POST(request: NextRequest) {
 
     // Update profile
     const updateField = photoType === 'cover' ? 'logoUrl' : 'profilePhoto';
+    const previousUrl = photoType === 'cover' ? profile.logoUrl : profile.profilePhoto;
+
     const updatedProfile = await db.profile.update({
       where: { id: profile.id },
       data: { [updateField]: fileUrl },
       include: { user: { select: { id: true, email: true, role: true, status: true } } },
     });
+
+    // Invalidate cached auth user so the new photo shows up immediately
+    invalidateAuthCache(user!.id);
+
+    // Best-effort: delete the previous photo so we don't accumulate orphaned uploads
+    if (previousUrl && previousUrl !== fileUrl) {
+      try {
+        await deleteFile(previousUrl);
+      } catch {
+        // non-fatal: file may already be gone
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -60,6 +60,11 @@ export type AuthUser = {
     bio: string | null;
     logoUrl: string | null;
     profilePhoto: string | null;
+    vanitySlug: string | null;
+    isPublished: boolean;
+    publicTagline: string | null;
+    publicDescription: string | null;
+    portfolioImages: string;
     verified: boolean;
     createdAt: Date;
     updatedAt: Date;

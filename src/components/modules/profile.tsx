@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { StampSignatureManager } from '@/components/stamp-signature';
 import { PortfolioEditor } from '@/components/modules/portfolio-editor';
+import { PersonalPortfolioEditor } from '@/components/modules/personal-portfolio-editor';
 // ==========================================
 // Constants
 // ==========================================
@@ -216,6 +217,7 @@ export function ProfileView() {
   const roleConfig = ROLE_CONFIG[userRole];
   const isTeamAdmin = userRole === 'team_admin';
   const hasCompany = !!(user?.companyId || companyData);
+  const isPersonal = user?.accountType === 'personal';
   const completeness = getProfileCompleteness(profile as Record<string, unknown> | undefined | null);
   const approvedDocs = documents.filter(d => d.status === 'approved').length;
   const pendingDocs = documents.filter(d => d.status === 'pending').length;
@@ -429,6 +431,20 @@ export function ProfileView() {
                 vanitySlug: companyData.vanitySlug || '',
               });
               setEditingCompany(true);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Personal portfolio & publishing (personal accounts only) */}
+      {isPersonal && profile && (
+        <div className="animate-[fadeIn_0.3s_ease-out]">
+          <PersonalPortfolioEditor
+            profile={profile}
+            onProfileUpdate={(updatedProfile) => {
+              if (user) {
+                setUser({ ...user, profile: updatedProfile });
+              }
             }}
           />
         </div>

@@ -1334,3 +1334,43 @@ Stage Summary:
 - Personal accounts get posting tracked too (own listings) and see their journey even without a company
 - Company + personal scoring stay in sync on the listings factor; Platinum badge is now attainable
 - Commit 07f34f8 on main
+
+---
+Task ID: 17
+Agent: main
+Task: Make personal profile support media + profile picture data as the user wishes, and make it a shareable site
+
+Work Log:
+- Explored the profile ecosystem: Profile model had only profilePhoto/logoUrl (no public/share fields); PortfolioEditor + public [slug] page existed only for Company accounts; personal accounts had no publish/share machinery and no media gallery
+- Schema (BOTH prisma/schema.prisma sqlite + prisma/schema.prod.prisma postgres, zero drift): added 5 fields to Profile model — vanitySlug String? @unique, isPublished Boolean @default(false), publicTagline String?, publicDescription String?, portfolioImages String @default("[]") (JSON array, mirrors SocialPost/ProformaListing pattern). Ran bun run db:push (dev SQLite) + prisma validate. 44 models identical across both schemas.
+- Auth type (src/lib/auth.ts AuthUser.profile): added the 5 new fields so they flow through the cached auth user
+- api.ts Profile interface: added the 5 new optional fields
+- Backend new endpoint POST /api/profiles/upload-media: portfolio/gallery image upload (folder profile-media, 5MB, jpeg/png/webp/gif, max 12 images). Appends URL to profile.portfolioImages JSON array, invalidateAuthCache after write. Also DELETE /api/profiles/upload-media?url= removes an image (deleteFile from storage + array).
+- Backend improved POST /api/profiles/upload-photo: now calls invalidateAuthCache(user.id) after the DB write (was missing — clientside setUser was the only refresh) AND best-effort deleteFile() on the previous photo so orphaned uploads don't accumulate
+- Backend extended PUT /api/profiles: accepts vanitySlug, isPublished, publicTagline, publicDescription. Vanity slug validation: lowercase alphanumeric+hyphens regex, 2-40 chars, reserved-words block (api, login, u, leaderboard, etc.), uniqueness check against Profile.vanitySlug. Publish requires a vanity slug to be set first. invalidateAuthCache after every update.
+- Backend new endpoint GET /api/profiles/public/[slug]: public (no auth) personal portfolio data — identity (name, jobTitle, location, photo, bio, skills), publishing state (+preview mode), portfolioImages gallery, recent marketplace listings, social posts, bids summary (submitted/won), top endorsements, quality score (0-100 with badge platinum/gold/silver/bronze/new), activity feed. Respects isPublished; ?preview=true shows unpublished.
+- Frontend new public share page src/app/u/[slug]/page.tsx (~690 lines): hero (photo, name, jobTitle, location, member-since, verified badge, tagline, description, skills), circular SVG quality-score gauge + badge, 4-stat bar (bids/won/listings/endorsements), portfolio gallery grid with lightbox (click to view full-size), bio + top endorsements two-column, marketplace listings cards, recent social posts, activity timeline, CTA banner, sticky footer with Share + Copy Link. Draft preview banner when ?preview=true. Mobile-responsive (390px verified).
+- Frontend new component src/components/modules/personal-portfolio-editor.tsx (~670 lines): 4-step wizard mirroring company PortfolioEditor but for personal profiles — Step 1 Set Vanity URL (live slug input + validation), Step 2 Edit (tagline 100 chars, description 500 chars, portfolio gallery with add/remove images up to 12), Step 3 Preview (embedded iframe of /u/[slug]?preview=true), Step 4 Live (published status, copy link, edit/unpublish). Emerald color scheme. Calls PUT /api/profiles and POST/DELETE /api/profiles/upload-media.
+- Frontend wired PersonalPortfolioEditor into src/components/modules/profile.tsx: added isPersonal flag (user.accountType === 'personal'), renders the editor right after the company PortfolioEditor block (which stays company-only). onProfileUpdate propagates to setUser so the auth store stays in sync.
+- Dev server had to be restarted after db:push (stale Prisma Client raised "Unknown argument vanitySlug" — same pattern as the accountType issue in Task 15). Restarted with lsof kill + bun run dev.
+- E2E browser verification (agent-browser + VLM) as personal@tenetbid.com (personal account):
+  - Logged in → sidebar shows NO Team Management, NO Publish Tender (personal restrictions intact)
+  - Profile view → PersonalPortfolioEditor renders "Set your shareable URL" card (URL step)
+  - Set vanity slug "pat-portfolio" → transitioned to Edit step (tagline + description + gallery inputs visible)
+  - Filled tagline "Freelance construction professional building Ethiopia's future" + description about civil engineering
+  - Uploaded 2 portfolio images via API (POST /api/profiles/upload-media) → both stored in profile-media/, portfolioImages array grew to 2
+  - Uploaded a profile photo via API (POST /api/profiles/upload-photo type=profile) → stored in profile-photos/
+  - Clicked "Save & Preview" → "Portfolio content saved" toast, preview iframe loaded
+  - Clicked "Publish Now" → "Portfolio published! Your profile is now live and shareable." toast, transitioned to Live step
+  - Navigated to /u/pat-portfolio → public page rendered: hero "Personal Pat" with uploaded amber profile photo, quality score 24/100 NEW badge, stats bar, Portfolio Gallery "2 images" with clickable thumbnails, Marketplace Listings "Personal Sidamo Coffee ETB 520 Hawassa", Recent Activity timeline, CTA, footer with Share/Copy Link
+  - VLM screenshot analysis confirmed all sections present, layout complete and professional, mobile 390px clean (no overflow/overlap)
+  - Lightbox: clicked gallery image → full-size view opened with Close button ✅
+  - No console errors, no page errors
+- lint: 0 errors / 18 warnings (baseline maintained). tsc --noEmit: 0 errors. Schema drift: 0 (44 models identical dev/prod).
+
+Stage Summary:
+- Personal accounts can now: upload a profile photo (improved endpoint with cache invalidation + old-photo cleanup), upload up to 12 portfolio/gallery images (new upload-media endpoint), and publish a shareable public profile at /u/<vanity-slug>
+- The public share page renders hero + quality score + stats + portfolio gallery (with lightbox) + bio + endorsements + marketplace listings + social posts + activity feed + share buttons, fully responsive
+- Company accounts are completely unaffected (company PortfolioEditor + [slug] page untouched); only personal accounts get the new PersonalPortfolioEditor + /u/[slug] page
+- Both Prisma schemas (sqlite + postgres) updated identically with the 5 new Profile fields — Vercel build will not break (schema.prod.prisma is what Vercel uses via vercel-build.sh)
+- The "u" slug is reserved in both profile and company vanity-slug validators to prevent route collisions (/u/<slug> for personal, /<slug> for company)

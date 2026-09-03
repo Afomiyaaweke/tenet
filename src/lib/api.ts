@@ -188,6 +188,11 @@ export interface Profile {
   bio?: string;
   logoUrl?: string;
   profilePhoto?: string;
+  vanitySlug?: string;
+  isPublished?: boolean;
+  publicTagline?: string;
+  publicDescription?: string;
+  portfolioImages?: string;
   verified: boolean;
   company?: Company;
 }

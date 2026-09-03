@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, invalidateAuthCache } from '@/lib/auth';
 
 /**
  * GET /api/profiles
@@ -78,6 +78,10 @@ export async function PUT(request: NextRequest) {
       licenseNumber,
       skillTags,
       bio,
+      vanitySlug,
+      isPublished,
+      publicTagline,
+      publicDescription,
     } = body;
 
     // Verify profile exists
@@ -92,6 +96,40 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Vanity slug validation (only if changing)
+    if (vanitySlug !== undefined && vanitySlug !== existingProfile.vanitySlug) {
+      if (vanitySlug) {
+        // Validate slug format: lowercase, alphanumeric, hyphens only, 2+ chars
+        if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(vanitySlug) && !/^[a-z0-9]$/.test(vanitySlug)) {
+          return NextResponse.json(
+            { success: false, error: 'Invalid slug format. Use lowercase letters, numbers, and hyphens only. Must be 2+ characters.' },
+            { status: 400 }
+          );
+        }
+        if (vanitySlug.length > 40) {
+          return NextResponse.json(
+            { success: false, error: 'Slug is too long. Maximum 40 characters.' },
+            { status: 400 }
+          );
+        }
+        // Block reserved slugs (route segments and app routes)
+        const reserved = ['api', 'login', 'register', 'auth', 'admin', 'dashboard', 'tenders', 'bids', 'docs', 'privacy', 'terms', 'settings', 'profile', 'chat', 'projects', 'events', 'contact', 'favicon', '_next', 'u', 'leaderboard', 'social', 'documents', 'companies', 'team', 'applicants'];
+        if (reserved.includes(vanitySlug)) {
+          return NextResponse.json(
+            { success: false, error: 'This slug is reserved and cannot be used.' },
+            { status: 400 }
+          );
+        }
+        const duplicateSlug = await db.profile.findUnique({ where: { vanitySlug } });
+        if (duplicateSlug) {
+          return NextResponse.json(
+            { success: false, error: 'This vanity URL is already taken. Try another.' },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     // Build update data (companyId is NOT user-settable - prevents company reassignment attacks)
     const updateData: Record<string, unknown> = {};
     if (fullName !== undefined) updateData.fullName = fullName;
@@ -103,6 +141,18 @@ export async function PUT(request: NextRequest) {
     if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber || null;
     if (skillTags !== undefined) updateData.skillTags = skillTags;
     if (bio !== undefined) updateData.bio = bio || null;
+    if (vanitySlug !== undefined) updateData.vanitySlug = vanitySlug || null;
+    if (publicTagline !== undefined) updateData.publicTagline = publicTagline || null;
+    if (publicDescription !== undefined) updateData.publicDescription = publicDescription || null;
+    if (typeof isPublished === 'boolean') {
+      if (isPublished === true && !vanitySlug && !existingProfile.vanitySlug) {
+        return NextResponse.json(
+          { success: false, error: 'Set a vanity URL before publishing' },
+          { status: 400 }
+        );
+      }
+      updateData.isPublished = isPublished;
+    }
 
     const updatedProfile = await db.profile.update({
       where: { userId: user!.id },
@@ -112,6 +162,7 @@ export async function PUT(request: NextRequest) {
         company: { select: { id: true, name: true, industry: true, verified: true } },
       },
     });
+    invalidateAuthCache(user!.id);
 
     return NextResponse.json({
       success: true,
