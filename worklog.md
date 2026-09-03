@@ -1176,3 +1176,30 @@ Stage Summary:
 - Suggested prompt chips guide new users (per-tool, hide after 2 messages)
 - callZAIWithDeadline(8s) + context-aware fallback means the chat never 504s on Vercel
 - Editor cleaned up: ~227 lines of dead/redundant code removed, fake header buttons replaced with working ones (Export actually exports; search replaced with doc title display)
+
+---
+Task ID: 12
+Agent: main
+Task: Make the site take media (chat image attach with AI vision); remove the source-mode "question" blocking template creation
+
+Work Log:
+- Media: wired the dead "Attach file" paperclip in the AI Doc Studio chat to a real image pipeline:
+  - Added module-level downscaleImageToDataUrl() (canvas resize to max 1568px, JPEG q0.85) so phone photos fit request limits
+  - handleChatImagePick validates type (PNG/JPG/WEBP/GIF) + 8MB cap, shows a preview chip with thumbnail + remove button above the input
+  - sendChat supports image-only messages (default vision prompt), passes `image` data URL to /api/ai/chat, renders the attached image inside the user's chat bubble
+  - renderChatInput: hidden file input + wired paperclip (highlights when media attached) + send button enabled for image-only sends; restored pb-12 padding so composer clears the 44px dock overlay
+- Backend /api/ai/chat: accepts `image` (data:image/* data URL, <=4MB validated), builds an OpenAI-style content array (text + image_url) for the latest user message, system prompt tells the model an image is attached and to extract/flag document fields
+- src/lib/zai.ts: callZAIWithDeadline messages loosened to ZAIMessage[] (string | content-array); when an array is present the call routes to createVision (model glm-4.6v). NEW callZAIVisionWithDeadline: STREAMS the vision reply (SSE "data:" chunks parsed) with partial capture — if the deadline fires, whatever the model produced so far is returned instead of nothing
+- KEY FINDING: inside Next.js dev, non-streaming vision calls consistently took 8-9.5s (deadline miss) while standalone node/bun took 1-2s; with stream:true the first chunk arrives in ~1.1s in-app. Streaming + partial capture makes image chat reliably useful within Vercel Hobby's 10s cap. Fallback reply (no content by 9s) tells the user to resend or describe the image
+- Removed the template-creation "question": deleted the "Pull from Live Tender" / "External Sources" radio cards + the redundant outer tender select from BOTH desktop and mobile sidebars (each tool form already has its own tender select). Removed sourceMode + genTenderId state; runTemplateGenerator and sendChat cleaned up (sendChat now derives tender context from bidSelectedTender/reqSelectedTender/appSelectedTender)
+- Verified E2E in browser (test@tenetbid.com; local DB was wiped between sessions so re-seeded user+profile+company Test Corp):
+  - Sidebar goes straight: tool buttons -> form -> Generate Template (no question cards) — VLM confirmed
+  - Attached a generated tender-notice image via the paperclip: preview chip appeared, sent image-only, AI vision reply in ~1.1s first-chunk correctly extracted "Bid Reference: EEU/NCB/2025/045, Budget: 4,500,000 ETB, Deadline: March 30, 2026 — 2:00 PM" and greeted the user by profile name
+  - Template generation still works without the removed cards: filled Tender Builder (title/category/location/deadline/description) -> Generate -> 200 in 8.1s -> scope document inserted into editor. (First attempt 400: server requires location+deadline — filled them, fine.)
+  - bun run lint: 0 errors; bunx tsc --noEmit: 0 errors
+- Pushed to GitHub.
+
+Stage Summary:
+- The AI Doc Studio chat now takes media: attach an image (licence, certificate, tender page, site photo) and the AI reads it with vision, with fast streaming replies and partial-output capture so it never dead-ends
+- Template creation flow simplified: the fake "Pull from Live Tender / External Sources" question is gone — pick a tool, fill the form, generate
+- callZAIVisionWithDeadline is reusable for any future image-understanding route (streaming + partial capture + deadline)

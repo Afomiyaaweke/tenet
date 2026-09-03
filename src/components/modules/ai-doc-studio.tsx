@@ -158,6 +158,30 @@ const CHAT_PROMPT_SUGGESTIONS: Record<string, string[]> = {
   ],
 };
 
+// Downscale an image client-side before sending it to the chat AI.
+// Keeps phone photos (3-8MB) within request limits and speeds up vision calls.
+function downscaleImageToDataUrl(file: File, maxDim = 1568, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { URL.revokeObjectURL(objectUrl); reject(new Error('Canvas unavailable')); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Invalid image')); };
+    img.src = objectUrl;
+  });
+}
+
 // STAMP_TEMPLATES imported from shared stamp-signature component
 
 /* ══════════════════════════════════════════════════════════════
@@ -713,15 +737,14 @@ export function AIDocStudio() {
   const [extractHistory, setExtractHistory] = useState<Record<string, Array<{ prompt: string; result: string; timestamp: string }>>>({});
 
   // Sidebar AI chat thread (Template Generator assistant)
-  const [chatMessages, setChatMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string; kind?: 'text' | 'generated' }>>([
-    { id: 'welcome', role: 'assistant', kind: 'text', content: "Hi! I'm your AI Doc Studio assistant. I can see your document, your profile, and the tender you're working on. Ask me to draft a section, summarise, refine your writing, or answer procurement questions. Try a suggestion below or type your own message." },
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string; kind?: 'text' | 'generated'; image?: string }>>([
+    { id: 'welcome', role: 'assistant', kind: 'text', content: "Hi! I'm your AI Doc Studio assistant. I can see your document, your profile, and the tender you're working on. Ask me to draft a section, summarise, refine your writing, or answer procurement questions. You can also attach an image — a licence, certificate or tender page — and I'll read it. Try a suggestion below or type your own message." },
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
-  // Sidebar document generation source: which live tender to pull from (bid-builder / req-analyzer / applicant)
-  const [genTenderId, setGenTenderId] = useState('');
-  // Source selection: 'live-tender' or 'external'
-  const [sourceMode, setSourceMode] = useState<'live-tender' | 'external'>('live-tender');
+  // Media attachment pending in the chat composer (downscaled data URL)
+  const [chatImage, setChatImage] = useState<{ dataUrl: string; name: string } | null>(null);
+  const chatImageInputRef = useRef<HTMLInputElement>(null);
 
   const isMobile = useIsMobile();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
@@ -1068,15 +1091,39 @@ export function AIDocStudio() {
   /* ════════════════════════════════════════════════════════════
      SIDEBAR AI CHAT (Template Generator assistant)
      ════════════════════════════════════════════════════════════ */
-  const pushChat = (role: 'user' | 'assistant', content: string, kind?: 'text' | 'generated') => {
-    setChatMessages(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, role, content, kind }]);
+  const pushChat = (role: 'user' | 'assistant', content: string, kind?: 'text' | 'generated', image?: string) => {
+    setChatMessages(prev => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, role, content, kind, image }]);
+  };
+
+  // Pick + downscale an image for the chat composer (media attachment).
+  const handleChatImagePick = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please attach an image (PNG, JPG, WEBP or GIF)');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image is too large (max 8MB)');
+      return;
+    }
+    try {
+      const dataUrl = await downscaleImageToDataUrl(file);
+      setChatImage({ dataUrl, name: file.name });
+    } catch {
+      toast.error('Could not read that image');
+    }
   };
 
   const sendChat = async (overrideText?: string) => {
-    const text = (overrideText ?? chatInput).trim();
-    if (!text || chatSending) return;
-    pushChat('user', text);
+    const rawText = (overrideText ?? chatInput).trim();
+    const attachedImage = chatImage?.dataUrl || '';
+    if ((!rawText && !attachedImage) || chatSending) return;
+    // Image-only messages get a sensible default prompt for the vision model.
+    const text = rawText || 'What do you see in this image? Summarise the key details and flag anything important.';
+    pushChat('user', text, undefined, attachedImage || undefined);
     if (overrideText === undefined) setChatInput('');
+    setChatImage(null);
     setChatSending(true);
     try {
       // Give the assistant live context of what is in the editor so it can read,
@@ -1086,7 +1133,7 @@ export function AIDocStudio() {
         .slice(1)
         .map(m => ({ role: m.role, content: m.content }));
       // Pass the active tender + tool so the assistant can personalise answers.
-      const activeTenderId = genTenderId || bidSelectedTender || reqSelectedTender || '';
+      const activeTenderId = bidSelectedTender || reqSelectedTender || appSelectedTender || '';
       const res = await api.post('/ai/chat', {
         message: text,
         documentTitle: docTitle,
@@ -1094,6 +1141,7 @@ export function AIDocStudio() {
         history,
         tenderId: activeTenderId,
         tool: activeAITool,
+        image: attachedImage || undefined,
       });
       if (res.success && res.data?.reply) {
         pushChat('assistant', res.data.reply);
@@ -1113,13 +1161,7 @@ export function AIDocStudio() {
     const tool = AI_TOOLS.find(t => t.id === activeAITool);
     const label = tool?.label || activeAITool;
 
-    // For tender/bid/req tools, optionally pull from a live tender
-    if (genTenderId && (activeAITool === 'bid-builder' || activeAITool === 'requirement-analyzer')) {
-      if (activeAITool === 'bid-builder') selectBidTender(genTenderId);
-      else selectReqTender(genTenderId);
-    }
-
-    pushChat('user', `Generate a ${label}${genTenderId ? ' from live tender' : ''}.`);
+    pushChat('user', `Generate a ${label}.`);
     await new Promise(r => setTimeout(r, 50)); // let state settle
 
     const before = editorRef.current?.innerHTML || '';
@@ -1198,9 +1240,18 @@ export function AIDocStudio() {
                   )
                 ))
               ) : (
-                m.content.split('\n').map((line, i) => (
-                  <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
-                ))
+                <>
+                  {m.image && (
+                    <img
+                      src={m.image}
+                      alt="Attached media"
+                      className="rounded-md mb-1.5 max-h-44 w-auto max-w-full object-cover border border-border"
+                    />
+                  )}
+                  {m.content.split('\n').map((line, i) => (
+                    <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
+                  ))}
+                </>
               )}
               {m.kind === 'generated' && (
                 <button onClick={() => editorRef.current?.focus()} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
@@ -1244,21 +1295,54 @@ export function AIDocStudio() {
   };
 
   const renderChatInput = () => (
-    <div className="p-3 border-t border-border">
+    // pb-12 keeps the composer controls clear of the 44px dark dock overlay.
+    <div className="p-3 pb-12 border-t border-border">
+      {/* Media attachment preview */}
+      {chatImage && (
+        <div className="mb-2 flex items-center gap-2 px-1">
+          <div className="relative flex-shrink-0">
+            <img src={chatImage.dataUrl} alt={chatImage.name} className="w-12 h-12 rounded-lg object-cover border border-border" />
+            <button
+              onClick={() => setChatImage(null)}
+              title="Remove attachment"
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-foreground text-background flex items-center justify-center shadow hover:bg-rose-600 hover:text-white transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-foreground truncate max-w-[150px]">{chatImage.name}</p>
+            <p className="text-[10px] text-muted-foreground">Image attached — I'll read it</p>
+          </div>
+        </div>
+      )}
+      {/* Hidden media picker */}
+      <input
+        ref={chatImageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={e => { handleChatImagePick(e.target.files); e.target.value = ''; }}
+      />
       <div className="relative rounded-xl border border-border bg-card focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 transition-all">
         <textarea
           value={chatInput}
           onChange={e => setChatInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
-          placeholder="Ask the AI — it can read & edit your document..."
+          placeholder={chatImage ? "Describe what you want to know about the image (or just send it)..." : "Ask the AI — it can read & edit your document..."}
           rows={1}
           className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-          <button title="Attach file" className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            title="Attach an image (licence, certificate, tender page...)"
+            onClick={() => chatImageInputRef.current?.click()}
+            disabled={chatSending}
+            className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${chatImage ? 'bg-teal-50 text-teal-600' : 'hover:bg-muted text-muted-foreground hover:text-foreground'}`}
+          >
             <Paperclip className="h-3.5 w-3.5" />
           </button>
-          <button onClick={() => sendChat()} disabled={!chatInput.trim() || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={() => sendChat()} disabled={(!chatInput.trim() && !chatImage) || chatSending} className="w-7 h-7 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             <Send className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -3462,15 +3546,6 @@ export function AIDocStudio() {
               <div className="px-5 py-4 border-b border-border"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-foreground tracking-tight">AI Doc Studio</span></div></div>
               <div className="px-5 py-4 space-y-2 border-b border-border max-h-[42vh] overflow-y-auto">
                 <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-foreground">Template Generator</span></div>
-                <button onClick={() => setSourceMode('live-tender')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'live-tender' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-border hover:border-gray-300 hover:bg-muted/50'}`}>
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'live-tender' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'live-tender' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
-                    <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-foreground block">Pull from Live Tender</span><span className="text-xs text-muted-foreground mt-0.5 block">RFP_Gov_Infrastructure_2024.pdf</span></div>
-                </button>
-                <button onClick={() => setSourceMode('external')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'external' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-border hover:border-gray-300 hover:bg-muted/50'}`}>
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'external' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'external' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
-                    <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-foreground block">External Sources</span><span className="text-xs text-muted-foreground mt-0.5 block">Connect to knowledge base or web</span></div>
-                </button>
-                {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-muted/30 border-border"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
                 {renderToolForm()}
                 <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
               </div>
@@ -3492,15 +3567,6 @@ export function AIDocStudio() {
                 <SheetHeader className="px-5 py-4 border-b border-border"><SheetTitle className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm"><FileText className="h-4 w-4 text-white" /></div><span className="text-base font-bold text-foreground tracking-tight">AI Doc Studio</span></SheetTitle></SheetHeader>
                 <div className="px-5 py-4 space-y-2 border-b border-border max-h-[42vh] overflow-y-auto">
                   <div className="flex items-center gap-2 mb-1"><Sparkles className="h-4 w-4 text-teal-600" /><span className="text-sm font-semibold text-foreground">Template Generator</span></div>
-                  <button onClick={() => setSourceMode('live-tender')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'live-tender' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-border hover:border-gray-300 hover:bg-muted/50'}`}>
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'live-tender' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'live-tender' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
-                      <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-foreground block">Pull from Live Tender</span><span className="text-xs text-muted-foreground mt-0.5 block">RFP_Gov_Infrastructure_2024.pdf</span></div>
-                  </button>
-                  <button onClick={() => setSourceMode('external')} className={`w-full flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${sourceMode === 'external' ? 'border-l-[3px] border-teal-500 bg-cyan-50' : 'border-border hover:border-gray-300 hover:bg-muted/50'}`}>
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${sourceMode === 'external' ? 'border-gray-900 bg-gray-900' : 'border-gray-300'}`}>{sourceMode === 'external' && <div className="w-2 h-2 rounded-full bg-gray-900" />}</div>
-                      <div className="min-w-0 flex-1"><span className="text-sm font-semibold text-foreground block">External Sources</span><span className="text-xs text-muted-foreground mt-0.5 block">Connect to knowledge base or web</span></div>
-                  </button>
-                  {sourceMode === 'live-tender' && tenders.length > 0 && <div className="mt-2"><Select value={genTenderId} onValueChange={setGenTenderId}><SelectTrigger className="w-full h-9 text-xs bg-muted/30 border-border"><SelectValue placeholder="Select a tender..." /></SelectTrigger><SelectContent>{tenders.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div>}
                   {renderToolForm()}
                   <button onClick={runTemplateGenerator} disabled={aiLoading} className="w-full h-10 mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">{aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate Template</>}</button>
                 </div>

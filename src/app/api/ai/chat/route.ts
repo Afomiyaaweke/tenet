@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { callZAIWithDeadline } from '@/lib/zai';
+import { callZAIWithDeadline, callZAIVisionWithDeadline } from '@/lib/zai';
 
 // Vercel Hobby tier: 10s max. ZAI calls can take 20-30s for long replies,
 // so we race against an 8s deadline and fall back to a helpful canned reply.
@@ -20,7 +20,13 @@ interface ChatBody {
   documentContent?: string;
   tenderId?: string;
   tool?: string;
+  /** Base64 data URL of an attached image (user media upload). */
+  image?: string;
 }
+
+// Max accepted data-URL length (~3MB image). Keeps the request well under
+// Vercel's 4.5MB body limit after base64 expansion.
+const MAX_IMAGE_DATA_URL_LENGTH = 4_000_000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +36,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as ChatBody;
     const {
       message, history, documentTitle, documentContent,
-      tenderId, tool,
+      tenderId, tool, image,
     } = body;
 
     if (!message || typeof message !== 'string' || !message.trim()) {
@@ -39,6 +45,14 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // Validate the attached image (if any): must be a base64 image data URL.
+    const imageDataUrl =
+      typeof image === 'string' &&
+      image.startsWith('data:image/') &&
+      image.length <= MAX_IMAGE_DATA_URL_LENGTH
+        ? image
+        : '';
 
     // Cap incoming history to last 8 messages for token safety
     const safeHistory = Array.isArray(history)
@@ -95,10 +109,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Include a trimmed view of the document currently open in the editor so
-    // the assistant can read, reference and refine the user's work.
+    // the assistant can read, reference and refine the user's work. When an
+    // image is attached we trim harder — the vision model needs headroom.
+    const docPreviewLimit = imageDataUrl ? 3000 : 6000;
     const docPreview =
       typeof documentContent === 'string' && documentContent.trim()
-        ? documentContent.slice(0, 6000)
+        ? documentContent.slice(0, docPreviewLimit)
         : '';
 
     const toolLabelMap: Record<string, string> = {
@@ -137,16 +153,30 @@ Rules for the doc block:
 - You may include multiple separate doc blocks in one reply (for example one per section).
 - Always add a short spoken explanation BEFORE or AFTER each doc block describing what it is.
 
-Everything outside a \`\`\`doc block is shown as normal chat text and will NOT be inserted.`;
+Everything outside a \`\`\`doc block is shown as normal chat text and will NOT be inserted.
 
-    const response = await callZAIWithDeadline(
-      [
-        { role: 'system', content: systemPrompt },
-        ...safeHistory.map((m) => ({ role: m.role, content: m.content })),
-        { role: 'user', content: truncatedMessage },
-      ],
-      8000,
-    );
+MEDIA: The user can attach images (photos of tender documents, certificates, licences, screenshots, site photos, etc.).
+${imageDataUrl ? 'An image IS attached to the latest message — read it carefully and use what you see in your answer. If it contains a document (licence, certificate, form, tender page), summarise its key fields and flag anything missing or non-compliant.' : 'No image is attached to the latest message.'}`;
+
+    // Latest user message: plain text, or text + image parts for vision.
+    const latestUserMessage = imageDataUrl
+      ? [
+          { type: 'text' as const, text: truncatedMessage },
+          { type: 'image_url' as const, image_url: { url: imageDataUrl } },
+        ]
+      : truncatedMessage;
+
+    const chatMessagesPayload = [
+      { role: 'system' as const, content: systemPrompt },
+      ...safeHistory.map((m) => ({ role: m.role, content: m.content })),
+      { role: 'user' as const, content: latestUserMessage },
+    ];
+
+    // Vision calls stream with partial capture (image analysis is slower);
+    // text-only calls use the standard deadline race.
+    const response = imageDataUrl
+      ? await callZAIVisionWithDeadline(chatMessagesPayload, 9000)
+      : await callZAIWithDeadline(chatMessagesPayload, 8000);
 
     if (!response) {
       // AI was too slow for Vercel's 10s cap — give the user a useful,
@@ -155,7 +185,10 @@ Everything outside a \`\`\`doc block is shown as normal chat text and will NOT b
       const docBlock = tenderCtx
         ? `\n\n\`\`\`doc\n# ${documentTitle || 'Draft Section'}\n\nBased on the active tender, here is a starting point you can edit:\n\n- Key requirement: see tender scope above\n- Recommended action: tailor this section to your company's experience\n- Budget reference: see tender budget\n\`\`\`\n\nClick **Insert** on the block above to add it to your document, or ask me to refine it.`
         : '';
-      const fallback = `I'm here and reading your document${tenderCtx ? ' and the active tender' : ''}. The AI took a bit longer than expected — here's a quick summary of what I can see:\n\n${docPreview ? `- Your document "${documentTitle || 'Untitled'}" has ${docPreview.split(/\s+/).length} words of content.` : '- Your document is empty — try the Template Generator on the left, or ask me to draft a section.'}${tenderCtx ? `\n- You're working on a tender with a deadline of ${tenderCtx.match(/Deadline: (.+)/)?.[1] || 'TBD'}.` : ''}${profileCtx !== 'No profile data on file.' ? `\n- I can see your profile and company — ask me to tailor any section to your experience.` : ''}${docBlock}`;
+      const imageNote = imageDataUrl
+        ? '\n\nI received your image, but the AI took a bit longer than expected to analyze it. Please send it again — or describe what it shows and I\'ll help from there.'
+        : '';
+      const fallback = `I'm here and reading your document${tenderCtx ? ' and the active tender' : ''}.${imageNote}\n\n${docPreview ? `- Your document "${documentTitle || 'Untitled'}" has ${docPreview.split(/\s+/).length} words of content.` : '- Your document is empty — try the Template Generator on the left, or ask me to draft a section.'}${tenderCtx ? `\n- You're working on a tender with a deadline of ${tenderCtx.match(/Deadline: (.+)/)?.[1] || 'TBD'}.` : ''}${profileCtx !== 'No profile data on file.' ? `\n- I can see your profile and company — ask me to tailor any section to your experience.` : ''}${docBlock}`;
       return NextResponse.json({
         success: true,
         data: { reply: fallback, fallback: true },
