@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
       city,
       country,
       contactInfo,
+      imageUrls,
     } = body;
 
     if (!productName || !productName.trim()) {
@@ -120,6 +121,28 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Valid unit price is required' },
         { status: 400 },
       );
+    }
+
+    // Normalise incoming image URLs: accept a string[] or a JSON-encoded string,
+    // strip anything that doesn't look like a URL, cap at 6 images.
+    let normalizedImageUrls: string[] = [];
+    if (Array.isArray(imageUrls)) {
+      normalizedImageUrls = imageUrls
+        .map((u) => (typeof u === 'string' ? u.trim() : ''))
+        .filter((u) => u.startsWith('/uploads/') || u.startsWith('http'))
+        .slice(0, 6);
+    } else if (typeof imageUrls === 'string' && imageUrls.trim()) {
+      try {
+        const parsed = JSON.parse(imageUrls);
+        if (Array.isArray(parsed)) {
+          normalizedImageUrls = parsed
+            .map((u: unknown) => (typeof u === 'string' ? u.trim() : ''))
+            .filter((u: string) => u.startsWith('/uploads/') || u.startsWith('http'))
+            .slice(0, 6);
+        }
+      } catch {
+        // ignore malformed JSON — fall back to empty
+      }
     }
 
     // Default country/city from the user's company or profile if not provided
@@ -149,6 +172,7 @@ export async function POST(request: NextRequest) {
         city: finalCity,
         country: finalCountry,
         contactInfo: (contactInfo || '').trim(),
+        imageUrls: JSON.stringify(normalizedImageUrls),
       },
       include: {
         user: {

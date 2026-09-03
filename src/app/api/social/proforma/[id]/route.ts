@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { deleteFile } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Parse the JSON-encoded imageUrls column into a string[].
+ * Falls back to [] for missing/malformed values.
+ */
+function parseImageUrls(imageUrls: string): string[] {
+  if (!imageUrls) return [];
+  try {
+    const parsed = JSON.parse(imageUrls);
+    return Array.isArray(parsed) ? parsed.filter((u) => typeof u === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * DELETE /api/social/proforma?id={listingId}
@@ -10,6 +25,8 @@ export const dynamic = 'force-dynamic';
  * Query params:
  *  - id: listing ID (required)
  *  - action: 'delete' (default) or 'sold' (marks as sold instead of deleting)
+ *
+ * On hard delete, attached product images are removed from storage (best-effort).
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -49,6 +66,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.proformaListing.delete({ where: { id } });
+
+    // Best-effort cleanup of attached image files. Failures here must not fail
+    // the delete — the DB row is already gone.
+    const urls = parseImageUrls(listing.imageUrls);
+    if (urls.length > 0) {
+      await Promise.allSettled(urls.map((u) => deleteFile(u)));
+    }
+
     return NextResponse.json({ success: true, data: { message: 'Listing deleted' } });
   } catch (err) {
     console.error('[DELETE /api/social/proforma] error:', err);

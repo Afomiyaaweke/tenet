@@ -26,7 +26,7 @@ import {
   Users, UserPlus, Heart, ThumbsUp, MessageCircle, Share2, Search,
   Building2, MapPin, Briefcase, Award, Verified, Send, Clock,
   MoreHorizontal, X, Plus, ChevronDown, Globe2, Handshake,
-  Sparkles, TrendingUp, Star, Link2, Image, Trash2,
+  Sparkles, TrendingUp, Star, Link2, Image as ImageIcon, Trash2,
   DollarSign, Download, Printer, Loader2, CheckCircle,
 } from 'lucide-react';
 
@@ -1800,6 +1800,7 @@ interface ProformaListingItem {
   city: string;
   country: string;
   contactInfo: string;
+  imageUrls: string;
   status: string;
   views: number;
   createdAt: string;
@@ -1830,11 +1831,64 @@ function ProformaTab() {
   const [mineOnly, setMineOnly] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [formData, setFormData] = useState({
     productName: '', description: '', category: 'General',
     quantity: 1, unit: 'kg', unitPrice: 0, currency: 'ETB',
     city: '', country: '', contactInfo: '',
   });
+
+  // Accept PNG/JPG/WEBP/GIF up to 5MB; cap at 6 images per listing.
+  const MAX_IMAGES = 6;
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+  const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+  const handleImagePick = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remaining = MAX_IMAGES - imageUrls.length;
+    if (remaining <= 0) {
+      toast.error(`Maximum ${MAX_IMAGES} photos per listing`);
+      return;
+    }
+    const picked = Array.from(files).slice(0, remaining);
+    setUploadingImages(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of picked) {
+        if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+          toast.error(`${file.name}: unsupported type (JPEG, PNG, WebP, GIF only)`);
+          continue;
+        }
+        if (file.size > MAX_IMAGE_SIZE) {
+          toast.error(`${file.name}: too large (max 5MB)`);
+          continue;
+        }
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await api.upload('/social/proforma/upload', fd);
+        if (res.success && res.data?.url) {
+          uploaded.push(res.data.url as string);
+        } else {
+          toast.error(res.error || `Failed to upload ${file.name}`);
+        }
+      }
+      if (uploaded.length > 0) {
+        setImageUrls(prev => [...prev, ...uploaded]);
+        toast.success(`${uploaded.length} photo${uploaded.length > 1 ? 's' : ''} added`);
+      }
+    } catch {
+      toast.error('Failed to upload images');
+    } finally {
+      setUploadingImages(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = (url: string) => {
+    setImageUrls(prev => prev.filter(u => u !== url));
+  };
 
   // Load listings from the public marketplace
   const loadListings = useCallback(async () => {
@@ -1876,6 +1930,7 @@ function ProformaTab() {
         ...formData,
         quantity: Number(formData.quantity) || 1,
         unitPrice: Number(formData.unitPrice),
+        imageUrls,
       });
       if (res.success) {
         toast.success('Listing posted! Travelers can now see your product price.');
@@ -1885,6 +1940,7 @@ function ProformaTab() {
           quantity: 1, unit: 'kg', unitPrice: 0, currency: 'ETB',
           city: '', country: '', contactInfo: '',
         });
+        setImageUrls([]);
         setMineOnly(false);
         setCountryFilter('all');
         setCategoryFilter('all');
@@ -2075,9 +2131,84 @@ function ProformaTab() {
               />
             </div>
 
+            {/* Product photos */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1">
+                  <ImageIcon className="h-3 w-3" /> Product Photos
+                </label>
+                <span className="text-[10px] text-muted-foreground">
+                  {imageUrls.length}/{MAX_IMAGES}
+                </span>
+              </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                className="hidden"
+                onChange={e => handleImagePick(e.target.files)}
+              />
+              {imageUrls.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {imageUrls.map((url, idx) => (
+                    <div key={url + idx} className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                      <img src={url} alt={`Product photo ${idx + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(url)}
+                        className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
+                        title="Remove photo"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {imageUrls.length < MAX_IMAGES && (
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploadingImages}
+                      className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50"
+                    >
+                      {uploadingImages ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4" />
+                          <span className="text-[9px] font-medium">Add</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+              {imageUrls.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={uploadingImages}
+                  className="w-full py-6 rounded-lg border-2 border-dashed border-border hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50"
+                >
+                  {uploadingImages ? (
+                    <><Loader2 className="h-5 w-5 animate-spin" /> <span className="text-xs">Uploading...</span></>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-5 w-5" />
+                      <span className="text-xs font-medium">Add product photos</span>
+                      <span className="text-[10px]">JPEG, PNG, WebP or GIF · up to {MAX_IMAGES} photos · 5MB each</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Photos help travelers inspect the product before reaching out. The first photo shows as the main thumbnail.
+              </p>
+            </div>
+
             <div className="flex gap-2 justify-end">
               <Button variant="outline" size="sm" className="text-xs" onClick={() => setShowCreate(false)}>Cancel</Button>
-              <Button size="sm" className="text-xs gap-1.5 gradient-emerald hover:opacity-90 text-white" onClick={handlePost} disabled={posting}>
+              <Button size="sm" className="text-xs gap-1.5 gradient-emerald hover:opacity-90 text-white" onClick={handlePost} disabled={posting || uploadingImages}>
                 {posting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Posting...</> : <><Send className="h-3.5 w-3.5" /> Post to Marketplace</>}
               </Button>
             </div>
@@ -2175,8 +2306,9 @@ function ProformaTab() {
             const isMine = listing.userId === user?.id;
             const posterName = listing.user?.company?.name || listing.user?.profile?.fullName || listing.user?.email || 'Unknown';
             const location = [listing.city, listing.country].filter(Boolean).join(', ');
+            const listingImages = parseImageUrls(listing.imageUrls);
             return (
-              <Card key={listing.id} className="hover:shadow-md transition-all">
+              <Card key={listing.id} className="hover:shadow-md transition-all overflow-hidden">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -2221,6 +2353,32 @@ function ProformaTab() {
                         <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
                           <Send className="h-3 w-3" /> Contact: {listing.contactInfo}
                         </p>
+                      )}
+                      {listingImages.length > 0 && (
+                        <div className="mt-2.5 flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+                          {listingImages.slice(0, 6).map((url, idx) => (
+                            <a
+                              key={url + idx}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted group/img"
+                              title={`Photo ${idx + 1} — click to open full size`}
+                            >
+                              <img
+                                src={url}
+                                alt={`${listing.productName} — photo ${idx + 1}`}
+                                className="w-full h-full object-cover transition-transform group-hover/img:scale-105"
+                                loading="lazy"
+                              />
+                              {listingImages.length > 6 && idx === 5 && (
+                                <div className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-xs font-semibold">
+                                  +{listingImages.length - 6}
+                                </div>
+                              )}
+                            </a>
+                          ))}
+                        </div>
                       )}
                     </div>
                     {isMine && (
