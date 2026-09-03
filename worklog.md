@@ -1229,3 +1229,29 @@ Stage Summary:
 - The imageUrls column that was already in the schema is now actually used (was dead before).
 - Delete cleans up stored files (best-effort) so orphaned files don't accumulate.
 - Reused the existing storage abstraction so prod (Vercel Blob) works with no extra config.
+
+---
+Task ID: 14
+Agent: main
+Task: Delete icon for published tenders (owner asked WHY, reason stored/shown) + same reason flow for rejected bid applications, visible to appliers
+
+Work Log:
+- Schema: added `rejectionNote String?` to Tender (mirrors the existing Bid.rejectionNote) so an owner's removal reason persists; `bun run db:push` + regenerate.
+- Backend DELETE /api/tenders/[id]: reason REQUIRED (query or JSON body, min 3 chars). Authorization = tender creator OR team_admin of same company OR platform admin. Tenders with 0 bids are hard-deleted (safe: Document/BidAnalysis cascade, Project impossible without bids); tenders WITH bids are soft-cancelled (status='cancelled' + rejectionNote) so applicants keep history, and every DISTINCT bidder gets a Notification ("Tender Removed ... Reason: <reason>"). Response reports notifiedApplicants count.
+- Backend GET /api/bids: tender select now includes rejectionNote. GET /api/applicants: tender select + both publishedTenders mappings (tendersOnly branch and main branch) include rejectionNote.
+- Frontend applicants.tsx (owner):
+  - Published tender cards: rose Trash2 delete icon (stopPropagation, title explains applicants will be notified) → "Remove Tender" Dialog with required "Why are you removing this tender?" textarea; confirm button disabled until valid; success toast says how many applicants were notified. Cancelled cards show "Cancelled" badge + the owner's reason inline.
+  - Applicant actions (previously the status API existed but NO UI called it): renderBidActions() gives Shortlist+Reject for pending_review, Award+Reject for shortlisted, and "Reason sent to applicant: ..." text for rejected rows. Rendered in card-view footers AND the spreadsheet expanded-row detail ("Owner Actions" section). Reject opens a required-reason dialog ("Why is this bid rejected?") → PATCH /api/bids/[id]/status with rejectionNote (API already notified the bidder with the reason). Award shows a confirm dialog (award transaction creates Project + Chat + closes tender).
+  - IMPORTANT STRUCTURE NOTE: ApplicantsView has TWO separate returns (selected-tender applicants view + default published-tenders view) — dialogs extracted into renderActionDialogs() helper mounted in BOTH returns (initially only in the default view, which silently swallowed the reject dialog during E2E).
+- Frontend bids.tsx (applicant): when bid.tender.status === 'cancelled', a rose "Tender removed by the owner" banner with "Reason: ..." renders at the top of the bid card. Bid type + Tender type in api.ts extended with tender.rejectionNote.
+- Frontend tender-detail.tsx: cancelled tenders show "This tender was removed by the owner" + reason banner in the hero.
+- Verification: tsc --noEmit 0 errors (had to rm -rf .next/dev/types once — dev server corrupted generated route types mid-write), lint 0 errors (18 pre-existing warnings). API contract tested via curl: DELETE without reason → 400 with explanatory message; with reason → success + notification created. Full browser E2E with seeded data (owner test@tenetbid.com + applicant@tenetbid.com/ApplicantPass123!, 2 closed tenders with 1 pending bid each):
+  - Owner: delete icon visible on both cards; delete dialog reason enforced; toast "Tender removed. 1 applicant was notified with your reason."; card flips to Cancelled with reason inline.
+  - Owner: expanded applicant row shows Shortlist/Reject; Reject dialog reason enforced; status becomes Rejected and row shows the reason back to the owner; Shortlist → Award confirm dialog works end-to-end (Awarded 1, project created).
+  - Applicant: rejected bid card shows BOTH the "Tender removed by the owner" banner (tender reason) and the Rejection Note section (bid reason) — VLM confirmed all three sections; notifications list contains "Bid Rejected ... Reason: ..." and "Tender Removed ... Reason: ..." entries.
+- Pushed to GitHub (commit b03e843).
+
+Stage Summary:
+- Published tenders now have a delete icon; removal always asks the owner WHY, stores the reason, notifies every applicant with it, and keeps bid history (soft-cancel) so appliers can always see why
+- Applicants can finally be shortlisted/rejected/awarded from the UI; rejection requires a reason the applicant sees on their bid, in notifications, and on the tender page
+- Reason transparency flows owner → applicant through three channels: bid card banner/rejection note, notifications, tender detail
