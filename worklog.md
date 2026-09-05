@@ -1536,3 +1536,17 @@ Work Log:
 
 Stage Summary:
 - The module formerly known as Social Circle is now branded "Proforma" everywhere the user can see: sidebar nav (all roles), top-bar page title, module page header + subtitle, public profile activity feed, and docs. Routing/data layer untouched (view id, /api/social/* endpoints, file names unchanged) so zero runtime risk.
+
+---
+Task ID: 23
+Agent: Z.ai Code (main)
+Task: "Country Product Prices / Open marketplace — travelers browse... make this line like proforma where companies show their price" — rebrand marketplace copy to company-first Proforma framing
+
+Work Log:
+- src/app/marketplace/page.tsx: hero h1 "Country Product Prices" -> "Proforma Marketplace"; hero subtitle -> "Where companies show their prices — browse real product prices posted by companies across countries."; empty state -> "Be the first to show your company's prices to buyers and travelers."; seller CTA -> "Post your prices on Proforma and reach buyers, travelers, and procurement teams...".
+- src/components/modules/social-circle.tsx (ProformaTab): tab header "Country Product Prices" -> "Proforma Marketplace"; subtitle -> "Companies show their prices — buyers and travelers browse by country"; success toast -> "Listing posted! Buyers can now see your prices on Proforma."; contact placeholder -> "How should buyers reach you?"; photo helper -> "Photos help buyers inspect..."; tab empty state -> "Be the first to show your prices to buyers and travelers".
+- Verification: bunx tsc --noEmit 0 errors; lint 0 errors / 18 warnings (baseline); browser check of /marketplace — h1 = "Proforma Marketplace", VLM quoted hero paragraph verbatim, zero page errors.
+- Commit pushed to origin/main.
+
+Stage Summary:
+- Marketplace positioning is now company-first: companies post/show their prices on Proforma; buyers and travelers browse by country. Old "Country Product Prices" traveler-first headline removed from both the public site and the in-app Proforma tab.
