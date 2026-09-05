@@ -1518,3 +1518,21 @@ Work Log:
 Stage Summary:
 - The Social Circle "Market" tab now shares the exact visual language of the new public marketplace site: photo-forward card grid, public detail links, owner actions overlaid, plus a one-click bridge ("View full Marketplace") to the standalone site. Posting/filtering/management flows unchanged.
 - Watch item: the sandbox keeps reverting db/custom.db and once deleted src/app/api/social/proforma/upload/route.ts from the working tree. If uploads 404 or logins fail in dev, restore the file with git checkout and re-seed.
+
+---
+Task ID: 22
+Agent: Z.ai Code (main)
+Task: "change the name to proforma" — rename the Social Circle module to Proforma across all user-facing surfaces
+
+Work Log:
+- Grepped src/ for all "Social Circle" occurrences: nav-config.ts (2 sidebar labels), social-circle.tsx (page header), profiles/public/[slug]/route.ts (activity feed label "Posted on social circle"), plus DEPLOY.md. Internal identifiers (view id 'social-circle', file name, API routes /api/social/*, Prisma models) intentionally left unchanged to avoid breaking routes/data.
+- src/lib/nav-config.ts: both role variants renamed label 'Social Circle' -> 'Proforma'; icon switched Users -> Globe2 (avoids duplicate Users icon next to Team Management, matches Market tab). Sidebar and top-bar page title both derive from nav-config, so both update automatically.
+- src/components/modules/social-circle.tsx: page header h1 "Social Circle" -> "Proforma", icon Users -> Globe2, subtitle updated to "Post product prices, discover markets, and grow your network".
+- src/app/api/profiles/public/[slug]/route.ts: public profile activity feed label now "Posted on Proforma".
+- DEPLOY.md feature list updated.
+- Verification: bunx tsc --noEmit = 0 errors; bun run lint = 0 errors / 18 warnings (unchanged baseline).
+- Browser E2E (personal@tenetbid.com): sidebar shows "Proforma" under MANAGE; top-bar page title h1 = "Proforma"; module header h1 = "Proforma"; tabs Feed/Discover/Market/Network intact and Market tab still renders listings; mobile 390px main h1 = "Proforma". Zero page errors. VLM screenshot check confirmed no "Social Circle" text remains anywhere.
+- Commit e3a7881 pushed to origin/main.
+
+Stage Summary:
+- The module formerly known as Social Circle is now branded "Proforma" everywhere the user can see: sidebar nav (all roles), top-bar page title, module page header + subtitle, public profile activity feed, and docs. Routing/data layer untouched (view id, /api/social/* endpoints, file names unchanged) so zero runtime risk.
