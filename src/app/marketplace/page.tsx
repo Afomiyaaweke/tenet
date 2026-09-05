@@ -173,11 +173,11 @@ export default function MarketplacePage() {
             <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Public Marketplace</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-3">
-            Country Product Prices
+            Proforma Marketplace
           </h1>
           <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base mb-6">
-            Browse real product prices posted by local sellers across countries.
-            Travelers, buyers, and procurement teams welcome — no login needed to look around.
+            Where companies show their prices — browse real product prices posted by companies across countries.
+            Buyers, travelers, and procurement teams welcome — no login needed to look around.
           </p>
 
           {/* Search */}
@@ -311,7 +311,7 @@ export default function MarketplacePage() {
             <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
               {hasFilters
                 ? 'Try widening your search or clearing filters to see all listings.'
-                : 'Be the first to post your country\'s product prices for travelers and buyers to discover.'}
+                : 'Be the first to show your company\'s prices to buyers and travelers.'}
             </p>
             {hasFilters ? (
               <Button variant="outline" className="gap-2" onClick={clearFilters}>
@@ -416,7 +416,7 @@ export default function MarketplacePage() {
             </div>
             <h2 className="text-xl sm:text-2xl font-bold mb-2">Got products to sell?</h2>
             <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-              Post your product prices and reach travelers, buyers, and procurement teams browsing from any country.
+              Post your prices on Proforma and reach buyers, travelers, and procurement teams browsing from any country.
             </p>
             <Button className="gap-2 gradient-emerald hover:opacity-90 text-white" asChild>
               <a href="/?signup=1"><Store className="w-4 h-4" /> Post a Listing <ArrowRight className="w-4 h-4" /></a>

@@ -1933,7 +1933,7 @@ function ProformaTab() {
         imageUrls,
       });
       if (res.success) {
-        toast.success('Listing posted! Travelers can now see your product price.');
+        toast.success('Listing posted! Buyers can now see your prices on Proforma.');
         setShowCreate(false);
         setFormData({
           productName: '', description: '', category: 'General',
@@ -1990,10 +1990,10 @@ function ProformaTab() {
         <div>
           <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Globe2 className="h-5 w-5 text-emerald-600" />
-            Country Product Prices
+            Proforma Marketplace
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Open marketplace — travelers browse real product prices posted by country
+            Companies show their prices — buyers and travelers browse by country
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -2124,7 +2124,7 @@ function ProformaTab() {
               <div className="space-y-1">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase">Contact (phone / email)</label>
                 <Input
-                  placeholder="How should travelers reach you?"
+                  placeholder="How should buyers reach you?"
                   value={formData.contactInfo}
                   onChange={e => setFormData(f => ({ ...f, contactInfo: e.target.value }))}
                   className="text-sm h-9"
@@ -2214,7 +2214,7 @@ function ProformaTab() {
                 </button>
               )}
               <p className="text-[10px] text-muted-foreground">
-                Photos help travelers inspect the product before reaching out. The first photo shows as the main thumbnail.
+                Photos help buyers inspect the product before reaching out. The first photo shows as the main thumbnail.
               </p>
             </div>
 
@@ -2310,7 +2310,7 @@ function ProformaTab() {
             </div>
             <h4 className="text-lg font-semibold text-foreground">No product listings yet</h4>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Be the first to post your country&apos;s product prices for travelers to discover
+              Be the first to show your prices to buyers and travelers
             </p>
             <Button
               className="mt-4 gap-1.5 text-xs rounded-xl gradient-emerald hover:opacity-90 text-white"
