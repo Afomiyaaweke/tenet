@@ -6,6 +6,83 @@ import { deleteFile } from '@/lib/storage';
 export const dynamic = 'force-dynamic';
 
 /**
+ * GET /api/social/proforma/[id]
+ * Public single-listing detail. No auth required — travelers and buyers
+ * can view a listing without an account. Increments the view counter
+ * (best-effort, non-blocking) so popularity sorts stay meaningful.
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Listing ID is required' },
+        { status: 400 },
+      );
+    }
+
+    const listing = await db.proformaListing.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            accountType: true,
+            profile: {
+              select: {
+                fullName: true,
+                profilePhoto: true,
+                verified: true,
+                jobTitle: true,
+                location: true,
+                vanitySlug: true,
+                isPublished: true,
+              },
+            },
+            company: {
+              select: {
+                name: true,
+                logoUrl: true,
+                verified: true,
+                industry: true,
+                city: true,
+                country: true,
+                vanitySlug: true,
+                isPublished: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!listing || listing.status === 'deleted') {
+      return NextResponse.json(
+        { success: false, error: 'Listing not found' },
+        { status: 404 },
+      );
+    }
+
+    // Best-effort view increment — never fail the request if this errors
+    db.proformaListing
+      .update({ where: { id }, data: { views: { increment: 1 } } })
+      .catch(() => {});
+
+    return NextResponse.json({ success: true, data: listing });
+  } catch (err) {
+    console.error('[GET /api/social/proforma/[id]] error:', err);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch listing' },
+      { status: 500 },
+    );
+  }
+}
+
+/**
  * Parse the JSON-encoded imageUrls column into a string[].
  * Falls back to [] for missing/malformed values.
  */

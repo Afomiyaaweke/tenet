@@ -296,6 +296,7 @@ export default function LeaderboardPage() {
           </div>
           <div className="flex items-center gap-4">
             <a href="/" className="hover:text-foreground transition-colors">Home</a>
+            <a href="/marketplace" className="hover:text-foreground transition-colors">Marketplace</a>
             <a href="/leaderboard" className="hover:text-foreground transition-colors">Leaderboard</a>
             <a href="/?signup=1" className="hover:text-foreground transition-colors">Sign Up</a>
           </div>
