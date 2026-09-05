@@ -1447,3 +1447,45 @@ Stage Summary:
 - "Uploads not working everywhere" = production-only storage misconfiguration: no Vercel Blob store connected → read-only FS → 500 on all uploads. Local was never broken.
 - Code hardened so this failure mode is impossible to miss: prefixed token variants accepted, explicit 503 with setup instructions on every upload route, marketplace rate-limit headroom.
 - ONE user action remains: Vercel Dashboard → tenet project → Storage → Create Blob store → connect → (auto redeploy). Then avatar/portfolio/marketplace/documents uploads all work on production.
+
+---
+Task ID: 21
+Agent: main
+Task: "make the social circle proforma site" — build a standalone public marketplace site
+
+Work Log:
+- Explored: the proforma marketplace previously lived only as a "Market" tab inside the authenticated Social Circle component (src/components/modules/social-circle.tsx ~line 1786). No public/standalone marketplace page existed. The list API (GET /api/social/proforma) was already public, but there was no public single-listing detail endpoint (only DELETE in [id]/route.ts).
+- Built src/app/marketplace/page.tsx (~380 lines) — public browse page (no auth):
+  - Sticky header (TenetBid logo + Leaderboard link + "Post a Listing" CTA → /?signup=1)
+  - Hero with "Country Product Prices" title + search bar (form submit → server-side search)
+  - Country filter chips (horizontal scroll, All + each country with count badge from API meta)
+  - Category dropdown (13 categories) + Sort dropdown (Newest / Price low→high / Price high→low / Most viewed)
+  - Responsive grid: 1 col mobile / 2 sm / 3 lg / 4 xl — cards show cover image (or placeholder), category badge, sold badge, image count badge, product name, description (2-line clamp), price (bold emerald), location, seller name + verified check, time-ago, view count
+  - Loading skeletons (8 pulse cards), empty state (with clear-filters or post-first CTA), seller CTA banner
+  - Sticky footer (Home/Marketplace/Leaderboard/Sign Up)
+  - Emerald + amber accent system, background blobs, custom scrollbar
+- Built src/app/marketplace/[id]/page.tsx (~300 lines) — public shareable detail page (no auth):
+  - Breadcrumb (Marketplace > product name)
+  - Two-column layout: gallery (main image + 5-thumb grid, click → full-screen lightbox with prev/next nav + counter) + info (badges, H1 title, price card with qty/views, location, description, contact-seller CTA with tel:/mailto: auto-detection, seller card with photo + verified + link to their public profile, trust note)
+  - Share button (Web Share API + clipboard fallback), "Post your own" CTA
+  - Loading skeleton, 404 not-found state
+  - Sticky footer
+- Backend: added public GET /api/social/proforma/[id] (no auth) — returns single listing with full user/profile/company includes; best-effort non-blocking view-count increment for popularity sorts
+- Restored src/app/api/social/proforma/upload/route.ts — the file committed in c461b4a (Task 19) and a8ab621 (Task 20) had gone missing from the working tree (not in HEAD). Restored from git history (a8ab621 version with StorageConfigError handling). Without it, marketplace image uploads 404'd.
+- Fixed pre-existing bug in src/lib/search.ts: containsInsensitive() passed `mode: 'insensitive'` which PostgreSQL accepts but SQLite rejects at runtime ("Unknown argument `mode`"). This broke ALL server-side search across the entire app in dev (marketplace search returned 500, and any other endpoint using containsInsensitive would too). Now detects provider from DATABASE_URL (postgresql:// vs file:) and only includes `mode` for Postgres. Verified: search "coffee" → 1 result, "teff" → 1, "xyz" → 0.
+- Nav wiring: added "Marketplace" link to landing page top nav (between How It Works and Reviews), landing hero secondary CTA (replaced "View Leaderboard" with "Browse Marketplace" → /marketplace), landing footer Company column, and leaderboard footer.
+- E2E verification (agent-browser + VLM):
+  - /marketpage renders: hero+search ✓, country chips (All + Ethiopia 3) ✓, category+sort dropdowns ✓, 3 listing cards with full data ✓ (coffee card shows "2" image count badge, gabi card shows image placeholder as expected — no images on that listing), seller CTA banner ✓, sticky footer ✓
+  - Search "coffee" → filters to 1 result (Yirgacheffe) ✓
+  - Click coffee card → /marketplace/<id> detail page ✓: breadcrumb, gallery with 2 thumbnails, H1, price card (ETB 850/kg, Qty 500, views), description, contact-seller tel: link (+251911234567), seller card (Personal Pat), trust note, share button
+  - Lightbox: click main image → full-screen overlay with prev/next nav + "1 / 2" counter ✓
+  - Mobile 390px: single-column cards, no horizontal overflow, search usable, chips fit ✓
+  - VLM confirmed all 6 page elements present and correct on both desktop and mobile
+  - 0 console/page errors throughout
+- tsc --noEmit: 0 errors. lint: 0 errors / 18 warnings (baseline intact).
+
+Stage Summary:
+- The proforma marketplace is now a standalone public site at /marketplace (browse + search + filter + sort) and /marketplace/<id> (shareable detail with gallery + lightbox + contact). No login required to browse — travelers, buyers, and procurement teams can discover product prices posted by country.
+- Search is now fixed app-wide (the SQLite `mode` bug was breaking all server-side search in dev).
+- Marketplace is linked from the landing page nav, hero CTA, and footer; leaderboard footer; and the marketplace page itself links back.
+- The missing upload route (Task 19/20) was restored — it had silently disappeared from the working tree.
