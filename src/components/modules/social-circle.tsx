@@ -2489,10 +2489,10 @@ export function SocialCircleView() {
         {/* Page Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Users className="h-6 w-6 text-emerald-600" />
-            Social Circle
+            <Globe2 className="h-6 w-6 text-emerald-600" />
+            Proforma
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Connect, share, and grow your professional network</p>
+          <p className="text-sm text-muted-foreground mt-1">Post product prices, discover markets, and grow your network</p>
         </div>
 
         {/* Three-column layout on desktop, single column on mobile */}

@@ -45,7 +45,7 @@ The app will be available at `http://localhost:3000`.
 - **Bid Management** — Create and track bids
 - **Applicant Analyzer** — AI-powered applicant analysis
 - **Project Management** — Track projects, milestones, and tasks
-- **Social Circle** — Connect with other professionals
+- **Proforma** — Post product prices, trade on the marketplace, and connect with other professionals
 - **Company Profiles** — Company verification and management
 - **Pricing Plans** — Free, Pro, and Enterprise tiers
 

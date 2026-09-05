@@ -191,7 +191,7 @@ export async function GET(
     for (const p of profile.user.socialPosts.slice(0, 3)) {
       activityFeed.push({
         type: 'post',
-        label: `Posted on social circle`,
+        label: `Posted on Proforma`,
         date: p.createdAt.toISOString(),
       });
     }

@@ -54,7 +54,7 @@ export function getNavItemsForRole(role: string, accountType?: string): NavSecti
         label: 'MANAGE',
         items: [
           { id: 'team-management', label: 'Team Management', icon: Users },
-          { id: 'social-circle', label: 'Social Circle', icon: Users },
+          { id: 'social-circle', label: 'Proforma', icon: Globe2 },
         ],
       },
       tools,
@@ -66,7 +66,7 @@ export function getNavItemsForRole(role: string, accountType?: string): NavSecti
     main,
     { label: 'MANAGE', items: [
       ...(!isPersonal ? [{ id: 'team-management', label: 'Team Management', icon: Users }] : []),
-      { id: 'social-circle', label: 'Social Circle', icon: Users },
+      { id: 'social-circle', label: 'Proforma', icon: Globe2 },
     ] },
     tools,
     support,
