@@ -27,7 +27,7 @@ import {
   Building2, MapPin, Briefcase, Award, Verified, Send, Clock,
   MoreHorizontal, X, Plus, ChevronDown, Globe2, Handshake,
   Sparkles, TrendingUp, Star, Link2, Image as ImageIcon, Trash2,
-  DollarSign, Download, Printer, Loader2, CheckCircle,
+  DollarSign, Download, Printer, Loader2, CheckCircle, Store, Package,
 } from 'lucide-react';
 
 // ==========================================
@@ -1996,13 +1996,25 @@ function ProformaTab() {
             Open marketplace — travelers browse real product prices posted by country
           </p>
         </div>
-        <Button
-          size="sm"
-          className="gap-1.5 text-xs rounded-xl gradient-emerald hover:opacity-90 text-white shrink-0"
-          onClick={() => setShowCreate(true)}
-        >
-          <Plus className="h-3.5 w-3.5" /> Post Product Price
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs rounded-xl"
+            asChild
+          >
+            <a href="/marketplace" target="_blank" rel="noopener noreferrer">
+              <Store className="h-3.5 w-3.5 text-emerald-600" /> View full Marketplace
+            </a>
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs rounded-xl gradient-emerald hover:opacity-90 text-white"
+            onClick={() => setShowCreate(true)}
+          >
+            <Plus className="h-3.5 w-3.5" /> Post Product Price
+          </Button>
+        </div>
       </div>
 
       {/* Create form */}
@@ -2277,9 +2289,17 @@ function ProformaTab() {
 
       {/* Listings */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-16 bg-muted/50 rounded-lg" /></CardContent></Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <Card key={i} className="overflow-hidden animate-pulse">
+              <div className="aspect-[4/3] bg-muted/40" />
+              <CardContent className="p-3.5 space-y-2">
+                <div className="h-3 w-16 bg-muted/50 rounded" />
+                <div className="h-4 w-3/4 bg-muted/50 rounded" />
+                <div className="h-3 w-1/2 bg-muted/40 rounded" />
+                <div className="h-5 w-1/3 bg-muted/50 rounded" />
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : listings.length === 0 ? (
@@ -2301,108 +2321,134 @@ function ProformaTab() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {listings.map(listing => {
             const isMine = listing.userId === user?.id;
             const posterName = listing.user?.company?.name || listing.user?.profile?.fullName || listing.user?.email || 'Unknown';
+            const posterVerified = listing.user?.company?.verified || listing.user?.profile?.verified;
             const location = [listing.city, listing.country].filter(Boolean).join(', ');
             const listingImages = parseImageUrls(listing.imageUrls);
+            const cover = listingImages[0];
             return (
-              <Card key={listing.id} className="hover:shadow-md transition-all overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <Badge className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0">
-                          {listing.category}
-                        </Badge>
-                        {listing.country && (
-                          <Badge variant="secondary" className="text-[10px] gap-1">
-                            <Globe2 className="h-2.5 w-2.5" /> {listing.country}
-                          </Badge>
-                        )}
-                        {isMine && (
-                          <Badge className="text-[10px] bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-0">Yours</Badge>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(listing.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold text-sm text-foreground">{listing.productName}</h4>
-                      {listing.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{listing.description}</p>
-                      )}
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
-                        <span className="font-bold text-emerald-600 text-sm">
-                          {listing.currency} {listing.unitPrice.toLocaleString()} <span className="font-normal text-muted-foreground text-xs">/ {listing.unit}</span>
-                        </span>
-                        {listing.quantity > 1 && <span>Qty: {listing.quantity.toLocaleString()}</span>}
-                        {location && (
-                          <span className="flex items-center gap-0.5">
-                            <MapPin className="h-3 w-3" /> {location}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3 w-3" /> {posterName}
-                          {(listing.user?.company?.verified || listing.user?.profile?.verified) && (
-                            <Verified className="h-3 w-3 text-emerald-500" />
-                          )}
-                        </span>
-                      </div>
-                      {listing.contactInfo && (
-                        <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
-                          <Send className="h-3 w-3" /> Contact: {listing.contactInfo}
-                        </p>
-                      )}
-                      {listingImages.length > 0 && (
-                        <div className="mt-2.5 flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                          {listingImages.slice(0, 6).map((url, idx) => (
-                            <a
-                              key={url + idx}
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted group/img"
-                              title={`Photo ${idx + 1} — click to open full size`}
-                            >
-                              <img
-                                src={url}
-                                alt={`${listing.productName} — photo ${idx + 1}`}
-                                className="w-full h-full object-cover transition-transform group-hover/img:scale-105"
-                                loading="lazy"
-                              />
-                              {listingImages.length > 6 && idx === 5 && (
-                                <div className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-xs font-semibold">
-                                  +{listingImages.length - 6}
-                                </div>
-                              )}
-                            </a>
-                          ))}
-                        </div>
-                      )}
+              <Card key={listing.id} className="group overflow-hidden hover:shadow-lg hover:border-emerald-500/40 transition-all duration-200 flex flex-col p-0 relative">
+                {/* Cover */}
+                <a
+                  href={`/marketplace/${listing.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block relative aspect-[4/3] bg-muted overflow-hidden"
+                  title={`Open ${listing.productName} on the public marketplace`}
+                >
+                  {cover ? (
+                    <img
+                      src={cover}
+                      alt={listing.productName}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-50 to-amber-50 dark:from-emerald-950/30 dark:to-amber-950/20">
+                      <ImageIcon className="w-10 h-10 text-muted-foreground/40" />
                     </div>
+                  )}
+                  <div className="absolute top-2 left-2 flex flex-col gap-1.5 items-start">
+                    <Badge className="text-[10px] bg-emerald-600 text-white border-0 shadow-sm">
+                      {listing.category}
+                    </Badge>
                     {isMine && (
-                      <div className="flex flex-col gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                          title="Mark as sold"
-                          onClick={() => handleMarkSold(listing.id)}
-                        >
-                          <CheckCircle className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                          title="Delete"
-                          onClick={() => handleDelete(listing.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      <Badge className="text-[10px] bg-sky-600 text-white border-0 shadow-sm">Yours</Badge>
                     )}
+                    {listing.status === 'sold' && (
+                      <Badge className="text-[10px] bg-rose-600 text-white border-0 shadow-sm">Sold</Badge>
+                    )}
+                  </div>
+                  {listingImages.length > 1 && (
+                    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-white text-[10px] flex items-center gap-1">
+                      <ImageIcon className="w-2.5 h-2.5" /> {listingImages.length}
+                    </div>
+                  )}
+                </a>
+                {/* Owner actions */}
+                {isMine && (
+                  <div className="absolute top-2 right-2 flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 bg-black/40 hover:bg-emerald-600 text-white hover:text-white backdrop-blur-sm border-0"
+                      title="Mark as sold"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkSold(listing.id); }}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 bg-black/40 hover:bg-rose-600 text-white hover:text-white backdrop-blur-sm border-0"
+                      title="Delete"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(listing.id); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+                {/* Body */}
+                <CardContent className="p-3.5 flex-1 flex flex-col">
+                  <a
+                    href={`/marketplace/${listing.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    <h4 className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
+                      {listing.productName}
+                    </h4>
+                  </a>
+                  {listing.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 flex-1">{listing.description}</p>
+                  )}
+                  {/* Price */}
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                      {listing.currency} {listing.unitPrice.toLocaleString()}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">/ {listing.unit}</span>
+                    {listing.quantity > 1 && (
+                      <span className="ml-auto text-[10px] text-muted-foreground flex items-center gap-0.5">
+                        <Package className="w-2.5 h-2.5" /> Qty {listing.quantity.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  {/* Meta */}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                    {location && (
+                      <span className="flex items-center gap-0.5">
+                        <MapPin className="w-2.5 h-2.5" /> {location}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-0.5 min-w-0">
+                      <Building2 className="w-2.5 h-2.5 shrink-0" />
+                      <span className="truncate max-w-[120px]">{posterName}</span>
+                      {posterVerified && <Verified className="w-2.5 h-2.5 text-emerald-500 shrink-0" />}
+                    </span>
+                  </div>
+                  {/* Footer row */}
+                  <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>{new Date(listing.createdAt).toLocaleDateString()}</span>
+                    <div className="flex items-center gap-2">
+                      {listing.views > 0 && (
+                        <span className="flex items-center gap-0.5">
+                          <TrendingUp className="w-2.5 h-2.5" /> {listing.views}
+                        </span>
+                      )}
+                      <a
+                        href={`/marketplace/${listing.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-0.5 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 font-medium"
+                      >
+                        View <ChevronDown className="w-2.5 h-2.5 -rotate-90" />
+                      </a>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

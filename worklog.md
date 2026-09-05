@@ -1489,3 +1489,32 @@ Stage Summary:
 - Search is now fixed app-wide (the SQLite `mode` bug was breaking all server-side search in dev).
 - Marketplace is linked from the landing page nav, hero CTA, and footer; leaderboard footer; and the marketplace page itself links back.
 - The missing upload route (Task 19/20) was restored — it had silently disappeared from the working tree.
+
+---
+Task ID: 22
+Agent: main
+Task: "make the 'social circle' proforma" — rebuild the Social Circle Market tab to match the new public marketplace site
+
+Work Log:
+- Rebuilt the ProformaTab listings UI in src/components/modules/social-circle.tsx: replaced the old horizontal list-row layout with the same photo-forward card grid as the public /marketplace site (grid 1/2/3 cols responsive; cover image with hover zoom, or emerald→amber gradient placeholder; category + "Yours" + "Sold" badges on the cover; image-count pill; product name with emerald hover; 2-line description clamp; big emerald price + unit; qty chip; location + seller + verified check; footer row with date, view count, and a "View" link).
+- Every card links to the listing's public detail page /marketplace/<id> (target=_blank) so the in-app tab and the public site are one experience.
+- Owner management kept and relocated: mark-sold (CheckCircle) + delete (Trash2) icon buttons now float on the card's top-right corner (black/40 backdrop, hover emerald/rose) with preventDefault+stopPropagation so they don't trigger navigation.
+- Added a "View full Marketplace" outline button (Store icon) next to "Post Product Price" in the tab header, linking to /marketplace in a new tab.
+- Loading state now skeleton card grid (6 pulse cards) matching the new layout. Post form, country chips, search, category filter, and mine-only toggle untouched.
+- imports: added Store + Package to the lucide import list.
+- Environment incidents during this task (sandbox working-tree reverts):
+  - src/app/api/social/proforma/upload/route.ts was found DELETED from the working tree AGAIN (second time; it exists in git at c461b4a/a8ab621). Restored via `git diff --name-only --diff-filter=D | xargs git checkout --`. The dev DB (db/custom.db) was also wiped again (3rd time this session) — re-seeded test accounts (personal@tenetbid.com / test@tenetbid.com, TestPass123!) and 3 marketplace listings; re-uploaded 2 product images and attached them via direct Prisma update. Anyone hitting "Invalid email or password" in dev should check for the DB wipe pattern first.
+  - No code explanation found for the reverts; the file is tracked in git so `git checkout --` restores it. Watch for it disappearing again.
+- E2E verification (agent-browser + VLM):
+  - Market tab renders the card grid: 3 cards with cover images (coffee card shows the "2" image-count pill), category badges, "Yours" badges, prices, locations, sellers ✓
+  - Header shows "View full Marketplace" + "Post Product Price" ✓
+  - 3× "Mark as sold" + 3× "Delete" owner buttons present (one pair per own listing) ✓
+  - Clicking the coffee card opened /marketplace/<id> in a NEW TAB and the public detail page rendered (image, title, contact-seller, seller card) ✓
+  - Mobile 390px: measured document.scrollWidth (390) === window.innerWidth (390) → zero horizontal overflow. (Earlier VLM run claimed "Quick Access/Trending overflow" — that was a misread; those sidebar sections are hidden lg:block and don't render at 390px.)
+  - VLM confirmed the rebuilt tab structure matches the public site; minor cosmetic notes only (placeholder on the image-less gabi listing is expected, line-clamp truncation is standard).
+  - 0 console/page errors.
+- tsc --noEmit: 0 errors. lint: 0 errors / 18 warnings (baseline intact).
+
+Stage Summary:
+- The Social Circle "Market" tab now shares the exact visual language of the new public marketplace site: photo-forward card grid, public detail links, owner actions overlaid, plus a one-click bridge ("View full Marketplace") to the standalone site. Posting/filtering/management flows unchanged.
+- Watch item: the sandbox keeps reverting db/custom.db and once deleted src/app/api/social/proforma/upload/route.ts from the working tree. If uploads 404 or logins fail in dev, restore the file with git checkout and re-seed.
