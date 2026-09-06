@@ -142,7 +142,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <nav className="hidden md:flex items-center gap-6">
               <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</a>
               <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
-              <a href="/marketplace" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Marketplace</a>
+              <a href="/marketplace" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Proforma</a>
               <a href="/leaderboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Leaderboard</a>
               <a href="#community" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Reviews</a>
             </nav>
@@ -209,7 +209,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
                 className="w-full sm:w-auto h-12 px-8 inline-flex items-center justify-center gap-1.5 bg-white text-slate-700 font-semibold border border-slate-200 shadow-sm hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl text-sm"
               >
                 <Store className="w-4 h-4 text-emerald-500" />
-                Browse Marketplace
+                Browse Proforma
               </a>
             </div>
 
@@ -405,7 +405,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
               <h4 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-4">Company</h4>
               <ul className="space-y-2.5">
                 <li><a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">About Us</a></li>
-                <li><a href="/marketplace" className="text-sm text-gray-400 hover:text-white transition-colors">Marketplace</a></li>
+                <li><a href="/marketplace" className="text-sm text-gray-400 hover:text-white transition-colors">Proforma</a></li>
                 <li><a href="/leaderboard" className="text-sm text-gray-400 hover:text-white transition-colors">Leaderboard</a></li>
                 <li><a href="#community" className="text-sm text-gray-400 hover:text-white transition-colors">Community</a></li>
                 <li><a href="#how-it-works" className="text-sm text-gray-400 hover:text-white transition-colors">How It Works</a></li>

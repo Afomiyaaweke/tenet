@@ -170,14 +170,13 @@ export default function MarketplacePage() {
         <section className="pt-10 sm:pt-14 pb-6 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 mb-4">
             <Globe2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Public Marketplace</span>
+            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Public Proforma</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-3">
-            Proforma Marketplace
+            Proforma
           </h1>
           <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base mb-6">
-            Where companies show their prices — browse real product prices posted by companies across countries.
-            Buyers, travelers, and procurement teams welcome — no login needed to look around.
+            Compare real product prices across countries, discover suppliers, track market prices, and instantly generate accurate proforma invoices for smarter international sourcing and purchasing decisions.
           </p>
 
           {/* Search */}
@@ -436,7 +435,7 @@ export default function MarketplacePage() {
           </div>
           <div className="flex items-center gap-4">
             <a href="/" className="hover:text-foreground transition-colors">Home</a>
-            <a href="/marketplace" className="hover:text-foreground transition-colors">Marketplace</a>
+            <a href="/marketplace" className="hover:text-foreground transition-colors">Proforma</a>
             <a href="/leaderboard" className="hover:text-foreground transition-colors">Leaderboard</a>
             <a href="/?signup=1" className="hover:text-foreground transition-colors">Sign Up</a>
           </div>

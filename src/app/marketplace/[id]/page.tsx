@@ -87,7 +87,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/marketplace/${id}` : '';
   const copyLink = () => {
     if (navigator.share) {
-      navigator.share({ title: listing?.productName || 'Marketplace listing', url: shareUrl }).catch(() => {});
+      navigator.share({ title: listing?.productName || 'Proforma listing', url: shareUrl }).catch(() => {});
     } else {
       navigator.clipboard.writeText(shareUrl);
       setCopied(true);
@@ -102,7 +102,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
         <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center">
             <a href="/marketplace" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back to Marketplace
+              <ArrowLeft className="w-4 h-4" /> Back to Proforma
             </a>
           </div>
         </header>
@@ -128,7 +128,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
         <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center">
             <a href="/marketplace" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back to Marketplace
+              <ArrowLeft className="w-4 h-4" /> Back to Proforma
             </a>
           </div>
         </header>
@@ -142,7 +142,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
               This listing may have been deleted or marked as sold by the seller.
             </p>
             <Button className="gap-2 gradient-emerald hover:opacity-90 text-white" asChild>
-              <a href="/marketplace"><Store className="w-4 h-4" /> Browse Marketplace</a>
+              <a href="/marketplace"><Store className="w-4 h-4" /> Browse Proforma</a>
             </Button>
           </div>
         </main>
@@ -175,7 +175,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <a href="/marketplace" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Back to Marketplace</span><span className="sm:hidden">Back</span>
+            <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">Back to Proforma</span><span className="sm:hidden">Back</span>
           </a>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={copyLink}>
@@ -191,7 +191,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-5">
-          <a href="/marketplace" className="hover:text-foreground transition-colors">Marketplace</a>
+          <a href="/marketplace" className="hover:text-foreground transition-colors">Proforma</a>
           <ChevronRight className="w-3 h-3" />
           <span className="text-foreground truncate">{listing.productName}</span>
         </nav>
@@ -358,7 +358,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
           </div>
           <div className="flex items-center gap-4">
             <a href="/" className="hover:text-foreground transition-colors">Home</a>
-            <a href="/marketplace" className="hover:text-foreground transition-colors">Marketplace</a>
+            <a href="/marketplace" className="hover:text-foreground transition-colors">Proforma</a>
             <a href="/leaderboard" className="hover:text-foreground transition-colors">Leaderboard</a>
           </div>
         </div>

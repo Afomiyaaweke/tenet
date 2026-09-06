@@ -1905,7 +1905,7 @@ function ProformaTab() {
         setCountries(res.meta?.countries || []);
       }
     } catch {
-      toast.error('Failed to load marketplace listings');
+      toast.error('Failed to load Proforma listings');
     } finally {
       setLoading(false);
     }
@@ -1990,7 +1990,7 @@ function ProformaTab() {
         <div>
           <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Globe2 className="h-5 w-5 text-emerald-600" />
-            Proforma Marketplace
+            Proforma
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Companies show their prices — buyers and travelers browse by country
@@ -2004,7 +2004,7 @@ function ProformaTab() {
             asChild
           >
             <a href="/marketplace" target="_blank" rel="noopener noreferrer">
-              <Store className="h-3.5 w-3.5 text-emerald-600" /> View full Marketplace
+              <Store className="h-3.5 w-3.5 text-emerald-600" /> View full Proforma
             </a>
           </Button>
           <Button
@@ -2221,7 +2221,7 @@ function ProformaTab() {
             <div className="flex gap-2 justify-end">
               <Button variant="outline" size="sm" className="text-xs" onClick={() => setShowCreate(false)}>Cancel</Button>
               <Button size="sm" className="text-xs gap-1.5 gradient-emerald hover:opacity-90 text-white" onClick={handlePost} disabled={posting || uploadingImages}>
-                {posting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Posting...</> : <><Send className="h-3.5 w-3.5" /> Post to Marketplace</>}
+                {posting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Posting...</> : <><Send className="h-3.5 w-3.5" /> Post to Proforma</>}
               </Button>
             </div>
           </CardContent>
@@ -2337,7 +2337,7 @@ function ProformaTab() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block relative aspect-[4/3] bg-muted overflow-hidden"
-                  title={`Open ${listing.productName} on the public marketplace`}
+                  title={`Open ${listing.productName} on Proforma`}
                 >
                   {cover ? (
                     <img
@@ -2518,7 +2518,7 @@ export function SocialCircleView() {
                 </TabsTrigger>
                 <TabsTrigger value="proforma" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                   <Globe2 className="h-3.5 w-3.5 mr-1.5" />
-                  Market
+                  Listings
                 </TabsTrigger>
                 <TabsTrigger value="network" className="flex-1 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                   <Users className="h-3.5 w-3.5 mr-1.5" />

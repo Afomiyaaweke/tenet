@@ -77,7 +77,7 @@ const SCORE_FACTORS = [
   { key: 'bids',                label: 'Bids',             max: 10, icon: Gavel },
   { key: 'projects',            label: 'Projects',         max: 10, icon: FolderKanban },
   { key: 'endorsements',        label: 'Endorsements',     max: 10, icon: Award },
-  { key: 'listings',            label: 'Market Listings',  max: 10, icon: Store },
+  { key: 'listings',            label: 'Proforma Listings',  max: 10, icon: Store },
 ] as const;
 
 /* ───────────────────────── Activity Heatmap ───────────────────────── */
@@ -135,7 +135,7 @@ function ActivityHeatmap({ days }: { days: DayActivity[] }) {
     return (
       <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
         <Calendar className="w-4 h-4 mr-2" />
-        Start your journey — submit a bid, publish a tender, upload a document, or post a marketplace listing.
+        Start your journey — submit a bid, publish a tender, upload a document, or post a Proforma listing.
       </div>
     );
   }
@@ -309,7 +309,7 @@ export function JourneyCard() {
           </div>
           <h3 className="text-lg font-bold mb-1">Start your journey</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Complete your company profile to earn your first Quality Score, or post your first marketplace listing to start tracking your activity.
+            Complete your company profile to earn your first Quality Score, or post your first Proforma listing to start tracking your activity.
           </p>
         </CardContent>
       </Card>

@@ -445,7 +445,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ slug: 
                 <div className="p-1.5 rounded-lg bg-amber-50">
                   <Store className="h-4 w-4 text-amber-600" />
                 </div>
-                <h2 className="text-lg font-bold text-foreground">Marketplace Listings</h2>
+                <h2 className="text-lg font-bold text-foreground">Proforma Listings</h2>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {data.listings.map((l) => {

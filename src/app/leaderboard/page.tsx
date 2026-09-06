@@ -81,7 +81,7 @@ export default function LeaderboardPage() {
             Top Performing Suppliers
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto text-sm sm:text-base mb-2">
-            Quality Scores are earned, not bought. Ranked by verified documents, completed projects, win rate, live marketplace listings, and community endorsements.
+            Quality Scores are earned, not bought. Ranked by verified documents, completed projects, win rate, live Proforma listings, and community endorsements.
           </p>
           <p className="text-xs text-muted-foreground italic">
             &ldquo;Your Quality Score is your new resume.&rdquo;
@@ -215,7 +215,7 @@ export default function LeaderboardPage() {
                     <div className="hidden lg:flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1" title="Bids Won"><Gavel className="w-3 h-3 text-amber-400" />{entry.bidsWon}</span>
                       <span className="flex items-center gap-1" title="Projects"><FolderKanban className="w-3 h-3 text-purple-400" />{entry.completedProjects}</span>
-                      <span className="flex items-center gap-1" title="Live Marketplace Listings"><Store className="w-3 h-3 text-orange-400" />{entry.proformaCount}</span>
+                      <span className="flex items-center gap-1" title="Live Proforma Listings"><Store className="w-3 h-3 text-orange-400" />{entry.proformaCount}</span>
                       <span className="flex items-center gap-1" title="Documents"><ShieldCheck className="w-3 h-3 text-sky-400" />{entry.docCount}</span>
                       {entry.totalContractValue > 0 && (
                         <span className="flex items-center gap-1" title="Contract Value"><Banknote className="w-3 h-3 text-emerald-400" />{formatCurrency(entry.totalContractValue)}</span>
@@ -277,7 +277,7 @@ export default function LeaderboardPage() {
                 <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-emerald-400" />Verified Companies</span>
                 <span className="flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-sky-400" />Quality Scores</span>
                 <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-amber-400" />Earned Badges</span>
-                <span className="flex items-center gap-1.5"><Store className="w-4 h-4 text-orange-400" />Live Marketplace Listings</span>
+                <span className="flex items-center gap-1.5"><Store className="w-4 h-4 text-orange-400" />Live Proforma Listings</span>
                 <span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-purple-400" />Community Endorsements</span>
               </div>
             </div>
@@ -296,7 +296,7 @@ export default function LeaderboardPage() {
           </div>
           <div className="flex items-center gap-4">
             <a href="/" className="hover:text-foreground transition-colors">Home</a>
-            <a href="/marketplace" className="hover:text-foreground transition-colors">Marketplace</a>
+            <a href="/marketplace" className="hover:text-foreground transition-colors">Proforma</a>
             <a href="/leaderboard" className="hover:text-foreground transition-colors">Leaderboard</a>
             <a href="/?signup=1" className="hover:text-foreground transition-colors">Sign Up</a>
           </div>
