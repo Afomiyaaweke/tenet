@@ -1595,3 +1595,20 @@ Work Log:
 
 Stage Summary:
 - The Proforma marketplace is now strictly B2B company-centric: companies post their product prices; buyers and procurement teams compare and source across countries. All tourism/traveler phrasing is purged from both the public site and the in-app module. The hero tagline ("Compare real product prices across countries, discover suppliers, track market prices, and instantly generate accurate proforma invoices...") is preserved as the positioning statement.
+
+---
+Task ID: 26
+Agent: Z.ai Code (main)
+Task: "the sign in is not working" (second report)
+
+Work Log:
+- Diagnosed server-side: node scripts/check-users.cjs -> 2 users exist; curl POST /api/auth/login (personal + company) -> 200 both. Register flow also verified (201, then probe account deleted).
+- Grepped dev.log: the only login 404s predate the Task-24 Turbopack restart; recent logins all 200; no 401s on login itself.
+- Diagnosed client-side: auth uses localStorage 'tenet_token' + Bearer (src/lib/api.ts), zustand fetchMe clears stale tokens on 401 (src/store/index.ts:66-74) — no cookie/iframe pitfalls. auth-gate.tsx form has proper onSubmit, inline error, toast handling.
+- Fresh-context browser E2E (cleared localStorage): landing -> Sign In -> form -> personal@tenetbid.com/TestPass123! -> dashboard renders. Network trace: GET /me 401 (stale token correctly rejected) -> POST /login 200 -> GET /me 200.
+- Conclusion: sign-in works in the preview. Most likely user-side causes: (a) testing on the production Vercel deployment where these test accounts do not exist, or (b) their own registered account was wiped along with the dev DB (sandbox wipes it periodically).
+- Hardening: .zscripts/dev.sh now runs scripts/seed-dev.cjs (idempotent) after db:push on every server start, so the test accounts self-heal after any DB wipe/restart.
+- Commit pushed to origin/main.
+
+Stage Summary:
+- Sign-in confirmed working end-to-end for both accounts; the dev environment now self-heals its test data. If the user is on the Vercel production deployment, the test credentials won't exist there — they must register a fresh account (register flow verified working) or use their own credentials. Local preview credentials: personal@tenetbid.com / TestPass123! and test@tenetbid.com / TestPass123!.
