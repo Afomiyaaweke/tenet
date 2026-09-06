@@ -1575,3 +1575,23 @@ Work Log:
 Stage Summary:
 - Sign-in is fixed (was: corrupted Turbopack cache + empty dev DB). The dev seeder script is now checked in so any future DB wipe is a one-command recovery.
 - "Market"/"Marketplace" copy is purged from all user-visible surfaces — the public marketplace, the in-app module, the leaderboard, the journey card, the landing page, and the public profile page all consistently say "Proforma". The marketplace hero now leads with the supplied positioning tagline. Internal plumbing (URL path /marketplace, view id 'social-circle', /api/social/* endpoints, Prisma model ProformaListing) intentionally left untouched.
+
+---
+Task ID: 25
+Agent: Z.ai Code (main)
+Task: "remove all the concept of traveler form the proforma and make it about company proforma"
+
+Work Log:
+- Grepped src/ for traveler|travelers|tourist|look around — found 8 occurrences across 4 files (marketplace/page.tsx, social-circle.tsx, api/social/proforma/route.ts, api/social/proforma/[id]/route.ts).
+- Replaced each with company-centric framing:
+  - Marketplace empty state: "Be the first to show your company's prices to buyers and travelers" -> "Be the first company to post your prices on Proforma".
+  - Marketplace seller CTA: "reach buyers, travelers, and procurement teams browsing" -> "reach buyers and procurement teams sourcing from any country".
+  - In-app Proforma tab subtitle: "Companies show their prices — buyers and travelers browse by country" -> "Companies post their prices — buyers and procurement teams browse by country".
+  - In-app Proforma tab empty state: "Be the first to show your prices to buyers and travelers" -> "Be the first company to post your prices on Proforma".
+  - 3 API route comment blocks: dropped "travelers browsing"/"so travelers can browse" — now "buyers browsing"/"so buyers can compare and source".
+  - 1 code comment in social-circle.tsx: "Travelers and members browse" -> "Companies post their product prices; buyers and procurement teams browse by country".
+- Verification: re-grep src/ for traveler|travelers|tourist|look around = 0 hits. bunx tsc --noEmit = 0 errors. bun run lint = 0 errors / 18 warnings (baseline). Browser E2E: GET /marketplace — VLM confirmed hero/badge/For-Sellers CTA all clean, "traveler does not appear anywhere on the visible page"; sign in as personal@tenetbid.com -> Proforma module -> Listings tab — full-page document.body.innerText scan returns false for 'traveler'; VLM re-confirmed no 'traveler' on the page. Zero console errors.
+- Commit 2cec15c pushed to origin/main.
+
+Stage Summary:
+- The Proforma marketplace is now strictly B2B company-centric: companies post their product prices; buyers and procurement teams compare and source across countries. All tourism/traveler phrasing is purged from both the public site and the in-app module. The hero tagline ("Compare real product prices across countries, discover suppliers, track market prices, and instantly generate accurate proforma invoices...") is preserved as the positioning statement.
