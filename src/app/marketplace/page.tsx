@@ -310,7 +310,7 @@ export default function MarketplacePage() {
             <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
               {hasFilters
                 ? 'Try widening your search or clearing filters to see all listings.'
-                : 'Be the first to show your company\'s prices to buyers and travelers.'}
+                : 'Be the first company to post your prices on Proforma.'}
             </p>
             {hasFilters ? (
               <Button variant="outline" className="gap-2" onClick={clearFilters}>
@@ -415,7 +415,7 @@ export default function MarketplacePage() {
             </div>
             <h2 className="text-xl sm:text-2xl font-bold mb-2">Got products to sell?</h2>
             <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-              Post your prices on Proforma and reach buyers, travelers, and procurement teams browsing from any country.
+              Post your company's prices on Proforma and reach buyers and procurement teams sourcing from any country.
             </p>
             <Button className="gap-2 gradient-emerald hover:opacity-90 text-white" asChild>
               <a href="/?signup=1"><Store className="w-4 h-4" /> Post a Listing <ArrowRight className="w-4 h-4" /></a>

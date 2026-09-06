@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/social/proforma/[id]
- * Public single-listing detail. No auth required — travelers and buyers
+ * Public single-listing detail. No auth required — buyers and procurement teams
  * can view a listing without an account. Increments the view counter
  * (best-effort, non-blocking) so popularity sorts stay meaningful.
  */

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/social/proforma
- * Public marketplace — everyone (even travelers browsing) can see all
+ * Public proforma — everyone (even buyers browsing) can see all
  * product price listings. Supports filtering by country, category, search.
  *
  * Query params:
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/social/proforma
  * Post a product price listing (requires auth).
- * People share their country's products so travelers can browse prices.
+ * Companies post their product prices so buyers can compare and source.
  */
 export async function POST(request: NextRequest) {
   try {

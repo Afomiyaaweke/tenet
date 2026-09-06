@@ -1784,7 +1784,7 @@ function RightSidebar() {
 
 // ==========================================
 // PROFORMA TAB - Public country product price marketplace
-// Travelers and members browse products & prices posted by country
+// Companies post their product prices; buyers and procurement teams browse by country
 // ==========================================
 
 interface ProformaListingItem {
@@ -1993,7 +1993,7 @@ function ProformaTab() {
             Proforma
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Companies show their prices — buyers and travelers browse by country
+            Companies post their prices — buyers and procurement teams browse by country
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -2310,7 +2310,7 @@ function ProformaTab() {
             </div>
             <h4 className="text-lg font-semibold text-foreground">No product listings yet</h4>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Be the first to show your prices to buyers and travelers
+              Be the first company to post your prices on Proforma
             </p>
             <Button
               className="mt-4 gap-1.5 text-xs rounded-xl gradient-emerald hover:opacity-90 text-white"
