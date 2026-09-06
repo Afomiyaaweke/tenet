@@ -31,6 +31,14 @@ bun install 2>&1 || true
 echo "[DEV] Setting up database..."
 bun run db:push 2>&1 || true
 
+# Seed the dev DB with the known test accounts (idempotent).
+# The sandbox periodically wipes the SQLite DB — this guarantees
+# personal@tenetbid.com / test@tenetbid.com always exist after a restart.
+if [ -f "/home/z/my-project/scripts/seed-dev.cjs" ]; then
+  echo "[DEV] Seeding dev accounts..."
+  node scripts/seed-dev.cjs 2>&1 | tail -5 || true
+fi
+
 # Auto-restart loop: start dev server using the disown pattern
 # that makes it a direct child of tini (PID 1)
 RESTART_COUNT=0
