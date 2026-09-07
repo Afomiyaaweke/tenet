@@ -15,6 +15,7 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<AuthResult>;
+  googleLogin: (credential: string) => Promise<AuthResult>;
   socialLogin: (provider: string, code: string) => Promise<AuthResult>;
   register: (data: Record<string, string>) => Promise<AuthResult>;
   logout: () => void;
@@ -36,6 +37,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       return { success: true };
     }
     return { success: false, error: res.error || 'Invalid email or password', code: (res as Record<string, unknown>).code as string | undefined };
+  },
+
+  googleLogin: async (credential) => {
+    const res = await api.post('/auth/google', { credential });
+    if (res.success) {
+      localStorage.setItem('tenet_token', res.data.token);
+      set({ user: res.data.user, token: res.data.token });
+      return { success: true };
+    }
+    return { success: false, error: res.error || 'Google sign-in failed', code: (res as Record<string, unknown>).code as string | undefined };
   },
 
   socialLogin: async (provider, code) => {

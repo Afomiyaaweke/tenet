@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/store';
+import { GOOGLE_CLIENT_ID, loadGoogleIdentityServices } from '@/lib/google-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,18 +47,6 @@ type RegStep = 1 | 2 | 3 | 4;
 
 const SOCIAL_PROVIDERS = [
   {
-    id: 'google',
-    name: 'Google',
-    icon: (
-      <svg viewBox="0 0 24 24" className="w-4.5 h-4.5" fill="none">
-        <path d="M22.56 12.24c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C8.07 21.68 10.88 23 12 23z" fill="#34A853"/>
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 8.07 1 4.48 3.29 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-      </svg>
-    ),
-  },
-  {
     id: 'linkedin',
     name: 'LinkedIn',
     icon: (
@@ -89,8 +78,104 @@ const SOCIAL_PROVIDERS = [
   },
 ];
 
+/* ───────────────────── Google Sign-In (GIS ID-token flow) ───────────────────── */
+
+function GoogleSignInButton({ onLoadingChange }: { onLoadingChange: (loading: boolean) => void }) {
+  const googleLogin = useAuthStore((s) => s.googleLogin);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [gsiState, setGsiState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const googleLoadingRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadGoogleIdentityServices()
+      .then(() => {
+        if (!cancelled) setGsiState('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setGsiState('failed');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Stable identity (googleLogin & onLoadingChange are both stable) so the
+  // render effect below runs exactly once and Google's button is never
+  // rendered into the container more than once.
+  const handleCredentialResponse = useCallback(
+    async (response: { credential?: string }) => {
+      const credential = response?.credential;
+      if (!credential || googleLoadingRef.current) return;
+      googleLoadingRef.current = true;
+      setGoogleLoading(true);
+      onLoadingChange(true);
+      try {
+        const result = await googleLogin(credential);
+        if (result.success) {
+          toast.success('Welcome to TenetBid!');
+        } else {
+          toast.error(result.error || 'Google sign-in failed. Please try again.');
+        }
+      } catch {
+        toast.error('Google sign-in failed. Please check your connection and try again.');
+      }
+      googleLoadingRef.current = false;
+      setGoogleLoading(false);
+      onLoadingChange(false);
+    },
+    [googleLogin, onLoadingChange],
+  );
+
+  useEffect(() => {
+    if (gsiState !== 'ready' || !containerRef.current) return;
+    const container = containerRef.current;
+    try {
+      const isDark = document.documentElement.classList.contains('dark');
+      const width = Math.min(Math.max(container.offsetWidth || 380, 200), 400);
+      window.google?.accounts?.id?.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        use_fedcm_for_prompt: true,
+        callback: handleCredentialResponse,
+      });
+      window.google?.accounts?.id?.renderButton(container, {
+        theme: isDark ? 'filled_black' : 'outline',
+        size: 'large',
+        text: 'continue_with',
+        shape: 'pill',
+        logo_alignment: 'left',
+        width,
+      });
+    } catch {
+      // Defer so the effect body never sets state synchronously
+      queueMicrotask(() => setGsiState('failed'));
+    }
+  }, [gsiState, handleCredentialResponse]);
+
+  if (gsiState === 'failed') return null; // Graceful degradation — hide if Google's script is blocked
+
+  return (
+    <div className="relative flex justify-center" aria-label="Sign in with Google">
+      {gsiState === 'loading' && (
+        <div className="flex items-center justify-center gap-2 h-10 w-full rounded-full border border-border bg-muted/40 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading Google sign-in…
+        </div>
+      )}
+      {googleLoading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-background/70">
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+        </div>
+      )}
+      {/* Google renders its official button into this container */}
+      <div ref={containerRef} className="flex w-full justify-center [&_iframe]:!w-full" />
+    </div>
+  );
+}
+
 function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' | 'register'; loading: boolean; onLoadingChange: (loading: boolean) => void }) {
-  const { socialLogin, login } = useAuthStore();
+  const { socialLogin } = useAuthStore();
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
 
   const handleSocialLogin = async (providerId: string) => {
@@ -189,22 +274,25 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
         </div>
       </div>
 
-      {/* Social buttons grid with Coming Soon badges */}
-      <div className="grid grid-cols-2 gap-2.5">
+      {/* Official Google button — live */}
+      <GoogleSignInButton onLoadingChange={onLoadingChange} />
+
+      {/* Other social providers — coming soon */}
+      <div className="grid grid-cols-3 gap-2">
         {SOCIAL_PROVIDERS.map((provider) => (
           <button
             key={provider.id}
             type="button"
             disabled={loading || !!socialLoading}
             onClick={() => handleSocialLogin(provider.id)}
-            className="relative flex items-center justify-center gap-2 h-10 px-3 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 group"
+            className="relative flex items-center justify-center gap-1.5 h-10 px-2 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 group"
           >
             {socialLoading === provider.id ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               provider.icon
             )}
-            <span>{provider.name}</span>
+            <span className="truncate">{provider.name}</span>
             {/* Coming Soon badge */}
             <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 text-[9px] font-bold leading-none rounded-full bg-orange-500/90 text-white shadow-sm">
               Soon
@@ -215,7 +303,7 @@ function SocialLoginButtons({ mode, loading, onLoadingChange }: { mode: 'login' 
 
       {/* Hint text */}
       <p className="text-center text-xs text-muted-foreground/70">
-        Social sign-in coming soon — use email &amp; password for now
+        More sign-in options coming soon — you can also use email &amp; password
       </p>
     </div>
   );

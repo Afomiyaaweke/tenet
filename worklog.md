@@ -1633,3 +1633,21 @@ Work Log:
 
 Stage Summary:
 - Every information surface now has a public shareable link: Proforma listings (/marketplace/[id], Share built in), personal + company profiles (/u/slug, /slug), leaderboard (public URL + new Share button), and — new this task — both app tenders and live external tenders via /t/<slug> with Share buttons in both modules. Shared tender links are short, stable (deduped per tender), self-updating (snapshot refresh on re-share), and view-counted. No login required to view.
+
+---
+Task ID: 28
+Agent: Z.ai Code (main)
+Task: "349861539680-uk1gbm740qd6hcbvlicl1nmut3kqi2va.apps.googleusercontent.com use this to sign in using google" — Google Sign-In with the provided OAuth Client ID
+
+Work Log:
+- Explored existing auth: custom JWT (localStorage 'tenet_token' + Bearer), login/register routes, old popup code-exchange social flow (/api/auth/social) that requires GOOGLE_CLIENT_SECRET — user only provided a Client ID, so implemented the client-ID-only Google Identity Services (GIS) ID-token flow instead.
+- New src/lib/google-auth.ts: GOOGLE_CLIENT_ID (env override NEXT_PUBLIC_GOOGLE_CLIENT_ID, hardcoded fallback = provided ID so .env wipes cannot break it), minimal window.google typings, loadGoogleIdentityServices() singleton script loader (reuses in-flight/existing script tag).
+- New POST /api/auth/google: verifies the GIS ID token against https://oauth2.googleapis.com/tokeninfo (Google validates signature/expiry; route additionally checks aud == client ID, iss, exp, email_verified), then find-or-create user by normalized email (auto-create personal account with random bcrypt password + verified profile, mirroring the social route; existing accounts get emailVerified linked), rejects suspended/banned, issues the standard generateToken JWT, audit-logs method:'google'. Same response shape as /auth/login ({token, user with profile+company}).
+- Store: added googleLogin(credential) action (identical token persistence to login).
+- auth-gate.tsx: new GoogleSignInButton renders Google's OFFICIAL GIS button (theme aware dark/light, pill, continue_with, container-width clamped 200-400px) into a ref container; graceful degradation (hides itself) if Google's script is blocked. Replaced the fake "Coming Soon" Google grid entry: grid now holds LinkedIn/GitHub/Microsoft (Soon badges, 3 cols) below the live Google button on both Sign In and Create Account tabs. Hint text updated.
+- Fixed 2 subtle issues: (1) setState-in-effect lint error in catch → queueMicrotask; (2) renderButton could run multiple times because handleCredentialResponse was recreated on googleLoading changes → moved in-flight guard to a ref + stabilized useCallback deps so the render effect runs exactly once (prevents duplicate GIS iframes).
+- Added GOOGLE_CLIENT_ID / NEXT_PUBLIC_GOOGLE_CLIENT_ID to .env (code fallback makes this optional).
+- Verification: tsc 0 errors; lint 0 errors / 18 warnings baseline. curl: missing credential → 400, garbage credential → 401 (Google tokeninfo rejects). Sandbox headless browser cannot reach accounts.google.com (external network blocked in that context), so E2E used an injected GIS stub: button renders once → click → credential callback → POST /api/auth/google (401 observed in network log for the fake token, correct) → error toast shown → no token stored. VLM screenshot check: exactly one Google pill, LinkedIn/GitHub/Microsoft labeled with Soon badges, no overlap. Email login regression: test@tenetbid.com → token set → app loads (Leaderboard).
+
+Stage Summary:
+- "Sign in with Google" is live on both the Sign In and Create Account screens using the provided client ID (349861539680-...). Only the Client ID is needed (no secret). Existing email accounts with the same address are automatically linked (email marked verified); new Google users get a personal account. REMAINING USER-SIDE CONFIG: in Google Cloud Console → Credentials → this OAuth client → Authorized JavaScript origins must include the site origin(s) the app is served from (preview origin / production domain, plus http://localhost:3000 for local dev), otherwise Google will block the popup with origin_mismatch.
