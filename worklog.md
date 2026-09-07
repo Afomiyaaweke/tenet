@@ -1612,3 +1612,24 @@ Work Log:
 
 Stage Summary:
 - Sign-in confirmed working end-to-end for both accounts; the dev environment now self-heals its test data. If the user is on the Vercel production deployment, the test credentials won't exist there — they must register a fresh account (register flow verified working) or use their own credentials. Local preview credentials: personal@tenetbid.com / TestPass123! and test@tenetbid.com / TestPass123!.
+
+---
+Task ID: 27
+Agent: Z.ai Code (main)
+Task: "make all the information sharable link and also the live teneder sharable"
+
+Work Log:
+- Gap analysis: marketplace listings (/marketplace/[id] + Share), personal (/u/[slug]) and company (/[slug]) profiles, and /leaderboard were already public; app tenders and live tenders had NO public shareable page (only an internal notification-style share). Live tenders are ephemeral external snapshots (not in DB), so sharing needed a persistence layer.
+- Added TenderShare model to prisma/schema.prisma + schema.prod.prisma: kind (live|tender), tenderId (app tenders), externalId (dedupe key source:externalId for live), snapshot (JSON), views, createdBy; unique (kind,tenderId) + (kind,externalId); bun run db:push OK.
+- New POST /api/share/tender (requireAuth): { tenderId } snapshots an app Tender (404 for drafts); { tender } snapshots a live tender (requires title+source; tolerates scope/summary/description variants; caps snapshot fields). Upserts refresh the snapshot so an existing link always serves the latest data.
+- New GET /api/share/tender/[slug] (public): parses snapshot, best-effort views increment.
+- New public page /t/[slug] ('use client'): sticky header with copy/share, breadcrumb, source badge + status + days-to-close badges, title, views + shared date, meta grid (budget/deadline/location/borrower/contract type/category), description card, document links, "View on <source>" card, emerald signup CTA, footer; loading skeleton + 404 state.
+- Live Tenders UI: TenderCard gains onShare/isSharing; Share button in the detail view header (next to Collapse). shareLiveTender POSTs the live tender, then navigator.share or clipboard + success toast ("Anyone with the link can view this tender — no account needed").
+- App Tenders UI: InlineTenderDetail gains a Share action button (same UX), posting { tenderId }.
+- Leaderboard: Share button in the header (Web Share API + clipboard fallback).
+- Debugging note: first two POST /share/tender attempts 500'd with "db.tenderShare undefined" because the running next-server (started 10:07) predated the prisma generate from db:push; fuser -k failed to kill it — had to kill -9 both the `next dev` and `next-server` PIDs. Fresh server picked up the new client and everything worked.
+- Verification: POST live share 201 -> slug /t/cmtr3xike0001q7sviki76kyg; repeat POST returns SAME slug (dedupe) with refreshed snapshot; public GET 200 (views increment 1->2->3); app-tender share 201 (kind=tender, source=TenetBid); browser: /t/<live> renders title/badges/budget USD 3,000,000/deadline/location/borrower/views (VLM confirmed incl. "Closes in 55 days" badge); /t/<app> renders ETB 2,000,000-4,500,000 + CTA; UI: signed in as test@tenetbid.com -> Tenders -> tender detail -> Share button click produced POST /api/share/tender 201 in network log; leaderboard header shows Share + Get Started. tsc 0 errors; lint 0/18 baseline.
+- Commit rebased onto remote (worklog drift) and pushed as 2bdd635.
+
+Stage Summary:
+- Every information surface now has a public shareable link: Proforma listings (/marketplace/[id], Share built in), personal + company profiles (/u/slug, /slug), leaderboard (public URL + new Share button), and — new this task — both app tenders and live external tenders via /t/<slug> with Share buttons in both modules. Shared tender links are short, stable (deduped per tender), self-updating (snapshot refresh on re-share), and view-counted. No login required to view.
