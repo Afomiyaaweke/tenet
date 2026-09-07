@@ -27,7 +27,7 @@ import {
   ExternalLink, FileText, Tag, Briefcase, Eye, ShieldCheck,
   Wallet, Clock3, Globe2, Award, CircleDot, ListChecks,
   Upload, CloudUpload, FileUp, ScanSearch, Brain, Trash2, Loader2,
-  Radio, Download, FileDown, FileSpreadsheet,
+  Radio, Download, FileDown, FileSpreadsheet, Share2,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 import { FullDocumentViewer } from '@/components/modules/full-document-viewer';
@@ -92,6 +92,7 @@ function InlineTenderDetail({ tender, onClose, setView }: {
 }) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidsLoading, setBidsLoading] = useState(true);
+  const [sharing, setSharing] = useState(false);
   const tags = tender.categoryTags.split(',').filter(Boolean);
   const reqDocs = tender.requiredDocs ? tender.requiredDocs.split(',').filter(Boolean) : [];
   const days = daysUntil(tender.deadline);
@@ -107,6 +108,32 @@ function InlineTenderDetail({ tender, onClose, setView }: {
     })();
     return () => { cancelled = true; };
   }, [tender.id]);
+
+  const shareTender = async () => {
+    setSharing(true);
+    try {
+      const res = await api.post('/share/tender', { tenderId: tender.id });
+      if (res.success && res.data?.slug) {
+        const url = `${window.location.origin}${res.data.slug}`;
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: tender.title, url });
+          } else {
+            await navigator.clipboard.writeText(url);
+            toast.success('Share link copied!', { description: 'Anyone with the link can view this tender — no account needed.' });
+          }
+        } catch {
+          await navigator.clipboard.writeText(url).catch(() => {});
+          toast.success('Share link created!', { description: url });
+        }
+      } else {
+        toast.error(res.error || 'Failed to create share link');
+      }
+    } catch {
+      toast.error('Failed to create share link');
+    }
+    setSharing(false);
+  };
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -354,6 +381,16 @@ function InlineTenderDetail({ tender, onClose, setView }: {
           >
             <Sparkles className="h-3.5 w-3.5" />
             AI Review
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+            onClick={shareTender}
+            disabled={sharing}
+            title="Create a public share link — anyone can view this tender"
+          >
+            {sharing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
+            Share
           </Button>
           {tender.externalUrl && (
             <Button

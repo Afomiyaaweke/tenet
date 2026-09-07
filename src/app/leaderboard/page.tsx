@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ShieldCheck, ArrowRight, Sparkles, Copy, Check, Trophy, Crown,
   Medal, Gem, Zap, Gavel, FolderKanban, Users, MapPin, Building2,
-  Star, TrendingUp, Banknote, ExternalLink, Store,
+  Star, TrendingUp, Banknote, ExternalLink, Store, Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,9 +68,27 @@ export default function LeaderboardPage() {
             </div>
             <span className="font-bold text-lg tracking-tight hidden sm:inline">TenetBid</span>
           </a>
-          <Button size="sm" className="gap-1.5 text-xs" asChild>
-            <a href="/?signup=1">Get Started <ArrowRight className="w-3 h-3" /></a>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs rounded-full"
+              onClick={async () => {
+                try {
+                  if (navigator.share) {
+                    await navigator.share({ title: 'TenetBid Leaderboard', url: window.location.href });
+                  } else {
+                    await navigator.clipboard.writeText(window.location.href);
+                  }
+                } catch { /* cancelled */ }
+              }}
+            >
+              <Share2 className="w-3 h-3" /> Share
+            </Button>
+            <Button size="sm" className="gap-1.5 text-xs" asChild>
+              <a href="/?signup=1">Get Started <ArrowRight className="w-3 h-3" /></a>
+            </Button>
+          </div>
         </div>
       </header>
 

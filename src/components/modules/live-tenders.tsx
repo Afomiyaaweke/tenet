@@ -27,6 +27,7 @@ import {
   Trophy, Swords, Scale, Wrench, HeartPulse, Briefcase, Award,
   OctagonAlert, CircleDashed, ArrowRight, Timer, Milestone,
   Handshake, Star, Flame, Info, GitBranch, Layers, PieChart,
+  Share2,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 
@@ -1630,6 +1631,8 @@ function TenderCard({
   onLoadDocument,
   onLoadAIReview,
   onImport,
+  onShare,
+  isSharing,
   onCardClick,
   onStartBidApplication,
 }: {
@@ -1649,6 +1652,8 @@ function TenderCard({
   onLoadDocument: () => void;
   onLoadAIReview: () => void;
   onImport: () => void;
+  onShare: () => void;
+  isSharing: boolean;
   onCardClick: () => void;
   onStartBidApplication: () => void;
 }) {
@@ -1952,6 +1957,17 @@ function TenderCard({
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
                   Collapse
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); onShare(); }}
+                  disabled={isSharing}
+                  className="gap-1.5 text-xs rounded-full shrink-0"
+                  title="Create a public share link — anyone can view this tender"
+                >
+                  {isSharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+                  Share
                 </Button>
               </div>
 
@@ -2591,6 +2607,7 @@ export function LiveTendersView() {
   // Saved/bookmark state
   const [savedTenders, setSavedTenders] = useState<Record<string, boolean>>({});
   const [savingTender, setSavingTender] = useState<Record<string, boolean>>({});
+  const [sharingTender, setSharingTender] = useState<Record<string, boolean>>({});
 
   // Import state
   const [importing, setImporting] = useState<string | null>(null);
@@ -2915,6 +2932,35 @@ export function LiveTendersView() {
     }
     setSavingTender((prev) => ({ ...prev, [id]: false }));
   }, [savedTenders]);
+
+  /* ────── Public share link ────── */
+  const shareLiveTender = useCallback(async (tender: LiveTender) => {
+    const id = tender.id;
+    setSharingTender((prev) => ({ ...prev, [id]: true }));
+    try {
+      const res = await api.post('/share/tender', { tender });
+      if (res.success && res.data?.slug) {
+        const url = `${window.location.origin}${res.data.slug}`;
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: tender.title, url });
+          } else {
+            await navigator.clipboard.writeText(url);
+            toast.success('Share link copied!', { description: 'Anyone with the link can view this tender — no account needed.' });
+          }
+        } catch {
+          // navigator.share cancelled or clipboard blocked — still show the link
+          await navigator.clipboard.writeText(url).catch(() => {});
+          toast.success('Share link created!', { description: url });
+        }
+      } else {
+        toast.error(res.error || 'Failed to create share link');
+      }
+    } catch {
+      toast.error('Failed to create share link');
+    }
+    setSharingTender((prev) => ({ ...prev, [id]: false }));
+  }, []);
 
   /* ────── Import to local tenders ────── */
   const importTender = useCallback(async (tender: LiveTender) => {
@@ -3487,6 +3533,8 @@ ${tender.budgetMin || tender.budgetMax ? `**Budget:** ${tender.currency || 'ETB'
                     onLoadDocument={() => loadDocument(t)}
                     onLoadAIReview={() => loadAIReview(t)}
                     onImport={() => importTender(t)}
+                    onShare={() => shareLiveTender(t)}
+                    isSharing={sharingTender[t.id] || false}
                     onCardClick={() => {
                       if (detailOpenId !== t.id) {
                         // Opening detail view - also auto-fetch document content
