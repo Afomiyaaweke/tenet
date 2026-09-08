@@ -1651,3 +1651,21 @@ Work Log:
 
 Stage Summary:
 - "Sign in with Google" is live on both the Sign In and Create Account screens using the provided client ID (349861539680-...). Only the Client ID is needed (no secret). Existing email accounts with the same address are automatically linked (email marked verified); new Google users get a personal account. REMAINING USER-SIDE CONFIG: in Google Cloud Console → Credentials → this OAuth client → Authorized JavaScript origins must include the site origin(s) the app is served from (preview origin / production domain, plus http://localhost:3000 for local dev), otherwise Google will block the popup with origin_mismatch.
+
+---
+Task ID: 29
+Agent: Z.ai Code (main)
+Task: "the ai is not working properly fix it and remove all the sign in option and only google and linkedin"
+
+Work Log:
+- AI diagnosis: all 7 AI endpoints (chat, tender-prep, bid-prep, analyze-requirements, translate, filter-tenders, analyze-applicants) returned 200 with real content via curl. Browser E2E confirmed chat sends + receives. Root cause was NOT a crash — it was the 8-second deadline in callZAIWithDeadline/callZAIVisionWithDeadline (src/lib/zai.ts).
+- Measured timings: simple chat 5.8s, tender-prep 7.7s, complex bid-proposal chat 20.3s. The 8s deadline (designed for Vercel Hobby's 10s function limit) was cutting off ANY response that took >8s, returning null → routes returned canned fallback messages/templates instead of real AI output. In dev/preview (VERCEL env not set) there is no 10s constraint, so the deadline was artificially crippling the AI.
+- Fix: made the deadline environment-aware in src/lib/zai.ts. Added AI_DEADLINE_MS (60s dev / 8s Vercel) and AI_VISION_DEADLINE_MS (60s dev / 9s Vercel), used as the new defaults for callZAIWithDeadline and callZAIVisionWithDeadline. Updated /api/ai/chat to stop passing explicit 8000/9000 and use the env-aware defaults. All other AI routes already used the default.
+- Verification: complex 5-section bid proposal prompt now returns 5582-char real AI response in 20.3s (fallback:false). tender-prep returns 609-char real scope in 8.4s (fallback:false). Previously both would have timed out.
+- Sign-in cleanup: removed GitHub and Microsoft entries from SOCIAL_PROVIDERS in src/components/auth-gate.tsx. Only LinkedIn remains (with Soon badge, full-width grid-cols-1). Google button (official GIS) stays live above it. Hint text updated to "LinkedIn sign-in coming soon".
+- VLM verified: auth screen shows only Google + LinkedIn, no GitHub/Microsoft, layout clean.
+- tsc 0 errors; lint 0/18 baseline; dev.log clean.
+
+Stage Summary:
+- AI fixed: the 8s deadline was silently killing AI responses >8s and returning canned fallbacks. Now uses 60s in dev/preview (8s on Vercel to fit the 10s function limit). Complex prompts that took 20s now return full real AI output.
+- Sign-in stripped to Google + LinkedIn only (GitHub and Microsoft removed).

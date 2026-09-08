@@ -60,6 +60,18 @@ export async function getZAIWithRetry(retries = 1): Promise<ZAIInstance> {
 }
 
 /**
+ * Environment-aware deadline for AI calls.
+ *
+ * Vercel Hobby tier kills serverless functions at 10s, so we keep a tight
+ * 8s deadline in production to leave headroom for auth + DB + response
+ * serialization. In dev / preview (where VERCEL is not set) there is no
+ * such constraint, so we allow 60s — enough for complex template
+ * generation and vision analysis that routinely takes 15-30s.
+ */
+const AI_DEADLINE_MS = process.env.VERCEL ? 8000 : 60000;
+const AI_VISION_DEADLINE_MS = process.env.VERCEL ? 9000 : 60000;
+
+/**
  * Message content: plain string for text-only chats, or an array of
  * text/image parts for vision requests (matches the OpenAI-style shape
  * used by the SDK's createVision endpoint).
@@ -95,7 +107,7 @@ export interface ZAIMessage {
  */
 export async function callZAIWithDeadline(
   messages: ZAIMessage[],
-  deadlineMs = 8000
+  deadlineMs = AI_DEADLINE_MS
 ): Promise<string | null> {
   try {
     const zai = await getZAI();
@@ -133,7 +145,7 @@ export async function callZAIWithDeadline(
  */
 export async function callZAIVisionWithDeadline(
   messages: ZAIMessage[],
-  deadlineMs = 9000
+  deadlineMs = AI_VISION_DEADLINE_MS
 ): Promise<string | null> {
   let accumulated = '';
   try {

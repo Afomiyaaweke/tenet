@@ -173,10 +173,12 @@ ${imageDataUrl ? 'An image IS attached to the latest message — read it careful
     ];
 
     // Vision calls stream with partial capture (image analysis is slower);
-    // text-only calls use the standard deadline race.
+    // text-only calls use the standard deadline race. Both use the
+    // environment-aware defaults from callZAIWithDeadline (60s in dev,
+    // 8-9s on Vercel to fit the 10s function limit).
     const response = imageDataUrl
-      ? await callZAIVisionWithDeadline(chatMessagesPayload, 9000)
-      : await callZAIWithDeadline(chatMessagesPayload, 8000);
+      ? await callZAIVisionWithDeadline(chatMessagesPayload)
+      : await callZAIWithDeadline(chatMessagesPayload);
 
     if (!response) {
       // AI was too slow for Vercel's 10s cap — give the user a useful,
