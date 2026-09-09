@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { getZAI } from '@/lib/zai';
+import { callZAIWithDeadline } from '@/lib/zai';
 
 // Vercel Hobby tier: 10s max
 export const maxDuration = 10;
@@ -101,8 +101,6 @@ export async function POST(
     });
 
     try {
-      const zai = await getZAI();
-
       // Build context for the AI review
       const tenderInfo = doc.bid?.tender;
       const bidInfo = doc.bid;
@@ -153,21 +151,16 @@ Provide your review in the following JSON structure:
 
 Be thorough, objective, and specific. Focus on procurement compliance, document completeness, and risk assessment.`;
 
-      const completion = await zai.chat.completions.create({
-        messages: [
-          {
-            role: 'assistant',
-            content: 'You are an expert procurement document reviewer. Analyze documents for compliance, completeness, risk, and provide detailed findings. Always respond with valid JSON only - no markdown, no code fences, just the raw JSON object.',
-          },
-          {
-            role: 'user',
-            content: reviewPrompt,
-          },
-        ],
-        thinking: { type: 'disabled' },
-      });
-
-      const responseText = completion.choices?.[0]?.message?.content || '';
+      const responseText = await callZAIWithDeadline([
+        {
+          role: 'system',
+          content: 'You are an expert procurement document reviewer. Analyze documents for compliance, completeness, risk, and provide detailed findings. Always respond with valid JSON only - no markdown, no code fences, just the raw JSON object.',
+        },
+        {
+          role: 'user',
+          content: reviewPrompt,
+        },
+      ]);
 
       if (!responseText || responseText.trim().length === 0) {
         throw new Error('AI review returned empty result');

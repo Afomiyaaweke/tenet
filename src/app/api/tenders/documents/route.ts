@@ -371,7 +371,7 @@ Respond ONLY with valid JSON, no other text.`;
     const completion = await zai.chat.completions.create({
       messages: [
         {
-          role: 'assistant',
+          role: 'system',
           content: systemPrompt,
         },
         {

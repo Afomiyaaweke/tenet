@@ -387,7 +387,7 @@ async function triggerReviewAsync(docId: string, ocrText: string, customPrompt: 
     const completion = await zai.chat.completions.create({
       messages: [
         {
-          role: 'assistant',
+          role: 'system',
           content: systemPrompt,
         },
         {

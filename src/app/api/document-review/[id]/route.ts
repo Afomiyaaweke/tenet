@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { getZAI } from '@/lib/zai';
+import { callZAIWithDeadline } from '@/lib/zai';
 
 // Vercel Hobby tier: 10s max
 export const maxDuration = 10;
@@ -90,8 +90,6 @@ export async function POST(
     });
 
     try {
-      const zai = await getZAI();
-
       const ocrText = doc.ocrText;
 
       // Build the system prompt based on whether user provided a custom prompt
@@ -99,21 +97,16 @@ export async function POST(
         ? `You are an expert document reviewer. The user has provided the following specific review criteria:\n\n"${customPrompt}"\n\nAnalyze the provided document text according to the user's criteria and produce a structured review in JSON format with these fields:\n- complianceScore: number 0-100 (how well the document meets the user's criteria)\n- completenessScore: number 0-100 (how complete the document is relative to the criteria)\n- riskLevel: "low" | "medium" | "high" (overall risk assessment)\n- findings: array of { type: "positive"|"negative"|"warning", title: string, description: string }\n- strengths: array of strings\n- weaknesses: array of strings\n- missingElements: array of strings (what's missing or incomplete)\n- recommendations: array of strings\n- overallAssessment: string (summary of the review)\n\nRespond ONLY with valid JSON, no other text.`
         : `You are an expert procurement document reviewer. Analyze the provided document text and produce a structured review in JSON format with these fields:\n- complianceScore: number 0-100 (how well the document meets procurement standards)\n- completenessScore: number 0-100 (how complete the document is)\n- riskLevel: "low" | "medium" | "high" (overall risk assessment)\n- findings: array of { type: "positive"|"negative"|"warning", title: string, description: string }\n- strengths: array of strings\n- weaknesses: array of strings\n- missingElements: array of strings (what's missing or incomplete)\n- recommendations: array of strings\n- overallAssessment: string (summary of the review)\n\nRespond ONLY with valid JSON, no other text.`;
 
-      const completion = await zai.chat.completions.create({
-        messages: [
-          {
-            role: 'assistant',
-            content: systemPrompt,
-          },
-          {
-            role: 'user',
-            content: `Please review this document:\n\n${ocrText}`,
-          },
-        ],
-        thinking: { type: 'disabled' },
-      });
-
-      const rawResponse = completion.choices?.[0]?.message?.content || '';
+      const rawResponse = await callZAIWithDeadline([
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'user',
+          content: `Please review this document:\n\n${ocrText}`,
+        },
+      ]);
 
       if (!rawResponse || rawResponse.trim().length === 0) {
         throw new Error('AI review returned empty result');
