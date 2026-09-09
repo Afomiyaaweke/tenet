@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore, useNavStore } from '@/store';
 import { api, type Document } from '@/lib/api';
+import { localAI, shouldUseLocalAI } from '@/lib/web-llm';
+import { useAIProvider } from '@/components/ai-provider';
+import { AIModeToggle } from '@/components/ai-mode-toggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -687,6 +690,7 @@ function GenerateButton({ onClick, loading, disabled }: { onClick: () => void; l
 export function AIDocStudio() {
   /* ── State ── */
   const { viewParams } = useNavStore();
+  const { mode: aiMode, localAvailable } = useAIProvider();
   const editorRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1125,6 +1129,47 @@ export function AIDocStudio() {
     if (overrideText === undefined) setChatInput('');
     setChatImage(null);
     setChatSending(true);
+
+    // ── Hybrid AI routing ──
+    // Decide whether to try the local (on-device) model first.
+    // Local is used when: mode is "local" (forced), or mode is "auto" AND the
+    // message is simple (no generation/analysis keywords, not too long, no image).
+    // Images ALWAYS go to cloud (vision model). Local model has no vision.
+    const canTryLocal =
+      !attachedImage && // vision needs cloud
+      localAI.isSupported() &&
+      (aiMode === 'local' || (aiMode === 'auto' && shouldUseLocalAI(text)));
+
+    if (canTryLocal) {
+      // Show a hint that we're trying local first
+      const localHistory = chatMessages
+        .slice(1)
+        .slice(-4) // local model: keep context short for speed
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      try {
+        const localReply = await localAI.chat(
+          [
+            {
+              role: 'system',
+              content: 'You are the AI Doc Studio assistant for a procurement platform (TenetBid). Help with quick questions about tenders, bids, procurement and documents. Be concise and practical. If the user asks to generate, write, draft, analyze or review a full document, tell them to use the Template Generator panel or ask again (those tasks use a more powerful cloud model).',
+            },
+            ...localHistory,
+            { role: 'user', content: text },
+          ],
+          15000, // 15s deadline for local model
+        );
+        if (localReply) {
+          pushChat('assistant', localReply + '\n\n*⚡ Generated locally on your device (free, offline)*');
+          setChatSending(false);
+          return;
+        }
+        // Local returned null (timed out or empty) → fall through to cloud
+        pushChat('assistant', '*(Local model timed out — trying cloud…)*');
+      } catch {
+        // Local failed → fall through to cloud silently
+      }
+    }
+
     try {
       // Give the assistant live context of what is in the editor so it can read,
       // reference and refine the document the user is working on.
@@ -3553,7 +3598,10 @@ export function AIDocStudio() {
                 <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
                   <Bot className="h-3.5 w-3.5 text-teal-600" />
                   <span className="text-xs font-semibold text-foreground">AI Assistant</span>
-                  <span className="ml-auto text-[10px] text-muted-foreground">{chatMessages.length > 1 ? `${chatMessages.length - 1} msgs` : 'live'}</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <AIModeToggle />
+                    <span className="text-[10px] text-muted-foreground hidden sm:inline">{chatMessages.length > 1 ? `${chatMessages.length - 1} msgs` : 'live'}</span>
+                  </div>
                 </div>
                 {renderChatThread()}
                 {renderChatSuggestions()}
@@ -3574,7 +3622,10 @@ export function AIDocStudio() {
                   <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
                     <Bot className="h-3.5 w-3.5 text-teal-600" />
                     <span className="text-xs font-semibold text-foreground">AI Assistant</span>
-                    <span className="ml-auto text-[10px] text-muted-foreground">{chatMessages.length > 1 ? `${chatMessages.length - 1} msgs` : 'live'}</span>
+                    <div className="ml-auto flex items-center gap-2">
+                      <AIModeToggle />
+                      <span className="text-[10px] text-muted-foreground hidden sm:inline">{chatMessages.length > 1 ? `${chatMessages.length - 1} msgs` : 'live'}</span>
+                    </div>
                   </div>
                   <div className="h-[50vh] flex flex-col overflow-hidden">
                     {renderChatThread()}

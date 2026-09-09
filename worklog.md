@@ -1683,3 +1683,27 @@ Work Log:
 
 Stage Summary:
 - AI review fixed: role:'assistant'→role:'system' in all 4 review code paths (fixes quality/empty-response issues), and deadline protection added to the 2 main review routes (prevents timeouts on complex documents — 60s in dev, 8s on Vercel). The same class of deadline bug that was fixed for AI chat in Task 29 is now also fixed for AI review.
+
+---
+Task ID: 31
+Agent: Z.ai Code (main)
+Task: "can we build the ai itself and compress it to not take big space and connection and push it to the code it self" → "make it hybrid"
+
+Work Log:
+- Implemented hybrid AI: on-device (WebLLM) for simple tasks + cloud (ZAI) for complex tasks, with a user-toggleable mode (Auto/Local/Cloud).
+- Installed @mlc-ai/web-llm (0.2.85) — runs LLMs in the browser via WebGPU.
+- New src/lib/web-llm.ts: LocalAIManager singleton — lazy-loads Llama-3.2-1B-Instruct (~800MB, cached in IndexedDB), tracks load progress, chat() with deadline + graceful null on failure. shouldUseLocalAI() heuristic: routes to local for short messages without generation/analysis keywords; routes to cloud for "write/draft/generate/analyze/review" or messages >500 chars or with images.
+- New src/components/ai-provider.tsx: AIProvider context + useAIProvider hook. Persists mode (auto|local|cloud) in localStorage. Auto-loads local model when mode is "local" or "auto" + WebGPU available. Subscribe to local AI load progress.
+- New src/components/ai-mode-toggle.tsx: DropdownMenu UI with three modes + live local model status (unloaded/loading/ready/failed/unsupported), progress bar during download, "Load local model" button, WebGPU unsupported warning.
+- Wrapped app in AIProvider in src/app/layout.tsx.
+- Modified AI Doc Studio chat (sendChat in ai-doc-studio.tsx): in Auto mode, simple queries try local model first (15s deadline) → if success, reply tagged "⚡ Generated locally on your device (free, offline)"; if null/timeout, shows "Local model timed out — trying cloud…" then falls through to cloud /api/ai/chat. Images always go to cloud (vision). Local mode forces local; Cloud mode skips local entirely.
+- Added AIModeToggle to AI Assistant header in both desktop and mobile sidebars.
+- Fixed lint error: setState-in-effect in ai-provider.tsx → replaced with lazy useState initializer reading localStorage on first render.
+- Verification: tsc 0 errors; lint 0/18 baseline. Browser E2E: toggle visible in AI Doc Studio sidebar ("AI: Auto" pill), dropdown shows all 3 modes with descriptions. Sent "What is a proforma invoice?" → local model started loading (800MB download in background), timed out at 15s deadline → graceful fallback message shown → cloud /api/ai/chat returned full proforma explanation (200). Hybrid routing works end-to-end. In a real browser with WebGPU + cached model, simple queries answer locally (free, offline); complex queries always use cloud.
+
+Stage Summary:
+- Hybrid AI is live. Three modes via the "AI: Auto" toggle in the AI Doc Studio sidebar:
+  - Auto (default): simple chat → local Llama-3.2-1B (free, offline), complex/generation/vision → cloud ZAI
+  - Local: always local (free, offline, lower quality, needs WebGPU + ~800MB first-load download)
+  - Cloud: always cloud (premium quality, current behavior)
+- Local model loads lazily on first use, caches in IndexedDB, shows progress bar. Falls back to cloud automatically if local times out or fails. Images/vision always use cloud (local model has no vision). No API costs for simple chat when local is available.

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AIProvider } from "@/components/ai-provider";
 import { MicrosoftClarity } from "@/components/analytics/clarity";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -51,8 +52,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster richColors position="top-right" style={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
+          <AIProvider>
+            {children}
+            <Toaster richColors position="top-right" style={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
+          </AIProvider>
           <Analytics />
         </ThemeProvider>
       </body>
