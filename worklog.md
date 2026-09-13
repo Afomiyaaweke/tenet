@@ -1724,3 +1724,21 @@ Work Log:
 Stage Summary:
 - TenetBid is now an installable Android app two ways: (1) PWA — open the site in Android Chrome → install banner / "Add to Home Screen" → full-screen standalone app with offline support, app icon, splash, and home-screen shortcuts; repeat loads are cache-fast. (2) Real APK — GitHub Actions builds a debug APK artifact on every push to main (sideload or distribute); Capacitor shell points at the live site so updates ship without store releases.
 - ZAI env-override infrastructure in place (ZAI_API_KEY/ZAI_TOKEN/ZAI_BASE_URL with validation + fallback). User-supplied key was invalid for this API (tested both header positions); platform session auth remains in use.
+
+---
+Task ID: 35
+Agent: main
+Task: Landing page "Download Mobile App" button that installs the app to the phone
+
+Work Log:
+- Refactored src/components/pwa-provider.tsx into a shared PWA context: usePWAInstall() hook exposing { canInstall, isInstalled, platform, isMobile, promptInstall() }; captures beforeinstallprompt, listens for appinstalled, detects standalone mode + platform (android/ios/desktop, incl. iPadOS 13+ Mac-touch heuristic); kept the passive 4s auto-banner (Chromium only)
+- Fixed root layout bug: PWAProvider was rendered as a SIBLING of {children} (old self-contained banner) — moved it to WRAP children + Toaster so the context reaches the page tree (was causing SSR 500: "usePWAInstall must be used inside <PWAProvider>")
+- Created src/components/app-download-button.tsx with 4 variants (nav / hero / dark / big): click triggers native install prompt on Android/desktop Chromium; opens platform-aware step-by-step dialog on iOS (Share → Add to Home Screen → Add), Android-without-prompt (menu → Install app) and desktop (address-bar install icon); already-installed state shows "Installed" + toast; feature strip (Free · ~1 MB · Full-screen · Works offline)
+- Landing page integration: navbar compact "Get App" button (icon-only on mobile), 3rd hero CTA "Get the Mobile App" (hero row widened to sm:max-w-2xl), new #get-the-app section ("Take TenetBid Everywhere You Go") with 4 AppBullets + pure-CSS iPhone mockup (stat chips, tender cards, bottom nav, floating "Opens instantly"/"Works offline" badges) + big download button, dark CTA band button, footer "Mobile App" link
+- E2E verified with agent-browser: desktop 1440px (all 5 placements render, click → desktop instructions dialog), mobile 390px (icon-only nav, stacked CTAs, no horizontal overflow scrollW=390=innerW, dialog responsive), iPhone 14 emulation (platform detection switches to iOS-specific steps), SW registered scope=/, /site.webmanifest + /sw.js + icons all 200
+- lint 0 errors / 18 warnings (baseline unchanged)
+
+Stage Summary:
+- One-tap app install: Android/Chrome users get the native "Install app" dialog → TenetBid lands on home screen; iPhone users get guided Add-to-Home-Screen steps; desktop users get install-instructions
+- Completes the "mobile app + android app" ask as an installable PWA alongside the existing Capacitor APK pipeline (commit ec24a39)
+- Files: src/components/pwa-provider.tsx (context refactor), src/components/app-download-button.tsx (new), src/components/landing-page.tsx (5 placements + phone mockup), src/app/layout.tsx (provider wraps tree)

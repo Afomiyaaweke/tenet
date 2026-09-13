@@ -61,9 +61,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AIProvider>
-            {children}
-            <Toaster richColors position="top-right" style={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
-            <PWAProvider />
+            <PWAProvider>
+              {children}
+              <Toaster richColors position="top-right" style={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
+            </PWAProvider>
           </AIProvider>
           <Analytics />
         </ThemeProvider>

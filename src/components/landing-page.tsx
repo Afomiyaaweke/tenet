@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { TenetLogo } from '@/components/logo';
 import { CommentSection } from '@/components/comment-section';
+import { AppDownloadButton } from '@/components/app-download-button';
 import {
   ShieldCheck,
   BrainCircuit,
@@ -21,6 +22,11 @@ import {
   Mail,
   Trophy,
   Store,
+  Smartphone,
+  Home,
+  Bell,
+  WifiOff,
+  HardDriveDownload,
 } from 'lucide-react';
 
 /* ───────────────────────── Animated Background ───────────────────────── */
@@ -127,6 +133,95 @@ function StatCard({ value, label, delay }: { value: string; label: string; delay
   );
 }
 
+/* ───────────────────────── App Feature Bullet ───────────────────────── */
+function AppBullet({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
+  return (
+    <div className="flex items-start gap-3.5">
+      <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 shadow-lg shadow-slate-300/40">
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm font-bold text-foreground">{title}</p>
+        <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Phone Mockup ───────────────────────── */
+function PhoneMockup() {
+  return (
+    <div className="relative mx-auto w-[260px] sm:w-[290px] animate-[fadeUp_0.7s_ease-out_0.2s_both]">
+      {/* Glow */}
+      <div className="absolute -inset-8 bg-orange-500/10 blur-3xl rounded-full pointer-events-none" />
+
+      {/* Frame */}
+      <div className="relative rounded-[2.6rem] border-[9px] border-slate-900 bg-slate-900 shadow-2xl shadow-slate-400/40">
+        <div
+          className="relative rounded-[2.1rem] overflow-hidden bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900"
+          style={{ aspectRatio: '9 / 18.5' }}
+        >
+          {/* Notch */}
+          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-20 h-4 bg-slate-900 rounded-full z-10" />
+
+          {/* Screen */}
+          <div className="pt-12 px-4 pb-3 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-lg bg-orange-500 flex items-center justify-center text-white text-[10px] font-black">T</div>
+                <span className="text-white text-xs font-bold">TenetBid</span>
+              </div>
+              <Bell className="w-3.5 h-3.5 text-slate-400" />
+            </div>
+
+            {/* Stat chips */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="rounded-xl bg-white/5 border border-white/10 p-2.5">
+                <p className="text-orange-400 text-sm font-extrabold">2000+</p>
+                <p className="text-slate-400 text-[9px]">Live Tenders</p>
+              </div>
+              <div className="rounded-xl bg-white/5 border border-white/10 p-2.5">
+                <p className="text-orange-400 text-sm font-extrabold">7</p>
+                <p className="text-slate-400 text-[9px]">AI Tools</p>
+              </div>
+            </div>
+
+            {/* Tender cards */}
+            {[1, 2].map((n) => (
+              <div key={n} className="rounded-xl bg-white/5 border border-white/10 p-3 mb-2">
+                <div className="h-2 w-3/4 rounded bg-slate-500/50 mb-1.5" />
+                <div className="h-1.5 w-1/2 rounded bg-slate-600/50 mb-2.5" />
+                <div className="flex items-center justify-between">
+                  <div className="h-1.5 w-14 rounded bg-orange-500/60" />
+                  <span className="text-[8px] font-bold text-white bg-orange-500 rounded-full px-2 py-0.5">Apply</span>
+                </div>
+              </div>
+            ))}
+
+            {/* Bottom nav */}
+            <div className="mt-auto flex items-center justify-around rounded-2xl bg-white/5 border border-white/10 py-2.5 mx-1">
+              <Home className="w-4 h-4 text-orange-400" />
+              <FileSearch className="w-4 h-4 text-slate-400" />
+              <FolderKanban className="w-4 h-4 text-slate-400" />
+              <Users className="w-4 h-4 text-slate-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating badges */}
+      <div className="absolute -left-5 sm:-left-12 top-20 bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-2 flex items-center gap-1.5 animate-[float2_6s_ease-in-out_infinite]">
+        <Zap className="w-3.5 h-3.5 text-orange-500" />
+        <span className="text-[11px] font-semibold text-slate-700">Opens instantly</span>
+      </div>
+      <div className="absolute -right-3 sm:-right-10 bottom-28 bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-2 flex items-center gap-1.5 animate-[float1_7s_ease-in-out_infinite]">
+        <WifiOff className="w-3.5 h-3.5 text-emerald-500" />
+        <span className="text-[11px] font-semibold text-slate-700">Works offline</span>
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────────────── Main Component ───────────────────────── */
 export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
   return (
@@ -149,6 +244,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
 
             {/* CTA */}
             <div className="flex items-center gap-3">
+              <AppDownloadButton variant="nav" />
               <Button
                 variant="ghost"
                 className="hidden sm:inline-flex text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -195,7 +291,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
 
             {/* CTA Button */}
             <div
-              className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto animate-[fadeUp_0.6s_ease-out_0.3s_both]"
+              className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 sm:max-w-2xl mx-auto animate-[fadeUp_0.6s_ease-out_0.3s_both]"
             >
               <Button
                 className="w-full sm:w-auto h-12 px-8 bg-slate-900 text-white font-semibold border-0 shadow-lg shadow-slate-300/40 hover:shadow-slate-400/60 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 rounded-xl"
@@ -211,6 +307,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
                 <Store className="w-4 h-4 text-emerald-500" />
                 Browse Proforma
               </a>
+              <AppDownloadButton variant="hero" />
             </div>
 
             {/* Trust indicators */}
@@ -336,6 +433,60 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
         </div>
       </section>
 
+      {/* ═══════════ MOBILE APP ═══════════ */}
+      <section id="get-the-app" className="py-20 sm:py-28 border-t border-border/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-14 lg:gap-20 items-center">
+            {/* Copy */}
+            <div className="text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200/60 rounded-full px-4 py-1.5 mb-5">
+                <Smartphone className="w-3.5 h-3.5 text-orange-600" />
+                <span className="text-xs font-semibold text-orange-700">Mobile App</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">
+                Take TenetBid <span className="text-orange-500">Everywhere</span> You Go
+              </h2>
+              <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto lg:mx-0">
+                Install TenetBid as a real app on your phone — straight from the browser. No app store, no big download, done in seconds.
+              </p>
+
+              <div className="space-y-4 mb-9 text-left max-w-md mx-auto lg:mx-0">
+                <AppBullet
+                  icon={<Smartphone className="w-5 h-5 text-white" />}
+                  title="Full-screen app experience"
+                  text="Your own home-screen icon, no browser bars — it feels like a native app."
+                />
+                <AppBullet
+                  icon={<Zap className="w-5 h-5 text-white" />}
+                  title="Opens instantly"
+                  text="Smart caching means the app loads in a blink, every time."
+                />
+                <AppBullet
+                  icon={<WifiOff className="w-5 h-5 text-white" />}
+                  title="Works offline"
+                  text="Browse cached tenders and documents even without internet."
+                />
+                <AppBullet
+                  icon={<HardDriveDownload className="w-5 h-5 text-white" />}
+                  title="Tiny install"
+                  text="Around 1 MB — no 50 MB download from an app store."
+                />
+              </div>
+
+              <div className="flex flex-col items-center gap-3 lg:items-start">
+                <AppDownloadButton variant="big" />
+                <p className="text-xs text-muted-foreground">
+                  Android · iPhone · Desktop — installs right from your browser
+                </p>
+              </div>
+            </div>
+
+            {/* Phone mockup */}
+            <PhoneMockup />
+          </div>
+        </div>
+      </section>
+
       {/* ═══════════ COMMUNITY / COMMENT SECTION ═══════════ */}
       <CommentSection />
 
@@ -353,7 +504,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <p className="text-slate-300/80 text-lg mb-10 max-w-xl mx-auto">
               Start discovering, preparing, and winning tenders with AI-powered tools.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4">
               <Button
                 size="lg"
                 className="bg-white text-slate-900 font-bold shadow-xl shadow-slate-900/20 hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 h-13 px-8 rounded-xl"
@@ -362,6 +513,7 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
                 Get Started for Free
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
+              <AppDownloadButton variant="dark" />
               <Button
                 size="lg"
                 variant="outline"
@@ -392,9 +544,15 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
             <div>
               <h4 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-4">Product</h4>
               <ul className="space-y-2.5">
-                {['Tender Discovery', 'AI Doc Studio', 'Smart Bidding', 'Analytics'].map((item) => (
-                  <li key={item}>
-                    <a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">{item}</a>
+                {[
+                  { label: 'Tender Discovery', href: '#features' },
+                  { label: 'AI Doc Studio', href: '#features' },
+                  { label: 'Smart Bidding', href: '#features' },
+                  { label: 'Analytics', href: '#features' },
+                  { label: 'Mobile App', href: '#get-the-app' },
+                ].map((item) => (
+                  <li key={item.label}>
+                    <a href={item.href} className="text-sm text-gray-400 hover:text-white transition-colors">{item.label}</a>
                   </li>
                 ))}
               </ul>
