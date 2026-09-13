@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AIProvider } from "@/components/ai-provider";
+import { PWAProvider } from "@/components/pwa-provider";
 import { MicrosoftClarity } from "@/components/analytics/clarity";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -16,6 +17,13 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+export const viewport = {
+  themeColor: '#0f172a',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover' as const,
+};
 
 export const metadata: Metadata = {
   title: "TenetBid",
@@ -55,6 +63,7 @@ export default function RootLayout({
           <AIProvider>
             {children}
             <Toaster richColors position="top-right" style={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
+            <PWAProvider />
           </AIProvider>
           <Analytics />
         </ThemeProvider>

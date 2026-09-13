@@ -14,6 +14,11 @@ let zaiPromise: Promise<ZAIInstance> | null = null;
 /**
  * Get or create the ZAI SDK instance (lazy-loaded, singleton).
  * Safe to call multiple times — returns the same promise.
+ *
+ * Key resolution order:
+ * 1. ZAI_API_KEY env var (explicit key, e.g. user-provided key for faster/
+ *    higher-quota access). Falls back to file config on request failure.
+ * 2. .z-ai-config file (SDK default loader — sandbox/managed setup).
  */
 export async function getZAI(): Promise<ZAIInstance> {
   if (zaiInstance) return zaiInstance;
@@ -21,6 +26,36 @@ export async function getZAI(): Promise<ZAIInstance> {
   if (!zaiPromise) {
     zaiPromise = (async () => {
       const ZAI = (await import('z-ai-web-dev-sdk')).default;
+      const envKey = process.env.ZAI_API_KEY;
+      const envToken = process.env.ZAI_TOKEN;
+      const envUrl = process.env.ZAI_BASE_URL || 'https://internal-api.z.ai/v1';
+      if (envKey || envToken) {
+        // Construct the client directly with explicit credentials (bypasses the
+        // file-based config loader). If rejected, fall back to file config.
+        try {
+          const base = await ZAI.create();
+          const fileCfg = (base as unknown as { config: { baseUrl: string; apiKey: string; token?: string; chatId?: string; userId?: string } }).config;
+          const cfg = {
+            baseUrl: envUrl,
+            apiKey: envKey || fileCfg.apiKey,
+            token: envToken || fileCfg.token,
+            chatId: fileCfg.chatId,
+            userId: fileCfg.userId,
+          };
+          const ZAIWithCtor = ZAI as unknown as { new (config: typeof cfg): ZAIInstance };
+          const instance = new ZAIWithCtor(cfg);
+          // Validate with a minimal request; throws if unauthorized.
+          await instance.chat.completions.create({
+            messages: [{ role: 'user', content: 'ok' }],
+            max_tokens: 1,
+            thinking: { type: 'disabled' },
+          });
+          console.log('[ZAI] Using env credentials (ZAI_API_KEY/ZAI_TOKEN)');
+          return instance;
+        } catch (err) {
+          console.warn('[ZAI] env credentials failed validation — falling back to file config:', err instanceof Error ? err.message : err);
+        }
+      }
       return ZAI.create();
     })();
   }
@@ -43,7 +78,8 @@ export function resetZAI() {
 export async function getZAIWithRetry(retries = 1): Promise<ZAIInstance> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await getZAI();
+      const instance = await getZAI();
+      return instance;
     } catch (err: any) {
       resetZAI();
       if (attempt === retries) {

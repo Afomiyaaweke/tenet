@@ -1707,3 +1707,20 @@ Stage Summary:
   - Local: always local (free, offline, lower quality, needs WebGPU + ~800MB first-load download)
   - Cloud: always cloud (premium quality, current behavior)
 - Local model loads lazily on first use, caches in IndexedDB, shows progress bar. Falls back to cloud automatically if local times out or fails. Images/vision always use cloud (local model has no vision). No API costs for simple chat when local is available.
+
+---
+Task ID: 32
+Agent: Z.ai Code (main)
+Task: "make me also android app" (+ carried over: user's ZAI API key for faster AI)
+
+Work Log:
+- API key test (carried from prior request): key "AQ.Ab8RN6K5..." tested against the Z.ai internal API as BOTH the Bearer apiKey (401 "missing X-Token header") and the X-Token session token (401 "invalid X-Token"). It is not valid for this API in any position — the internal API authenticates via a JWT session token managed by the platform. Built durable env-override infrastructure in src/lib/zai.ts anyway: ZAI_API_KEY (Bearer) / ZAI_TOKEN (X-Token) / ZAI_BASE_URL env vars, auto-validated with a minimal request on first AI call, automatic fallback to the platform file config if rejected (verified working — AI stayed functional through both failed-key tests). Key removed from .env; mechanism kept for a future valid key.
+- Android app = two paths delivered:
+  (1) PWA (live now): generated maskable icons (192/512, logo at 78% safe zone on #0f172a via PIL), upgraded public/site.webmanifest (id, display_override, orientation portrait-primary, categories, 3 shortcuts incl. Tenders/Live/Proforma, maskable icon entries), created public/sw.js service worker (v3: precached shell; cache-first for _next/static + images w/ 120-entry cap; network-first navigations with cached-shell fallback; never caches /api or /uploads; inline styled offline fallback page), created src/components/pwa-provider.tsx (SW registration, beforeinstallprompt capture, custom install banner with Install/Not-now + dismiss persistence, appinstalled detection, standalone-mode detection), mounted PWAProvider in root layout, added Next.js viewport export (themeColor #0f172a, viewportFit cover).
+  (2) Real APK via Capacitor: installed @capacitor/core + @capacitor/android + @capacitor/cli; created capacitor.config.ts (appId com.tenetbid.app, server.url https://tenetbid.com so the APK always loads the latest site without store updates, splash config); created .github/workflows/android-build.yml (JDK 17 + Android SDK setup, cap add/sync android, gradlew assembleDebug, uploads tenetbid-debug-apk artifact on every push to main — no local Android Studio needed).
+- Untracked .zscripts/dev.pid (runtime file caused a rebase conflict; added to .gitignore).
+- Verification: tsc 0 errors; lint 0/18 baseline. Browser E2E: SW registered (scope /), manifest serves 5 icons incl. maskable + 3 shortcuts, sw.js served as JS; 32 assets served from SW cache with 0 transfer bytes on repeat load (landing page repeat loads near-instant); offline mode serves cached shell (textLen 2761 on / while offline); no console/page errors; mobile 390x844 renders clean.
+
+Stage Summary:
+- TenetBid is now an installable Android app two ways: (1) PWA — open the site in Android Chrome → install banner / "Add to Home Screen" → full-screen standalone app with offline support, app icon, splash, and home-screen shortcuts; repeat loads are cache-fast. (2) Real APK — GitHub Actions builds a debug APK artifact on every push to main (sideload or distribute); Capacitor shell points at the live site so updates ship without store releases.
+- ZAI env-override infrastructure in place (ZAI_API_KEY/ZAI_TOKEN/ZAI_BASE_URL with validation + fallback). User-supplied key was invalid for this API (tested both header positions); platform session auth remains in use.
