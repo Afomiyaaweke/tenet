@@ -165,7 +165,8 @@ export async function DELETE(
       );
     }
 
-    // Reason is required — the whole point is that applicants learn WHY
+    // Reason is required for PUBLISHED tenders — applicants learn WHY.
+    // Imported tenders (live-feed copies) can be removed without a reason.
     const { searchParams } = new URL(request.url);
     let reason = (searchParams.get('reason') || '').trim();
     if (!reason) {
@@ -175,6 +176,9 @@ export async function DELETE(
       } catch {
         // no JSON body — fall through to validation
       }
+    }
+    if (!reason && tender.origin === 'imported') {
+      reason = 'Imported tender removed from My Tenders by the owner';
     }
     if (reason.length < 3) {
       return NextResponse.json(

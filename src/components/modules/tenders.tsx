@@ -27,12 +27,12 @@ import {
   ExternalLink, FileText, Tag, Briefcase, Eye, ShieldCheck,
   Wallet, Clock3, Globe2, Award, CircleDot, ListChecks,
   Upload, CloudUpload, FileUp, ScanSearch, Brain, Trash2, Loader2,
-  Radio, Download, FileDown, FileSpreadsheet, Share2,
+  Radio, Download, FileDown, FileSpreadsheet, Share2, Home,
 } from 'lucide-react';
 import { InlineTranslator } from '@/components/translator';
 import { FullDocumentViewer } from '@/components/modules/full-document-viewer';
 
-const CATEGORIES = ['Construction', 'IT', 'Supply', 'Consulting', 'Engineering', 'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications', 'Energy'];
+const CATEGORIES = ['Construction', 'IT', 'Supply', 'Consulting', 'Engineering', 'Architecture', 'Electrical', 'Plumbing', 'HVAC', 'Logistics', 'Healthcare', 'Education', 'Finance', 'Agriculture', 'Telecommunications', 'Energy', 'Personal Property'];
 
 // Category icons & colors for visual distinction
 const CATEGORY_META: Record<string, { icon: typeof Building2; color: string; bg: string; accent: string }> = {
@@ -52,10 +52,32 @@ const CATEGORY_META: Record<string, { icon: typeof Building2; color: string; bg:
   Agriculture: { icon: FileSearch, color: 'text-lime-700', bg: 'bg-lime-50', accent: 'from-lime-400 to-lime-600' },
   Telecommunications: { icon: Globe2, color: 'text-cyan-700', bg: 'bg-cyan-50', accent: 'from-cyan-400 to-cyan-600' },
   Energy: { icon: Zap, color: 'text-amber-700', bg: 'bg-amber-50', accent: 'from-amber-400 to-orange-600' },
+  'Personal Property': { icon: Home, color: 'text-violet-700', bg: 'bg-violet-50', accent: 'from-violet-400 to-violet-600' },
 };
 
 function getCategoryMeta(cat: string) {
   return CATEGORY_META[cat] || { icon: FileSearch, color: 'text-muted-foreground', bg: 'bg-muted/50', accent: 'from-gray-400 to-gray-600' };
+}
+
+/** Origin badges: Imported (live-feed copy) / Personal (personal property tender) */
+function OriginBadges({ tender }: { tender: Tender }) {
+  if (tender.origin !== 'imported' && !tender.isPersonal) return null;
+  return (
+    <>
+      {tender.origin === 'imported' && (
+        <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 hover:bg-sky-50 flex items-center gap-0.5 shrink-0">
+          <Download className="h-2.5 w-2.5" />
+          Imported
+        </Badge>
+      )}
+      {tender.isPersonal && (
+        <Badge className="text-[9px] px-1.5 py-0 border-0 rounded-lg bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 hover:bg-violet-50 flex items-center gap-0.5 shrink-0">
+          <Home className="h-2.5 w-2.5" />
+          Personal
+        </Badge>
+      )}
+    </>
+  );
 }
 
 function daysUntil(dateStr: string): number {
@@ -85,10 +107,12 @@ function formatBudget(min: number, max: number) {
 }
 
 // ─── Inline Tender Detail Panel ───────────────────────────────────
-function InlineTenderDetail({ tender, onClose, setView }: {
+function InlineTenderDetail({ tender, onClose, setView, onRemoveImported, isRemoving }: {
   tender: Tender;
   onClose: () => void;
   setView: (view: View, params?: Record<string, string>) => void;
+  onRemoveImported?: () => void;
+  isRemoving?: boolean;
 }) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidsLoading, setBidsLoading] = useState(true);
@@ -365,6 +389,17 @@ function InlineTenderDetail({ tender, onClose, setView }: {
             <Briefcase className="h-4 w-4 mr-2" />
             Track Application
           </Button>
+          {tender.origin === 'imported' && onRemoveImported && (
+            <Button
+              variant="outline"
+              className="rounded-xl border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+              onClick={onRemoveImported}
+              disabled={isRemoving}
+            >
+              {isRemoving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Remove Import
+            </Button>
+          )}
           <Button
             variant="outline"
             className="flex-1 rounded-xl border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
@@ -410,7 +445,7 @@ function InlineTenderDetail({ tender, onClose, setView }: {
 }
 
 // ─── Category Section ────────────────────────────────────────────
-function CategorySection({ category, tenders, expandedTenderId, onExpandTender, compareSelection, toggleCompare, setView }: {
+function CategorySection({ category, tenders, expandedTenderId, onExpandTender, compareSelection, toggleCompare, setView, onRemoveImported, removingTenderId }: {
   category: string;
   tenders: Tender[];
   expandedTenderId: string | null;
@@ -418,6 +453,8 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
   compareSelection: string[];
   toggleCompare: (tenderId: string, e: React.MouseEvent) => void;
   setView: (view: View, params?: Record<string, string>) => void;
+  onRemoveImported: (tenderId: string) => void;
+  removingTenderId: string | null;
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const meta = getCategoryMeta(category);
@@ -471,6 +508,7 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
                           {tender.title}
                         </h4>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <OriginBadges tender={tender} />
                           <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
                             {tender.status}
                           </Badge>
@@ -573,6 +611,22 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
                             <Briefcase className="h-3 w-3" />
                             Track
                           </Button>
+                          {tender.origin === 'imported' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-[10px] text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 h-6 px-1.5"
+                              onClick={(e) => { e.stopPropagation(); onRemoveImported(tender.id); }}
+                              disabled={removingTenderId === tender.id}
+                            >
+                              {removingTenderId === tender.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                              Remove
+                            </Button>
+                          )}
                         </div>
                         <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                           {isExpanded ? 'Collapse' : 'Expand'} Details
@@ -592,6 +646,8 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
                       tender={tender}
                       onClose={() => onExpandTender(null)}
                       setView={setView}
+                      onRemoveImported={tender.origin === 'imported' ? () => onRemoveImported(tender.id) : undefined}
+                      isRemoving={removingTenderId === tender.id}
                     />
                   </div>
                 )}
@@ -608,8 +664,8 @@ function CategorySection({ category, tenders, expandedTenderId, onExpandTender, 
 export function TendersView() {
   const { user } = useAuthStore();
   const { setView } = useNavStore();
-  // Personal accounts cannot publish tenders — only browse & bid
-  const canPublishTenders = user?.accountType !== 'personal';
+  // Personal accounts CAN publish — their tenders are flagged as personal property tenders
+  const isPersonalAccount = user?.accountType === 'personal';
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -620,6 +676,10 @@ export function TendersView() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  // Source filter: published (created in-app) vs imported (live tender feeds)
+  const [originFilter, setOriginFilter] = useState('all');
+  // Imported tender removal
+  const [removingTenderId, setRemovingTenderId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [createData, setCreateData] = useState({
     title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '',
@@ -695,6 +755,7 @@ export function TendersView() {
     if (search) params.search = search;
     if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
     if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+    if (originFilter && originFilter !== 'all') params.origin = originFilter;
     const res = await api.get('/tenders', params);
     if (res.success) {
       const newTenders = res.data as Tender[];
@@ -706,10 +767,10 @@ export function TendersView() {
     }
     setLoading(false);
     setLoadingMore(false);
-  }, [search, categoryFilter, statusFilter]);
+  }, [search, categoryFilter, statusFilter, originFilter]);
 
   // Re-fetch when filters change (always reset to page 1)
-  const filterKey = `${search}|${categoryFilter}|${statusFilter}`;
+  const filterKey = `${search}|${categoryFilter}|${statusFilter}|${originFilter}`;
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     loadTenders(1, false);
@@ -777,12 +838,15 @@ export function TendersView() {
       ...createData,
       budgetMin: parseFloat(createData.budgetMin),
       budgetMax: parseFloat(createData.budgetMax),
-      categoryTags: selectedCategories.join(','),
+      categoryTags: isPersonalAccount && !selectedCategories.includes('Personal Property')
+        ? [...selectedCategories, 'Personal Property'].join(',')
+        : selectedCategories.join(','),
+      isPersonal: isPersonalAccount,
       documentIds: createDocs.map(d => d.id),
     });
     if (res.success) {
       const newTenderId = res.data?.id;
-      toast.success('Tender created successfully!');
+      toast.success(isPersonalAccount ? 'Personal property tender published!' : 'Tender created successfully!');
       setShowCreate(false);
       setCreateData({ title: '', scope: '', budgetMin: '', budgetMax: '', deadline: '', location: '', categoryTags: '', requiredDocs: '' });
       setSelectedCategories([]);
@@ -886,6 +950,30 @@ export function TendersView() {
     );
   };
 
+  // ── Remove an imported tender from My Tenders ──
+  const handleRemoveImported = useCallback(async (tenderId: string) => {
+    if (!window.confirm('Remove this imported tender from your tenders list?')) return;
+    setRemovingTenderId(tenderId);
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await fetch(`/api/tenders/${tenderId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTenders(prev => prev.filter(t => t.id !== tenderId));
+        setExpandedTenderId(prev => (prev === tenderId ? null : prev));
+        toast.success('Imported tender removed');
+      } else {
+        toast.error(data.error || 'Failed to remove tender');
+      }
+    } catch {
+      toast.error('Failed to remove tender');
+    }
+    setRemovingTenderId(null);
+  }, []);
+
   const goToCompare = () => {
     if (compareSelection.length >= 2) {
       setView('tender-compare', { ids: compareSelection.join(',') });
@@ -984,19 +1072,33 @@ export function TendersView() {
           >
             <Download className="h-3.5 w-3.5" /> Export XLSX
           </Button>
-          {canPublishTenders && (
           <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setCreateDocs([]); setCreateDocType('tender_document'); } }}>
           <DialogTrigger asChild>
             <Button className="gradient-emerald hover:opacity-90 text-white rounded-xl px-5 premium-shadow transition-all hover:-translate-y-0.5">
-              <Plus className="h-4 w-4 mr-2" /> Create Tender
+              <Plus className="h-4 w-4 mr-2" /> {isPersonalAccount ? 'Publish Property' : 'Create Tender'}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold">
-                <span className="text-gradient-emerald">Create New</span> Tender
+                {isPersonalAccount ? (
+                  <><span className="text-gradient-emerald">Publish</span> Personal Property Tender</>
+                ) : (
+                  <><span className="text-gradient-emerald">Create New</span> Tender</>
+                )}
               </DialogTitle>
             </DialogHeader>
+            {isPersonalAccount && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-violet-200/60 dark:border-violet-900/40 bg-violet-50/60 dark:bg-violet-950/20 p-3">
+                <Home className="h-4 w-4 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">Personal Property Tender</p>
+                  <p className="text-[11px] text-violet-600/80 dark:text-violet-400/80 leading-snug mt-0.5">
+                    Publishing from your personal account — ideal for selling personal property like vehicles, land, or household items. Bidders apply and you award the winner.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Title *</Label>
@@ -1173,12 +1275,11 @@ export function TendersView() {
               </div>
 
               <Button className="w-full gradient-emerald hover:opacity-90 text-white rounded-xl premium-shadow transition-all hover:-translate-y-0.5" onClick={handleCreate}>
-                Create Tender <ArrowRight className="h-4 w-4 ml-2" />
+                {isPersonalAccount ? 'Publish Personal Property Tender' : 'Create Tender'} <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
           </DialogContent>
         </Dialog>
-          )}
         </div>
       </div>
 
@@ -1202,6 +1303,16 @@ export function TendersView() {
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="closed">Closed</SelectItem>
                   <SelectItem value="awarded">Awarded</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={originFilter} onValueChange={setOriginFilter}>
+                <SelectTrigger className="w-full sm:w-40 rounded-xl bg-muted/50 border-border/60 h-10">
+                  <SelectValue placeholder="Source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sources</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="imported">Imported</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1403,6 +1514,7 @@ export function TendersView() {
                           {tender.title}
                         </h3>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <OriginBadges tender={tender} />
                           <Badge className={`text-[10px] px-1.5 py-0 shrink-0 border-0 rounded-lg ${statusColor(tender.status)}`}>
                             {tender.status}
                           </Badge>
@@ -1556,6 +1668,22 @@ export function TendersView() {
                             <Briefcase className="h-3 w-3" />
                             Track
                           </Button>
+                          {tender.origin === 'imported' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-[10px] text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 h-6 px-1.5"
+                              onClick={(e) => { e.stopPropagation(); handleRemoveImported(tender.id); }}
+                              disabled={removingTenderId === tender.id}
+                            >
+                              {removingTenderId === tender.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                              Remove
+                            </Button>
+                          )}
                         </div>
                         <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                           {isExpanded ? 'Collapse' : 'Expand'} Details
@@ -1574,6 +1702,8 @@ export function TendersView() {
                       tender={tender}
                       onClose={() => setExpandedTenderId(null)}
                       setView={setView}
+                      onRemoveImported={tender.origin === 'imported' ? () => handleRemoveImported(tender.id) : undefined}
+                      isRemoving={removingTenderId === tender.id}
                     />
                   </div>
                 )}
@@ -1597,6 +1727,8 @@ export function TendersView() {
                 compareSelection={compareSelection}
                 toggleCompare={toggleCompare}
                 setView={setView}
+                onRemoveImported={handleRemoveImported}
+                removingTenderId={removingTenderId}
               />
             );
           })}

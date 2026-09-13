@@ -1742,3 +1742,26 @@ Stage Summary:
 - One-tap app install: Android/Chrome users get the native "Install app" dialog → TenetBid lands on home screen; iPhone users get guided Add-to-Home-Screen steps; desktop users get install-instructions
 - Completes the "mobile app + android app" ask as an installable PWA alongside the existing Capacitor APK pipeline (commit ec24a39)
 - Files: src/components/pwa-provider.tsx (context refactor), src/components/app-download-button.tsx (new), src/components/landing-page.tsx (5 placements + phone mockup), src/app/layout.tsx (provider wraps tree)
+
+---
+Task ID: 36
+Agent: main
+Task: Separate imported vs published tenders + personal property publishing + imported tender removal + remove duplicate card button
+
+Work Log:
+- Schema: Tender model + origin (published|imported, default published) and isPersonal (default false); db:push
+- POST /api/tenders: unblocked personal accounts — they now publish personal property tenders (isPersonal forced server-side, companyId null); company imports pass origin='imported'
+- DELETE /api/tenders/[id]: imported tenders remove WITHOUT a reason (auto reason "Imported tender removed from My Tenders by the owner" if bids exist → soft-cancel); published tenders still REQUIRE a reason (regression-tested 400 without / 200 with)
+- GET /api/tenders: new origin= filter param
+- live-tenders.tsx: importTender sends origin:'imported' + toast points to "My Tenders → Imported"; REMOVED the redundant "See More" button from the card bottom bar (user's screenshot) — "View Details" already auto-fetches full doc content on open; deleted dead standalone doc-viewer block, unused InlineDocumentViewer component, ServerCrash import, isExpanded prop
+- tenders.tsx: personal accounts CAN publish — header button becomes "Publish Property", dialog becomes "Publish Personal Property Tender" with violet explainer banner, submit "Publish Personal Property Tender", isPersonal:true sent + "Personal Property" category auto-appended; new "Personal Property" category (violet Home icon in CATEGORY_META/CATEGORIES); new Source filter select (All Sources/Published/Imported) wired to API; OriginBadges component ("Imported" sky badge + "Personal" violet badge) on both card layouts; "Remove" button (rose, trash) on imported cards in flat list + CategorySection + "Remove Import" in InlineTenderDetail → window.confirm → DELETE → optimistic list update + toast
+- api.ts Tender type += origin/isPersonal
+- E2E browser-verified (agent-browser): personal login → "Publish Property" → dialog title+banner → published RAV4 tender → toast "Personal property tender published!" → auto-navigated to detail → "Personal" badge + Personal Property category section in list; live tender card shows View Details/Deep Review/Import (no See More); import click fires POST (verified via performance entries); seeded imported tender → "Imported" badge + Source filter Imported → All(1) only imported; Remove → confirm dialog → "Imported tender removed" toast → card gone + DELETE 200 in log
+- Note: sandbox rate limiter (free plan 30 tender ops/min) throttled rapid test clicks — waits added between tests
+- lint 0 errors / 18 warnings (baseline); tsc clean for src/
+
+Stage Summary:
+- Import ≠ publish: imported live tenders are marked origin='imported', visually badged, filterable (Source: Imported), and removable in one tap without a reason
+- Personal accounts can now publish personal property tenders (flagged isPersonal, Personal badge, dedicated dialog + category)
+- Live tender card deduplicated: single "View Details" expander (auto-loads doc content)
+- Files: prisma/schema.prisma, src/app/api/tenders/route.ts, src/app/api/tenders/[id]/route.ts, src/components/modules/live-tenders.tsx, src/components/modules/tenders.tsx, src/lib/api.ts

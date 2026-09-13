@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import {
   Globe2, Search, MapPin, Calendar, DollarSign,
   RefreshCw, Radio, Building2, FileText, ShieldCheck, Lock,
-  Database, ServerCrash, Sparkles, ArrowUpRight,
+  Database, Sparkles, ArrowUpRight,
   ChevronDown, ChevronUp, BookOpen, Download, Copy,
   Loader2, Clock, Landmark, Plane, Flag, Cpu,
   CheckCircle2, ExternalLink, TrendingUp, ChevronRight, Languages,
@@ -592,169 +592,6 @@ function readinessColor(score: number): string {
   if (score >= 8) return 'bg-emerald-500';
   if (score >= 5) return 'bg-amber-500';
   return 'bg-rose-500';
-}
-
-/* ─────────────────────────────────────────────────────────────────────
- * Inline Document Viewer Component
- * ───────────────────────────────────────────────────────────────────── */
-
-function InlineDocumentViewer({ doc, onClose, tenderTitle }: { doc: InlineDocument; onClose: () => void; tenderTitle?: string }) {
-  const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportingCsv, setExportingCsv] = useState(false);
-
-  const copyContent = () => {
-    const text = doc.sections
-      ? doc.sections.map((s) => `${s.heading}\n${s.content}`).join('\n\n')
-      : doc.content;
-    navigator.clipboard.writeText(text);
-    toast.success('Content copied to clipboard');
-  };
-
-  const handleExportPdf = async () => {
-    setExportingPdf(true);
-    try {
-      const token = localStorage.getItem('tenet_token');
-      const res = await fetch('/api/tenders/fetch-doc/export-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ url: doc.url, title: tenderTitle }),
-      });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Original_${(tenderTitle || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast.success('PDF exported!');
-    } catch {
-      toast.error('Failed to export PDF');
-    }
-    setExportingPdf(false);
-  };
-
-  const handleExportCsv = async () => {
-    setExportingCsv(true);
-    try {
-      const token = localStorage.getItem('tenet_token');
-      const res = await fetch('/api/tenders/fetch-doc/export-csv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ url: doc.url, title: tenderTitle }),
-      });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Original_${(tenderTitle || 'Requirements').replace(/[^a-zA-Z0-9]/g, '_')}_Source.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast.success('CSV exported!');
-    } catch {
-      toast.error('Failed to export CSV');
-    }
-    setExportingCsv(false);
-  };
-
-  return (
-    <div className="overflow-hidden animate-[fadeIn_0.3s_ease-out]">
-      <div className="border-t border-border bg-gradient-to-b from-muted/30 to-background">
-        <div className="p-4 md:p-6 space-y-4">
-          {/* Document header */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                <BookOpen className="h-3.5 w-3.5" />
-                <span>Full tender content loaded from {new URL(doc.url).hostname}</span>
-                <span>·</span>
-                <span>{new Date(doc.fetchedAt).toLocaleTimeString()}</span>
-              </div>
-              <h3 className="text-lg font-semibold text-foreground leading-snug">
-                {doc.title || 'Tender Document'}
-              </h3>
-              {doc.metaDescription && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                  {doc.metaDescription}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleExportPdf} disabled={exportingPdf}>
-                {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
-                PDF
-              </Button>
-              <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleExportCsv} disabled={exportingCsv}>
-                {exportingCsv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
-                CSV
-              </Button>
-              <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={copyContent}>
-                <Copy className="h-3.5 w-3.5" />
-                Copy
-              </Button>
-              <a
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open original
-              </a>
-              <Button variant="ghost" size="sm" onClick={onClose} className="gap-1.5 text-xs text-muted-foreground">
-                <ChevronUp className="h-3.5 w-3.5" />
-                Collapse
-              </Button>
-            </div>
-          </div>
-
-          {/* Extracted metadata pills */}
-          {(doc.deadlines && doc.deadlines.length > 0) || (doc.budgets && doc.budgets.length > 0) ? (
-            <div className="flex flex-wrap gap-2">
-              {doc.deadlines?.map((d, i) => (
-                <Badge key={`dl-${i}`} variant="outline" className="gap-1.5 text-xs border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300">
-                  <Calendar className="h-3 w-3" />
-                  {d}
-                </Badge>
-              ))}
-              {doc.budgets?.map((b, i) => (
-                <Badge key={`bg-${i}`} variant="outline" className="gap-1.5 text-xs border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
-                  <DollarSign className="h-3 w-3" />
-                  {b}
-                </Badge>
-              ))}
-            </div>
-          ) : null}
-
-          {/* Sections view */}
-          {doc.sections && doc.sections.length > 0 ? (
-            <div className="max-h-96 overflow-y-auto rounded-lg border border-border bg-background p-4 space-y-4 scrollbar-thin">
-              {doc.sections.map((section, i) => (
-                <div key={i}>
-                  <h4 className="text-sm font-semibold text-foreground mb-1.5">{section.heading}</h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                    {section.content}
-                  </p>
-                  {i < doc.sections!.length - 1 && <Separator className="mt-4 bg-border" />}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="max-h-96 overflow-y-auto rounded-lg border border-border bg-background p-4 scrollbar-thin">
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                {doc.content || 'No content could be extracted from this page.'}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -1619,7 +1456,6 @@ function TenderCard({
   accent,
   isSaved,
   isSaving,
-  isExpanded,
   isLoadingDoc,
   doc,
   docErr,
@@ -1640,7 +1476,6 @@ function TenderCard({
   accent: typeof SOURCE_ACCENT[string];
   isSaved: boolean;
   isSaving: boolean;
-  isExpanded: boolean;
   isLoadingDoc: boolean;
   doc: InlineDocument | undefined;
   docErr: string | undefined;
@@ -1870,7 +1705,7 @@ function TenderCard({
           {/* ── Bottom action bar ── */}
           <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
             <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Expand / Collapse detail view */}
+              {/* Expand / Collapse detail view (auto-loads full document content) */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1883,23 +1718,6 @@ function TenderCard({
                   <ChevronDown className="h-3.5 w-3.5" />
                 )}
                 {isDetailOpen ? 'Collapse' : 'View Details'}
-              </Button>
-              {/* See More - loads the full tender content from the external site */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 text-xs h-7"
-                onClick={(e) => { e.stopPropagation(); onLoadDocument(); }}
-                disabled={isLoadingDoc}
-              >
-                {isLoadingDoc ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : isExpanded ? (
-                  <ChevronUp className="h-3.5 w-3.5" />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" />
-                )}
-                {isLoadingDoc ? 'Loading…' : isExpanded ? 'Collapse Doc' : 'See More'}
               </Button>
               {/* AI Review */}
               <Button
@@ -2507,55 +2325,6 @@ function TenderCard({
           </div>
         )}
 
-        {/* Inline document viewer - only shown when detail view is NOT open */}
-        {isExpanded && !isDetailOpen && (
-          <>
-            {isLoadingDoc && (
-              <div className="border-t border-border p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground animate-[fadeIn_0.3s_ease-out]">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Fetching full tender content from the source site…
-              </div>
-            )}
-            {docErr && !isLoadingDoc && (
-              <div className="border-t border-border p-6 animate-[fadeIn_0.3s_ease-out]">
-                <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 flex items-start gap-3">
-                  <ServerCrash className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                      Could not load the full tender content
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
-                      {docErr} - you can still{' '}
-                      <a
-                        href={tender.externalUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline font-medium"
-                      >
-                        view the original page directly
-                      </a>
-                      .
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {doc && !isLoadingDoc && (
-              <InlineDocumentViewer
-                doc={doc}
-                onClose={() => {/* handled by parent */}}
-                tenderTitle={tender.title}
-              />
-            )}
-            {/* Translator for document content */}
-            {(doc?.content || tender.scope) && !isLoadingDoc && (
-              <div className="border-t border-border px-4 py-2.5">
-                <InlineTranslator text={doc?.content || tender.scope} />
-              </div>
-            )}
-          </>
-        )}
-
         {/* AI Review Panel - only shown when detail view is NOT open */}
         {showAiReview && !isDetailOpen && (
           <AIReviewPanel
@@ -2977,13 +2746,14 @@ export function LiveTendersView() {
         requiredDocs: `Source: ${SOURCE_LABELS[tender.source] || tender.source} | External ID: ${tender.externalId} | URL: ${tender.externalUrl}`,
         externalUrl: tender.externalUrl,
         externalSource: tender.source,
+        origin: 'imported',
         status: 'open',
         currency: tender.currency,
       });
       if (res.success) {
         const newTenderId = res.data?.id;
         toast.success('Tender imported successfully', {
-          description: `"${tender.title}" is now in your tenders list.`,
+          description: `"${tender.title}" was added to My Tenders → Imported.`,
         });
         // Auto-navigate to the tender detail page
         if (newTenderId) {
@@ -3521,7 +3291,6 @@ ${tender.budgetMin || tender.budgetMax ? `**Budget:** ${tender.currency || 'ETB'
                     accent={accent}
                     isSaved={savedTenders[t.id] || false}
                     isSaving={savingTender[t.id] || false}
-                    isExpanded={expandedId === t.id}
                     isLoadingDoc={docLoading === t.id}
                     doc={docData[t.id]}
                     docErr={docError[t.id]}

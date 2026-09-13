@@ -289,6 +289,8 @@ export interface Tender {
   location: string;
   categoryTags: string;
   requiredDocs: string;
+  origin?: 'published' | 'imported'; // published (created in-app) | imported (pulled from live tender feeds)
+  isPersonal?: boolean; // personal property tender (published by a personal account)
   externalUrl?: string | null; // URL to the original bid on the source site (for imported live tenders)
   externalSource?: string | null; // source identifier: worldbank, eu_ted, sam_gov, etc.
   status: 'draft' | 'open' | 'closed' | 'awarded' | 'cancelled';

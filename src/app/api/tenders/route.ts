@@ -6,20 +6,14 @@ import { containsInsensitive } from '@/lib/search';
 
 /**
  * POST /api/tenders
- * Only company accounts can publish tenders (personal accounts are blocked)
+ * Company accounts publish company tenders. Personal accounts can publish
+ * personal property tenders (isPersonal is forced server-side).
+ * Live-tender imports pass origin='imported'.
  */
 export async function POST(request: NextRequest) {
   try {
     const { user, error } = await requireAuth(request);
     if (error) return error;
-
-    // ── Personal accounts cannot publish tenders ──
-    if (user!.accountType === 'personal') {
-      return NextResponse.json(
-        { success: false, error: 'Personal accounts cannot publish tenders. Register a company account to create tenders.' },
-        { status: 403 }
-      );
-    }
 
     // ── Rate limit check ──
     const rateLimitResponse = await enforceRateLimit(request, user!.id, user!.plan || 'free');
@@ -39,6 +33,7 @@ export async function POST(request: NextRequest) {
       externalSource,
       status,
       documentIds,
+      origin,
     } = body;
 
     if (!title || !scope || budgetMin === undefined || budgetMax === undefined || !deadline || !location || !categoryTags) {
@@ -55,6 +50,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Personal accounts always publish personal property tenders (no company attached)
+    const isPersonal = user!.accountType === 'personal';
+    // Imported tenders come from live feeds; everything created in-app is 'published'
+    const tenderOrigin = !isPersonal && origin === 'imported' ? 'imported' : 'published';
+
     const tender = await db.tender.create({
       data: {
         title,
@@ -65,11 +65,13 @@ export async function POST(request: NextRequest) {
         location,
         categoryTags,
         requiredDocs: requiredDocs || '',
+        origin: tenderOrigin,
+        isPersonal,
         externalUrl: externalUrl || null,
         externalSource: externalSource || null,
         status: status || 'open',
         createdBy: user!.id,
-        companyId: user!.companyId || null,
+        companyId: isPersonal ? null : (user!.companyId || null),
       },
       include: {
         documents: true,
@@ -159,6 +161,12 @@ export async function GET(request: NextRequest) {
 
     if (category) {
       where.categoryTags = containsInsensitive(category);
+    }
+
+    // Origin filter: published (in-app) vs imported (live tender feeds)
+    const origin = searchParams.get('origin');
+    if (origin === 'published' || origin === 'imported') {
+      where.origin = origin;
     }
 
     if (status) {
