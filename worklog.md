@@ -1765,3 +1765,23 @@ Stage Summary:
 - Personal accounts can now publish personal property tenders (flagged isPersonal, Personal badge, dedicated dialog + category)
 - Live tender card deduplicated: single "View Details" expander (auto-loads doc content)
 - Files: prisma/schema.prisma, src/app/api/tenders/route.ts, src/app/api/tenders/[id]/route.ts, src/components/modules/live-tenders.tsx, src/components/modules/tenders.tsx, src/lib/api.ts
+
+---
+Task ID: 36-fix
+Agent: main
+Task: Fix Vercel production build failure — Property 'origin' does not exist (schema.prod.prisma drift)
+
+Work Log:
+- Vercel build (commit d271d18) failed at TypeScript stage: ./src/app/api/tenders/[id]/route.ts:180 "Property 'origin' does not exist"
+- Root cause: Task 36 added origin + isPersonal to prisma/schema.prisma (dev SQLite) but NOT to prisma/schema.prod.prisma (PostgreSQL); vercel-build.sh copies the prod schema over schema.prisma before prisma generate, so the production Prisma client lacked the fields
+- Full diff of the two schemas confirmed only Tender.origin + Tender.isPersonal were structurally missing (rest = cosmetic comments)
+- Added both fields to schema.prod.prisma Tender model (origin String @default("published"), isPersonal Boolean @default(false)) — identical definitions/positions as dev schema
+- Both fields have defaults → next Vercel prisma db push is a purely additive migration (existing prod rows default to origin="published", isPersonal=false, correct semantics)
+- Simulated the exact prod build locally: cp schema.prod.prisma → schema.prisma, prisma generate, tsc --noEmit → exit 0 (catches any further type drift, not just the reported error)
+- Restored dev SQLite schema (git checkout), regenerated client, prisma db push → "database is already in sync"
+- lint: 0 errors / 18 warnings (baseline unchanged)
+
+Stage Summary:
+- Production build type error resolved; next Vercel deploy will add the two columns additively on db push
+- Lesson: every schema change must be mirrored in BOTH prisma/schema.prisma and prisma/schema.prod.prisma (vercel-build.sh swaps them)
+- Files: prisma/schema.prod.prisma
